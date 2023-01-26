@@ -16,7 +16,7 @@ defmodule Aprs.Is do
     # Get startup parameters
     server = Application.get_env(:aprs, :aprs_is_server, 'rotate.aprs2.net')
     port = Application.get_env(:aprs, :aprs_is_port, 14580)
-    default_filter = Application.get_env(:aprs, :aprs_is_default_filter, "r/47.6/-122.3/100")
+    default_filter = Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100")
     aprs_user_id = Application.get_env(:aprs, :aprs_is_login_id, "w5isp")
     aprs_passcode = Application.get_env(:aprs, :aprs_is_password, "-1")
 
@@ -78,7 +78,7 @@ defmodule Aprs.Is do
   # Server methods
 
   defp connect_to_aprs_is(server, port) do
-    Logger.debug("Connecting to #{server}:#{port}")
+    Logger.debug("Connecting to: #{server}:#{port}")
     opts = [:binary, active: true]
     :gen_tcp.connect(String.to_charlist(server), port, opts)
   end
@@ -86,6 +86,8 @@ defmodule Aprs.Is do
   defp send_login_string(socket, aprs_user_id, aprs_passcode, filter) do
     login_string =
       "user #{aprs_user_id} pass #{aprs_passcode} vers aprs.me 0.1 filter #{filter} \n"
+
+    Logger.debug("Sending login string: #{login_string}")
 
     :gen_tcp.send(socket, login_string)
   end
@@ -116,7 +118,6 @@ defmodule Aprs.Is do
     Process.cancel_timer(state.timer)
 
     # Handle the incoming message
-    # TODO: Spawn a process/genserver to handle the ETS functionality
     # Task.start(Aprs, :dispatch, [packet])
 
     if String.contains?(packet, "\n") or String.contains?(packet, "\r") do
@@ -125,7 +126,7 @@ defmodule Aprs.Is do
       |> Enum.each(&dispatch(String.trim(&1)))
     end
 
-    # dispatch(packet)
+    dispatch(packet)
 
     # Start a new timer
     timer = Process.send_after(self(), :aprs_no_message_timeout, @aprs_timeout)
@@ -159,8 +160,8 @@ defmodule Aprs.Is do
   end
 
   @spec dispatch(binary) :: nil | :ok
-  def dispatch("#" <> _comment_text) do
-    # Logger.debug("COMMENT: " <> String.trim(comment_text))
+  def dispatch("#" <> comment_text) do
+    Logger.debug("COMMENT: " <> String.trim(comment_text))
   end
 
   def dispatch(""), do: nil
@@ -168,6 +169,7 @@ defmodule Aprs.Is do
   def dispatch(message) do
     case Parser.parse(message) do
       {:ok, parsed_message} ->
+        # IO.inspect(parsed_message)
         # time_message_received =
         #   :calendar.universal_time() |> :calendar.datetime_to_gregorian_seconds()
 
@@ -207,10 +209,8 @@ defmodule Aprs.Is do
 
       # IO.inspect(parsed_message)
       # Logger.debug("SERVER:" <> message)
-      {:error, _error} ->
-        nil
-
-      # Logger.debug("PARSE ERROR: " <> error)
+      {:error, error} ->
+        Logger.debug("PARSE ERROR: " <> error)
 
       x ->
         Logger.debug("PARSE ERROR: " <> x)
