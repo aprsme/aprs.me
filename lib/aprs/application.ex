@@ -7,6 +7,8 @@ defmodule Aprs.Application do
 
   @impl true
   def start(_type, _args) do
+    topologies = Application.get_env(:libcluster, :topologies) || []
+
     children = [
       # Start the Telemetry supervisor
       AprsWeb.Telemetry,
@@ -17,10 +19,20 @@ defmodule Aprs.Application do
       # Start Finch
       {Finch, name: Aprs.Finch},
       # Start the Endpoint (http/https)
-      AprsWeb.Endpoint
+      AprsWeb.Endpoint,
       # Start a worker by calling: Aprs.Worker.start_link(arg)
       # {Aprs.Worker, arg}
+      {Registry, keys: :duplicate, name: Registry.PubSub, partitions: System.schedulers_online()},
+      {Cluster.Supervisor, [topologies, [name: Aprs.ClusterSupervisor]]},
+      Aprs.Presence
     ]
+
+    children =
+      if Application.get_env(:aprs, :env) in [:prod, :dev] do
+        children ++ [Aprs.Is.IsSupervisor]
+      else
+        children
+      end
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options

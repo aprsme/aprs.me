@@ -63,6 +63,14 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base
 
+  config :aprs,
+    ecto_repos: [Aprs.Repo],
+    aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
+    aprs_is_port: 14580,
+    aprs_is_default_filter: System.get_env("APRS_FILTER"),
+    aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
+    aprs_is_password: System.get_env("APRS_PASSCODE")
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key

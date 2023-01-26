@@ -59,6 +59,14 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+config :aprs,
+  ecto_repos: [Aprs.Repo],
+  aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
+  aprs_is_port: 14580,
+  aprs_is_default_filter: System.get_env("APRS_FILTER"),
+  aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
+  aprs_is_password: System.get_env("APRS_PASSCODE")
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
