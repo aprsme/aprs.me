@@ -2,7 +2,7 @@ defmodule Parser do
   @moduledoc """
   Main parsing library
   """
-  use Bitwise
+  # import Bitwise
   alias Parser.Types.{MicE, Position}
   require Logger
 
