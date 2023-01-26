@@ -28,7 +28,7 @@ defmodule Aprs.Application do
     ]
 
     children =
-      if Application.get_env(:aprs, :env) in [:prod, :dev] do
+      if Mix.env() in [:prod, :dev] do
         children ++ [Aprs.Is.IsSupervisor]
       else
         children
