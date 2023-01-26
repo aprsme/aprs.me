@@ -55,6 +55,8 @@ defmodule Aprs.MixProject do
       {:plug_cowboy, "~> 2.5"},
       {:esbuild, "~> 0.5", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.1.8", runtime: Mix.env() == :dev},
+      {:sobelow, "~> 0.8", only: :dev},
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:credo, "~> 1.6.2", only: [:dev, :test], runtime: false},
       {:floki, ">= 0.30.0", only: :test},
       {:exvcr, "~> 0.13.4", only: [:test]},
