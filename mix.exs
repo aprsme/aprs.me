@@ -20,7 +20,7 @@ defmodule Aprs.MixProject do
   def application do
     [
       mod: {Aprs.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:hackney, :logger, :runtime_tools]
     ]
   end
 
@@ -48,19 +48,19 @@ defmodule Aprs.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 0.18.3"},
       {:phoenix_live_dashboard, "~> 0.7.2"},
+      {:plug_cowboy, "~> 2.5"},
       {:swoosh, "~> 1.3"},
       {:timex, "~> 3.4"},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
-      {:plug_cowboy, "~> 2.5"},
       {:esbuild, "~> 0.5", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.1.8", runtime: Mix.env() == :dev},
-      {:sobelow, "~> 0.8", only: :dev},
-      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:credo, "~> 1.6.2", only: [:dev, :test], runtime: false},
-      {:floki, ">= 0.30.0", only: :test},
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:exvcr, "~> 0.13.4", only: [:test]},
-      {:mix_test_watch, "~> 1.1", only: [:dev, :test]}
+      {:floki, ">= 0.30.0", only: :test},
+      {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
+      {:sobelow, "~> 0.8", only: :dev}
     ]
   end
 
