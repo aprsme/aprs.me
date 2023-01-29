@@ -65,7 +65,8 @@ config :aprs,
   aprs_is_port: 14580,
   aprs_is_default_filter: System.get_env("APRS_FILTER"),
   aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
-  aprs_is_password: System.get_env("APRS_PASSCODE")
+  aprs_is_password: System.get_env("APRS_PASSCODE"),
+  env: config_env()
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
