@@ -71,9 +71,11 @@ if config_env() == :prod do
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
     aprs_is_password: System.get_env("APRS_PASSCODE")
 
-  app_name =
-    System.get_env("FLY_APP_NAME") ||
-      raise "FLY_APP_NAME not available"
+  # app_name =
+  #   System.get_env("FLY_APP_NAME") ||
+  #     raise "FLY_APP_NAME not available"
+
+  app_name = "aprs"
 
   config :libcluster,
     debug: true,
