@@ -33,6 +33,7 @@ defmodule Aprs.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:bcrypt_elixir, "~> 3.0"},
       {:certifi, "~> 2.9"},
       {:ecto_sql, "~> 3.6"},
       {:finch, "~> 0.13"},
