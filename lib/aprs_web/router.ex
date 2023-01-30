@@ -22,6 +22,8 @@ defmodule AprsWeb.Router do
 
     get "/", PageController, :home
     get "/map", PageController, :map
+
+    live "/packets", PacketsLive.Index, :index
   end
 
   # Other scopes may use custom stacks.

@@ -10,4 +10,8 @@ defmodule AprsWeb.PageController do
   def map(conn, _params) do
     render(conn, :map, layout: false)
   end
+
+  def packets(conn, _params) do
+    render(conn, :packets)
+  end
 end
