@@ -2,7 +2,6 @@ defmodule Parser.Types.Position do
   @moduledoc """
   Positition Decoder
   """
-  alias __MODULE__
   require Logger
 
   defstruct lat_degrees: 0,
@@ -42,7 +41,7 @@ defmodule Parser.Types.Position do
     # |> IO.
     try do
       lat =
-        Geocalc.DMS.to_decimal(%Geocalc.DMS{
+        Geocalc.DMS.to_degrees(%Geocalc.DMS{
           hours: String.to_integer(lat_deg),
           minutes: String.to_integer(lat_min),
           seconds: convert_fractional(lat_fractional),
@@ -50,7 +49,7 @@ defmodule Parser.Types.Position do
         })
 
       long =
-        Geocalc.DMS.to_decimal(%Geocalc.DMS{
+        Geocalc.DMS.to_degrees(%Geocalc.DMS{
           hours: String.to_integer(lon_deg),
           minutes: String.to_integer(lon_min),
           seconds: convert_fractional(lon_fractional),
