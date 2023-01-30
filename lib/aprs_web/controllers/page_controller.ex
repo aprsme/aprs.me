@@ -6,4 +6,8 @@ defmodule AprsWeb.PageController do
     # so skip the default app layout.
     render(conn, :home, layout: false)
   end
+
+  def map(conn, _params) do
+    render(conn, :map, layout: false)
+  end
 end
