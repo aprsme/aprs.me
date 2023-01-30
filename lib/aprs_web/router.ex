@@ -21,6 +21,7 @@ defmodule AprsWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/map", PageController, :map
   end
 
   # Other scopes may use custom stacks.
