@@ -197,7 +197,8 @@ defmodule Aprs.Is do
         # end)
 
         AprsWeb.Endpoint.broadcast("aprs_messages", "packet", parsed_message)
-        Logger.debug("BROADCAST: " <> inspect(parsed_message))
+
+      # Logger.debug("BROADCAST: " <> inspect(parsed_message))
 
       # Phoenix.PubSub.broadcast(
       #   Aprs.PubSub,

@@ -197,4 +197,40 @@ defmodule Parser.ParserTest do
              }
     end
   end
+
+  describe "parse_mic_e_information/2" do
+    test "1" do
+      info = <<96, 40, 95, 102, 110, 34, 79, 106, 47, 93, 84, 69, 83, 84, 61>>
+
+      assert Parser.parse_mic_e_information(info, 100) == %{
+               dti: "`",
+               heading: 251,
+               lon_degrees: 112,
+               lon_fractional: 74,
+               lon_minutes: 7,
+               manufacturer: "Kenwood DM-710",
+               message: "]TEST=",
+               speed: 20,
+               symbol: "j",
+               table: "/"
+             }
+    end
+
+    test "2" do
+      info = <<96, 40, 95, 102, 50, 34, 79, 106, 47, 93, 61>>
+
+      assert Parser.parse_mic_e_information(info, 100) == %{
+               dti: "`",
+               heading: 251,
+               lon_degrees: 112,
+               lon_fractional: 74,
+               lon_minutes: 7,
+               manufacturer: "Kenwood DM-710",
+               message: "]=",
+               speed: 220,
+               symbol: "j",
+               table: "/"
+             }
+    end
+  end
 end
