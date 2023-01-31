@@ -38,7 +38,6 @@ defmodule Parser.Types.Position do
     #   lon_fractional: convert_fractional(lon_fractional),
     #   lon_direction: convert_direction(lon_direction)
     # }
-    # |> IO.
     try do
       lat =
         Geocalc.DMS.to_degrees(%Geocalc.DMS{
@@ -81,16 +80,16 @@ defmodule Parser.Types.Position do
   #     "#{position.lon_fractional}\"" <> "#{convert_direction(position.lon_direction)}"
   # end
 
-  defp convert_direction("N"), do: :north
-  defp convert_direction("S"), do: :south
-  defp convert_direction("E"), do: :east
-  defp convert_direction("W"), do: :west
-  defp convert_direction(:north), do: "N"
-  defp convert_direction(:south), do: "S"
-  defp convert_direction(:east), do: "E"
-  defp convert_direction(:west), do: "W"
-  defp convert_direction(:unknown), do: ""
-  defp convert_direction(_nomatch), do: ""
+  # defp convert_direction("N"), do: :north
+  # defp convert_direction("S"), do: :south
+  # defp convert_direction("E"), do: :east
+  # defp convert_direction("W"), do: :west
+  # defp convert_direction(:north), do: "N"
+  # defp convert_direction(:south), do: "S"
+  # defp convert_direction(:east), do: "E"
+  # defp convert_direction(:west), do: "W"
+  # defp convert_direction(:unknown), do: ""
+  # defp convert_direction(_nomatch), do: ""
 
   # defp convert_fractional(fractional),
   #   do:
