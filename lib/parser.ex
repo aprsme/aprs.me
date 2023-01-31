@@ -318,6 +318,8 @@ defmodule Parser do
   def parse_mic_e_digit(_c), do: [:unknown, :unknown, :unknown]
 
   def parse_mic_e_destination(destination_field) do
+    IO.inspect(destination_field)
+
     digits =
       destination_field
       |> String.codepoints()
