@@ -3,6 +3,7 @@ defmodule Parser do
   Main parsing library
   """
   # import Bitwise
+  alias Aprs.Packet
   alias Parser.Types.{MicE, Position}
   require Logger
 
@@ -16,7 +17,9 @@ defmodule Parser do
            [destination, path] <- String.split(path, ",", parts: 2),
            data_extended <- parse_data(data_type, destination, data) do
         {:ok,
-         %{
+         %Packet{
+           # TODO: temporary for liveview
+           id: Ecto.UUID.generate(),
            sender: sender,
            path: path,
            destination: destination,

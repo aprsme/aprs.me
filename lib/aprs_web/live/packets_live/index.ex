@@ -1,10 +1,23 @@
 defmodule AprsWeb.PacketsLive.Index do
   use AprsWeb, :live_view
+  alias AprsWeb.Endpoint
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Endpoint.subscribe("aprs_messages")
+    end
+
     {:ok, assign(socket, :packets, [])}
   end
+
+  @impl true
+  def handle_info(%{event: "packet", payload: payload}, socket) do
+    socket = assign(socket, :packets, [payload | socket.assigns.packets])
+    {:noreply, socket}
+  end
+
+  # AprsWeb.PacketsLive.Index.handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: %{base_callsign: "AE5PL", data_extended: %{aprs_messaging?: false, comment: "RNG0001 70cm Voice 441.1625MHz", data_type: :position, latitude: 33.26733333333333, longitude: -96.53266666666667, symbol_code: "&", symbol_table_id: "D"}, data_type: :position, destination: "APJI43", information_field: "!3316.04ND09631.96W&RNG0001 70cm Voice 441.1625MHz", path: "TCPIP*,qAC,AE5PL-IG", sender: "AE5PL-B", ssid: "B"}}, #Phoenix.LiveView.Socket<id: "phx-Fz9zBNjSOD3z4wAG", endpoint: AprsWeb.Endpoint, view: AprsWeb.PacketsLive.Index, parent_pid: nil, root_pid: #PID<0.785.0>, router: AprsWeb.Router, assigns: %{__changed__: %{}, flash: %{}, live_action: :index, packets: []}, transport_pid: #PID<0.776.0>, ...>)
 
   # @impl true
   # def handle_params(params, _url, socket) do

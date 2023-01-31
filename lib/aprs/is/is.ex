@@ -15,7 +15,7 @@ defmodule Aprs.Is do
 
     # Get startup parameters
     server = Application.get_env(:aprs, :aprs_is_server, 'rotate.aprs2.net')
-    port = Application.get_env(:aprs, :aprs_is_port, 14580)
+    port = Application.get_env(:aprs, :aprs_is_port, 14_580)
     default_filter = Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100")
     aprs_user_id = Application.get_env(:aprs, :aprs_is_login_id, "w5isp")
     aprs_passcode = Application.get_env(:aprs, :aprs_is_password, "-1")
@@ -199,6 +199,7 @@ defmodule Aprs.Is do
         # Registry.dispatch(Registry.PubSub, "aprs_messages", fn entries ->
         #   for {pid, _} <- entries, do: send(pid, {:broadcast, parsed_message})
         # end)
+
         AprsWeb.Endpoint.broadcast("aprs_messages", "packet", parsed_message)
 
       # Phoenix.PubSub.broadcast(
