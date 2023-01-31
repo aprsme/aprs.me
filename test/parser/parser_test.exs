@@ -143,4 +143,58 @@ defmodule Parser.ParserTest do
       assert %Parser.Types.MicE{} = Parser.parse_mic_e("SS0Y1S", mic_e_position)
     end
   end
+
+  describe "parse_mic_e_destination/1" do
+    test "1" do
+      assert Parser.parse_mic_e_destination("SS0Y1S") == %{
+               lat_degrees: 33,
+               lat_direction: :north,
+               lat_fractional: 13,
+               lat_minutes: 9,
+               lon_direction: :west,
+               longitude_offset: 0,
+               message_code: "M01",
+               message_description: "En Route"
+             }
+    end
+
+    test "2" do
+      assert Parser.parse_mic_e_destination("SS08LL") == %{
+               lat_degrees: 33,
+               lat_direction: :south,
+               lat_fractional: 0,
+               lat_minutes: 8,
+               lon_direction: :east,
+               longitude_offset: 0,
+               message_code: "M01",
+               message_description: "En Route"
+             }
+    end
+
+    test "3" do
+      assert Parser.parse_mic_e_destination("SS0L0A") == %{
+               lat_degrees: 33,
+               lat_direction: :south,
+               lat_fractional: 0,
+               lat_minutes: 0,
+               lon_direction: :unknown,
+               longitude_offset: 0,
+               message_code: "M01",
+               message_description: "En Route"
+             }
+    end
+
+    test "4" do
+      assert Parser.parse_mic_e_destination("SS0AA3") == %{
+               lat_degrees: 33,
+               lat_direction: :unknown,
+               lat_fractional: 3,
+               lat_minutes: 0,
+               lon_direction: :east,
+               longitude_offset: :unknown,
+               message_code: "M01",
+               message_description: "En Route"
+             }
+    end
+  end
 end
