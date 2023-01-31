@@ -39,7 +39,7 @@ defmodule Parser do
         # {:ok, file} = File.open("/home/graham/badpackets.txt", [:append])
         # IO.binwrite(file, message <> "\n\n")
         # File.close(file)
-        {:error, "PARSE ERROR"}
+        {:error, :invalid_packet}
     end
   end
 
@@ -275,6 +275,7 @@ defmodule Parser do
   end
 
   def parse_mic_e(destination_field, information_field) do
+    # Logger.debug("MIC-E: " <> destination_field <> " :: " <> information_field)
     # Mic-E is kind of a nutty compression scheme, APRS packs additional
     # information into the destination field when Mic-E encoding is used.
     # No other aprs packets use the destination field this way as far as i know.
