@@ -10,7 +10,14 @@ defmodule Aprs.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      releases: releases()
+      releases: releases(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -59,8 +66,9 @@ defmodule Aprs.MixProject do
       {:esbuild, "~> 0.5", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.1.8", runtime: Mix.env() == :dev},
       {:credo, "~> 1.6.2", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
-      {:exvcr, "~> 0.13.4", only: [:test]},
+      {:dialyxir, "~> 1.0", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.15.3", only: :test, runtime: false},
+      {:exvcr, "~> 0.13.4", only: :test},
       {:floki, ">= 0.30.0", only: :test},
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
       {:sobelow, "~> 0.8", only: :dev}
