@@ -124,9 +124,9 @@ defmodule Aprs.Is do
       packet
       |> String.split("\r\n")
       |> Enum.each(&dispatch(String.trim(&1)))
+    else
+      dispatch(packet)
     end
-
-    dispatch(packet)
 
     # Start a new timer
     timer = Process.send_after(self(), :aprs_no_message_timeout, @aprs_timeout)
@@ -149,10 +149,6 @@ defmodule Aprs.Is do
   def terminate(reason, state) do
     # Do Shutdown Stuff
     Logger.info("Going Down: #{inspect(reason)} - #{inspect(state)}")
-    # Logger.info("Attempting to write ets tables to disk.")
-    # :ets.tab2file(:aprs, :erlang.binary_to_list("priv/aprs.ets"))
-    # :ets.tab2file(:aprs_messages, :erlang.binary_to_list("priv/aprs_messages.ets"))
-
     Logger.info("Closing socket")
     :gen_tcp.close(state.socket)
 
@@ -201,6 +197,7 @@ defmodule Aprs.Is do
         # end)
 
         AprsWeb.Endpoint.broadcast("aprs_messages", "packet", parsed_message)
+        Logger.debug("BROADCAST: " <> inspect(parsed_message))
 
       # Phoenix.PubSub.broadcast(
       #   Aprs.PubSub,
