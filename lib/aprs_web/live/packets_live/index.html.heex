@@ -3,5 +3,11 @@
 </.header>
 
 <.table id="packets" rows={@packets}>
-  <:col :let={packet} label="packet"><%= packet %></:col>
+  <:col :let={packet} label="sender"><%= packet.sender %></:col>
+  <:col :let={packet} label="ssid"><%= packet.ssid %></:col>
+  <:col :let={packet} label="base_callsign"><%= packet.base_callsign %></:col>
+  <:col :let={packet} label="data_type"><%= packet.data_type %></:col>
+  <:col :let={packet} label="destination"><%= packet.destination %></:col>
+  <:col :let={packet} label="information_field"><%= packet.information_field %></:col>
+  <:col :let={packet} label="path"><%= packet.path %></:col>
 </.table>

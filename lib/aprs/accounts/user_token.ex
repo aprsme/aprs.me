@@ -14,10 +14,10 @@ defmodule Aprs.Accounts.UserToken do
   @session_validity_in_days 60
 
   schema "users_tokens" do
-    field :token, :binary
-    field :context, :string
-    field :sent_to, :string
-    belongs_to :user, Aprs.Accounts.User
+    field(:token, :binary)
+    field(:context, :string)
+    field(:sent_to, :string)
+    belongs_to(:user, Aprs.Accounts.User)
 
     timestamps(updated_at: false)
   end
@@ -56,10 +56,11 @@ defmodule Aprs.Accounts.UserToken do
   """
   def verify_session_token_query(token) do
     query =
-      from token in token_and_context_query(token, "session"),
+      from(token in token_and_context_query(token, "session"),
         join: user in assoc(token, :user),
         where: token.inserted_at > ago(@session_validity_in_days, "day"),
         select: user
+      )
 
     {:ok, query}
   end
@@ -114,10 +115,11 @@ defmodule Aprs.Accounts.UserToken do
         days = days_for_context(context)
 
         query =
-          from token in token_and_context_query(hashed_token, context),
+          from(token in token_and_context_query(hashed_token, context),
             join: user in assoc(token, :user),
             where: token.inserted_at > ago(^days, "day") and token.sent_to == user.email,
             select: user
+          )
 
         {:ok, query}
 
@@ -149,8 +151,9 @@ defmodule Aprs.Accounts.UserToken do
         hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
 
         query =
-          from token in token_and_context_query(hashed_token, context),
+          from(token in token_and_context_query(hashed_token, context),
             where: token.inserted_at > ago(@change_email_validity_in_days, "day")
+          )
 
         {:ok, query}
 
@@ -163,17 +166,17 @@ defmodule Aprs.Accounts.UserToken do
   Returns the token struct for the given token value and context.
   """
   def token_and_context_query(token, context) do
-    from UserToken, where: [token: ^token, context: ^context]
+    from(UserToken, where: [token: ^token, context: ^context])
   end
 
   @doc """
   Gets all tokens for the given user for the given contexts.
   """
   def user_and_contexts_query(user, :all) do
-    from t in UserToken, where: t.user_id == ^user.id
+    from(t in UserToken, where: t.user_id == ^user.id)
   end
 
   def user_and_contexts_query(user, [_ | _] = contexts) do
-    from t in UserToken, where: t.user_id == ^user.id and t.context in ^contexts
+    from(t in UserToken, where: t.user_id == ^user.id and t.context in ^contexts)
   end
 end
