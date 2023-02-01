@@ -3,7 +3,7 @@ defmodule Parser do
   Main parsing library
   """
   # import Bitwise
-  alias Aprs.Packet
+  alias Aprs.{Convert, Packet}
   alias Parser.Types.{MicE, Position}
   require Logger
 
@@ -196,9 +196,9 @@ defmodule Parser do
       |> Enum.map(&hex_decode(&1))
 
     %{
-      wind_speed: convert_ultimeter_wind(wind_speed),
+      wind_speed: Convert.wind(wind_speed, :ultimeter, :mph),
       wind_direction: wind_direction,
-      temp_f: convert_ultimeter_temp(temp),
+      temp_f: Convert.temp(temp, :ultimeter, :f),
       rain_long_term_total: rain_long_term_total,
       barrometer: barrometer,
       barrometer_delta_value: barrometer_delta_value,
@@ -508,13 +508,4 @@ defmodule Parser do
   # defp convert_ultimeter_humidity(hum) do
   #   hum * 10
   # end
-
-  defp convert_ultimeter_wind(wind) do
-    # convert to mph
-    wind * 0.0621371192
-  end
-
-  defp convert_ultimeter_temp(temp) do
-    temp / 10
-  end
 end
