@@ -36,9 +36,9 @@ defmodule Parser do
     rescue
       _ ->
         # Logger.debug("PARSE ERROR: " <> message)
-        # {:ok, file} = File.open("/home/graham/badpackets.txt", [:append])
-        # IO.binwrite(file, message <> "\n\n")
-        # File.close(file)
+        {:ok, file} = File.open("./badpackets.txt", [:append])
+        IO.binwrite(file, message <> "\n\n")
+        File.close(file)
         {:error, :invalid_packet}
     end
   end
@@ -161,7 +161,7 @@ defmodule Parser do
     [:ok, lat, lon]
   end
 
-  defp convert_to_base91(<<value::binary-size(4)>>) do
+  def convert_to_base91(<<value::binary-size(4)>>) do
     [v1, v2, v3, v4] = to_charlist(value)
     (v1 - 33) * 91 * 91 * 91 + (v2 - 33) * 91 * 91 + (v3 - 33) * 91 + v4
   end
@@ -236,16 +236,44 @@ defmodule Parser do
   end
 
   def parse_position_without_timestamp(
-        _aprs_messaging?,
-        <<_dti::binary-size(1), "/", _latitude::binary-size(4), _longitude::binary-size(4),
-          _sym_table_id::binary-size(1), _cs::binary-size(2), _compression_type::binary-size(1),
-          _comment::binary>> = message
+        aprs_messaging?,
+        <<_dti::binary-size(1), "/", latitude::binary-size(4), longitude::binary-size(4),
+          sym_table_id::binary-size(1), _cs::binary-size(2), _compression_type::binary-size(1),
+          comment::binary>> = message
       ) do
-    # {:ok, file} = File.open("badpackets.txt")
-    # IO.puts(file, message)
+    # {:ok, file} = File.open("./compressed.txt", [:append])
+    # IO.binwrite(
+    #   file,
+    #   message <>
+    #     "\n" <>
+    #     "aprs_messaging?: #{aprs_messaging?}\n" <>
+    #     "dti: #{dti}\n" <>
+    #     "latitude: #{latitude}\n" <>
+    #     "longitude: #{longitude}\n" <>
+    #     "sym_table_id: #{sym_table_id}\n" <>
+    #     "cs: #{cs}\n" <>
+    #     "compression_type: #{compression_type}\n" <>
+    #     "comment: #{comment}\n\n"
+    # )
     # File.close(file)
-
+    # convert_compressed_cs(cs) |> IO.inspect()
     Logger.debug("TODO: PARSE COMPRESSED LAT/LON: " <> message)
+
+    converted_lat = convert_compressed_lat(latitude)
+    converted_lon = convert_compressed_lon(longitude)
+    position = Position.from_decimal(converted_lat, converted_lon)
+    # converted_cs = convert_compressed_cs(cs)
+
+    %{
+      latitude: converted_lat,
+      longitude: converted_lon,
+      position: position,
+      symbol_table_id: sym_table_id,
+      # symbol_code: symbol_code,
+      comment: comment,
+      data_type: :position,
+      aprs_messaging?: aprs_messaging?
+    }
   end
 
   def parse_position_with_timestamp(
@@ -508,4 +536,44 @@ defmodule Parser do
   # defp convert_ultimeter_humidity(hum) do
   #   hum * 10
   # end
+
+  def convert_compressed_lat(lat) do
+    [l1, l2, l3, l4] = to_charlist(lat)
+    90 - ((l1 - 33) * 91 ** 3 + (l2 - 33) * 91 ** 2 + (l3 - 33) * 91 + l4 - 33) / 380_926
+  end
+
+  def convert_compressed_lon(lon) do
+    [l1, l2, l3, l4] = to_charlist(lon)
+    -180 + ((l1 - 33) * 91 ** 3 + (l2 - 33) * 91 ** 2 + (l3 - 33) * 91 + l4 - 33) / 190_463
+  end
+
+  def convert_compressed_cs(cs) do
+    [c, s] = to_charlist(cs)
+    c = c - 33
+    s = s - 33
+
+    case c do
+      x when x in ?!..?z ->
+        # compressed speed/course value
+        # speed is returned in knots
+        %{
+          course: s * 4,
+          speed: Convert.speed(1.08 ** s - 1, :knots, :mph)
+        }
+
+      ?Z ->
+        # pre-calculated radio range
+        %{
+          range: 2 * 1.08 ** s
+        }
+
+      _ ->
+        IO.inspect(cs, label: "not parsable")
+
+        %{
+          course: 0,
+          speed: 0
+        }
+    end
+  end
 end

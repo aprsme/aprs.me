@@ -208,6 +208,9 @@ defmodule Aprs.Is do
 
       # IO.inspect(parsed_message)
       # Logger.debug("SERVER:" <> message)
+      {:error, :invalid_packet} ->
+        Logger.debug("PARSE ERROR: invalid packet")
+
       {:error, error} ->
         Logger.debug("PARSE ERROR: " <> error)
 
