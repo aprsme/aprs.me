@@ -233,4 +233,13 @@ defmodule Parser.ParserTest do
              }
     end
   end
+
+  describe "convert_compressed_cs/1" do
+    # !!
+    # I!
+    # Y"
+    test "1" do
+      assert Parser.convert_compressed_cs("Y$") == %{course: 12, speed: 0.3}
+    end
+  end
 end

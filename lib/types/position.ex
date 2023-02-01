@@ -17,8 +17,6 @@ defmodule Parser.Types.Position do
     aprs_latitude = aprs_latitude |> String.replace(" ", "0") |> String.pad_leading(9, "0")
     aprs_longitude = aprs_longitude |> String.replace(" ", "0") |> String.pad_leading(9, "0")
 
-    # Logger.debug("#{aprs_latitude} #{aprs_longitude}")
-
     <<latitude::binary-size(8), lat_direction::binary>> = aprs_latitude
     <<longitude::binary-size(8), lon_direction::binary>> = aprs_longitude
 
@@ -28,16 +26,6 @@ defmodule Parser.Types.Position do
     <<lon_deg::binary-size(3), lon_min::binary-size(2), lon_fractional::binary-size(3)>> =
       convert_garbage_to_zero(longitude)
 
-    # %Position{
-    #   lat_degrees: lat_deg |> String.replace(".", "") |> String.to_integer(),
-    #   lat_minutes: lat_min |> String.replace(".", "") |> String.to_integer(),
-    #   lat_fractional: convert_fractional(lat_fractional),
-    #   lat_direction: convert_direction(lat_direction),
-    #   lon_degrees: lon_deg |> String.replace(".", "") |> String.to_integer(),
-    #   lon_minutes: lon_min |> String.replace(".", "") |> String.to_integer(),
-    #   lon_fractional: convert_fractional(lon_fractional),
-    #   lon_direction: convert_direction(lon_direction)
-    # }
     try do
       lat =
         Geocalc.DMS.to_degrees(%Geocalc.DMS{
@@ -59,6 +47,10 @@ defmodule Parser.Types.Position do
     rescue
       _ -> %{latitude: 0, longitude: 0}
     end
+  end
+
+  def from_decimal(latitude, longitude) do
+    %{latitude: latitude, longitude: longitude}
   end
 
   defp convert_garbage_to_zero(value) do

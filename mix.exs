@@ -73,7 +73,8 @@ defmodule Aprs.MixProject do
       {:faker, "~> 0.17.0", only: [:dev, :test]},
       {:stream_data, "~> 0.5", only: [:dev, :test]},
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
-      {:sobelow, "~> 0.8", only: :dev}
+      {:sobelow, "~> 0.8", only: :dev},
+      {:codepagex, "~> 0.1.6"}
     ]
   end
 
