@@ -51,7 +51,7 @@ defmodule Aprs.MixProject do
       {:jason, "~> 1.2"},
       {:libcluster, "~> 3.3"},
       {:oban, "~> 2.11"},
-      {:phoenix, "~> 1.7.0-rc.0", override: true},
+      {:phoenix, "~> 1.7.0-rc.2", override: true},
       {:phoenix_ecto, "~> 4.4"},
       {:postgrex, ">= 0.0.0"},
       {:phoenix_html, "~> 3.0"},
