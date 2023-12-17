@@ -5,7 +5,7 @@ defmodule Aprs.MixProject do
     [
       app: :aprs,
       version: "0.1.0",
-      elixir: "~> 1.14",
+      elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -42,7 +42,7 @@ defmodule Aprs.MixProject do
     [
       {:bcrypt_elixir, "~> 3.0"},
       {:certifi, "~> 2.9"},
-      {:ecto_sql, "~> 3.6"},
+      {:ecto_sql, "~> 3.11"},
       {:finch, "~> 0.13"},
       # {:geo, "~> 3.4"},
       {:geocalc, "~> 0.8"},
@@ -69,9 +69,9 @@ defmodule Aprs.MixProject do
       {:excoveralls, "~> 0.15.3", only: :test, runtime: false},
       {:exvcr, "~> 0.13.4", only: :test},
       {:floki, ">= 0.30.0", only: :test},
-      {:credo, "~> 1.6.2", only: [:dev, :test], runtime: false},
       {:faker, "~> 0.17.0", only: [:dev, :test]},
       {:stream_data, "~> 0.5", only: [:dev, :test]},
+      {:styler, "~> 0.11", only: [:dev, :test], runtime: false},
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
       {:sobelow, "~> 0.8", only: :dev}
     ]
