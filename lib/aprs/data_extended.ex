@@ -1,6 +1,9 @@
 defmodule Aprs.DataExtended do
+  @moduledoc false
   use Ecto.Schema
+
   import Ecto.Changeset
+
   alias Aprs.DataExtended
 
   embedded_schema do

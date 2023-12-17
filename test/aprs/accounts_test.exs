@@ -1,10 +1,11 @@
 defmodule Aprs.AccountsTest do
   use Aprs.DataCase
 
-  alias Aprs.Accounts
-
   import Aprs.AccountsFixtures
-  alias Aprs.Accounts.{User, UserToken}
+
+  alias Aprs.Accounts
+  alias Aprs.Accounts.User
+  alias Aprs.Accounts.UserToken
 
   describe "get_user_by_email/1" do
     test "does not return the user if the email does not exist" do

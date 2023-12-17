@@ -1,8 +1,8 @@
 defmodule AprsWeb.UserRegistrationLiveTest do
   use AprsWeb.ConnCase
 
-  import Phoenix.LiveViewTest
   import Aprs.AccountsFixtures
+  import Phoenix.LiveViewTest
 
   describe "Registration page" do
     test "renders registration page", %{conn: conn} do

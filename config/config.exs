@@ -33,8 +33,7 @@ config :aprs, Aprs.Mailer, adapter: Swoosh.Adapters.Local
 config :esbuild,
   version: "0.14.41",
   default: [
-    args:
-      ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
+    args: ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
@@ -62,7 +61,7 @@ config :phoenix, :json_library, Jason
 config :aprs,
   ecto_repos: [Aprs.Repo],
   aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
-  aprs_is_port: 14580,
+  aprs_is_port: 14_580,
   aprs_is_default_filter: System.get_env("APRS_FILTER"),
   aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
   aprs_is_password: System.get_env("APRS_PASSCODE"),

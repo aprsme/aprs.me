@@ -1,5 +1,7 @@
 defmodule AprsWeb.PacketsLive.Index do
+  @moduledoc false
   use AprsWeb, :live_view
+
   alias AprsWeb.Endpoint
 
   @impl true

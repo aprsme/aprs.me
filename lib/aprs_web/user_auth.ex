@@ -1,8 +1,9 @@
 defmodule AprsWeb.UserAuth do
+  @moduledoc false
   use AprsWeb, :verified_routes
 
-  import Plug.Conn
   import Phoenix.Controller
+  import Plug.Conn
 
   alias Aprs.Accounts
 
