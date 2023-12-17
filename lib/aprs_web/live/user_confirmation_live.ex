@@ -1,4 +1,5 @@
 defmodule AprsWeb.UserConfirmationLive do
+  @moduledoc false
   use AprsWeb, :live_view
 
   alias Aprs.Accounts
@@ -17,8 +18,7 @@ defmodule AprsWeb.UserConfirmationLive do
 
       <p class="text-center mt-4">
         <.link href={~p"/users/register"}>Register</.link>
-        |
-        <.link href={~p"/users/log_in"}>Log in</.link>
+        | <.link href={~p"/users/log_in"}>Log in</.link>
       </p>
     </div>
     """

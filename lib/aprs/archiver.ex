@@ -1,11 +1,13 @@
 defmodule Aprs.Archiver do
+  @moduledoc false
   use GenServer
+
+  alias AprsWeb.Endpoint
+
   require Jason
   require Logger
 
   # alias Aprs.{Packet, Repo}
-  alias AprsWeb.Endpoint
-
   @topic "call"
 
   # API

@@ -3,44 +3,46 @@ defmodule Parser do
   Main parsing library
   """
   # import Bitwise
-  alias Aprs.{Convert, Packet}
-  alias Parser.Types.{MicE, Position}
+  alias Aprs.Convert
+  alias Aprs.Packet
+  alias Parser.Types.MicE
+  alias Parser.Types.Position
+
   require Logger
 
   def parse(message) do
-    try do
-      [sender, path, data] = String.split(message, [">", ":"], parts: 3)
+    [sender, path, data] = String.split(message, [">", ":"], parts: 3)
 
-      with [base_callsign, ssid] <- parse_callsign(sender),
-           data_type <- parse_datatype(String.first(data)),
-           data <- String.trim(data),
-           [destination, path] <- String.split(path, ",", parts: 2),
-           data_extended <- parse_data(data_type, destination, data) do
-        {:ok,
-         %Packet{
-           # TODO: temporary for liveview
-           id: Ecto.UUID.generate(),
-           sender: sender,
-           path: path,
-           destination: destination,
-           information_field: data,
-           data_type: data_type,
-           base_callsign: base_callsign,
-           ssid: ssid,
-           data_extended: data_extended
-         }}
-      else
-        true ->
-          {:error, "PARSE ERROR"}
-      end
-    rescue
-      _ ->
-        # Logger.debug("PARSE ERROR: " <> message)
-        {:ok, file} = File.open("./badpackets.txt", [:append])
-        IO.binwrite(file, message <> "\n\n")
-        File.close(file)
-        {:error, :invalid_packet}
+    with [base_callsign, ssid] <- parse_callsign(sender),
+         data_type = parse_datatype(String.first(data)),
+         data = String.trim(data),
+         [destination, path] <- String.split(path, ",", parts: 2) do
+      data_extended = parse_data(data_type, destination, data)
+
+      {:ok,
+       %Packet{
+         # TODO: temporary for liveview
+         id: Ecto.UUID.generate(),
+         sender: sender,
+         path: path,
+         destination: destination,
+         information_field: data,
+         data_type: data_type,
+         base_callsign: base_callsign,
+         ssid: ssid,
+         data_extended: data_extended
+       }}
+    else
+      true ->
+        {:error, "PARSE ERROR"}
     end
+  rescue
+    _ ->
+      # Logger.debug("PARSE ERROR: " <> message)
+      {:ok, file} = File.open("./badpackets.txt", [:append])
+      IO.binwrite(file, message <> "\n\n")
+      File.close(file)
+      {:error, :invalid_packet}
   end
 
   def parse_callsign(callsign) do
@@ -80,11 +82,9 @@ defmodule Parser do
   def parse_data(:mic_e_old, destination, data), do: parse_mic_e(destination, data)
   def parse_data(:position, _destination, data), do: parse_position_without_timestamp(false, data)
 
-  def parse_data(:position_with_message, _destination, data),
-    do: parse_position_without_timestamp(true, data)
+  def parse_data(:position_with_message, _destination, data), do: parse_position_without_timestamp(true, data)
 
-  def parse_data(:timestamped_position, _destination, data),
-    do: parse_position_with_timestamp(false, data)
+  def parse_data(:timestamped_position, _destination, data), do: parse_position_with_timestamp(false, data)
 
   def parse_data(
         :timestamped_position_with_message,
@@ -94,14 +94,9 @@ defmodule Parser do
     parse_position_with_datetime_and_weather(true, date_time_position, weather_report)
   end
 
-  def parse_data(:timestamped_position_with_message, _destination, data),
-    do: parse_position_with_timestamp(true, data)
+  def parse_data(:timestamped_position_with_message, _destination, data), do: parse_position_with_timestamp(true, data)
 
-  def parse_data(
-        :message,
-        _destination,
-        <<":", addressee::binary-size(9), ":", message_text::binary>>
-      ) do
+  def parse_data(:message, _destination, <<":", addressee::binary-size(9), ":", message_text::binary>>) do
     # Aprs messages can have an optional message number tacked onto the end
     # for the purposes of acknowledging message receipt.
     # The sender tacks the message number onto the end of the message,
@@ -129,13 +124,9 @@ defmodule Parser do
 
   def parse_data(_type, _destination, _data), do: nil
 
-  def parse_position_with_datetime_and_weather(
-        aprs_messaging?,
-        date_time_position_data,
-        weather_report
-      ) do
-    <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1),
-      longitude::binary-size(9)>> = date_time_position_data
+  def parse_position_with_datetime_and_weather(aprs_messaging?, date_time_position_data, weather_report) do
+    <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> =
+      date_time_position_data
 
     # position = Parser.Types.Position.from_aprs(latitude, longitude)
     %{latitude: lat, longitude: lon} = Parser.Types.Position.from_aprs(latitude, longitude)
@@ -153,8 +144,8 @@ defmodule Parser do
   end
 
   def decode_compressed_position(
-        <<"/", latitude::binary-size(4), longitude::binary-size(4), _symbol::binary-size(1),
-          _cs::binary-size(2), _compression_type::binary-size(2), _rest::binary>>
+        <<"/", latitude::binary-size(4), longitude::binary-size(4), _symbol::binary-size(1), _cs::binary-size(2),
+          _compression_type::binary-size(2), _rest::binary>>
       ) do
     lat = convert_to_base91(latitude)
     lon = convert_to_base91(longitude)
@@ -214,32 +205,29 @@ defmodule Parser do
 
   def parse_position_without_timestamp(
         aprs_messaging?,
-        <<_dti::binary-size(1), latitude::binary-size(8), sym_table_id::binary-size(1),
-          longitude::binary-size(9), symbol_code::binary-size(1), comment::binary>>
+        <<_dti::binary-size(1), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9),
+          symbol_code::binary-size(1), comment::binary>>
       ) do
-    try do
-      # position = Position.from_aprs(latitude, longitude)
-      %{latitude: lat, longitude: lon} = Parser.Types.Position.from_aprs(latitude, longitude)
+    # position = Position.from_aprs(latitude, longitude)
+    %{latitude: lat, longitude: lon} = Parser.Types.Position.from_aprs(latitude, longitude)
 
-      %{
-        latitude: lat,
-        longitude: lon,
-        symbol_table_id: sym_table_id,
-        symbol_code: symbol_code,
-        comment: comment,
-        data_type: :position,
-        aprs_messaging?: aprs_messaging?
-      }
-    rescue
-      e -> Logger.error(Exception.format(:error, e, __STACKTRACE__))
-    end
+    %{
+      latitude: lat,
+      longitude: lon,
+      symbol_table_id: sym_table_id,
+      symbol_code: symbol_code,
+      comment: comment,
+      data_type: :position,
+      aprs_messaging?: aprs_messaging?
+    }
+  rescue
+    e -> Logger.error(Exception.format(:error, e, __STACKTRACE__))
   end
 
   def parse_position_without_timestamp(
         aprs_messaging?,
-        <<_dti::binary-size(1), "/", latitude::binary-size(4), longitude::binary-size(4),
-          sym_table_id::binary-size(1), _cs::binary-size(2), _compression_type::binary-size(1),
-          comment::binary>> = message
+        <<_dti::binary-size(1), "/", latitude::binary-size(4), longitude::binary-size(4), sym_table_id::binary-size(1),
+          _cs::binary-size(2), _compression_type::binary-size(1), comment::binary>> = message
       ) do
     # {:ok, file} = File.open("./compressed.txt", [:append])
     # IO.binwrite(
@@ -278,28 +266,25 @@ defmodule Parser do
 
   def parse_position_with_timestamp(
         aprs_messaging?,
-        <<_dti::binary-size(1), time::binary-size(7), latitude::binary-size(8),
-          sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
-          comment::binary>>
+        <<_dti::binary-size(1), time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1),
+          longitude::binary-size(9), symbol_code::binary-size(1), comment::binary>>
       ) do
-    try do
-      position = Position.from_aprs(latitude, longitude)
-      %{latitude: lat, longitude: lon} = Parser.Types.Position.from_aprs(latitude, longitude)
+    position = Position.from_aprs(latitude, longitude)
+    %{latitude: lat, longitude: lon} = Parser.Types.Position.from_aprs(latitude, longitude)
 
-      %{
-        latitude: lat,
-        longitude: lon,
-        position: position,
-        time: time,
-        symbol_table_id: sym_table_id,
-        symbol_code: symbol_code,
-        comment: comment,
-        data_type: :position,
-        aprs_messaging?: aprs_messaging?
-      }
-    rescue
-      e -> Logger.error(Exception.format(:error, e, __STACKTRACE__))
-    end
+    %{
+      latitude: lat,
+      longitude: lon,
+      position: position,
+      time: time,
+      symbol_table_id: sym_table_id,
+      symbol_code: symbol_code,
+      comment: comment,
+      data_type: :position,
+      aprs_messaging?: aprs_messaging?
+    }
+  rescue
+    e -> Logger.error(Exception.format(:error, e, __STACKTRACE__))
   end
 
   def parse_mic_e(destination_field, information_field) do
@@ -356,7 +341,7 @@ defmodule Parser do
     min = digits |> Enum.slice(2..3) |> Enum.join() |> String.to_integer()
     fractional = digits |> Enum.slice(4..5) |> Enum.join() |> String.to_integer()
 
-    [ns, lo, ew] = destination_field |> to_charlist |> Enum.slice(3..5)
+    [ns, lo, ew] = destination_field |> to_charlist() |> Enum.slice(3..5)
 
     north_south_indicator =
       case ns do
@@ -405,7 +390,7 @@ defmodule Parser do
     # Convert the bits to binary to get the array index
     index = message_bit_1 * 4 + message_bit_2 * 2 + message_bit_3
     # need to invert this from the actual array index
-    display_index = to_string(7 - index) |> String.pad_leading(2, "0")
+    display_index = (7 - index) |> to_string() |> String.pad_leading(2, "0")
 
     [message_code, message_description] =
       case message_type do
@@ -432,9 +417,8 @@ defmodule Parser do
   end
 
   def parse_mic_e_information(
-        <<dti::binary-size(1), d28::integer, m28::integer, f28::integer, sp28::integer,
-          dc28::integer, se28::integer, symbol::binary-size(1), table::binary-size(1),
-          message::binary>> = _information_field,
+        <<dti::binary-size(1), d28::integer, m28::integer, f28::integer, sp28::integer, dc28::integer, se28::integer,
+          symbol::binary-size(1), table::binary-size(1), message::binary>> = _information_field,
         longitude_offset
       ) do
     m =

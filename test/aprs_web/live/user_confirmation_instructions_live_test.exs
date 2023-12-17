@@ -1,8 +1,8 @@
 defmodule AprsWeb.UserConfirmationInstructionsLiveTest do
   use AprsWeb.ConnCase
 
-  import Phoenix.LiveViewTest
   import Aprs.AccountsFixtures
+  import Phoenix.LiveViewTest
 
   alias Aprs.Accounts
   alias Aprs.Repo

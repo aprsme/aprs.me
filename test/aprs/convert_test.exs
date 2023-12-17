@@ -1,5 +1,6 @@
 defmodule Aprs.ConvertTest do
   use ExUnit.Case
+
   alias Aprs.Convert
 
   describe "wind/3" do

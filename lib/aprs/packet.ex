@@ -1,6 +1,9 @@
 defmodule Aprs.Packet do
+  @moduledoc false
   use Aprs.Schema
+
   import Ecto.Changeset
+
   alias Aprs.DataExtended
 
   schema "packets" do

@@ -1,4 +1,5 @@
 defmodule AprsWeb.UserLoginLive do
+  @moduledoc false
   use AprsWeb, :live_view
 
   def render(assigns) do

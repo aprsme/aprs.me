@@ -1,4 +1,5 @@
 defmodule Aprs.Is.IsSupervisor do
+  @moduledoc false
   use Supervisor
 
   def start_link(opts) do

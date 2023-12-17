@@ -1,5 +1,7 @@
 defmodule Aprs.Is do
+  @moduledoc false
   use GenServer
+
   require Logger
 
   @aprs_timeout 30 * 1000
@@ -14,7 +16,7 @@ defmodule Aprs.Is do
     Process.flag(:trap_exit, true)
 
     # Get startup parameters
-    server = Application.get_env(:aprs, :aprs_is_server, 'rotate.aprs2.net')
+    server = Application.get_env(:aprs, :aprs_is_server, ~c"rotate.aprs2.net")
     port = Application.get_env(:aprs, :aprs_is_port, 14_580)
     default_filter = Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100")
     aprs_user_id = Application.get_env(:aprs, :aprs_is_login_id, "w5isp")
@@ -40,8 +42,9 @@ defmodule Aprs.Is do
     # end
 
     with {:ok, socket} <- connect_to_aprs_is(server, port),
-         :ok <- send_login_string(socket, aprs_user_id, aprs_passcode, default_filter),
-         timer <- create_timer(@aprs_timeout) do
+         :ok <- send_login_string(socket, aprs_user_id, aprs_passcode, default_filter) do
+      timer = create_timer(@aprs_timeout)
+
       {:ok,
        %{
          server: server,

@@ -1,4 +1,5 @@
 defmodule AprsWeb.UserRegistrationLive do
+  @moduledoc false
   use AprsWeb, :live_view
 
   alias Aprs.Accounts

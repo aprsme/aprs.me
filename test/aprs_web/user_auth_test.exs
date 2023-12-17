@@ -1,10 +1,11 @@
 defmodule AprsWeb.UserAuthTest do
   use AprsWeb.ConnCase, async: true
 
-  alias Phoenix.LiveView
+  import Aprs.AccountsFixtures
+
   alias Aprs.Accounts
   alias AprsWeb.UserAuth
-  import Aprs.AccountsFixtures
+  alias Phoenix.LiveView
 
   @remember_me_cookie "_aprs_web_user_remember_me"
 
@@ -139,7 +140,7 @@ defmodule AprsWeb.UserAuthTest do
     end
 
     test "assigns nil to current_user assign if there isn't a user_token", %{conn: conn} do
-      session = conn |> get_session()
+      session = get_session(conn)
 
       {:cont, updated_socket} =
         UserAuth.on_mount(:mount_current_user, %{}, session, %LiveView.Socket{})
@@ -173,7 +174,7 @@ defmodule AprsWeb.UserAuthTest do
     end
 
     test "redirects to login page if there isn't a user_token ", %{conn: conn} do
-      session = conn |> get_session()
+      session = get_session(conn)
 
       socket = %LiveView.Socket{
         endpoint: AprsWeb.Endpoint,
@@ -200,7 +201,7 @@ defmodule AprsWeb.UserAuthTest do
     end
 
     test "Don't redirect is there is no authenticated user", %{conn: conn} do
-      session = conn |> get_session()
+      session = get_session(conn)
 
       assert {:cont, _updated_socket} =
                UserAuth.on_mount(

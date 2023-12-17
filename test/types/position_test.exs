@@ -1,5 +1,6 @@
 defmodule Parser.Types.PositionTest do
   use ExUnit.Case
+
   alias Parser.Types.Position
 
   describe "from_aprs/2" do

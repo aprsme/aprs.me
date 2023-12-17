@@ -54,12 +54,10 @@ defmodule Parser.Types.Position do
   end
 
   defp convert_garbage_to_zero(value) do
-    try do
-      _ = String.to_float(value)
-      value
-    rescue
-      ArgumentError -> "00000.00"
-    end
+    _ = String.to_float(value)
+    value
+  rescue
+    ArgumentError -> "00000.00"
   end
 
   # def to_string(%__MODULE__{} = position) do
@@ -93,10 +91,5 @@ defmodule Parser.Types.Position do
   #     |> Float.round(2)
 
   defp convert_fractional(fractional),
-    do:
-      fractional
-      |> String.trim()
-      |> String.pad_leading(4, "0")
-      |> String.to_float()
-      |> Kernel.*(60)
+    do: fractional |> String.trim() |> String.pad_leading(4, "0") |> String.to_float() |> Kernel.*(60)
 end

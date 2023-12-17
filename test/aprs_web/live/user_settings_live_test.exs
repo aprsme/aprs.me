@@ -1,9 +1,10 @@
 defmodule AprsWeb.UserSettingsLiveTest do
   use AprsWeb.ConnCase
 
-  alias Aprs.Accounts
-  import Phoenix.LiveViewTest
   import Aprs.AccountsFixtures
+  import Phoenix.LiveViewTest
+
+  alias Aprs.Accounts
 
   describe "Settings page" do
     test "renders settings page", %{conn: conn} do
