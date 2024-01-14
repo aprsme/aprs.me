@@ -28,7 +28,7 @@ if config_env() == :prod do
       For example: ecto://USER:PASS@HOST/DATABASE
       """
 
-  maybe_ipv6 = if System.get_env("ECTO_IPV6"), do: [:inet6], else: []
+  maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
   config :aprs, Aprs.Repo,
     # ssl: true,
@@ -51,6 +51,8 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
+  config :aprs, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+
   config :aprs, AprsWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
@@ -70,10 +72,6 @@ if config_env() == :prod do
     aprs_is_default_filter: System.get_env("APRS_FILTER"),
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
     aprs_is_password: System.get_env("APRS_PASSCODE")
-
-  # app_name =
-  #   System.get_env("FLY_APP_NAME") ||
-  #     raise "FLY_APP_NAME not available"
 
   app_name = "aprs"
 
