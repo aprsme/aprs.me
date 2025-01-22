@@ -11,11 +11,11 @@ import Config
 # before starting your production server.
 config :aprs, AprsWeb.Endpoint, cache_static_manifest: "priv/static/cache_manifest.json"
 
-# Configures Swoosh API Client
-config :swoosh, :api_client, Aprs.Finch
+# Runtime production configuration, including reading
 
 # Do not print debug messages in production
+# of environment variables, is done on config/runtime.exs.
 config :logger, level: :info
 
-# Runtime production configuration, including reading
-# of environment variables, is done on config/runtime.exs.
+# Configures Swoosh API Client
+config :swoosh, :api_client, Aprs.Finch

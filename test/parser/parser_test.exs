@@ -1,6 +1,8 @@
 defmodule Parser.ParserTest do
   use ExUnit.Case
 
+  alias Parser.Types.MicE
+
   test "timestamped position" do
     aprs_message =
       "KE7XXX>APRS,TCPIP*,qAC,NINTH:@211743z4444.67N/11111.68W_061/005g012t048r000p000P000h77b10015.DsVP\r\n"
@@ -47,7 +49,7 @@ defmodule Parser.ParserTest do
 
   test "mic_e" do
     sut = Parser.parse_mic_e("T7SYWP", ~s(`\(_fn"Oj/))
-    assert %Parser.Types.MicE{} = sut
+    assert %MicE{} = sut
   end
 
   test "weird format" do
@@ -140,7 +142,7 @@ defmodule Parser.ParserTest do
     test "with valid mic-e" do
       # `|J!l4^\k/]"6?}=
       mic_e_position = <<96, 124, 74, 33, 108, 52, 94, 107, 47, 93, 34, 54, 63, 125, 61>>
-      assert %Parser.Types.MicE{} = Parser.parse_mic_e("SS0Y1S", mic_e_position)
+      assert %MicE{} = Parser.parse_mic_e("SS0Y1S", mic_e_position)
     end
   end
 
