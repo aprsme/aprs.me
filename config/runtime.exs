@@ -64,7 +64,7 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base
 
-  config :aprs, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  # config :aprs, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :aprs,
     ecto_repos: [Aprs.Repo],
