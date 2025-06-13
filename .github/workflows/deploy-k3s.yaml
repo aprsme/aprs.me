@@ -19,6 +19,13 @@ jobs:
       packages: write # Needed to push to GHCR
 
     steps:
+      - name: Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          use-cache: "true"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -95,7 +102,6 @@ jobs:
           sed -i "s|your-ghcr-username/aprs-app:latest|$ACTUAL_IMAGE_NAME_WITH_TAG|g" k8s/app-deployment-processed.yaml
           # Ensure initContainer is also updated (duplicate sed command is fine, ensures both are hit if structure changes)
           sed -i "s|your-ghcr-username/aprs-app:latest|$ACTUAL_IMAGE_NAME_WITH_TAG|g" k8s/app-deployment-processed.yaml
-
 
       - name: Apply Kubernetes manifests
         env:
