@@ -244,4 +244,39 @@ defmodule Parser.ParserTest do
       assert Parser.convert_compressed_cs("Y$") == %{course: 12, speed: 0.3}
     end
   end
+
+  describe "compressed position parsing" do
+    test "parse compressed position without timestamp" do
+      # Test compressed position format: !/5L!!<*e7>7P[
+      # This represents a compressed position with lat/lon, symbol, and course/speed
+      compressed_data = "/5L!!<*e7>7P["
+
+      result = Parser.parse_position_without_timestamp(false, "!#{compressed_data}")
+
+      assert result.data_type == :position
+      assert result.aprs_messaging? == false
+      assert result.symbol_table_id == "/"
+      assert is_float(result.latitude)
+      assert is_float(result.longitude)
+      assert Map.has_key?(result, :course) or Map.has_key?(result, :speed) or Map.has_key?(result, :range)
+    end
+
+    test "convert compressed latitude" do
+      # Test with known compressed latitude value
+      compressed_lat = "5L!!"
+      result = Parser.convert_compressed_lat(compressed_lat)
+
+      assert is_float(result)
+      assert result >= -90.0 and result <= 90.0
+    end
+
+    test "convert compressed longitude" do
+      # Test with known compressed longitude value
+      compressed_lon = "<*e7"
+      result = Parser.convert_compressed_lon(compressed_lon)
+
+      assert is_float(result)
+      assert result >= -180.0 and result <= 180.0
+    end
+  end
 end
