@@ -128,7 +128,7 @@ jobs:
           fi
 
           # Apply namespace first
-          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/namespace.yaml --validate=false
 
           # Apply secrets if a real one exists (checking for secrets.yaml, not secrets.yaml.example)
           # This assumes you will create the actual secrets.yaml in a secure way or it's handled by another process.
@@ -139,17 +139,17 @@ jobs:
           echo "Ensuring secrets are present in namespace ${{ env.K8S_NAMESPACE }}. This workflow does not apply them directly from a .example file."
 
           # Apply other resources
-          kubectl apply -f k8s/postgres-pvc.yaml --namespace=${{ env.K8S_NAMESPACE }}
+          kubectl apply -f k8s/postgres-pvc.yaml --namespace=${{ env.K8S_NAMESPACE }} --validate=false
           # It's good practice to check if a resource exists before applying or use --overwrite, but apply usually handles this.
           # For sensitive or stateful things like Postgres, ensure your strategy for updates is clear.
-          kubectl apply -f k8s/postgres-deployment.yaml --namespace=${{ env.K8S_NAMESPACE }}
-          kubectl apply -f k8s/postgres-service.yaml --namespace=${{ env.K8S_NAMESPACE }}
+          kubectl apply -f k8s/postgres-deployment.yaml --namespace=${{ env.K8S_NAMESPACE }} --validate=false
+          kubectl apply -f k8s/postgres-service.yaml --namespace=${{ env.K8S_NAMESPACE }} --validate=false
 
           # Apply the processed app deployment
-          kubectl apply -f k8s/app-deployment-processed.yaml --namespace=${{ env.K8S_NAMESPACE }}
-          kubectl apply -f k8s/app-service.yaml --namespace=${{ env.K8S_NAMESPACE }}
+          kubectl apply -f k8s/app-deployment-processed.yaml --namespace=${{ env.K8S_NAMESPACE }}--validate=false
+          kubectl apply -f k8s/app-service.yaml --namespace=${{ env.K8S_NAMESPACE }}--validate=false
 
           echo "Deployment to K3s initiated."
 
           # Optional: Wait for rollout to complete
-          # kubectl rollout status deployment/aprs-app-deployment --namespace=${{ env.K8S_NAMESPACE }} --timeout=120s
+          # kubectl rollout status deployment/aprs-app-deployment --namespace=${{ env.K8S_NAMESPACE }} --timeout=120s --validate=false
