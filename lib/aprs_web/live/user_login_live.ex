@@ -2,6 +2,9 @@ defmodule AprsWeb.UserLoginLive do
   @moduledoc false
   use AprsWeb, :live_view
 
+  alias Aprs.Accounts
+  alias Aprs.Accounts.User
+
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-sm">
@@ -19,7 +22,7 @@ defmodule AprsWeb.UserLoginLive do
       <.simple_form
         :let={f}
         id="login_form"
-        for={:user}
+        for={@changeset}
         action={~p"/users/log_in"}
         as={:user}
         phx-update="ignore"
@@ -44,7 +47,7 @@ defmodule AprsWeb.UserLoginLive do
   end
 
   def mount(_params, _session, socket) do
-    email = live_flash(socket.assigns.flash, :email)
-    {:ok, assign(socket, email: email), temporary_assigns: [email: nil]}
+    changeset = Accounts.change_user_registration(%User{})
+    {:ok, assign(socket, changeset: changeset), temporary_assigns: [changeset: nil]}
   end
 end

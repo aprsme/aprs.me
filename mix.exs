@@ -5,7 +5,7 @@ defmodule Aprs.MixProject do
     [
       app: :aprs,
       version: "0.1.0",
-      elixir: "~> 1.15",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -64,14 +64,14 @@ defmodule Aprs.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:esbuild, "~> 0.5", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.2.2", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.3.1", runtime: Mix.env() == :dev},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test, runtime: false},
       {:exvcr, "~> 0.15", only: :test},
       {:floki, ">= 0.30.0", only: :test},
       {:faker, "~> 0.18", only: [:dev, :test]},
-      {:stream_data, "~> 1.1.2", only: [:dev, :test]},
-      {:styler, "~> 1.3.3", only: [:dev, :test], runtime: false},
+      {:stream_data, "~> 1.2.0", only: [:dev, :test]},
+      {:styler, "~> 1.4.2", only: [:dev, :test], runtime: false},
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
       {:sobelow, "~> 0.8", only: :dev}
     ]
