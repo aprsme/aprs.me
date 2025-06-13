@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aprs-app-service
+  namespace: aprs-app
+spec:
+  selector:
+    app: aprs-app
+  ports:
+    - protocol: TCP
+      port: 80 # External port
+      targetPort: 4000 # Container port
+  type: NodePort # Or LoadBalancer if your K3s is configured for it
