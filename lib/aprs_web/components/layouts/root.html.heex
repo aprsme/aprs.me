@@ -11,7 +11,7 @@
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
   </head>
-  <body class="bg-white antialiased">
+  <body class={body_class(assigns)}>
     <ul>
       <%= if @current_user do %>
         <li>
