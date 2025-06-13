@@ -72,6 +72,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          use-cache: "true"
+
       - name: Set up Kubeconfig
         uses: azure/setup-kubectl@v3 # A popular action for kubectl
         # Alternatively, can do this manually:
