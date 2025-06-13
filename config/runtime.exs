@@ -74,18 +74,18 @@ if config_env() == :prod do
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
     aprs_is_password: System.get_env("APRS_PASSCODE")
 
-  config :libcluster,
-    debug: true,
-    topologies: [
-      fly6pn: [
-        strategy: Cluster.Strategy.DNSPoll,
-        config: [
-          polling_interval: 5_000,
-          query: "#{app_name}.internal",
-          node_basename: app_name
-        ]
-      ]
-    ]
+  # config :libcluster,
+  #   debug: true,
+  #   topologies: [
+  #     fly6pn: [
+  #       strategy: Cluster.Strategy.DNSPoll,
+  #       config: [
+  #         polling_interval: 5_000,
+  #         query: "#{app_name}.internal",
+  #         node_basename: app_name
+  #       ]
+  #     ]
+  #   ]
 
   # ## SSL Support
   #
