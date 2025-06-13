@@ -129,7 +129,7 @@ defmodule Parser do
       date_time_position_data
 
     # position = Parser.Types.Position.from_aprs(latitude, longitude)
-    %{latitude: lat, longitude: lon} = Parser.Types.Position.from_aprs(latitude, longitude)
+    %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
 
     %{
       latitude: lat,
@@ -209,7 +209,7 @@ defmodule Parser do
           symbol_code::binary-size(1), comment::binary>>
       ) do
     # position = Position.from_aprs(latitude, longitude)
-    %{latitude: lat, longitude: lon} = Parser.Types.Position.from_aprs(latitude, longitude)
+    %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
 
     %{
       latitude: lat,
@@ -278,7 +278,7 @@ defmodule Parser do
           longitude::binary-size(9), symbol_code::binary-size(1), comment::binary>>
       ) do
     position = Position.from_aprs(latitude, longitude)
-    %{latitude: lat, longitude: lon} = Parser.Types.Position.from_aprs(latitude, longitude)
+    %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
 
     %{
       latitude: lat,
