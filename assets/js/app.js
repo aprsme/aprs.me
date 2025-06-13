@@ -40,6 +40,52 @@ Hooks.APRSMap = {
       maxZoom: 19,
     }).addTo(map);
 
+    // Check if MarkerCluster plugin is available
+    if (typeof L.markerClusterGroup === "function") {
+      // Create marker cluster group
+      this.markerClusterGroup = L.markerClusterGroup({
+        chunkedLoading: true,
+        maxClusterRadius: function (zoom) {
+          // Adjust cluster radius based on zoom level
+          // Tighter clustering when zoomed out, looser when zoomed in
+          if (zoom <= 5) return 120;
+          if (zoom <= 8) return 80;
+          if (zoom <= 11) return 60;
+          if (zoom <= 14) return 40;
+          return 20;
+        },
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: true,
+        zoomToBoundsOnClick: true,
+        removeOutsideVisibleBounds: true,
+        animate: true,
+        animateAddingMarkers: true,
+        disableClusteringAtZoom: 16,
+        iconCreateFunction: function (cluster) {
+          const childCount = cluster.getChildCount();
+          let c = " marker-cluster-";
+          if (childCount < 10) {
+            c += "small";
+          } else if (childCount < 100) {
+            c += "medium";
+          } else {
+            c += "large";
+          }
+          return new L.DivIcon({
+            html: "<div><span>" + childCount + "</span></div>",
+            className: "marker-cluster" + c,
+            iconSize: new L.Point(40, 40),
+          });
+        },
+      });
+
+      // Add cluster group to map
+      map.addLayer(this.markerClusterGroup);
+    } else {
+      console.warn("Leaflet MarkerCluster plugin not loaded, falling back to regular markers");
+      this.markerClusterGroup = null;
+    }
+
     // Store markers to avoid duplicates
     this.markers = new Map();
     this.packetCount = 0;
@@ -88,10 +134,15 @@ Hooks.APRSMap = {
   },
 
   clearAllMarkers() {
-    // Remove all markers from the map
-    this.markers.forEach((marker) => {
-      this.map.removeLayer(marker);
-    });
+    // Remove all markers from the cluster group or map
+    if (this.markerClusterGroup) {
+      this.markerClusterGroup.clearLayers();
+    } else {
+      // Fallback: remove markers directly from map
+      this.markers.forEach((marker) => {
+        this.map.removeLayer(marker);
+      });
+    }
     this.markers.clear();
     this.packetCount = 0;
     const counterElement = document.getElementById("packet-count");
@@ -101,31 +152,25 @@ Hooks.APRSMap = {
   },
 
   removeMarkersOutsideBounds(bounds) {
-    // Remove markers that are outside the current bounds
-    const markersToRemove = [];
+    // With clustering, the cluster group handles visibility automatically
+    // We'll just track the count of markers within bounds
+    let visibleCount = 0;
 
     this.markers.forEach((marker, callsign) => {
       const latLng = marker.getLatLng();
-      if (!bounds.contains(latLng)) {
-        this.map.removeLayer(marker);
-        markersToRemove.push(callsign);
+      if (bounds.contains(latLng)) {
+        visibleCount++;
       }
     });
 
-    // Remove from our tracking map
-    markersToRemove.forEach((callsign) => {
-      this.markers.delete(callsign);
-      this.packetCount--;
-    });
-
-    // Update counter
+    // Update counter to show visible markers
     const counterElement = document.getElementById("packet-count");
     if (counterElement) {
-      counterElement.textContent = this.packetCount;
+      counterElement.textContent = visibleCount;
     }
 
     // Notify server of the updated packet count
-    this.pushEvent("update_packet_count", { count: this.packetCount });
+    this.pushEvent("update_packet_count", { count: visibleCount });
   },
 
   addPacketMarker(packet) {
@@ -168,8 +213,17 @@ Hooks.APRSMap = {
     if (this.markers.has(callsign)) {
       // Update existing marker
       const existingMarker = this.markers.get(callsign);
-      existingMarker.setLatLng([lat, lng]);
-      existingMarker.setPopupContent(popupContent);
+      if (this.markerClusterGroup) {
+        // Remove and re-add to cluster group
+        this.markerClusterGroup.removeLayer(existingMarker);
+        existingMarker.setLatLng([lat, lng]);
+        existingMarker.setPopupContent(popupContent);
+        this.markerClusterGroup.addLayer(existingMarker);
+      } else {
+        // Fallback: just update position
+        existingMarker.setLatLng([lat, lng]);
+        existingMarker.setPopupContent(popupContent);
+      }
     } else {
       // Create new marker
       const icon = this.createAPRSIcon(
@@ -177,7 +231,14 @@ Hooks.APRSMap = {
         packet["data_extended"]["symbol_code"] || ">",
       );
 
-      const marker = L.marker([lat, lng], { icon: icon }).addTo(this.map).bindPopup(popupContent);
+      const marker = L.marker([lat, lng], { icon: icon }).bindPopup(popupContent);
+
+      // Add to cluster group or directly to map
+      if (this.markerClusterGroup) {
+        this.markerClusterGroup.addLayer(marker);
+      } else {
+        marker.addTo(this.map);
+      }
 
       this.markers.set(callsign, marker);
       console.log("New marker added for:", callsign, "Total markers:", this.markers.size);
@@ -206,6 +267,9 @@ Hooks.APRSMap = {
 
   destroyed() {
     console.log("APRSMap hook destroyed");
+    if (this.markerClusterGroup) {
+      this.markerClusterGroup.clearLayers();
+    }
     if (this.map) {
       console.log("Removing map instance");
       this.map.remove();
