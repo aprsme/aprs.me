@@ -256,6 +256,22 @@ defmodule Parser do
     Map.merge(result, compressed_cs)
   end
 
+  # Catch-all pattern for malformed position packets
+  def parse_position_without_timestamp(aprs_messaging?, <<_dti::binary-size(1), rest::binary>> = data) do
+    Logger.warning("Malformed position packet: #{inspect(data)}")
+
+    %{
+      latitude: nil,
+      longitude: nil,
+      symbol_table_id: nil,
+      symbol_code: nil,
+      comment: rest,
+      data_type: :malformed_position,
+      aprs_messaging?: aprs_messaging?,
+      raw_data: data
+    }
+  end
+
   def parse_position_with_timestamp(
         aprs_messaging?,
         <<_dti::binary-size(1), time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1),

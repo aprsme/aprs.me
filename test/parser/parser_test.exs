@@ -279,4 +279,36 @@ defmodule Parser.ParserTest do
       assert result >= -180.0 and result <= 180.0
     end
   end
+
+  describe "malformed position packets" do
+    test "handles malformed position packet gracefully" do
+      # Test with the specific malformed packet that was causing issues
+      malformed_packet = "KC3ARY>APDW16,KB3FCZ-2,WIDE1*,qAR,WA3YMM-1:!I:!&N:;\")#  !"
+
+      {:ok, packet} = Parser.parse(malformed_packet)
+
+      assert packet.data_type == :position
+      assert packet.sender == "KC3ARY"
+      assert packet.destination == "APDW16"
+      assert packet.data_extended.data_type == :malformed_position
+      assert packet.data_extended.latitude == nil
+      assert packet.data_extended.longitude == nil
+      assert packet.data_extended.comment == "I:!&N:;\")#  !"
+      assert packet.data_extended.raw_data == "!I:!&N:;\")#  !"
+    end
+
+    test "handles other malformed position formats" do
+      # Test with another type of malformed position data that's too short
+      malformed_packet = "TEST>APRS,TCPIP*:!SHORT"
+
+      {:ok, packet} = Parser.parse(malformed_packet)
+
+      assert packet.data_type == :position
+      assert packet.data_extended.data_type == :malformed_position
+      assert packet.data_extended.latitude == nil
+      assert packet.data_extended.longitude == nil
+      assert packet.data_extended.comment == "SHORT"
+      assert packet.data_extended.raw_data == "!SHORT"
+    end
+  end
 end
