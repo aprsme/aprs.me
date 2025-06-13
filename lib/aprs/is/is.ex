@@ -4,7 +4,8 @@ defmodule Aprs.Is do
 
   require Logger
 
-  @aprs_timeout 30 * 1000
+  @aprs_timeout 60 * 1000
+  @keepalive_interval 20 * 1000
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -15,11 +16,14 @@ defmodule Aprs.Is do
     # Trap exits so we can gracefully shut down
     Process.flag(:trap_exit, true)
 
+    # Add a small delay to prevent rapid reconnection attempts
+    Process.sleep(2000)
+
     # Get startup parameters
     server = Application.get_env(:aprs, :aprs_is_server, ~c"rotate.aprs2.net")
     port = Application.get_env(:aprs, :aprs_is_port, 14_580)
     default_filter = Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100")
-    aprs_user_id = Application.get_env(:aprs, :aprs_is_login_id, "w5isp")
+    aprs_user_id = Application.get_env(:aprs, :aprs_is_login_id, "W5ISP")
     aprs_passcode = Application.get_env(:aprs, :aprs_is_password, "-1")
 
     # Set up ets tables
@@ -44,13 +48,20 @@ defmodule Aprs.Is do
     with {:ok, socket} <- connect_to_aprs_is(server, port),
          :ok <- send_login_string(socket, aprs_user_id, aprs_passcode, default_filter) do
       timer = create_timer(@aprs_timeout)
+      keepalive_timer = create_keepalive_timer(@keepalive_interval)
 
       {:ok,
        %{
          server: server,
          port: port,
          socket: socket,
-         timer: timer
+         timer: timer,
+         keepalive_timer: keepalive_timer,
+         login_params: %{
+           user_id: aprs_user_id,
+           passcode: aprs_passcode,
+           filter: default_filter
+         }
        }}
     else
       _ ->
@@ -88,15 +99,19 @@ defmodule Aprs.Is do
 
   defp send_login_string(socket, aprs_user_id, aprs_passcode, filter) do
     login_string =
-      "user #{aprs_user_id} pass #{aprs_passcode} vers aprs.me 0.1 filter #{filter} \n"
+      "user #{aprs_user_id} pass #{aprs_passcode} vers aprs.me 0.1 filter #{filter}\r\n"
 
-    Logger.debug("Sending login string: #{login_string}")
+    Logger.info("Sending login string: user #{aprs_user_id} pass ***** vers aprs.me 0.1 filter #{filter}")
 
     :gen_tcp.send(socket, login_string)
   end
 
   defp create_timer(timeout) do
     Process.send_after(self(), :aprs_no_message_timeout, timeout)
+  end
+
+  defp create_keepalive_timer(interval) do
+    Process.send_after(self(), :send_keepalive, interval)
   end
 
   @impl true
@@ -114,6 +129,20 @@ defmodule Aprs.Is do
   def handle_info(:aprs_no_message_timeout, state) do
     Logger.error("Socket timeout detected. Killing genserver.")
     {:stop, :aprs_timeout, state}
+  end
+
+  def handle_info(:send_keepalive, state) do
+    # Send a comment line as keepalive (APRS-IS standard)
+    case :gen_tcp.send(state.socket, "# keepalive\r\n") do
+      :ok ->
+        Logger.debug("Sent keepalive")
+        keepalive_timer = create_keepalive_timer(@keepalive_interval)
+        {:noreply, %{state | keepalive_timer: keepalive_timer}}
+
+      {:error, reason} ->
+        Logger.error("Failed to send keepalive: #{inspect(reason)}")
+        {:stop, :normal, state}
+    end
   end
 
   def handle_info({:tcp, _socket, packet}, state) do
@@ -139,21 +168,29 @@ defmodule Aprs.Is do
   end
 
   def handle_info({:tcp_closed, _socket}, state) do
-    Logger.info("Socket has been closed")
+    Logger.warning("Socket has been closed by remote server - will reconnect")
     {:stop, :normal, state}
   end
 
   def handle_info({:tcp_error, _socket, reason}, state) do
-    Logger.error("Connection closed due to #{inspect(reason)}")
+    Logger.error("Connection error: #{inspect(reason)}")
     {:stop, :normal, state}
   end
 
   @impl true
   def terminate(reason, state) do
     # Do Shutdown Stuff
-    Logger.info("Going Down: #{inspect(reason)} - #{inspect(state)}")
-    Logger.info("Closing socket")
-    :gen_tcp.close(state.socket)
+    Logger.info("Terminating APRS-IS connection: #{inspect(reason)}")
+
+    # Cancel timers
+    if Map.has_key?(state, :timer), do: Process.cancel_timer(state.timer)
+    if Map.has_key?(state, :keepalive_timer), do: Process.cancel_timer(state.keepalive_timer)
+
+    # Close socket
+    if Map.has_key?(state, :socket) do
+      Logger.info("Closing socket")
+      :gen_tcp.close(state.socket)
+    end
 
     :normal
   end

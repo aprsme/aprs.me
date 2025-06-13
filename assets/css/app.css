@@ -5,5 +5,34 @@
 /* This file is for your main application CSS */
 
 #map {
-  height: 500px;
+    height: calc(100vh - 60px); /* Adjust based on header height */
+    width: 100%;
+}
+
+/* Full page map for APRS home page */
+#aprs-map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100vh;
+    width: 100%;
+}
+
+/* Hide header on home page */
+body.home-page header {
+    display: none;
+}
+
+/* Adjust main content area for full page map */
+body.home-page main {
+    padding: 0;
+    max-width: none;
+    height: 100vh;
+}
+
+body.home-page main > div {
+    max-width: none;
+    height: 100%;
 }

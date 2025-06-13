@@ -9,9 +9,11 @@ defmodule Aprs.Is.IsSupervisor do
   @impl true
   def init(:ok) do
     children = [
-      Aprs.Is
+      {Aprs.Is, []}
     ]
 
-    Supervisor.init(children, strategy: :one_for_one)
+    # Supervisor will restart children max 3 times in 5 seconds
+    # This prevents rapid reconnection attempts
+    Supervisor.init(children, strategy: :one_for_one, max_restarts: 3, max_seconds: 5)
   end
 end

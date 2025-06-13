@@ -20,7 +20,7 @@ defmodule AprsWeb.Router do
   scope "/", AprsWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", MapLive.Index, :index
     get "/map", PageController, :map
 
     live "/packets", PacketsLive.Index, :index
