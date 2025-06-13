@@ -17,14 +17,14 @@ spec:
     spec:
       initContainers:
         - name: db-migrate
-          image: your-ghcr-username/aprs-app:latest # Placeholder, will be set by CI
+          image: aprs/aprs-app:latest # Placeholder, will be set by CI
           command: ["/app/bin/migrate"]
           envFrom:
             - secretRef:
                 name: aprs-secrets
       containers:
         - name: aprs-app
-          image: your-ghcr-username/aprs-app:latest # Placeholder, will be set by CI
+          image: aprs/aprs-app:latest # Placeholder, will be set by CI
           ports:
             - containerPort: 4000 # Default Phoenix port
           envFrom:
