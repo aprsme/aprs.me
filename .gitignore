@@ -32,3 +32,6 @@ aprs-*.tar
 npm-debug.log
 /assets/node_modules/
 
+/.lexical
+/badpackets.txt
+
