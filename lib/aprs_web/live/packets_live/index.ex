@@ -2,6 +2,7 @@ defmodule AprsWeb.PacketsLive.Index do
   @moduledoc false
   use AprsWeb, :live_view
 
+  alias Aprs.EncodingUtils
   alias AprsWeb.Endpoint
 
   @impl true
@@ -15,7 +16,10 @@ defmodule AprsWeb.PacketsLive.Index do
 
   @impl true
   def handle_info(%{event: "packet", payload: payload}, socket) do
-    socket = assign(socket, :packets, [payload | socket.assigns.packets])
+    # Sanitize the packet to prevent JSON encoding errors
+    sanitized_payload = EncodingUtils.sanitize_packet(payload)
+    packets = Enum.take([sanitized_payload | socket.assigns.packets], 100)
+    socket = assign(socket, :packets, packets)
     {:noreply, socket}
   end
 end
