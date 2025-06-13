@@ -226,42 +226,34 @@ defmodule Parser do
 
   def parse_position_without_timestamp(
         aprs_messaging?,
-        <<_dti::binary-size(1), "/", latitude::binary-size(4), longitude::binary-size(4), sym_table_id::binary-size(1),
-          _cs::binary-size(2), _compression_type::binary-size(1), comment::binary>> = message
+        <<_dti::binary-size(1), "/", latitude::binary-size(4), longitude::binary-size(4), symbol_code::binary-size(1),
+          cs::binary-size(2), _compression_type::binary-size(1), comment::binary>> = _message
       ) do
-    # {:ok, file} = File.open("./compressed.txt", [:append])
-    # IO.binwrite(
-    #   file,
-    #   message <>
-    #     "\n" <>
-    #     "aprs_messaging?: #{aprs_messaging?}\n" <>
-    #     "dti: #{dti}\n" <>
-    #     "latitude: #{latitude}\n" <>
-    #     "longitude: #{longitude}\n" <>
-    #     "sym_table_id: #{sym_table_id}\n" <>
-    #     "cs: #{cs}\n" <>
-    #     "compression_type: #{compression_type}\n" <>
-    #     "comment: #{comment}\n\n"
-    # )
-    # File.close(file)
-    # convert_compressed_cs(cs) |> IO.inspect()
-    Logger.debug("TODO: PARSE COMPRESSED LAT/LON: " <> message)
-
+    # Parse compressed latitude and longitude
     converted_lat = convert_compressed_lat(latitude)
     converted_lon = convert_compressed_lon(longitude)
     position = Position.from_decimal(converted_lat, converted_lon)
-    # converted_cs = convert_compressed_cs(cs)
 
-    %{
+    # Parse compressed course/speed or range data
+    compressed_cs = convert_compressed_cs(cs)
+
+    # In compressed format, the symbol is a single character that represents both
+    # the symbol table and symbol code. For proper APRS compatibility, we would
+    # need to decode this, but for now we'll treat it as the symbol code.
+    result = %{
       latitude: converted_lat,
       longitude: converted_lon,
       position: position,
-      symbol_table_id: sym_table_id,
-      # symbol_code: symbol_code,
+      # Compressed format uses "/" as default table
+      symbol_table_id: "/",
+      symbol_code: symbol_code,
       comment: comment,
       data_type: :position,
       aprs_messaging?: aprs_messaging?
     }
+
+    # Add course/speed or range information if available
+    Map.merge(result, compressed_cs)
   end
 
   def parse_position_with_timestamp(
