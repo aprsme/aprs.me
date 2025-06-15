@@ -1,17 +1,3 @@
-# Find eligible builder and runner images on Docker Hub. We use Ubuntu/Debian
-# instead of Alpine to avoid DNS resolution issues in production.
-#
-# https://hub.docker.com/r/hexpm/elixir/tags?page=1&name=ubuntu
-# https://hub.docker.com/_/ubuntu?tab=tags
-#
-# This file is based on these images:
-#
-#   - https://hub.docker.com/r/hexpm/elixir/tags - for the build image
-#   - https://hub.docker.com/_/debian?tab=tags&page=1&name=bullseye-20250113-slim - for the release image
-#   - https://pkgs.org/ - resource for finding needed packages
-#   - Ex: hexpm/elixir:1.18.3-erlang-27.2.1-debian-bullseye-20250113-slim
-#   - https://hub.docker.com/r/aquasec/trivy - for security scanning
-#
 ARG ELIXIR_VERSION=1.18.4
 ARG OTP_VERSION=27.2.4
 ARG DEBIAN_VERSION=bullseye-20250610-slim
