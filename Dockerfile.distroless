@@ -1,0 +1,150 @@
+ARG ELIXIR_VERSION=1.18.4
+ARG OTP_VERSION=27.2.4
+ARG DEBIAN_VERSION=bullseye-20250520-slim
+
+# Set default non-root user and group IDs
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
+ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
+# Use distroless base image with glibc for Erlang/Elixir
+ARG RUNNER_IMAGE="gcr.io/distroless/base-debian11:nonroot"
+
+FROM ${BUILDER_IMAGE} AS builder
+
+# install build dependencies
+RUN apt-get update -y && \
+    apt-get upgrade -y && \
+    apt-get install -y build-essential git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# prepare build dir
+WORKDIR /app
+
+# install hex + rebar
+RUN mix local.hex --force && \
+    mix local.rebar --force
+
+# set build ENV
+ENV MIX_ENV="prod"
+
+# install mix dependencies
+COPY mix.exs mix.lock ./
+RUN mix deps.get --only $MIX_ENV
+RUN mkdir config
+
+# copy compile-time config files before we compile dependencies
+# to ensure any relevant config change will trigger the dependencies
+# to be re-compiled.
+COPY config/config.exs config/${MIX_ENV}.exs config/
+RUN mix deps.compile
+
+COPY priv priv
+
+COPY lib lib
+
+COPY assets assets
+
+# compile assets
+RUN mix assets.deploy
+
+# Compile the release
+RUN mix compile
+
+# Changes to config/runtime.exs don't require recompiling the code
+COPY config/runtime.exs config/
+
+COPY rel rel
+RUN mix release
+
+# Create a temporary stage to prepare required libraries
+FROM debian:bullseye-slim AS lib-extractor
+
+# Install packages needed to extract libraries
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+    libstdc++6 \
+    openssl \
+    libncurses5 \
+    libssl1.1 \
+    libtinfo5 \
+    libcrypto++6 \
+    ca-certificates \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create directories for extracted libraries
+RUN mkdir -p /tmp/distroless/lib /tmp/distroless/usr/lib /tmp/distroless/etc/ssl /tmp/distroless/usr/share
+
+# Copy required shared libraries
+RUN cp -a /lib/x86_64-linux-gnu/libdl.so* /tmp/distroless/lib/ && \
+    cp -a /lib/x86_64-linux-gnu/librt.so* /tmp/distroless/lib/ && \
+    cp -a /lib/x86_64-linux-gnu/libpthread.so* /tmp/distroless/lib/ && \
+    cp -a /lib/x86_64-linux-gnu/libm.so* /tmp/distroless/lib/ && \
+    cp -a /lib/x86_64-linux-gnu/libc.so* /tmp/distroless/lib/ && \
+    cp -a /usr/lib/x86_64-linux-gnu/libstdc++.so* /tmp/distroless/usr/lib/ && \
+    cp -a /usr/lib/x86_64-linux-gnu/libssl.so* /tmp/distroless/usr/lib/ && \
+    cp -a /usr/lib/x86_64-linux-gnu/libcrypto.so* /tmp/distroless/usr/lib/ && \
+    cp -a /lib/x86_64-linux-gnu/libtinfo.so* /tmp/distroless/lib/ && \
+    cp -a /usr/lib/x86_64-linux-gnu/libncurses.so* /tmp/distroless/usr/lib/ && \
+    cp -a /lib/x86_64-linux-gnu/libz.so* /tmp/distroless/lib/
+
+# Copy CA certificates
+RUN cp -a /etc/ssl/certs /tmp/distroless/etc/ssl/
+
+# Final distroless stage
+FROM ${RUNNER_IMAGE}
+
+# Set environment variables for production
+ENV MIX_ENV="prod" \
+    LANG=C.UTF-8 \
+    LANGUAGE=C:en \
+    LC_ALL=C.UTF-8 \
+    # Disable history files
+    HISTFILE=/dev/null \
+    # Prevent writing .erlang.cookie file to writable location
+    HOME=/tmp \
+    # Add security headers
+    SECURITY_HEADERS="true" \
+    # Configure Erlang VM for production
+    ERL_AFLAGS="+S 1:1 +A 1 +K true -kernel shell_history enabled" \
+    PHX_SERVER=true
+
+# Copy required shared libraries from lib-extractor stage
+COPY --from=lib-extractor /tmp/distroless/lib/* /lib/x86_64-linux-gnu/
+COPY --from=lib-extractor /tmp/distroless/usr/lib/* /usr/lib/x86_64-linux-gnu/
+COPY --from=lib-extractor /tmp/distroless/etc/ssl /etc/ssl
+
+# Set working directory
+WORKDIR /app
+
+# Copy the Elixir release from builder stage
+# The distroless nonroot user has UID 65532, so we use that
+COPY --from=builder --chown=65532:65532 /app/_build/prod/rel/aprs ./
+
+# Create required directories with proper permissions
+USER 0
+RUN mkdir -p /tmp && \
+    chmod 1777 /tmp && \
+    chmod +x /app/bin/server
+USER 65532
+
+# Add security-related metadata
+LABEL org.opencontainers.image.vendor="APRS.me" \
+    org.opencontainers.image.title="APRS.me Server (Distroless)" \
+    org.opencontainers.image.description="APRS.me server with distroless base for maximum security" \
+    org.opencontainers.image.version="prod" \
+    security.root-user="false" \
+    security.distroless="true" \
+    security.privileged="false" \
+    security.base-image="gcr.io/distroless/base-debian11:nonroot"
+
+# Distroless images use a different init system, no need for tini
+# The application should handle graceful shutdowns internally
+
+# Command to run the application
+ENTRYPOINT ["/app/bin/server"]
+
+# Container configuration is handled by Dokku
+EXPOSE $PORT
