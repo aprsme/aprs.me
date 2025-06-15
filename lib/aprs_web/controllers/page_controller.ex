@@ -12,4 +12,8 @@ defmodule AprsWeb.PageController do
   def packets(conn, _params) do
     render(conn, :packets)
   end
+
+  def health(conn, _params) do
+    json(conn, %{status: "ok", version: Application.spec(:aprs, :vsn)})
+  end
 end
