@@ -276,7 +276,7 @@ defmodule AprsWeb.StatusLive.Index do
                       {if @auto_refresh, do: "ON", else: "OFF"}
                     </span>
                     <%= if @auto_refresh do %>
-                      (every 30 seconds)
+                      (every second)
                     <% end %>
                   </p>
                 </div>
