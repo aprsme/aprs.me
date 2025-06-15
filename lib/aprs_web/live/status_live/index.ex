@@ -5,7 +5,7 @@ defmodule AprsWeb.StatusLive.Index do
   use AprsWeb, :live_view
 
   # 30 seconds
-  @refresh_interval 30_000
+  @refresh_interval 1_000
 
   @impl true
   def mount(_params, _session, socket) do
