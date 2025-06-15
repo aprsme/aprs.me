@@ -21,6 +21,7 @@ defmodule AprsWeb.Router do
     pipe_through :api
     get "/health", PageController, :health
     get "/ready", PageController, :ready
+    get "/status.json", PageController, :status_json
   end
 
   scope "/", AprsWeb do
@@ -28,6 +29,7 @@ defmodule AprsWeb.Router do
 
     live "/", MapLive.Index, :index
     get "/map", PageController, :map
+    live "/status", StatusLive.Index, :index
 
     live "/packets", PacketsLive.Index, :index
   end
