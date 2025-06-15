@@ -1,0 +1,115 @@
+{
+  "securityPolicy": {
+    "version": "1.0",
+    "default": "deny",
+    "rules": {
+      "network": {
+        "outbound": {
+          "allow": [
+            {
+              "port": 443,
+              "protocol": "tcp",
+              "purpose": "HTTPS connections for IP geolocation and updates"
+            },
+            {
+              "port": 14580,
+              "protocol": "tcp",
+              "purpose": "APRS-IS connection"
+            }
+          ]
+        },
+        "inbound": {
+          "allow": [
+            {
+              "port": 4000,
+              "protocol": "tcp",
+              "purpose": "Web application access"
+            },
+            {
+              "port": 14580,
+              "protocol": "tcp",
+              "purpose": "APRS-IS incoming connections"
+            }
+          ]
+        }
+      },
+      "filesystem": {
+        "readonly": [
+          "/app",
+          "/etc"
+        ],
+        "writable": [
+          "/tmp",
+          "/var/log"
+        ],
+        "denied": [
+          "/proc",
+          "/sys",
+          "/dev"
+        ]
+      },
+      "capabilities": {
+        "drop": [
+          "ALL"
+        ],
+        "add": [
+          "NET_BIND_SERVICE"
+        ]
+      },
+      "seccomp": {
+        "defaultAction": "SCMP_ACT_ERRNO",
+        "allowedCalls": [
+          "accept",
+          "bind",
+          "close",
+          "connect",
+          "dup",
+          "exit",
+          "exit_group",
+          "fcntl",
+          "futex",
+          "getcwd",
+          "getpid",
+          "ioctl",
+          "listen",
+          "lseek",
+          "mkdir",
+          "open",
+          "read",
+          "recv",
+          "recvfrom",
+          "recvmsg",
+          "rt_sigaction",
+          "rt_sigprocmask",
+          "rt_sigreturn",
+          "send",
+          "sendto",
+          "sendmsg",
+          "set_robust_list",
+          "socket",
+          "write"
+        ]
+      },
+      "logging": {
+        "level": "info",
+        "auditEvents": [
+          "user-auth",
+          "network-access",
+          "file-access",
+          "process-exec"
+        ]
+      }
+    },
+    "compliance": {
+      "standards": [
+        "CIS Docker Benchmark",
+        "NIST SP 800-190"
+      ],
+      "auditing": {
+        "enabled": true,
+        "logPath": "/var/log/audit/",
+        "retention": "30d"
+      }
+    }
+  }
+}

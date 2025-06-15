@@ -2,14 +2,21 @@ ARG ELIXIR_VERSION=1.18.4
 ARG OTP_VERSION=27.2.4
 ARG DEBIAN_VERSION=bullseye-20250520-slim
 
+# Set default non-root user and group IDs
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 
 FROM ${BUILDER_IMAGE} AS builder
 
 # install build dependencies
-RUN apt-get update -y && apt-get install -y build-essential git \
-    && apt-get clean && rm -f /var/lib/apt/lists/*_*
+RUN apt-get update -y && \
+    apt-get upgrade -y && \
+    apt-get install -y build-essential git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # prepare build dir
 WORKDIR /app
@@ -54,9 +61,34 @@ RUN mix release
 # the compiled release and other runtime necessities
 FROM ${RUNNER_IMAGE}
 
+# Add non-root user
+RUN groupadd -r app && useradd -r -g app -s /usr/sbin/nologin -c "Docker image user" app
+
+# Install security updates and required packages
 RUN apt-get update -y && \
-    apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates \
-    && apt-get clean && rm -f /var/lib/apt/lists/*_*
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    libstdc++6 \
+    openssl \
+    libncurses5 \
+    locales \
+    ca-certificates \
+    tini && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    # Remove setuid and setgid permissions
+    find / -perm /6000 -type f -exec chmod a-s {} \; || true
+# Create a non-root user and group
+groupadd -g ${GROUP_ID} aprs && \
+    useradd -u ${USER_ID} -g aprs -s /bin/false -M aprs && \
+    # Secure system configurations
+    chmod 0600 /etc/login.defs && \
+    chmod 0600 /etc/passwd && \
+    chmod 0600 /etc/group && \
+    # Create and secure app directory
+    mkdir -p /app && \
+    chown aprs:aprs /app && \
+    chmod 0750 /app
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
@@ -66,10 +98,20 @@ ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
 WORKDIR "/app"
-RUN chown nobody /app
 
-# set runner ENV
-ENV MIX_ENV="prod"
+# Set security-related environment variables
+ENV MIX_ENV="prod" \
+    LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8 \
+    # Disable history files
+    HISTFILE=/dev/null \
+    # Prevent writing .erlang.cookie file
+    HOME=/dev/null \
+    # Add security headers
+    SECURITY_HEADERS="true" \
+    # Disable debug info in production
+    ERL_AFLAGS="+S 1:1 +A 1 +K true -kernel shell_history enabled -kernel shell_history_file_bytes 0"
 
 # Only copy the final release from the build stage
 COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/aprs ./
@@ -81,7 +123,23 @@ USER nobody
 # above and adding an entrypoint. See https://github.com/krallin/tini for details
 # ENTRYPOINT ["/tini", "--"]
 
-CMD ["/app/bin/server"]
+# Add specific capabilities needed by the app
+CMD ["sh", "-c", "umask 027 && /app/bin/server"]
+
+# Add security-related metadata
+LABEL org.opencontainers.image.vendor="APRS.me" \
+    org.opencontainers.image.title="APRS.me Server" \
+    org.opencontainers.image.description="APRS.me server with security hardening" \
+    org.opencontainers.image.version="${MIX_ENV}" \
+    org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+    security.root-user="false" \
+    security.non-root-user="app" \
+    security.privileged="false"
+
+# Add security configuration
+EXPOSE 4000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:4000/ || exit 1
 
 # Security scan stage
 FROM aquasec/trivy:latest AS trivy
