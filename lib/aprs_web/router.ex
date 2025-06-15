@@ -20,6 +20,7 @@ defmodule AprsWeb.Router do
   scope "/", AprsWeb do
     pipe_through :api
     get "/health", PageController, :health
+    get "/ready", PageController, :ready
   end
 
   scope "/", AprsWeb do
