@@ -48,7 +48,8 @@ RUN mix compile
 COPY config/runtime.exs config/
 
 COPY rel rel
-RUN mix release
+RUN mix release && \
+    chmod +x /app/_build/prod/rel/aprs/bin/server /app/_build/prod/rel/aprs/bin/aprs
 
 # Final distroless stage
 FROM ${RUNNER_IMAGE}
@@ -78,5 +79,5 @@ LABEL org.opencontainers.image.vendor="APRS.me" \
     security.nonroot="true"
 
 # Run the server
-ENTRYPOINT ["/app/bin/aprs"]
+ENTRYPOINT ["/app/bin/server"]
 EXPOSE $PORT

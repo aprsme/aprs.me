@@ -7,17 +7,23 @@
       "postdeploy": ""
     }
   },
-  "checks": {
+  "healthchecks": {
     "web": [
       {
-        "type": "http",
-        "name": "web-health",
-        "path": "/health",
-        "attempts": 3,
-        "timeout": 5,
-        "wait": 10,
-        "initial_delay": 10
+        "type": "startup",
+        "name": "web process check",
+        "description": "Checking web process startup",
+        "path": "/ready",
+        "attempts": 5,
+        "timeout": 10,
+        "wait": 5,
+        "initial_delay": 15
       }
     ]
+  },
+  "formation": {
+    "web": {
+      "quantity": 1
+    }
   }
 }
