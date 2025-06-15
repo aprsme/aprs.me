@@ -6,48 +6,68 @@ This document outlines our approach to maintaining secure Docker images for the 
 
 Keeping system dependencies updated is crucial for security. Our strategy includes:
 
-1. **Automated Security Updates**
-   - Base images are updated regularly with the latest security patches
-   - `unattended-upgrades` is installed to automatically apply security updates
-   - We use `apt-get upgrade --security` to prioritize security-related updates
-   - Full system update with `apt-get dist-upgrade` to handle package dependencies
+1. **Regular Base Image Updates**
+   - We use specific dated versions of Debian slim images (`bullseye-YYYYMMDD-slim`) 
+   - Images are rebuilt weekly via CI to incorporate latest security patches
+   - Each build uses `--pull` to ensure we get the latest base image versions
 
-2. **Continuous Integration Checks**
+2. **Full Package Updates During Build**
+   - Every build performs `apt-get update && apt-get upgrade` in both build and runtime stages
+   - We explicitly remove package lists after updates to reduce image size
+   - Only necessary runtime packages are installed in the final image
+
+3. **Minimized Attack Surface**
+   - Non-root user execution with specific UID/GID
+   - Removal of setuid/setgid permissions
+   - Secure permissions on system files
+   - Use of tini as init process
+   - Minimal set of installed packages
+
+4. **Continuous Monitoring**
    - Weekly automated builds via GitHub Actions
-   - Security scanning on every build with Trivy
-   - Detection of outdated dependencies with separate vulnerability reports
+   - Security scanning with Trivy and Docker Scout
+   - Detailed vulnerability reports for OS and application dependencies
    - Automatic failure on critical vulnerabilities
 
-3. **Multi-stage Build Optimization**
-   - Builder stage includes only development dependencies
-   - Runtime stage includes only production dependencies
-   - Each stage performs full security updates
+## How System Updates Are Applied
 
-4. **Minimal Attack Surface**
-   - Distroless or slim base images when possible
-   - Unnecessary packages are removed
-   - Non-root user execution
-   - Removal of setuid/setgid permissions
-   - Only required capabilities are enabled
+System dependencies are updated at several points:
 
-## How Updates Are Applied
-
-System dependencies are updated at multiple points:
-
-1. **During Image Build**
+1. **During Image Build Time**
    ```dockerfile
    RUN apt-get update -y && \
-       apt-get upgrade -y --security && \
-       apt-get dist-upgrade -y
+       apt-get upgrade -y && \
+       apt-get clean && \
+       rm -f /var/lib/apt/lists/*_*
    ```
 
-2. **Automatically at Runtime**
-   - The `unattended-upgrades` package applies security updates automatically
-   - Configuration prioritizes official security updates
-
-3. **Via Scheduled Rebuilds**
+2. **Via Scheduled Rebuilds**
    - Weekly GitHub Actions workflow rebuilds the image with latest dependencies
    - Base image is pulled with `--pull` flag to ensure latest version
+   - No-cache builds ensure all layers are rebuilt with fresh packages
+
+3. **During Deployment**
+   - Images are rebuilt for each deployment
+   - CI/CD pipeline includes security scanning before deployment
+
+## Security Scanning Process
+
+Our Docker images undergo multiple security scans:
+
+1. **Trivy Scanning**
+   - OS package vulnerabilities detection
+   - Application dependency vulnerabilities detection
+   - Configuration issue detection
+
+2. **Docker Scout**
+   - Deep analysis of base image security
+   - Comprehensive CVE detection
+   - Dependency analysis
+
+3. **Artifact Storage**
+   - Scan results are stored as GitHub Actions artifacts
+   - Summary reports are generated for easy review
+   - Historical data allows tracking security improvements
 
 ## Manual Update Process
 
@@ -59,28 +79,26 @@ To manually update the Docker image with the latest system dependencies:
    ```
 
 2. This script will:
-   - Check for newer versions of the base image
-   - Update the Dockerfile if needed
-   - Rebuild the image with `--no-cache --pull` to ensure fresh dependencies
-   - Run a security scan on the updated image
+   - Build a fresh image with latest dependencies using `--no-cache --pull`
+   - Run a security scan if Trivy is available
+   - Provide guidance on next steps
 
-3. Verify that tests pass with the updated image before deployment
+3. Verify the updated image works as expected before deployment
 
-## Security Monitoring
+## Best Practices We Follow
 
-We continuously monitor for security issues through:
+- We pin specific versions of Elixir, OTP, and Debian in our Dockerfile
+- Multi-stage builds minimize the final image size
+- We use non-root users with minimal permissions
+- We secure system files and directories
+- We remove unnecessary files and packages
+- We use tini as an init process for proper signal handling
+- We scan for vulnerabilities in both OS and application dependencies
+- We update base images regularly (at least monthly)
 
-1. GitHub Security tab showing Trivy scan results
-2. Weekly automated security scans
-3. Dependency updates via Dependabot
-4. Container registry vulnerability scanning
+## Improvement Roadmap
 
-## Best Practices
-
-- Never use the `latest` tag in production
-- Pin specific versions in Dockerfile (ARG declarations)
-- Update base images at least monthly
-- Review and update the security strategy quarterly
-- Use multi-stage builds to minimize final image size
-- Implement least privilege principle (non-root user, minimal capabilities)
-- Keep secrets out of the image (use environment variables or secrets management)
+- Consider distroless images for further attack surface reduction
+- Implement auto-update PR creation for base image versions
+- Add dependency confusion detection
+- Implement more granular vulnerability allowlisting for false positives

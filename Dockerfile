@@ -16,7 +16,7 @@ RUN apt-get update -y && \
     apt-get upgrade -y && \
     apt-get install -y build-essential git && \
     apt-get clean && \
-    rm -f /var/lib/apt/lists/*_*
+    rm -rf /var/lib/apt/lists/*
 
 # prepare build dir
 WORKDIR /app
@@ -73,10 +73,10 @@ RUN apt-get update -y && \
     ca-certificates \
     tini && \
     apt-get clean && \
-    rm -f /var/lib/apt/lists/*_* && \
+    rm -rf /var/lib/apt/lists/* && \
     # Create a non-root user and group with specific ID
-    groupadd -g ${GROUP_ID} aprs && \
-    useradd -r -g aprs -u ${USER_ID} -s /bin/false -M aprs && \
+    groupadd -g 1000 aprs && \
+    useradd -r -g aprs -u 1000 -s /bin/false -M aprs && \
     # Remove setuid and setgid permissions
     find / -perm /6000 -type f -exec chmod a-s {} \; || true && \
     # Secure system configurations
@@ -113,18 +113,19 @@ ENV MIX_ENV="prod" \
     PHX_SERVER=true
 
 # Only copy the final release from the build stage
-COPY --from=builder --chown=${USER_ID}:${GROUP_ID} /app/_build/${MIX_ENV}/rel/aprs ./
+COPY --from=builder --chown=1000:1000 /app/_build/${MIX_ENV}/rel/aprs ./
 
-USER ${USER_ID}
+USER 1000
 
 # Ensure the server binary is executable
 RUN chmod +x /app/bin/server
 
-# Use tini as init process to handle signals and zombie processes
-ENTRYPOINT ["/usr/bin/tini", "--"]
+# If using an environment that doesn't automatically reap zombie processes, it is
+# advised to add an init process such as tini via `apt-get install`
+# above and adding an entrypoint. See https://github.com/krallin/tini for details
+# ENTRYPOINT ["/tini", "--"]
 
-# Add specific capabilities needed by the app
-CMD ["/app/bin/server"]
+CMD /app/bin/server
 
 # Add security-related metadata
 LABEL org.opencontainers.image.vendor="APRS.me" \

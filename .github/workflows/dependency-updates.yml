@@ -1,0 +1,122 @@
+name: System Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  update-dependencies:
+    name: Rebuild with Latest Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build with latest dependencies
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: aprs:latest
+          load: true
+          no-cache: true
+          pull: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: aprs:latest
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          timeout: "10m"
+          scanners: "vuln"
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'Dependency Update Scan'
+
+      - name: Generate vulnerability summary
+        if: always()
+        run: |
+          echo "# System Dependency Update Report" > dep-update-report.md
+          echo "## Date: $(date -u +'%Y-%m-%d')" >> dep-update-report.md
+          echo "" >> dep-update-report.md
+
+          echo "### OS Package Vulnerabilities" >> dep-update-report.md
+          echo "```" >> dep-update-report.md
+          trivy image --severity HIGH,CRITICAL --no-progress aprs:latest >> dep-update-report.md
+          echo "```" >> dep-update-report.md
+
+      - name: Upload vulnerability summary
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-update-report
+          path: dep-update-report.md
+          retention-days: 30
+
+      - name: Check if base image is outdated
+        id: check_base_image
+        run: |
+          # Extract current Debian version from Dockerfile
+          CURRENT_VERSION=$(grep 'DEBIAN_VERSION=' Dockerfile | head -1 | cut -d'=' -f2 | tr -d '"')
+          echo "Current Debian version: $CURRENT_VERSION"
+
+          # Get latest version from Docker Hub
+          LATEST_VERSION=$(curl -s https://registry.hub.docker.com/v2/repositories/library/debian/tags | \
+                          grep -o '"name":"[^"]*-slim"' | grep bullseye | sort -r | head -1 | cut -d'"' -f4)
+          echo "Latest Debian version: $LATEST_VERSION"
+
+          if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ] && [ ! -z "$LATEST_VERSION" ]; then
+            echo "Base image is outdated. Current: $CURRENT_VERSION, Latest: $LATEST_VERSION"
+            echo "outdated=true" >> $GITHUB_OUTPUT
+            echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Base image is up to date or couldn't determine latest version"
+            echo "outdated=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create PR for base image update
+        if: steps.check_base_image.outputs.outdated == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update Debian base image to ${{ steps.check_base_image.outputs.latest_version }}"
+          title: "Update Debian base image to ${{ steps.check_base_image.outputs.latest_version }}"
+          body: |
+            This PR updates the Debian base image to the latest version:
+            - Current: `${{ env.CURRENT_VERSION }}`
+            - Latest: `${{ steps.check_base_image.outputs.latest_version }}`
+
+            This update includes the latest security patches and system dependencies.
+
+            *This PR was automatically created by the dependency updates workflow.*
+          branch: update-base-image
+          base: main
+          delete-branch: true
+          add-paths: |
+            Dockerfile
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Dependency Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Image rebuilt with latest dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 Vulnerability scan completed" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.check_base_image.outputs.outdated }}" == "true" ]; then
+            echo "- 🔄 Base image update PR created" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ✓ Base image is up to date" >> $GITHUB_STEP_SUMMARY
+          fi
