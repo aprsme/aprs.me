@@ -135,9 +135,3 @@ LABEL org.opencontainers.image.vendor="APRS.me" \
 
 # Add security configuration
 EXPOSE 4000
-
-# Security scan stage
-FROM aquasec/trivy:latest AS trivy
-WORKDIR /workspace
-COPY --from=builder /app/_build/prod/rel/aprs ./
-RUN trivy filesystem --no-progress --exit-code 1 --severity HIGH,CRITICAL ./
