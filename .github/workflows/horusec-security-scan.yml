@@ -1,0 +1,92 @@
+name: Horusec Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * 0" # Weekly at midnight on Sunday
+
+jobs:
+  horusec-security:
+    name: Horusec Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Cache Horusec to speed up subsequent runs
+      - name: Cache Horusec
+        uses: actions/cache@v3
+        with:
+          path: ~/.horusec
+          key: ${{ runner.os }}-horusec-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-horusec-
+
+      - name: Running Horusec Security Scan
+        id: horusec
+        uses: horuszup/horusec-action@v1.0.0
+        with:
+          arguments: >
+            -p="./"
+            --config-file-path="./horusec-config.json"
+            --output-format="json"
+            --output="./horusec-report.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload security scan results as an artifact
+      - name: Upload Horusec Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: horusec-report
+          path: horusec-report.json
+          retention-days: 7
+
+      # Analyze Elixir-specific vulnerabilities with Sobelow
+      - name: Set up Elixir
+        if: always()
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.17.x"
+          otp-version: "26.x"
+
+      - name: Cache Elixir deps
+        if: always()
+        uses: actions/cache@v3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install dependencies
+        if: always()
+        run: mix deps.get
+
+      - name: Run Sobelow (Elixir-specific security scan)
+        if: always()
+        run: mix sobelow --format=json --out=sobelow-report.json --exit
+
+      - name: Upload Sobelow Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: sobelow-report
+          path: sobelow-report.json
+          retention-days: 7
+
+      # Optional: Fail the workflow if critical vulnerabilities are found
+      - name: Check for critical vulnerabilities
+        if: ${{ steps.horusec.outputs.exit-code != '0' }}
+        run: |
+          echo "Critical vulnerabilities found in the security scan!"
+          echo "Review the security reports in the workflow artifacts."
+          exit 1
