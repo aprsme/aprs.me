@@ -10,6 +10,7 @@
 #   - https://hub.docker.com/_/debian?tab=tags&page=1&name=bullseye-20250113-slim - for the release image
 #   - https://pkgs.org/ - resource for finding needed packages
 #   - Ex: hexpm/elixir:1.18.2-erlang-27.2-debian-bullseye-20250113-slim
+#   - https://hub.docker.com/r/aquasec/trivy - for security scanning
 #
 ARG ELIXIR_VERSION=1.18.2
 ARG OTP_VERSION=27.2
@@ -18,7 +19,7 @@ ARG DEBIAN_VERSION=bullseye-20250113-slim
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 
-FROM ${BUILDER_IMAGE} as builder
+FROM ${BUILDER_IMAGE} AS builder
 
 # install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
@@ -68,8 +69,8 @@ RUN mix release
 FROM ${RUNNER_IMAGE}
 
 RUN apt-get update -y && \
-  apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates \
-  && apt-get clean && rm -f /var/lib/apt/lists/*_*
+    apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates \
+    && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
@@ -95,3 +96,9 @@ USER nobody
 # ENTRYPOINT ["/tini", "--"]
 
 CMD ["/app/bin/server"]
+
+# Security scan stage
+FROM aquasec/trivy:latest AS trivy
+WORKDIR /workspace
+COPY --from=builder /app/_build/prod/rel/aprs ./
+RUN trivy filesystem --no-progress --exit-code 1 --severity HIGH,CRITICAL ./
