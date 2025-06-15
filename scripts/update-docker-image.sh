@@ -1,8 +1,5 @@
 #!/bin/bash
 # update-docker-image.sh - Script to update Docker image with latest dependencies
-#
-# This script helps ensure that your Docker image has the latest system dependencies
-# by rebuilding the image with the latest base image and system packages.
 
 set -e  # Exit immediately if a command exits with a non-zero status
 
@@ -21,66 +18,56 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Get the latest version of the base image from Dockerfile
-BASE_IMAGE=$(grep 'DEBIAN_VERSION=' Dockerfile | head -1 | cut -d'=' -f2 | tr -d '"')
-if [ -z "$BASE_IMAGE" ]; then
-    echo -e "${RED}Error: Could not determine base image from Dockerfile${NC}"
+# Check Docker daemon is running
+if ! docker info &> /dev/null; then
+    echo -e "${RED}Error: Docker daemon is not running${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}Current base image:${NC} $BASE_IMAGE"
+# Get the current versions from Dockerfile
+ELIXIR_VERSION=$(grep 'ELIXIR_VERSION=' Dockerfile | head -1 | cut -d'=' -f2 | tr -d '"')
+OTP_VERSION=$(grep 'OTP_VERSION=' Dockerfile | head -1 | cut -d'=' -f2 | tr -d '"')
+DEBIAN_VERSION=$(grep 'DEBIAN_VERSION=' Dockerfile | head -1 | cut -d'=' -f2 | tr -d '"')
 
-# Check if we need to update the Dockerfile
-echo -e "${YELLOW}Checking for newer Debian versions...${NC}"
-latest_debian=$(curl -s https://hub.docker.com/v2/repositories/library/debian/tags/ | \
-                grep -o '"name":"[^"]*-slim"' | grep bullseye | sort -r | head -1 | cut -d'"' -f4)
+echo -e "${GREEN}Current versions:${NC}"
+echo "  Elixir: $ELIXIR_VERSION"
+echo "  OTP: $OTP_VERSION"
+echo "  Debian: $DEBIAN_VERSION"
 
-if [ -z "$latest_debian" ]; then
-    echo -e "${YELLOW}Could not determine latest Debian version, keeping current version${NC}"
-else
-    echo -e "${GREEN}Latest Debian version:${NC} $latest_debian"
-
-    # Update Dockerfile with latest Debian version
-    current_version=$(grep 'DEBIAN_VERSION=' Dockerfile | head -1 | cut -d'=' -f2 | tr -d '"')
-    if [ "$current_version" != "$latest_debian" ]; then
-        echo -e "${YELLOW}Updating Dockerfile with latest Debian version...${NC}"
-        sed -i "s/ARG DEBIAN_VERSION=.*/ARG DEBIAN_VERSION=$latest_debian/" Dockerfile
-        echo -e "${GREEN}Updated Dockerfile with new base image:${NC} $latest_debian"
-    else
-        echo -e "${GREEN}Already using the latest Debian version${NC}"
-    fi
-fi
-
-# Check for latest Elixir and OTP versions
-echo -e "${YELLOW}Checking for newer Elixir and OTP versions...${NC}"
-current_elixir=$(grep 'ELIXIR_VERSION=' Dockerfile | head -1 | cut -d'=' -f2 | tr -d '"')
-current_otp=$(grep 'OTP_VERSION=' Dockerfile | head -1 | cut -d'=' -f2 | tr -d '"')
-
-echo -e "${GREEN}Current Elixir version:${NC} $current_elixir"
-echo -e "${GREEN}Current OTP version:${NC} $current_otp"
-
+# Build the Docker image with a clean cache to ensure latest deps
 echo -e "${YELLOW}Building Docker image with latest dependencies...${NC}"
+echo "This may take a few minutes..."
+
+# Use --pull to ensure we get the latest base image
+# Use --no-cache to ensure all layers are rebuilt with latest packages
 docker build --no-cache --pull -t aprs:latest .
 
-echo -e "${GREEN}Running security scan on updated image...${NC}"
+# Run a security scan if Trivy is available
 if command -v trivy &> /dev/null; then
+    echo -e "${GREEN}Running security scan on updated image...${NC}"
     trivy image --severity HIGH,CRITICAL aprs:latest
 else
-    echo -e "${YELLOW}Trivy not installed. Skipping security scan.${NC}"
-    echo "Install Trivy with: brew install aquasecurity/trivy/trivy (macOS) or similar for your OS"
+    echo -e "${YELLOW}Trivy not installed. Security scan skipped.${NC}"
+    echo "To install Trivy:"
+    echo "  - macOS: brew install aquasecurity/trivy/trivy"
+    echo "  - Linux: see https://aquasecurity.github.io/trivy/latest/getting-started/installation/"
 fi
 
 echo
-echo -e "${GREEN}=== Update Complete ===${NC}"
-echo "The Docker image has been rebuilt with the latest dependencies"
-echo "Recommendations:"
-echo "1. Run tests to ensure everything still works"
-echo "2. Check for any security issues reported above"
-echo "3. If all is well, commit and push your changes"
+echo -e "${GREEN}=== Docker Image Update Complete ===${NC}"
 echo
+echo "The Docker image has been rebuilt with the latest dependencies."
+echo
+echo "Next steps:"
+echo "1. Test the image: docker run --rm -it aprs:latest"
+echo "2. If tests pass, tag and push the image to your registry"
+echo "3. Deploy the updated image to your environment"
+echo
+echo -e "${YELLOW}Remember to update CI workflows if you've changed base image versions${NC}"
 
 # Check if git is available and we're in a git repository
-if command -v git &> /dev/null && git rev-parse --is-inside-work-tree &> /dev/null; then
-    echo "Git changes:"
-    git diff Dockerfile
+if command -v git &> /dev/null && git rev-parse --is-inside-work-tree &> /dev/null 2>&1; then
+    echo
+    echo -e "${GREEN}Git status:${NC}"
+    git status -s
 fi

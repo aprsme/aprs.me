@@ -11,13 +11,12 @@ ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 
 FROM ${BUILDER_IMAGE} AS builder
 
-# install build dependencies with full security updates
+# install build dependencies
 RUN apt-get update -y && \
-    apt-get upgrade -y --security && \
-    apt-get dist-upgrade -y && \
+    apt-get upgrade -y && \
     apt-get install -y build-essential git && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -f /var/lib/apt/lists/*_*
 
 # prepare build dir
 WORKDIR /app
@@ -65,28 +64,16 @@ FROM ${RUNNER_IMAGE}
 # Install security updates and required packages
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && \
-    # Upgrade all packages with focus on security updates
-    apt-get upgrade -y --security && \
-    apt-get dist-upgrade -y && \
-    # Install unattended-upgrades for automatic security updates
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
     libstdc++6 \
     openssl \
     libncurses5 \
     locales \
     ca-certificates \
-    tini \
-    unattended-upgrades \
-    apt-listchanges && \
-    # Configure unattended-upgrades to only install security updates
-    echo 'APT::Periodic::Update-Package-Lists "1";' > /etc/apt/apt.conf.d/20auto-upgrades && \
-    echo 'APT::Periodic::Unattended-Upgrade "1";' >> /etc/apt/apt.conf.d/20auto-upgrades && \
-    echo 'Unattended-Upgrade::Origins-Pattern { "origin=Debian,codename=${distro_codename},label=Debian-Security"; };' > /etc/apt/apt.conf.d/50unattended-upgrades && \
-    echo 'Unattended-Upgrade::Remove-Unused-Dependencies "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades && \
-    # Remove unnecessary packages
-    apt-get autoremove -y && \
+    tini && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
+    rm -f /var/lib/apt/lists/*_* && \
     # Create a non-root user and group with specific ID
     groupadd -g ${GROUP_ID} aprs && \
     useradd -r -g aprs -u ${USER_ID} -s /bin/false -M aprs && \

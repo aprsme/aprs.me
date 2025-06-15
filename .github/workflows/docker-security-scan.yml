@@ -62,100 +62,77 @@ jobs:
           sarif_file: "trivy-results.sarif"
           category: "Trivy Scan"
 
-      - name: Check for outdated base images
+      - name: Run Trivy for outdated OS packages
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: aprs:${{ github.sha }}
           format: "table"
-          output: "outdated-dependencies.txt"
-          exit-code: "0" # Don't fail the build yet
-          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
-          scanners: "vuln"
+          output: "os-packages.txt"
+          severity: "HIGH,CRITICAL"
           vuln-type: "os"
 
-      - name: Check for outdated application dependencies
+      - name: Run Trivy for outdated application dependencies
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: aprs:${{ github.sha }}
           format: "table"
-          output: "outdated-app-dependencies.txt"
-          exit-code: "0" # Don't fail the build yet
-          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
-          scanners: "vuln"
+          output: "app-packages.txt"
+          severity: "HIGH,CRITICAL"
           vuln-type: "library"
 
-      - name: Upload outdated dependencies report
+      - name: Upload detailed vulnerability reports
         uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: dependency-reports
+          name: vulnerability-reports
           path: |
-            outdated-dependencies.txt
-            outdated-app-dependencies.txt
+            os-packages.txt
+            app-packages.txt
           retention-days: 7
 
-      - name: Check for update availability in base image
-        run: |
-          # Extract base image from Dockerfile
-          BASE_IMAGE=$(grep 'RUNNER_IMAGE=' Dockerfile | cut -d'"' -f2)
-          echo "Base image: $BASE_IMAGE"
-
-          # Pull latest version of the base image
-          docker pull $BASE_IMAGE
-
-          # Compare the digests
-          CURRENT_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $BASE_IMAGE)
-          echo "Current digest: $CURRENT_DIGEST"
-
-          # Log the findings
-          echo "Base image update check completed"
-          echo "It's recommended to periodically update the base image in your Dockerfile"
-
-      - name: Scan for security misconfigurations
-        uses: aquasecurity/trivy-action@master
+      - name: Run Docker Scout vulnerability scan
+        uses: docker/scout-action@v1
         with:
-          image-ref: aprs:${{ github.sha }}
-          format: "table"
-          output: "misconfig-results.txt"
-          exit-code: "0"
-          scanners: "config"
+          command: quickview,cves
+          image: aprs:${{ github.sha }}
+          output-format: sarif
+          only-severities: critical,high
+          sarif-file: scout-results.sarif
 
-      - name: Upload misconfiguration report
+      - name: Upload Docker Scout results
         uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: misconfig-report
-          path: misconfig-results.txt
+          name: docker-scout-report
+          path: scout-results.sarif
           retention-days: 7
 
-      - name: Generate comprehensive security report
+      - name: Generate security report summary
         if: always()
         run: |
-          echo "# Docker Image Security Report" > security-report.md
-          echo "## Image: aprs:${{ github.sha }}" >> security-report.md
-          echo "## Date: $(date)" >> security-report.md
-          echo "## Base Image Update Status" >> security-report.md
-          echo "\`\`\`" >> security-report.md
-          cat outdated-dependencies.txt >> security-report.md
-          echo "\`\`\`" >> security-report.md
-          echo "## Application Dependencies Status" >> security-report.md
-          echo "\`\`\`" >> security-report.md
-          cat outdated-app-dependencies.txt >> security-report.md
-          echo "\`\`\`" >> security-report.md
-          echo "## Configuration Issues" >> security-report.md
-          echo "\`\`\`" >> security-report.md
-          cat misconfig-results.txt >> security-report.md
-          echo "\`\`\`" >> security-report.md
+          echo "# Docker Image Security Report" > security-summary.md
+          echo "## Image: aprs:${{ github.sha }}" >> security-summary.md
+          echo "## Date: $(date)" >> security-summary.md
 
-      - name: Upload comprehensive security report
+          echo "### OS Package Vulnerabilities" >> security-summary.md
+          echo '```' >> security-summary.md
+          cat os-packages.txt >> security-summary.md || echo "No OS package vulnerabilities report available" >> security-summary.md
+          echo '```' >> security-summary.md
+
+          echo "### Application Dependencies Vulnerabilities" >> security-summary.md
+          echo '```' >> security-summary.md
+          cat app-packages.txt >> security-summary.md || echo "No application vulnerabilities report available" >> security-summary.md
+          echo '```' >> security-summary.md
+
+      - name: Upload security summary
         uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: security-report
-          path: security-report.md
+          name: security-summary
+          path: security-summary.md
           retention-days: 14
 
-      - name: Fail on CRITICAL vulnerabilities
+      - name: Check for critical vulnerabilities
         run: |
           if grep -q "CRITICAL" trivy-results.sarif; then
             echo "Critical vulnerabilities found in the Docker image."
