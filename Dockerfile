@@ -109,7 +109,8 @@ ENV MIX_ENV="prod" \
     # Add security headers
     SECURITY_HEADERS="true" \
     # Disable debug info in production
-    ERL_AFLAGS="+S 1:1 +A 1 +K true -kernel shell_history enabled -kernel shell_history_file_bytes 0"
+    ERL_AFLAGS="+S 1:1 +A 1 +K true -kernel shell_history enabled -kernel shell_history_file_bytes 0" \
+    PHX_SERVER=true
 
 # Only copy the final release from the build stage
 COPY --from=builder --chown=1000:1000 /app/_build/${MIX_ENV}/rel/aprs ./
@@ -125,7 +126,7 @@ RUN chmod +x /app/bin/server
 # ENTRYPOINT ["/tini", "--"]
 
 # Add specific capabilities needed by the app
-CMD ["sh", "-c", "umask 027 && /app/bin/server"]
+CMD /app/bin/server
 
 # Add security-related metadata
 LABEL org.opencontainers.image.vendor="APRS.me" \
@@ -137,5 +138,5 @@ LABEL org.opencontainers.image.vendor="APRS.me" \
     security.non-root-user="app" \
     security.privileged="false"
 
-# Add security configuration
-EXPOSE 4000
+# Container configuration is handled by Dokku
+EXPOSE $PORT
