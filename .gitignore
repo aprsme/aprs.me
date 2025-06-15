@@ -37,3 +37,6 @@ npm-debug.log
 
 # Ignore Kubernetes secrets file
 k8s/secrets.yaml
+
+/.horusec
+
