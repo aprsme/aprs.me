@@ -78,5 +78,5 @@ LABEL org.opencontainers.image.vendor="APRS.me" \
     security.nonroot="true"
 
 # Run the server
-ENTRYPOINT ["/app/bin/server"]
+ENTRYPOINT ["/app/bin/aprs"]
 EXPOSE $PORT
