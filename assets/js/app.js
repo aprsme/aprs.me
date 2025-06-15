@@ -29,9 +29,33 @@ let Hooks = {};
 Hooks.APRSMap = {
   mounted() {
     console.log("APRSMap hook mounted");
-    // Initialize the map centered on the United States
-    const map = L.map(this.el).setView([39.8283, -98.5795], 5);
+    // Get initial center and zoom from server-provided data attributes
+    const initialCenter = JSON.parse(this.el.dataset.center);
+    const initialZoom = parseInt(this.el.dataset.zoom);
+
+    // Initialize the map with the server-provided location
+    const map = L.map(this.el).setView([initialCenter.lat, initialCenter.lng], initialZoom);
     console.log("Map initialized:", map);
+
+    // Handle geolocation requests from server
+    this.handleEvent("request_geolocation", () => {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            console.log("User location:", latitude, longitude);
+            map.setView([latitude, longitude], 12);
+            // Notify server of new location
+            this.pushEvent("set_location", { lat: latitude, lng: longitude });
+          },
+          (error) => {
+            console.warn("Geolocation error:", error.message);
+          },
+        );
+      } else {
+        console.warn("Geolocation not available in this browser");
+      }
+    });
 
     // Add OpenStreetMap tile layer
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -105,6 +129,24 @@ Hooks.APRSMap = {
     // Listen for clear markers event
     this.handleEvent("clear_markers", () => {
       this.clearAllMarkers();
+    });
+
+    // Handle geolocation button clicks
+    this.handleEvent("request_geolocation", () => {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            // Send location back to server
+            this.pushEvent("set_location", { lat: latitude, lng: longitude });
+          },
+          (error) => {
+            console.warn("Geolocation error:", error.message);
+          },
+        );
+      } else {
+        console.warn("Geolocation not available in this browser");
+      }
     });
 
     // Update bounds when map moves or zooms
