@@ -56,4 +56,48 @@ defmodule AprsWeb.PageController do
       timestamp: DateTime.utc_now()
     })
   end
+
+  def status_json(conn, _params) do
+    # Get APRS-IS connection status
+    aprs_status = Aprs.Is.get_status()
+
+    # Get application version
+    version = :aprs |> Application.spec(:vsn) |> List.to_string()
+
+    # Calculate uptime in a human-readable format
+    uptime_display = format_uptime(aprs_status.uptime_seconds)
+
+    json(conn, %{
+      aprs_is: %{
+        connected: aprs_status.connected,
+        server: aprs_status.server,
+        port: aprs_status.port,
+        connected_at: aprs_status.connected_at,
+        uptime_seconds: aprs_status.uptime_seconds,
+        uptime_display: uptime_display,
+        login_id: aprs_status.login_id,
+        filter: aprs_status.filter
+      },
+      application: %{
+        version: version,
+        timestamp: DateTime.utc_now()
+      }
+    })
+  end
+
+  defp format_uptime(seconds) when seconds <= 0, do: "Not connected"
+
+  defp format_uptime(seconds) do
+    days = div(seconds, 86_400)
+    hours = div(rem(seconds, 86_400), 3600)
+    minutes = div(rem(seconds, 3600), 60)
+    secs = rem(seconds, 60)
+
+    cond do
+      days > 0 -> "#{days}d #{hours}h #{minutes}m #{secs}s"
+      hours > 0 -> "#{hours}h #{minutes}m #{secs}s"
+      minutes > 0 -> "#{minutes}m #{secs}s"
+      true -> "#{secs}s"
+    end
+  end
 end

@@ -26,6 +26,18 @@ defmodule Aprs.Is do
     aprs_user_id = Application.get_env(:aprs, :aprs_is_login_id, "W5ISP")
     aprs_passcode = Application.get_env(:aprs, :aprs_is_password, "-1")
 
+    # Record connection start time
+    connected_at = DateTime.utc_now()
+
+    # Initialize packet statistics
+    packet_stats = %{
+      total_packets: 0,
+      last_packet_at: nil,
+      packets_per_minute: 0,
+      last_minute_count: 0,
+      last_minute_timestamp: System.system_time(:second)
+    }
+
     # Set up ets tables
 
     # with {:ok, :aprs} <- :ets.file2tab(:erlang.binary_to_list("priv/aprs.ets")),
@@ -57,6 +69,8 @@ defmodule Aprs.Is do
          socket: socket,
          timer: timer,
          keepalive_timer: keepalive_timer,
+         connected_at: connected_at,
+         packet_stats: packet_stats,
          login_params: %{
            user_id: aprs_user_id,
            passcode: aprs_passcode,
@@ -75,6 +89,47 @@ defmodule Aprs.Is do
   def stop do
     Logger.info("Stopping Server")
     GenServer.stop(__MODULE__, :stop)
+  end
+
+  def get_status do
+    case Process.whereis(__MODULE__) do
+      nil ->
+        # GenServer is not running (disconnected)
+        server = Application.get_env(:aprs, :aprs_is_server, ~c"rotate.aprs2.net")
+        port = Application.get_env(:aprs, :aprs_is_port, 14_580)
+
+        %{
+          connected: false,
+          server: server_to_string(server),
+          port: port,
+          connected_at: nil,
+          uptime_seconds: 0,
+          login_id: Application.get_env(:aprs, :aprs_is_login_id, "W5ISP"),
+          filter: Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100"),
+          packet_stats: default_packet_stats()
+        }
+
+      _pid ->
+        try do
+          GenServer.call(__MODULE__, :get_status, 5000)
+        catch
+          :exit, _ ->
+            # GenServer exists but not responding
+            server = Application.get_env(:aprs, :aprs_is_server, ~c"rotate.aprs2.net")
+            port = Application.get_env(:aprs, :aprs_is_port, 14_580)
+
+            %{
+              connected: false,
+              server: server_to_string(server),
+              port: port,
+              connected_at: nil,
+              uptime_seconds: 0,
+              login_id: Application.get_env(:aprs, :aprs_is_login_id, "W5ISP"),
+              filter: Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100"),
+              packet_stats: default_packet_stats()
+            }
+        end
+    end
   end
 
   def set_filter(filter_string), do: send_message("#filter #{filter_string}")
@@ -125,6 +180,21 @@ defmodule Aprs.Is do
     {:reply, :ok, state}
   end
 
+  def handle_call(:get_status, _from, state) do
+    status = %{
+      connected: true,
+      server: server_to_string(state.server),
+      port: state.port,
+      connected_at: state.connected_at,
+      uptime_seconds: DateTime.diff(DateTime.utc_now(), state.connected_at),
+      login_id: state.login_params.user_id,
+      filter: state.login_params.filter,
+      packet_stats: state.packet_stats
+    }
+
+    {:reply, status, state}
+  end
+
   @impl true
   def handle_info(:aprs_no_message_timeout, state) do
     Logger.error("Socket timeout detected. Killing genserver.")
@@ -149,6 +219,10 @@ defmodule Aprs.Is do
     # Cancel the previous timer
     Process.cancel_timer(state.timer)
 
+    # Update packet statistics
+    current_time = System.system_time(:second)
+    packet_stats = update_packet_stats(state.packet_stats, current_time)
+
     # Handle the incoming message
     # Task.start(Aprs, :dispatch, [packet])
 
@@ -162,7 +236,7 @@ defmodule Aprs.Is do
 
     # Start a new timer
     timer = Process.send_after(self(), :aprs_no_message_timeout, @aprs_timeout)
-    state = Map.put(state, :timer, timer)
+    state = state |> Map.put(:timer, timer) |> Map.put(:packet_stats, packet_stats)
 
     {:noreply, state}
   end
@@ -277,4 +351,43 @@ defmodule Aprs.Is do
   #   total_spec = [{{:"$1", :_, :"$2"}, [{:andalso, callsign_guard, timestamp_guard}], [true]}]
   #   :ets.select_count(:aprs_messages, total_spec)
   # end
+
+  defp update_packet_stats(stats, current_time) do
+    new_total = stats.total_packets + 1
+
+    # Check if we need to reset the per-minute counter
+    if current_time - stats.last_minute_timestamp >= 60 do
+      %{
+        total_packets: new_total,
+        last_packet_at: DateTime.utc_now(),
+        packets_per_minute: 1,
+        last_minute_count: 1,
+        last_minute_timestamp: current_time
+      }
+    else
+      new_minute_count = stats.last_minute_count + 1
+
+      %{
+        stats
+        | total_packets: new_total,
+          last_packet_at: DateTime.utc_now(),
+          packets_per_minute: new_minute_count,
+          last_minute_count: new_minute_count
+      }
+    end
+  end
+
+  defp server_to_string(server) when is_list(server), do: List.to_string(server)
+  defp server_to_string(server) when is_binary(server), do: server
+  defp server_to_string(server), do: to_string(server)
+
+  defp default_packet_stats do
+    %{
+      total_packets: 0,
+      last_packet_at: nil,
+      packets_per_minute: 0,
+      last_minute_count: 0,
+      last_minute_timestamp: System.system_time(:second)
+    }
+  end
 end
