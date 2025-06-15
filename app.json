@@ -11,13 +11,20 @@
     "web": [
       {
         "type": "startup",
-        "name": "web process check",
-        "description": "Checking web process startup",
+        "name": "web-startup",
         "path": "/ready",
         "attempts": 5,
-        "timeout": 10,
+        "timeout": 30,
         "wait": 5,
-        "initial_delay": 15
+        "initial_delay": 20
+      },
+      {
+        "type": "liveness",
+        "name": "web-liveness",
+        "path": "/health",
+        "attempts": 3,
+        "timeout": 10,
+        "wait": 10
       }
     ]
   },
