@@ -61,9 +61,6 @@ RUN mix release
 # the compiled release and other runtime necessities
 FROM ${RUNNER_IMAGE}
 
-# Add non-root user
-RUN groupadd -r app && useradd -r -g app -s /usr/sbin/nologin -c "Docker image user" app
-
 # Install security updates and required packages
 RUN apt-get update -y && \
     apt-get upgrade -y && \
@@ -76,11 +73,11 @@ RUN apt-get update -y && \
     tini && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
+    # Create a non-root user and group
+    groupadd -r aprs && \
+    useradd -r -g aprs -s /bin/false -M aprs && \
     # Remove setuid and setgid permissions
-    find / -perm /6000 -type f -exec chmod a-s {} \; || true
-# Create a non-root user and group
-groupadd -g ${GROUP_ID} aprs && \
-    useradd -u ${USER_ID} -g aprs -s /bin/false -M aprs && \
+    find / -perm /6000 -type f -exec chmod a-s {} \; || true && \
     # Secure system configurations
     chmod 0600 /etc/login.defs && \
     chmod 0600 /etc/passwd && \
@@ -138,8 +135,6 @@ LABEL org.opencontainers.image.vendor="APRS.me" \
 
 # Add security configuration
 EXPOSE 4000
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:4000/ || exit 1
 
 # Security scan stage
 FROM aquasec/trivy:latest AS trivy
