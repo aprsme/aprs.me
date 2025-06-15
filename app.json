@@ -1,0 +1,23 @@
+{
+  "name": "aprs.me",
+  "description": "APRS web service",
+  "scripts": {
+    "dokku": {
+      "predeploy": "",
+      "postdeploy": ""
+    }
+  },
+  "checks": {
+    "web": [
+      {
+        "type": "http",
+        "name": "web-health",
+        "path": "/health",
+        "attempts": 3,
+        "timeout": 5,
+        "wait": 10,
+        "initial_delay": 10
+      }
+    ]
+  }
+}

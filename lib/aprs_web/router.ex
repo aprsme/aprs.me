@@ -18,6 +18,11 @@ defmodule AprsWeb.Router do
   end
 
   scope "/", AprsWeb do
+    pipe_through :api
+    get "/health", PageController, :health
+  end
+
+  scope "/", AprsWeb do
     pipe_through :browser
 
     live "/", MapLive.Index, :index
