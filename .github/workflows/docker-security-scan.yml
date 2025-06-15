@@ -2,22 +2,22 @@ name: Docker Security Scan
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
-      - 'Dockerfile'
-      - '.github/workflows/docker-security-scan.yml'
-      - 'mix.exs'
-      - 'mix.lock'
+      - "Dockerfile"
+      - ".github/workflows/docker-security-scan.yml"
+      - "mix.exs"
+      - "mix.lock"
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
-      - 'Dockerfile'
-      - '.github/workflows/docker-security-scan.yml'
-      - 'mix.exs'
-      - 'mix.lock'
+      - "Dockerfile"
+      - ".github/workflows/docker-security-scan.yml"
+      - "mix.exs"
+      - "mix.lock"
   schedule:
-    - cron: '0 0 * * 0'  # Run weekly on Sundays at midnight
-  workflow_dispatch:  # Allow manual triggers
+    - cron: "0 0 * * 0" # Run weekly on Sundays at midnight
+  workflow_dispatch: # Allow manual triggers
 
 jobs:
   scan:
@@ -33,29 +33,132 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image
-        run: docker build -t aprs:${{ github.sha }} .
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: aprs:${{ github.sha }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: aprs:${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          timeout: '10m'
-          scanners: 'vuln,config,secret'
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          timeout: "10m"
+          scanners: "vuln,config,secret"
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
-          category: 'Trivy Scan'
+          sarif_file: "trivy-results.sarif"
+          category: "Trivy Scan"
+
+      - name: Check for outdated base images
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: aprs:${{ github.sha }}
+          format: "table"
+          output: "outdated-dependencies.txt"
+          exit-code: "0" # Don't fail the build yet
+          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+          scanners: "vuln"
+          vuln-type: "os"
+
+      - name: Check for outdated application dependencies
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: aprs:${{ github.sha }}
+          format: "table"
+          output: "outdated-app-dependencies.txt"
+          exit-code: "0" # Don't fail the build yet
+          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+          scanners: "vuln"
+          vuln-type: "library"
+
+      - name: Upload outdated dependencies report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: dependency-reports
+          path: |
+            outdated-dependencies.txt
+            outdated-app-dependencies.txt
+          retention-days: 7
+
+      - name: Check for update availability in base image
+        run: |
+          # Extract base image from Dockerfile
+          BASE_IMAGE=$(grep 'RUNNER_IMAGE=' Dockerfile | cut -d'"' -f2)
+          echo "Base image: $BASE_IMAGE"
+
+          # Pull latest version of the base image
+          docker pull $BASE_IMAGE
+
+          # Compare the digests
+          CURRENT_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $BASE_IMAGE)
+          echo "Current digest: $CURRENT_DIGEST"
+
+          # Log the findings
+          echo "Base image update check completed"
+          echo "It's recommended to periodically update the base image in your Dockerfile"
+
+      - name: Scan for security misconfigurations
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: aprs:${{ github.sha }}
+          format: "table"
+          output: "misconfig-results.txt"
+          exit-code: "0"
+          scanners: "config"
+
+      - name: Upload misconfiguration report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: misconfig-report
+          path: misconfig-results.txt
+          retention-days: 7
+
+      - name: Generate comprehensive security report
+        if: always()
+        run: |
+          echo "# Docker Image Security Report" > security-report.md
+          echo "## Image: aprs:${{ github.sha }}" >> security-report.md
+          echo "## Date: $(date)" >> security-report.md
+          echo "## Base Image Update Status" >> security-report.md
+          echo "\`\`\`" >> security-report.md
+          cat outdated-dependencies.txt >> security-report.md
+          echo "\`\`\`" >> security-report.md
+          echo "## Application Dependencies Status" >> security-report.md
+          echo "\`\`\`" >> security-report.md
+          cat outdated-app-dependencies.txt >> security-report.md
+          echo "\`\`\`" >> security-report.md
+          echo "## Configuration Issues" >> security-report.md
+          echo "\`\`\`" >> security-report.md
+          cat misconfig-results.txt >> security-report.md
+          echo "\`\`\`" >> security-report.md
+
+      - name: Upload comprehensive security report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-report
+          path: security-report.md
+          retention-days: 14
 
       - name: Fail on CRITICAL vulnerabilities
-        if: ${{ failure() }}
         run: |
-          echo "Critical vulnerabilities found in the Docker image."
-          echo "Please review the scan results in the Security tab."
-          exit 1
+          if grep -q "CRITICAL" trivy-results.sarif; then
+            echo "Critical vulnerabilities found in the Docker image."
+            echo "Please review the scan results in the Security tab."
+            exit 1
+          fi

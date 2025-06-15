@@ -11,9 +11,10 @@ ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 
 FROM ${BUILDER_IMAGE} AS builder
 
-# install build dependencies
+# install build dependencies with full security updates
 RUN apt-get update -y && \
-    apt-get upgrade -y && \
+    apt-get upgrade -y --security && \
+    apt-get dist-upgrade -y && \
     apt-get install -y build-essential git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -64,19 +65,31 @@ FROM ${RUNNER_IMAGE}
 # Install security updates and required packages
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && \
-    apt-get upgrade -y && \
+    # Upgrade all packages with focus on security updates
+    apt-get upgrade -y --security && \
+    apt-get dist-upgrade -y && \
+    # Install unattended-upgrades for automatic security updates
     apt-get install -y --no-install-recommends \
     libstdc++6 \
     openssl \
     libncurses5 \
     locales \
     ca-certificates \
-    tini && \
+    tini \
+    unattended-upgrades \
+    apt-listchanges && \
+    # Configure unattended-upgrades to only install security updates
+    echo 'APT::Periodic::Update-Package-Lists "1";' > /etc/apt/apt.conf.d/20auto-upgrades && \
+    echo 'APT::Periodic::Unattended-Upgrade "1";' >> /etc/apt/apt.conf.d/20auto-upgrades && \
+    echo 'Unattended-Upgrade::Origins-Pattern { "origin=Debian,codename=${distro_codename},label=Debian-Security"; };' > /etc/apt/apt.conf.d/50unattended-upgrades && \
+    echo 'Unattended-Upgrade::Remove-Unused-Dependencies "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades && \
+    # Remove unnecessary packages
+    apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     # Create a non-root user and group with specific ID
-    groupadd -g 1000 aprs && \
-    useradd -r -g aprs -u 1000 -s /bin/false -M aprs && \
+    groupadd -g ${GROUP_ID} aprs && \
+    useradd -r -g aprs -u ${USER_ID} -s /bin/false -M aprs && \
     # Remove setuid and setgid permissions
     find / -perm /6000 -type f -exec chmod a-s {} \; || true && \
     # Secure system configurations
@@ -113,20 +126,18 @@ ENV MIX_ENV="prod" \
     PHX_SERVER=true
 
 # Only copy the final release from the build stage
-COPY --from=builder --chown=1000:1000 /app/_build/${MIX_ENV}/rel/aprs ./
+COPY --from=builder --chown=${USER_ID}:${GROUP_ID} /app/_build/${MIX_ENV}/rel/aprs ./
 
-USER 1000
+USER ${USER_ID}
 
 # Ensure the server binary is executable
 RUN chmod +x /app/bin/server
 
-# If using an environment that doesn't automatically reap zombie processes, it is
-# advised to add an init process such as tini via `apt-get install`
-# above and adding an entrypoint. See https://github.com/krallin/tini for details
-# ENTRYPOINT ["/tini", "--"]
+# Use tini as init process to handle signals and zombie processes
+ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Add specific capabilities needed by the app
-CMD /app/bin/server
+CMD ["/app/bin/server"]
 
 # Add security-related metadata
 LABEL org.opencontainers.image.vendor="APRS.me" \
