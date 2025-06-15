@@ -74,8 +74,8 @@ RUN apt-get update -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     # Create a non-root user and group with specific ID
-    groupadd -g 65534 aprs && \
-    useradd -r -g aprs -u 65534 -s /bin/false -M aprs && \
+    groupadd -g 1000 aprs && \
+    useradd -r -g aprs -u 1000 -s /bin/false -M aprs && \
     # Remove setuid and setgid permissions
     find / -perm /6000 -type f -exec chmod a-s {} \; || true && \
     # Secure system configurations
@@ -111,9 +111,9 @@ ENV MIX_ENV="prod" \
     ERL_AFLAGS="+S 1:1 +A 1 +K true -kernel shell_history enabled -kernel shell_history_file_bytes 0"
 
 # Only copy the final release from the build stage
-COPY --from=builder --chown=aprs:aprs /app/_build/${MIX_ENV}/rel/aprs ./
+COPY --from=builder --chown=1000:1000 /app/_build/${MIX_ENV}/rel/aprs ./
 
-USER aprs
+USER 1000
 
 # Ensure the server binary is executable
 RUN chmod +x /app/bin/server
