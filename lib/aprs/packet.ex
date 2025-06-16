@@ -270,8 +270,7 @@ defmodule Aprs.Packet do
     %{}
     |> maybe_put(:comment, mic_e.message)
     |> maybe_put(:manufacturer, mic_e.manufacturer)
-    |> maybe_put(:equipment_type, mic_e.equipment_type)
-    |> maybe_put(:course, mic_e.course)
+    |> maybe_put(:course, mic_e.heading)
     |> maybe_put(:speed, mic_e.speed)
     # Default car symbol for MicE
     |> maybe_put(:symbol_code, ">")
@@ -284,7 +283,6 @@ defmodule Aprs.Packet do
     %{}
     |> maybe_put(:comment, mic_e_map[:message])
     |> maybe_put(:manufacturer, mic_e_map[:manufacturer])
-    |> maybe_put(:equipment_type, mic_e_map[:equipment_type])
     |> maybe_put(:course, mic_e_map[:heading])
     |> maybe_put(:speed, mic_e_map[:speed])
     # Default car symbol for MicE
