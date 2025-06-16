@@ -13,6 +13,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   def mount(%{"callsign" => callsign}, _session, socket) do
     # Normalize callsign to uppercase
     normalized_callsign = String.upcase(callsign)
+    IO.puts("CallsignView: Mounting for callsign #{normalized_callsign}")
 
     # Calculate one hour ago for packet age filtering
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
@@ -33,6 +34,8 @@ defmodule AprsWeb.MapLive.CallsignView do
         },
         map_center: @default_center,
         map_zoom: @default_zoom,
+        default_center: @default_center,
+        default_zoom: @default_zoom,
         # Replay controls
         replay_active: false,
         replay_speed: @default_replay_speed,
@@ -57,10 +60,12 @@ defmodule AprsWeb.MapLive.CallsignView do
       )
 
     if connected?(socket) do
+      IO.puts("CallsignView: Socket connected, subscribing to messages")
       Endpoint.subscribe("aprs_messages")
 
       # Load recent packets for this callsign
       socket = load_callsign_packets(socket, normalized_callsign)
+      IO.puts("CallsignView: Loaded packets, map_center: #{inspect(socket.assigns.map_center)}")
 
       # Schedule regular cleanup of old packets from the map
       Process.send_after(self(), :cleanup_old_packets, 60_000)
@@ -69,6 +74,7 @@ defmodule AprsWeb.MapLive.CallsignView do
 
       {:ok, socket}
     else
+      IO.puts("CallsignView: Socket not connected")
       {:ok, socket}
     end
   end
@@ -137,13 +143,16 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   def handle_event("map_ready", _params, socket) do
+    IO.puts("CallsignView: Map ready event received")
     socket = assign(socket, map_ready: true)
 
     # Auto-start replay if it hasn't been started yet
     socket =
       if socket.assigns.replay_started do
+        IO.puts("CallsignView: Replay already started")
         socket
       else
+        IO.puts("CallsignView: Starting historical replay")
         socket = start_historical_replay(socket)
         assign(socket, replay_started: true, replay_active: true)
       end
@@ -152,13 +161,16 @@ defmodule AprsWeb.MapLive.CallsignView do
     socket =
       if socket.assigns.pending_geolocation do
         location = socket.assigns.pending_geolocation
+        IO.puts("CallsignView: Zooming to pending geolocation: #{inspect(location)}")
         push_event(socket, "zoom_to_location", %{lat: location.lat, lng: location.lng, zoom: 12})
       else
         # If we have a last known position, zoom to it
         if socket.assigns.last_known_position do
           pos = socket.assigns.last_known_position
+          IO.puts("CallsignView: Zooming to last known position: #{inspect(pos)}")
           push_event(socket, "zoom_to_location", %{lat: pos.lat, lng: pos.lng, zoom: 12})
         else
+          IO.puts("CallsignView: No position data to zoom to")
           socket
         end
       end
@@ -367,14 +379,29 @@ defmodule AprsWeb.MapLive.CallsignView do
 
     <style>
       #aprs-map {
-        position: absolute;
+        position: fixed;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        width: 100%;
+        width: 100vw;
         height: 100vh;
         z-index: 1;
+      }
+
+      /* Ensure the map container has a defined height */
+      .phx-main {
+        position: relative;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* Fix for potential layout issues */
+      body, html {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
       }
 
       .callsign-header {
@@ -607,8 +634,8 @@ defmodule AprsWeb.MapLive.CallsignView do
     <div
       id="aprs-map"
       phx-hook="APRSMap"
-      data-center={Jason.encode!(@map_center)}
-      data-zoom={@map_zoom}
+      data-center={Jason.encode!(@map_center || @default_center)}
+      data-zoom={@map_zoom || @default_zoom}
     >
     </div>
     """
@@ -813,6 +840,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   defp load_callsign_packets(socket, callsign) do
     # Load recent packets (last hour) for this specific callsign
     recent_packets = Packets.get_recent_packets(%{callsign: callsign})
+    IO.puts("CallsignView: Found #{length(recent_packets)} recent packets for #{callsign}")
 
     # Find the most recent packet with position data for auto-zoom
     last_known_position =
@@ -822,11 +850,20 @@ defmodule AprsWeb.MapLive.CallsignView do
       |> List.first()
       |> case do
         nil ->
+          IO.puts("CallsignView: No packets with position data found")
           nil
 
         packet ->
           {lat, lng} = get_coordinates(packet)
-          if lat && lng, do: %{lat: lat, lng: lng}
+
+          if lat && lng do
+            position = %{lat: lat, lng: lng}
+            IO.puts("CallsignView: Last known position: #{inspect(position)}")
+            position
+          else
+            IO.puts("CallsignView: Could not extract coordinates from packet")
+            nil
+          end
       end
 
     # Convert packets to client-friendly format and send to map
@@ -837,11 +874,15 @@ defmodule AprsWeb.MapLive.CallsignView do
       |> Stream.filter(&(&1 != nil))
       |> Enum.to_list()
 
+    IO.puts("CallsignView: Converted #{length(packet_data_list)} packets to marker data")
+
     # Send packets to map if any exist
     socket =
       if length(packet_data_list) > 0 do
+        IO.puts("CallsignView: Sending markers to map")
         push_event(socket, "add_markers", %{markers: packet_data_list})
       else
+        IO.puts("CallsignView: No markers to send to map")
         socket
       end
 

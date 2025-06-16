@@ -4,39 +4,165 @@
 let MinimalAPRSMap = {
   mounted() {
     console.log("MinimalAPRSMap hook mounted");
+    console.log("Element:", this.el);
+    console.log("Element dataset:", this.el.dataset);
+
+    // Initialize error tracking
+    this.errors = [];
+    this.initializationAttempts = 0;
+    this.maxInitializationAttempts = 3;
+
+    this.attemptInitialization();
+  },
+
+  attemptInitialization() {
+    this.initializationAttempts++;
+    console.log(
+      `Initialization attempt ${this.initializationAttempts}/${this.maxInitializationAttempts}`,
+    );
+
+    // Check if Leaflet is available
+    if (typeof L === "undefined") {
+      console.error("Leaflet library not loaded!");
+      this.errors.push("Leaflet library not available");
+
+      if (this.initializationAttempts < this.maxInitializationAttempts) {
+        console.log("Retrying initialization in 1 second...");
+        setTimeout(() => this.attemptInitialization(), 1000);
+        return;
+      } else {
+        this.handleFatalError("Leaflet library failed to load after multiple attempts");
+        return;
+      }
+    }
 
     // Get initial center and zoom from server-provided data attributes
-    const initialCenter = JSON.parse(this.el.dataset.center);
-    const initialZoom = parseInt(this.el.dataset.zoom);
+    let initialCenter, initialZoom;
+    try {
+      const centerData = this.el.dataset.center;
+      const zoomData = this.el.dataset.zoom;
 
+      if (!centerData || !zoomData) {
+        throw new Error("Missing map data attributes");
+      }
+
+      initialCenter = JSON.parse(centerData);
+      initialZoom = parseInt(zoomData);
+
+      // Validate parsed data
+      if (
+        !initialCenter ||
+        typeof initialCenter.lat !== "number" ||
+        typeof initialCenter.lng !== "number"
+      ) {
+        throw new Error("Invalid center data");
+      }
+
+      if (isNaN(initialZoom) || initialZoom < 1 || initialZoom > 20) {
+        throw new Error("Invalid zoom data");
+      }
+
+      console.log("Parsed data - center:", initialCenter, "zoom:", initialZoom);
+    } catch (error) {
+      console.error("Error parsing map data attributes:", error);
+      console.log("Raw center data:", this.el.dataset.center);
+      console.log("Raw zoom data:", this.el.dataset.zoom);
+
+      // Fallback values
+      initialCenter = { lat: 39.8283, lng: -98.5795 };
+      initialZoom = 5;
+      console.log("Using fallback values:", initialCenter, initialZoom);
+    }
+
+    this.initializeMap(initialCenter, initialZoom);
+  },
+
+  initializeMap(initialCenter, initialZoom) {
     console.log("Initializing minimal map with center:", initialCenter, "and zoom:", initialZoom);
 
+    // Check element dimensions
+    const rect = this.el.getBoundingClientRect();
+    console.log("Map element dimensions:", rect);
+
+    // Validate element has dimensions
+    if (rect.width === 0 || rect.height === 0) {
+      console.warn("Map element has no dimensions, retrying...");
+      this.errors.push("Map element has zero dimensions");
+
+      if (this.initializationAttempts < this.maxInitializationAttempts) {
+        setTimeout(() => this.attemptInitialization(), 500);
+        return;
+      } else {
+        this.handleFatalError("Map element never gained proper dimensions");
+        return;
+      }
+    }
+
     // Initialize basic map
-    this.map = L.map(this.el, {
-      zoomControl: true,
-      attributionControl: true,
-      closePopupOnClick: true,
-    }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
+    try {
+      this.map = L.map(this.el, {
+        zoomControl: true,
+        attributionControl: true,
+        closePopupOnClick: true,
+      }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
+      console.log("Map initialized successfully");
+    } catch (error) {
+      console.error("Error initializing map:", error);
+      this.errors.push("Map initialization failed: " + error.message);
+
+      if (this.initializationAttempts < this.maxInitializationAttempts) {
+        setTimeout(() => this.attemptInitialization(), 1000);
+        return;
+      } else {
+        this.handleFatalError("Map initialization failed after multiple attempts");
+        return;
+      }
+    }
 
     // Add OpenStreetMap tile layer
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
-      maxZoom: 19,
-    }).addTo(this.map);
+    try {
+      const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
+        maxZoom: 19,
+      });
+      tileLayer.addTo(this.map);
+      console.log("Tile layer added successfully");
+
+      // Listen for tile layer events
+      tileLayer.on("loading", () => console.log("Tiles loading..."));
+      tileLayer.on("load", () => console.log("Tiles loaded"));
+      tileLayer.on("tileerror", (e) => console.error("Tile error:", e));
+    } catch (error) {
+      console.error("Error adding tile layer:", error);
+      this.errors.push("Tile layer failed: " + error.message);
+    }
 
     // Store markers for management
     this.markers = new Map();
     this.markerLayer = L.layerGroup().addTo(this.map);
 
     // Force initial size calculation
-    this.map.invalidateSize();
+    try {
+      this.map.invalidateSize();
+      console.log("Map size invalidated");
+    } catch (error) {
+      console.error("Error invalidating map size:", error);
+    }
 
     // Track when map is ready
     this.map.whenReady(() => {
       console.log("Minimal map is ready");
-      this.pushEvent("map_ready", {});
-      this.sendBoundsToServer();
+      console.log("Map container size:", this.map.getSize());
+      console.log("Map zoom:", this.map.getZoom());
+      console.log("Map center:", this.map.getCenter());
+
+      try {
+        this.pushEvent("map_ready", {});
+        this.sendBoundsToServer();
+      } catch (error) {
+        console.error("Error in map ready callback:", error);
+      }
     });
 
     // Send bounds to LiveView when map moves
@@ -48,12 +174,65 @@ let MinimalAPRSMap = {
     });
 
     // Handle resize
-    window.addEventListener("resize", () => {
-      this.map.invalidateSize();
-    });
+    this.resizeHandler = () => {
+      console.log("Window resized, invalidating map size");
+      try {
+        if (this.map) {
+          this.map.invalidateSize();
+        }
+      } catch (error) {
+        console.error("Error invalidating map size on resize:", error);
+      }
+    };
+    window.addEventListener("resize", this.resizeHandler);
+
+    // Add a delayed size check
+    setTimeout(() => {
+      console.log("Delayed map size check");
+      const rect = this.el.getBoundingClientRect();
+      console.log("Map element dimensions after delay:", rect);
+      if (this.map) {
+        try {
+          this.map.invalidateSize();
+          console.log("Map size re-invalidated after delay");
+        } catch (error) {
+          console.error("Error re-invalidating map size:", error);
+        }
+      }
+    }, 1000);
 
     // LiveView event handlers
     this.setupLiveViewHandlers();
+  },
+
+  handleFatalError(message) {
+    console.error("Fatal map error:", message);
+    console.error("All errors:", this.errors);
+
+    // Display error message to user
+    if (this.el) {
+      this.el.innerHTML = `
+        <div style="
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100%;
+          background: #f8f9fa;
+          color: #721c24;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          text-align: center;
+          padding: 20px;
+        ">
+          <div>
+            <h3 style="margin: 0 0 10px 0;">Map Loading Error</h3>
+            <p style="margin: 0; font-size: 14px;">${message}</p>
+            <p style="margin: 10px 0 0 0; font-size: 12px; color: #856404;">
+              Please refresh the page or check the browser console for details.
+            </p>
+          </div>
+        </div>
+      `;
+    }
   },
 
   setupLiveViewHandlers() {
@@ -344,6 +523,11 @@ let MinimalAPRSMap = {
     // Clean up timers
     if (this.boundsTimer) {
       clearTimeout(this.boundsTimer);
+    }
+
+    // Clean up event listeners
+    if (this.resizeHandler) {
+      window.removeEventListener("resize", this.resizeHandler);
     }
 
     // Clean up markers
