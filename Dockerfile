@@ -146,4 +146,5 @@ LABEL org.opencontainers.image.vendor="APRS.me" \
     security.privileged="false"
 
 # Container configuration is handled by Dokku
-EXPOSE $PORT
+# Port is set dynamically by Dokku via PORT environment variable
+EXPOSE 5000
