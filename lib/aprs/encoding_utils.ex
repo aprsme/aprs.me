@@ -45,6 +45,12 @@ defmodule Aprs.EncodingUtils do
     }
   end
 
+  def sanitize_packet(packet) when is_map(packet) do
+    packet
+    |> Map.update(:information_field, nil, &sanitize_string/1)
+    |> Map.update(:data_extended, nil, &sanitize_data_extended/1)
+  end
+
   @doc """
   Sanitizes string fields in the data_extended structure.
   """
@@ -56,6 +62,19 @@ defmodule Aprs.EncodingUtils do
 
   def sanitize_data_extended(%Parser.Types.MicE{message: message} = mic_e) do
     %{mic_e | message: sanitize_string(message)}
+  end
+
+  def sanitize_data_extended(data_extended) when is_map(data_extended) do
+    # Handle generic maps by sanitizing all string values
+    Enum.reduce(data_extended, %{}, fn {key, value}, acc ->
+      sanitized_value =
+        case value do
+          val when is_binary(val) -> sanitize_string(val)
+          val -> val
+        end
+
+      Map.put(acc, key, sanitized_value)
+    end)
   end
 
   def sanitize_data_extended(data_extended), do: data_extended
