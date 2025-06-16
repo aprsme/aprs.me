@@ -48,6 +48,16 @@ defmodule Parser.Types.MicE do
     Map.fetch(mic_e, key)
   end
 
+  # Handle string keys by converting to atom and trying again
+  def fetch(mic_e, key) when is_binary(key) do
+    atom_key = String.to_existing_atom(key)
+    fetch(mic_e, atom_key)
+  rescue
+    ArgumentError ->
+      # If the atom doesn't exist, return :error
+      :error
+  end
+
   @doc """
   Gets a value and updates it with the given function.
   """
@@ -62,6 +72,16 @@ defmodule Parser.Types.MicE do
           lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
           if mic_e.lon_direction == :west, do: -lon, else: lon
 
+        key when is_binary(key) ->
+          # Handle string keys by converting to atom if it exists
+          try do
+            atom_key = String.to_existing_atom(key)
+            Map.get(mic_e, atom_key)
+          rescue
+            ArgumentError ->
+              nil
+          end
+
         _ ->
           Map.get(mic_e, key)
       end
@@ -75,7 +95,17 @@ defmodule Parser.Types.MicE do
   @doc """
   Removes the given key from the struct with the default implementation.
   """
-  def pop(mic_e, key) do
+  def pop(mic_e, key) when is_atom(key) do
     {Map.get(mic_e, key), Map.put(mic_e, key, nil)}
+  end
+
+  # Handle string keys by converting to atom if it exists
+  def pop(mic_e, key) when is_binary(key) do
+    atom_key = String.to_existing_atom(key)
+    {Map.get(mic_e, atom_key), Map.put(mic_e, atom_key, nil)}
+  rescue
+    ArgumentError ->
+      # If the atom doesn't exist, return nil and unchanged struct
+      {nil, mic_e}
   end
 end

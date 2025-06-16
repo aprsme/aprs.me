@@ -14,7 +14,8 @@ config :aprs, Aprs.Repo,
   database: "aprs_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
-  pool_size: 10
+  pool_size: 10,
+  types: Aprs.PostgresTypes
 
 config :aprs, AprsWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
