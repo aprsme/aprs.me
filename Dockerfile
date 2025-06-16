@@ -122,10 +122,14 @@ ENV MIX_ENV="prod" \
 # Only copy the final release from the build stage
 COPY --from=builder --chown=1000:1000 /app/_build/${MIX_ENV}/rel/aprs ./
 
+# Copy the debug startup script
+COPY --chown=1000:1000 start_server.sh ./
+
 USER 1000
 
-# Ensure the server binary is executable
-RUN chmod +x /app/bin/server
+# Ensure the server binary and startup script are executable
+RUN chmod +x /app/bin/server && \
+    chmod +x /app/start_server.sh
 
 # If using an environment that doesn't automatically reap zombie processes, it is
 # advised to add an init process such as tini via `apt-get install`
@@ -133,7 +137,7 @@ RUN chmod +x /app/bin/server
 # ENTRYPOINT ["/tini", "--"]
 
 # Add specific capabilities needed by the app
-CMD /app/bin/server
+CMD ["/app/start_server.sh"]
 
 # Add security-related metadata
 LABEL org.opencontainers.image.vendor="APRS.me" \
