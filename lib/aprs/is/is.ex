@@ -2,6 +2,8 @@ defmodule Aprs.Is do
   @moduledoc false
   use GenServer
 
+  alias Parser.Types.MicE
+
   require Logger
 
   @aprs_timeout 60 * 1000
@@ -312,9 +314,23 @@ defmodule Aprs.Is do
                   # Packet stored successfully
                   :ok
 
-                {:error, changeset} ->
+                {:error, :storage_exception} ->
+                  Logger.error("Storage exception while storing packet from #{inspect(parsed_message.sender)}")
+
+                  # Log the problematic attributes for debugging
+                  Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
+
+                {:error, changeset} when is_map(changeset) and is_map_key(changeset, :errors) ->
                   Logger.error(
                     "Failed to store packet from #{inspect(parsed_message.sender)}: #{inspect(changeset.errors)}"
+                  )
+
+                  # Log the problematic attributes for debugging
+                  Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
+
+                {:error, other_error} ->
+                  Logger.error(
+                    "Unknown error storing packet from #{inspect(parsed_message.sender)}: #{inspect(other_error)}"
                   )
 
                   # Log the problematic attributes for debugging
@@ -375,7 +391,7 @@ defmodule Aprs.Is do
 
           valid
 
-        %{data_extended: %Parser.Types.MicE{} = mic_e} ->
+        %{data_extended: %MicE{} = mic_e} ->
           # MicE packets have lat/lon in separate components
           valid =
             is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
