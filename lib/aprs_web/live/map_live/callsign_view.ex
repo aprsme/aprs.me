@@ -69,8 +69,8 @@ defmodule AprsWeb.MapLive.CallsignView do
 
       # Schedule regular cleanup of old packets from the map
       Process.send_after(self(), :cleanup_old_packets, 60_000)
-      # Auto-start replay after a short delay
-      Process.send_after(self(), :auto_start_replay, 2000)
+      # Auto-start replay after a short delay - TEMPORARILY DISABLED FOR DEBUGGING
+      # Process.send_after(self(), :auto_start_replay, 2000)
 
       {:ok, socket}
     else
@@ -146,29 +146,32 @@ defmodule AprsWeb.MapLive.CallsignView do
     IO.puts("CallsignView: Map ready event received")
     socket = assign(socket, map_ready: true)
 
-    # Auto-start replay if it hasn't been started yet
+    # Auto-start replay if it hasn't been started yet - TEMPORARILY DISABLED FOR DEBUGGING
     socket =
       if socket.assigns.replay_started do
         IO.puts("CallsignView: Replay already started")
         socket
       else
-        IO.puts("CallsignView: Starting historical replay")
-        socket = start_historical_replay(socket)
-        assign(socket, replay_started: true, replay_active: true)
+        IO.puts("CallsignView: Skipping replay start for debugging")
+        # socket = start_historical_replay(socket)
+        # assign(socket, replay_started: true, replay_active: true)
+        socket
       end
 
-    # If we have a pending geolocation, zoom to it now
+    # If we have a pending geolocation, zoom to it after a delay
     socket =
       if socket.assigns.pending_geolocation do
         location = socket.assigns.pending_geolocation
-        IO.puts("CallsignView: Zooming to pending geolocation: #{inspect(location)}")
-        push_event(socket, "zoom_to_location", %{lat: location.lat, lng: location.lng, zoom: 12})
+        IO.puts("CallsignView: Scheduling zoom to pending geolocation: #{inspect(location)}")
+        Process.send_after(self(), {:zoom_to_location, location.lat, location.lng, 12}, 1500)
+        socket
       else
-        # If we have a last known position, zoom to it
+        # If we have a last known position, zoom to it after a delay
         if socket.assigns.last_known_position do
           pos = socket.assigns.last_known_position
-          IO.puts("CallsignView: Zooming to last known position: #{inspect(pos)}")
-          push_event(socket, "zoom_to_location", %{lat: pos.lat, lng: pos.lng, zoom: 12})
+          IO.puts("CallsignView: Scheduling zoom to last known position: #{inspect(pos)}")
+          Process.send_after(self(), {:zoom_to_location, pos.lat, pos.lng, 12}, 1500)
+          socket
         else
           IO.puts("CallsignView: No position data to zoom to")
           socket
@@ -200,6 +203,12 @@ defmodule AprsWeb.MapLive.CallsignView do
       {float_val, _} -> float_val
       :error -> raise ArgumentError, "Invalid float string: #{value}"
     end
+  end
+
+  def handle_info({:zoom_to_location, lat, lng, zoom}, socket) do
+    IO.puts("CallsignView: Executing delayed zoom to #{lat}, #{lng} at zoom #{zoom}")
+    socket = push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: zoom})
+    {:noreply, socket}
   end
 
   def handle_info(msg, socket) do
@@ -379,14 +388,18 @@ defmodule AprsWeb.MapLive.CallsignView do
 
     <style>
       #aprs-map {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: 1;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 1 !important;
+        min-width: 100vw !important;
+        min-height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
       }
 
       /* Ensure the map container has a defined height */

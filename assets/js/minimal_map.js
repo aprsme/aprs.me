@@ -265,15 +265,68 @@ let MinimalAPRSMap = {
 
     // Zoom to location
     this.handleEvent("zoom_to_location", (data) => {
+      console.log("Zoom to location event received:", data);
+
+      if (!this.map) {
+        console.error("Map not initialized, cannot zoom");
+        return;
+      }
+
       if (data.lat && data.lng) {
         const lat = parseFloat(data.lat);
         const lng = parseFloat(data.lng);
         const zoom = parseInt(data.zoom || 12);
 
-        this.map.setView([lat, lng], zoom, {
-          animate: true,
-          duration: 1,
-        });
+        // Validate coordinates
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          console.error("Invalid coordinates for zoom:", lat, lng);
+          return;
+        }
+
+        if (isNaN(zoom) || zoom < 1 || zoom > 20) {
+          console.error("Invalid zoom level:", zoom);
+          return;
+        }
+
+        console.log("Zooming map to:", lat, lng, "at zoom level:", zoom);
+
+        try {
+          // Check element dimensions before zoom
+          const beforeRect = this.el.getBoundingClientRect();
+          console.log("Element dimensions before zoom:", beforeRect);
+
+          // Force map size recalculation before zoom
+          this.map.invalidateSize();
+
+          // Use a slight delay to ensure map is ready
+          setTimeout(() => {
+            if (this.map) {
+              this.map.setView([lat, lng], zoom, {
+                animate: true,
+                duration: 1,
+              });
+              console.log("Zoom completed successfully");
+
+              // Check element dimensions after zoom
+              setTimeout(() => {
+                const afterRect = this.el.getBoundingClientRect();
+                console.log("Element dimensions after zoom:", afterRect);
+
+                if (afterRect.width === 0 || afterRect.height === 0) {
+                  console.error("Map element lost dimensions after zoom!");
+                  // Try to restore dimensions
+                  this.el.style.width = "100vw";
+                  this.el.style.height = "100vh";
+                  this.map.invalidateSize();
+                }
+              }, 1000);
+            }
+          }, 100);
+        } catch (error) {
+          console.error("Error during zoom operation:", error);
+        }
+      } else {
+        console.warn("Missing lat/lng data for zoom operation:", data);
       }
     });
 

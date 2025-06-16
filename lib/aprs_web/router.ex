@@ -31,8 +31,6 @@ defmodule AprsWeb.Router do
     live "/enhanced", MapLive.Enhanced, :index
     get "/old", PageController, :map
     live "/status", StatusLive.Index, :index
-    live "/debug_map", MapLive.Debug, :index
-    get "/test_map", PageController, :test_map
 
     live "/packets", PacketsLive.Index, :index
     live "/:callsign", MapLive.CallsignView, :index
