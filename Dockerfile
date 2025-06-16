@@ -1,29 +1,28 @@
+# Find eligible builder and runner images on Docker Hub. We use Ubuntu/Debian
+# instead of Alpine to avoid DNS resolution issues in production.
+#
+# https://hub.docker.com/r/hexpm/elixir/tags?page=1&name=ubuntu
+# https://hub.docker.com/_/ubuntu?tab=tags
+#
+# This file is based on these images:
+#
+#   - https://hub.docker.com/r/hexpm/elixir/tags - for the build image
+#   - https://hub.docker.com/_/debian?tab=tags&page=1&name=bullseye-20250610-slim - for the release image
+#   - https://pkgs.org/ - resource for finding needed packages
+#   - Ex: hexpm/elixir:1.18.4-erlang-27.3.4-debian-bullseye-20250610-slim
+#
 ARG ELIXIR_VERSION=1.18.4
-ARG OTP_VERSION=27.2.4
-ARG DEBIAN_VERSION=bullseye-20250520-slim
-
-# Set default non-root user and group IDs
-ARG USER_ID=1000
-ARG GROUP_ID=1000
+ARG OTP_VERSION=27.3.4
+ARG DEBIAN_VERSION=bullseye-20250610-slim
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 
-FROM ${BUILDER_IMAGE} AS builder
-
-# Set non-interactive frontend for debconf
-ENV DEBIAN_FRONTEND=noninteractive
+FROM ${BUILDER_IMAGE} as builder
 
 # install build dependencies
-RUN apt-get update -y && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends \
-    build-essential \
-    git \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /tmp/* \
-    && rm -rf /var/tmp/*
+RUN apt-get update -y && apt-get install -y build-essential git \
+    && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # prepare build dir
 WORKDIR /app
@@ -68,87 +67,31 @@ RUN mix release
 # the compiled release and other runtime necessities
 FROM ${RUNNER_IMAGE}
 
-# Install security updates and required packages
-ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends \
-    libstdc++6 \
-    openssl \
-    libncurses5 \
-    locales \
-    ca-certificates \
-    tini && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Create a non-root user and group with specific ID
-    groupadd -g 1000 aprs && \
-    useradd -r -g aprs -u 1000 -s /bin/false -M aprs && \
-    # Remove setuid and setgid permissions
-    find / -perm /6000 -type f -exec chmod a-s {} \; || true && \
-    # Secure system configurations
-    chmod 0600 /etc/login.defs && \
-    chmod 0600 /etc/passwd && \
-    chmod 0600 /etc/group && \
-    # Create and secure app directory
-    mkdir -p /app && \
-    chown aprs:aprs /app && \
-    chmod 0750 /app
+  apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates \
+  && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US:en
-ENV LC_ALL=en_US.UTF-8
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
 
 WORKDIR "/app"
+RUN chown nobody /app
 
-# Set security-related environment variables
-ENV MIX_ENV="prod" \
-    LANG=en_US.UTF-8 \
-    LANGUAGE=en_US:en \
-    LC_ALL=en_US.UTF-8 \
-    # Disable history files
-    HISTFILE=/dev/null \
-    # Prevent writing .erlang.cookie file
-    HOME=/dev/null \
-    # Add security headers
-    SECURITY_HEADERS="true" \
-    # Disable debug info in production
-    ERL_AFLAGS="+S 1:1 +A 1 +K true -kernel shell_history enabled -kernel shell_history_file_bytes 0" \
-    PHX_SERVER=true
+# set runner ENV
+ENV MIX_ENV="prod"
 
 # Only copy the final release from the build stage
-COPY --from=builder --chown=1000:1000 /app/_build/${MIX_ENV}/rel/aprs ./
+COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/aprs ./
 
-# Copy the debug startup script
-COPY --chown=1000:1000 start_server.sh ./
-
-USER 1000
-
-# Ensure the server binary and startup script are executable
-RUN chmod +x /app/bin/server && \
-    chmod +x /app/start_server.sh
+USER nobody
 
 # If using an environment that doesn't automatically reap zombie processes, it is
 # advised to add an init process such as tini via `apt-get install`
 # above and adding an entrypoint. See https://github.com/krallin/tini for details
 # ENTRYPOINT ["/tini", "--"]
 
-# Add specific capabilities needed by the app
-CMD ["/app/start_server.sh"]
-
-# Add security-related metadata
-LABEL org.opencontainers.image.vendor="APRS.me" \
-    org.opencontainers.image.title="APRS.me Server" \
-    org.opencontainers.image.description="APRS.me server with security hardening" \
-    org.opencontainers.image.version="${MIX_ENV}" \
-    org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-    security.root-user="false" \
-    security.non-root-user="app" \
-    security.privileged="false"
-
-# Container configuration is handled by Dokku
-# Port is set dynamically by Dokku via PORT environment variable
-EXPOSE 5000
+CMD ["/app/bin/server"]
