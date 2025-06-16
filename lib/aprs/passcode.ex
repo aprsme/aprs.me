@@ -36,7 +36,7 @@ defmodule Aprs.Passcode do
     hash =
       Enum.reduce(0..div(length(chars) - 1, 2), hash, fn i, acc ->
         current_char = Enum.at(chars, i * 2)
-        next_char = if i * 2 + 1 < length(chars), do: Enum.at(chars, i * 2 + 1), else: nil
+        next_char = if i * 2 + 1 < length(chars), do: Enum.at(chars, i * 2 + 1)
         step1 = Bitwise.bxor(acc, Bitwise.bsl(current_char, 8))
 
         step2 =

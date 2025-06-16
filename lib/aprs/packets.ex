@@ -270,12 +270,32 @@ defmodule Aprs.Packets do
   Configure packet retention policy.
 
   Packets are retained based on these rules:
-  - Default retention is 30 days (configurable via :packet_retention_days)
+  - Default retention is 365 days (1 year) (configurable via :packet_retention_days)
   - Returns the number of packets deleted
   """
   def clean_old_packets do
-    retention_days = Application.get_env(:aprs, :packet_retention_days, 30)
+    retention_days = Application.get_env(:aprs, :packet_retention_days, 365)
     cutoff_time = DateTime.add(DateTime.utc_now(), -retention_days * 86_400, :second)
+
+    {deleted_count, _} = Repo.delete_all(from(p in Packet, where: p.received_at < ^cutoff_time))
+
+    deleted_count
+  end
+
+  @doc """
+  Clean packets older than a specific number of days.
+
+  This function allows for more granular cleanup operations by specifying
+  the exact age threshold for packet deletion.
+
+  ## Parameters
+  - `days` - Number of days to retain packets (packets older than this will be deleted)
+
+  ## Returns
+  - Number of packets deleted
+  """
+  def clean_packets_older_than(days) when is_integer(days) and days > 0 do
+    cutoff_time = DateTime.add(DateTime.utc_now(), -days * 86_400, :second)
 
     {deleted_count, _} = Repo.delete_all(from(p in Packet, where: p.received_at < ^cutoff_time))
 

@@ -38,25 +38,6 @@ defmodule Aprs.Is do
       last_second_timestamp: System.system_time(:second)
     }
 
-    # Set up ets tables
-
-    # with {:ok, :aprs} <- :ets.file2tab(:erlang.binary_to_list("priv/aprs.ets")),
-    #      {:ok, :aprs_messages} <- :ets.file2tab(:erlang.binary_to_list("priv/aprs_messages.ets")) do
-    # else
-    #   {:error, _reason} ->
-    #     Logger.debug("Ets files not found. Creating new ETS tables.")
-    #     # Create new ETS tables
-    #     :ets.new(:aprs, [:set, :protected, :named_table])
-    #     :ets.new(:aprs_messages, [:bag, :protected, :named_table])
-
-    #     # Write them to file here in case genserver is brutally terminated
-    #     :ets.tab2file(:aprs, :erlang.binary_to_list("priv/aprs.ets"))
-    #     :ets.tab2file(:aprs_messages, :erlang.binary_to_list("priv/aprs_messages.ets"))
-
-    #   _ ->
-    #     Logger.error("Unable to set up ETS tables for message storage.")
-    # end
-
     with {:ok, socket} <- connect_to_aprs_is(server, port),
          :ok <- send_login_string(socket, aprs_user_id, aprs_passcode, default_filter) do
       timer = create_timer(@aprs_timeout)
