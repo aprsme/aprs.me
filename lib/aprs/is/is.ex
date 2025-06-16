@@ -267,40 +267,50 @@ defmodule Aprs.Is do
         # Use Task to avoid slowing down the main process
         Task.start(fn ->
           require Logger
-          # Store the packet if it has position data
-          if has_position_data?(parsed_message) do
-            Logger.info("Storing packet with position data: #{inspect(parsed_message.sender)}")
-            # Always set received_at timestamp to ensure consistency
-            current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
-            packet_data = Map.put(parsed_message, :received_at, current_time)
 
-            # Convert to map before storing to avoid struct conversion issues
-            attrs = struct_to_map(packet_data)
+          try do
+            # Store the packet if it has position data
+            if has_position_data?(parsed_message) do
+              Logger.info("Storing packet with position data: #{inspect(parsed_message.sender)}")
+              # Always set received_at timestamp to ensure consistency
+              current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
+              packet_data = Map.put(parsed_message, :received_at, current_time)
 
-            # Extract additional data from the parsed packet including raw packet
-            attrs = Aprs.Packet.extract_additional_data(attrs, message)
+              # Convert to map before storing to avoid struct conversion issues
+              attrs = struct_to_map(packet_data)
 
-            # Normalize data_type to string if it's an atom
-            attrs = normalize_data_type(attrs)
+              # Extract additional data from the parsed packet including raw packet
+              attrs = Aprs.Packet.extract_additional_data(attrs, message)
 
-            # Ensure SSID is never nil
-            attrs =
-              if Map.has_key?(attrs, :ssid) and is_nil(attrs.ssid) do
-                Map.put(attrs, :ssid, "0")
-              else
-                attrs
+              # Normalize data_type to string if it's an atom
+              attrs = normalize_data_type(attrs)
+
+              # Ensure SSID is never nil
+              attrs =
+                if Map.has_key?(attrs, :ssid) and is_nil(attrs.ssid) do
+                  Map.put(attrs, :ssid, "0")
+                else
+                  attrs
+                end
+
+              # Store in database through the Packets context
+              case Aprs.Packets.store_packet(attrs) do
+                {:ok, packet} ->
+                  Logger.info("Successfully stored packet from #{packet.sender}")
+
+                {:error, changeset} ->
+                  Logger.error("Failed to store packet from #{inspect(parsed_message.sender)}: #{inspect(changeset.errors)}")
+                  # Log the problematic attributes for debugging
+                  Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
               end
-
-            # Store in database through the Packets context
-            case Aprs.Packets.store_packet(attrs) do
-              {:ok, packet} ->
-                Logger.info("Successfully stored packet from #{packet.sender}")
-
-              {:error, changeset} ->
-                Logger.error("Failed to store packet: #{inspect(changeset.errors)}")
+            else
+              Logger.debug("Skipping packet without position data: #{inspect(parsed_message.sender)}")
             end
-          else
-            Logger.debug("Skipping packet without position data: #{inspect(parsed_message.sender)}")
+          rescue
+            error ->
+              Logger.error("Exception while storing packet from #{inspect(parsed_message.sender)}: #{inspect(error)}")
+              Logger.debug("Raw message: #{inspect(message)}")
+              Logger.debug("Parsed message: #{inspect(parsed_message)}")
           end
         end)
 

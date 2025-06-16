@@ -19,7 +19,7 @@ defmodule Aprs.Packet do
     field(:region, :string)
     field(:lat, :float, virtual: true)
     field(:lon, :float, virtual: true)
-    field(:location, Aprs.GeometryType)
+    field(:location, Geo.PostGIS.Geometry)
     field(:has_position, :boolean, default: false)
 
     # Original raw packet and symbol information
@@ -144,8 +144,19 @@ defmodule Aprs.Packet do
       end
 
     if is_valid_coordinates?(lat, lon) do
-      location = Aprs.GeometryType.create_point(lat, lon)
-      put_change(changeset, :location, location)
+      try do
+        location = create_point(lat, lon)
+        if location do
+          put_change(changeset, :location, location)
+        else
+          changeset
+        end
+      rescue
+        error ->
+          require Logger
+          Logger.error("Failed to create geometry for lat=#{lat}, lon=#{lon}: #{inspect(error)}")
+          changeset
+      end
     else
       changeset
     end
@@ -418,12 +429,19 @@ defmodule Aprs.Packet do
   @doc """
   Create a geometry point from lat/lon coordinates.
   """
-  def create_point(lat, lon), do: Aprs.GeometryType.create_point(lat, lon)
+  def create_point(lat, lon) when is_number(lat) and is_number(lon) do
+    if lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 do
+      %Geo.Point{coordinates: {lon, lat}, srid: 4326}
+    end
+  end
+
+  def create_point(_, _), do: nil
 
   @doc """
   Extract lat/lon from a PostGIS geometry point.
   """
-  def extract_coordinates(geometry), do: Aprs.GeometryType.extract_coordinates(geometry)
+  def extract_coordinates(%Geo.Point{coordinates: {lon, lat}}), do: {lat, lon}
+  def extract_coordinates(_), do: {nil, nil}
 
   @doc """
   Get latitude from a packet's location geometry.

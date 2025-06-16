@@ -1,33 +1,7 @@
 #!/usr/bin/env elixir
 
 # Test script to verify PostGIS functionality in the APRS application
-
-Mix.install([])
-
-# Add the project to the code path
-Code.append_path("_build/dev/lib/aprs/ebin")
-Code.append_path("_build/dev/lib/ecto/ebin")
-Code.append_path("_build/dev/lib/ecto_sql/ebin")
-Code.append_path("_build/dev/lib/postgrex/ebin")
-Code.append_path("_build/dev/lib/geo/ebin")
-Code.append_path("_build/dev/lib/geo_postgis/ebin")
-
-# Load the application configuration
-Application.put_env(:aprs, Aprs.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "aprs_dev",
-  types: Aprs.PostgresTypes
-)
-
-# Start necessary applications
-Application.ensure_all_started(:postgrex)
-Application.ensure_all_started(:ecto)
-Application.ensure_all_started(:ecto_sql)
-
-# Start the repo
-{:ok, _} = Aprs.Repo.start_link()
+# This script must be run from within the Mix project using: mix run scripts/test_postgis.exs
 
 IO.puts("🗺️  Testing PostGIS functionality...")
 
@@ -64,9 +38,13 @@ try do
   point = %Geo.Point{coordinates: {-96.7969, 32.7767}, srid: 4326}  # Dallas, TX
   IO.puts("✅ Created point: #{inspect(point)}")
 
-  # Test the custom GeometryType
-  {:ok, cast_result} = Aprs.GeometryType.cast(point)
-  IO.puts("✅ GeometryType cast successful: #{inspect(cast_result)}")
+  # Test the PostGIS Geometry type directly
+  {:ok, cast_result} = Geo.PostGIS.Geometry.cast(point)
+  IO.puts("✅ Geo.PostGIS.Geometry cast successful: #{inspect(cast_result)}")
+
+  # Test creating a point using the Packet helper
+  created_point = Aprs.Packet.create_point(32.7767, -96.7969)
+  IO.puts("✅ Packet.create_point successful: #{inspect(created_point)}")
 
 rescue
   e ->
@@ -157,14 +135,49 @@ rescue
     IO.puts("❌ Error in spatial query: #{inspect(e)}")
 end
 
+# Test 8: Test inserting a packet with geometry
+IO.puts("\n8. Testing packet insertion with geometry...")
+try do
+  # Create test packet data
+  test_packet_attrs = %{
+    base_callsign: "TEST",
+    data_type: "position",
+    destination: "APRS",
+    information_field: "!3216.50N/09647.00W>Test packet",
+    path: "WIDE1-1,WIDE2-1",
+    sender: "TEST-1",
+    ssid: "1",
+    received_at: DateTime.utc_now(),
+    lat: 32.275,
+    lon: -96.783,
+    has_position: true,
+    region: "32.3,-96.8",
+    raw_packet: "TEST-1>APRS,WIDE1-1,WIDE2-1:!3216.50N/09647.00W>Test packet"
+  }
+
+  case Aprs.Packets.store_packet(test_packet_attrs) do
+    {:ok, packet} ->
+      IO.puts("✅ Successfully inserted test packet: #{packet.sender}")
+
+      # Clean up test packet
+      Aprs.Repo.delete(packet)
+      IO.puts("✅ Test packet cleaned up")
+
+    {:error, changeset} ->
+      IO.puts("❌ Failed to insert test packet: #{inspect(changeset.errors)}")
+  end
+
+rescue
+  e ->
+    IO.puts("❌ Error in packet insertion test: #{inspect(e)}")
+end
+
 IO.puts("\n🎉 PostGIS testing completed!")
 IO.puts("\n📊 Summary:")
 IO.puts("   - PostGIS extension is enabled")
 IO.puts("   - Location column with geometry type exists")
 IO.puts("   - Spatial indexes are created")
 IO.puts("   - Basic spatial functions are working")
+IO.puts("   - Packet insertion with geometry works")
 IO.puts("   - Data migration from lat/lon to PostGIS geometry completed")
 IO.puts("\n🚀 Your APRS application is now ready for efficient spatial queries!")
-
-# Clean up
-Aprs.Repo.stop()

@@ -18,53 +18,68 @@ defmodule Aprs.Packets do
   def store_packet(packet_data) do
     require Logger
 
-    # Convert to map if it's a struct, or use as is if already a map
-    packet_attrs =
-      case packet_data do
-        %Packet{} = packet ->
-          packet
-          |> Map.from_struct()
-          |> Map.delete(:__meta__)
+    try do
+      # Convert to map if it's a struct, or use as is if already a map
+      packet_attrs =
+        case packet_data do
+          %Packet{} = packet ->
+            packet
+            |> Map.from_struct()
+            |> Map.delete(:__meta__)
 
-        %{} ->
-          packet_data
-      end
+          %{} ->
+            packet_data
+        end
 
-    # Convert data_type to string if it's an atom
-    packet_attrs =
-      case packet_attrs do
-        %{data_type: data_type} when is_atom(data_type) ->
-          Map.put(packet_attrs, :data_type, to_string(data_type))
+      # Convert data_type to string if it's an atom
+      packet_attrs =
+        case packet_attrs do
+          %{data_type: data_type} when is_atom(data_type) ->
+            Map.put(packet_attrs, :data_type, to_string(data_type))
 
-        _ ->
-          packet_attrs
-      end
+          _ ->
+            packet_attrs
+        end
 
-    # Make sure received_at is set with explicit UTC DateTime
-    current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
-    packet_attrs = Map.put(packet_attrs, :received_at, current_time)
+      # Make sure received_at is set with explicit UTC DateTime
+      current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
+      packet_attrs = Map.put(packet_attrs, :received_at, current_time)
 
-    # Extract position data
-    {lat, lon} = extract_position(packet_attrs)
+      # Extract position data with error handling
+      {lat, lon} = extract_position(packet_attrs)
 
-    # Set position fields if found
-    packet_attrs =
-      if lat && lon do
-        packet_attrs
-        |> Map.put(:lat, lat)
-        |> Map.put(:lon, lon)
-        |> Map.put(:has_position, true)
-        |> Map.put(:region, "#{Float.round(lat, 1)},#{Float.round(lon, 1)}")
-      else
-        # Set region based on callsign if no position
-        sender_region = if packet_attrs[:sender], do: String.slice(packet_attrs.sender || "", 0, 3), else: "unknown"
-        Map.put(packet_attrs, :region, "call:#{sender_region}")
-      end
+      # Set position fields if found
+      packet_attrs =
+        if lat && lon do
+          # Validate coordinates before creating geometry
+          if are_valid_coordinates?(lat, lon) do
+            packet_attrs
+            |> Map.put(:lat, lat)
+            |> Map.put(:lon, lon)
+            |> Map.put(:has_position, true)
+            |> Map.put(:region, "#{Float.round(lat, 1)},#{Float.round(lon, 1)}")
+          else
+            Logger.warning("Invalid coordinates for packet from #{packet_attrs[:sender]}: lat=#{lat}, lon=#{lon}")
+            # Set region based on callsign if coordinates are invalid
+            sender_region = if packet_attrs[:sender], do: String.slice(packet_attrs.sender || "", 0, 3), else: "unknown"
+            Map.put(packet_attrs, :region, "call:#{sender_region}")
+          end
+        else
+          # Set region based on callsign if no position
+          sender_region = if packet_attrs[:sender], do: String.slice(packet_attrs.sender || "", 0, 3), else: "unknown"
+          Map.put(packet_attrs, :region, "call:#{sender_region}")
+        end
 
-    # Insert the packet
-    %Packet{}
-    |> Packet.changeset(packet_attrs)
-    |> Repo.insert()
+      # Insert the packet
+      %Packet{}
+      |> Packet.changeset(packet_attrs)
+      |> Repo.insert()
+
+    rescue
+      error ->
+        Logger.error("Exception in store_packet for #{inspect(packet_data[:sender])}: #{inspect(error)}")
+        {:error, :storage_exception}
+    end
   end
 
   # Extracts position data from packet, checking various possible locations
@@ -328,6 +343,12 @@ defmodule Aprs.Packets do
   end
 
   defp to_float(_), do: nil
+
+  # Helper to validate coordinate values
+  defp are_valid_coordinates?(lat, lon) do
+    is_number(lat) and is_number(lon) and
+      lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180
+  end
 
   # Get packets from last hour only - used to initialize the map
   def get_last_hour_packets do
