@@ -4,7 +4,6 @@ defmodule Aprs.Packets do
   """
 
   import Ecto.Query, warn: false
-  # import Geo.PostGIS
 
   alias Aprs.Packet
   alias Aprs.Repo
@@ -149,6 +148,7 @@ defmodule Aprs.Packets do
       |> filter_by_callsign(opts)
       |> filter_by_map_bounds(opts)
       |> limit_results(opts)
+      |> select_with_virtual_coordinates()
 
     Repo.all(query)
   end
@@ -167,6 +167,12 @@ defmodule Aprs.Packets do
       |> filter_by_map_bounds(opts)
 
     Repo.one(query)
+  end
+
+  # Adds a select clause to populate virtual lat/lon fields from PostGIS geometry.
+  defp select_with_virtual_coordinates(query) do
+    from p in query,
+      select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
   end
 
   # Query building helpers
@@ -267,10 +273,14 @@ defmodule Aprs.Packets do
 
   defp filter_by_map_bounds(query, %{bounds: [min_lon, min_lat, max_lon, max_lat]})
        when not is_nil(min_lon) and not is_nil(min_lat) and not is_nil(max_lon) and not is_nil(max_lat) do
+    # Create a bounding box polygon for PostGIS spatial query
+    bbox_wkt =
+      "POLYGON((#{min_lon} #{min_lat}, #{max_lon} #{min_lat}, #{max_lon} #{max_lat}, #{min_lon} #{max_lat}, #{min_lon} #{min_lat}))"
+
     from p in query,
       where: p.has_position == true,
-      where: p.lat >= ^min_lat and p.lat <= ^max_lat,
-      where: p.lon >= ^min_lon and p.lon <= ^max_lon
+      where: not is_nil(p.location),
+      where: fragment("ST_Within(?, ST_GeomFromText(?, 4326))", p.location, ^bbox_wkt)
   end
 
   defp filter_by_map_bounds(query, _), do: query
@@ -358,6 +368,7 @@ defmodule Aprs.Packets do
     |> where([p], p.received_at >= ^one_hour_ago)
     |> order_by([p], asc: p.received_at)
     |> limit(500)
+    |> select_with_virtual_coordinates()
     |> Repo.all()
   end
 

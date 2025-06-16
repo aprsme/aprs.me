@@ -117,7 +117,15 @@ defmodule Aprs.DbTest do
     IO.puts("Fetching #{limit} most recent packets...")
 
     try do
-      packets = Repo.all(from(p in Packet, where: p.has_position == true, order_by: [desc: p.received_at], limit: ^limit))
+      packets =
+        Repo.all(
+          from(p in Packet,
+            where: p.has_position == true,
+            order_by: [desc: p.received_at],
+            limit: ^limit,
+            select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
+          )
+        )
 
       IO.puts("Found #{length(packets)} recent packets")
 

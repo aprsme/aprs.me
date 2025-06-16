@@ -390,16 +390,19 @@ defmodule AprsWeb.MapLive.Enhanced do
   defp fetch_packets_in_bounds(bounds, limit) do
     cutoff_time = DateTime.add(DateTime.utc_now(), -@packet_retention_minutes * 60, :second)
 
+    # Create a bounding box polygon for PostGIS spatial query
+    bbox_wkt =
+      "POLYGON((#{bounds["west"]} #{bounds["south"]}, #{bounds["east"]} #{bounds["south"]}, #{bounds["east"]} #{bounds["north"]}, #{bounds["west"]} #{bounds["north"]}, #{bounds["west"]} #{bounds["south"]}))"
+
     Repo.all(
       from(p in Packet,
         where: p.has_position == true,
         where: p.received_at >= ^cutoff_time,
-        where: p.lat >= ^bounds["south"],
-        where: p.lat <= ^bounds["north"],
-        where: p.lon >= ^bounds["west"],
-        where: p.lon <= ^bounds["east"],
+        where: not is_nil(p.location),
+        where: fragment("ST_Within(?, ST_GeomFromText(?, 4326))", p.location, ^bbox_wkt),
         order_by: [desc: p.received_at],
-        limit: ^limit
+        limit: ^limit,
+        select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
       )
     )
   end
@@ -561,17 +564,20 @@ defmodule AprsWeb.MapLive.Enhanced do
   end
 
   defp fetch_historical_packets(bounds, start_time, end_time) do
+    # Create a bounding box polygon for PostGIS spatial query
+    bbox_wkt =
+      "POLYGON((#{bounds["west"]} #{bounds["south"]}, #{bounds["east"]} #{bounds["south"]}, #{bounds["east"]} #{bounds["north"]}, #{bounds["west"]} #{bounds["north"]}, #{bounds["west"]} #{bounds["south"]}))"
+
     Repo.all(
       from(p in Packet,
         where: p.has_position == true,
         where: p.received_at >= ^start_time,
         where: p.received_at <= ^end_time,
-        where: p.lat >= ^bounds["south"],
-        where: p.lat <= ^bounds["north"],
-        where: p.lon >= ^bounds["west"],
-        where: p.lon <= ^bounds["east"],
+        where: not is_nil(p.location),
+        where: fragment("ST_Within(?, ST_GeomFromText(?, 4326))", p.location, ^bbox_wkt),
         order_by: [asc: p.received_at],
-        limit: 1000
+        limit: 1000,
+        select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
       )
     )
   end

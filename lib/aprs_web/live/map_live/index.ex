@@ -60,7 +60,7 @@ defmodule AprsWeb.MapLive.Index do
       Endpoint.subscribe("aprs_messages")
 
       # Only do IP geolocation in non-test environments
-      if Mix.env() != :test do
+      if Application.get_env(:aprs, :disable_aprs_connection, false) != true do
         IO.puts("Socket is connected, attempting to get IP location")
         # Get IP-based location on initial load
         IO.puts("Connect info: #{inspect(socket.private[:connect_info])}")
