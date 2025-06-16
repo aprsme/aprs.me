@@ -160,5 +160,55 @@ defmodule Aprs.PacketsMicETest do
       assert get_in(mic_e, [:latitude]) == 40.5
       assert get_in(mic_e, [:longitude]) == -74.25
     end
+
+    test "exact error case from bug report - DG1ID-9" do
+      # This test reproduces the EXACT error scenario from the bug report
+      # Exception in store_packet for "DG1ID-9": %KeyError{key: :latitude, term: %Parser.Types.MicE{...
+      mic_e_data = %MicE{
+        lat_degrees: 49,
+        lat_minutes: 14,
+        lat_fractional: 72,
+        lat_direction: :north,
+        lon_direction: :east,
+        longitude_offset: 100,
+        message_code: "M02",
+        message_description: "In Service",
+        dti: "`",
+        heading: 0,
+        # Note: this is the exact value from the error
+        lon_degrees: 198,
+        lon_minutes: 5,
+        lon_fractional: 75,
+        speed: 0,
+        manufacturer: "Kenwood TH-D74A",
+        message: ">Harald QRV R1298,625"
+      }
+
+      packet_data = %{
+        base_callsign: "DG1ID",
+        ssid: "9",
+        sender: "DG1ID-9",
+        destination: "APRS",
+        data_type: "mic_e",
+        path: "TCPIP*",
+        information_field: "MicE packet from error report",
+        data_extended: mic_e_data
+      }
+
+      # This should NOT raise a KeyError{key: :latitude} anymore
+      # The fix ensures we use data_extended[:latitude] instead of data_extended.latitude
+      assert {:ok, stored_packet} = Packets.store_packet(packet_data)
+
+      # Verify the packet was stored correctly
+      assert stored_packet.sender == "DG1ID-9"
+
+      # Note: longitude 198 is invalid (outside -180 to 180 range)
+      # So the packet should be stored but without position data
+      # This is correct behavior - the important thing is no KeyError was raised
+      assert stored_packet.has_position != true || stored_packet.has_position == nil
+
+      # The fix prevented the KeyError - that's what we're testing
+      # Invalid coordinates are handled gracefully by the validation logic
+    end
   end
 end
