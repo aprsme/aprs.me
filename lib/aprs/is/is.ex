@@ -33,9 +33,9 @@ defmodule Aprs.Is do
     packet_stats = %{
       total_packets: 0,
       last_packet_at: nil,
-      packets_per_minute: 0,
-      last_minute_count: 0,
-      last_minute_timestamp: System.system_time(:second)
+      packets_per_second: 0,
+      last_second_count: 0,
+      last_second_timestamp: System.system_time(:second)
     }
 
     # Set up ets tables
@@ -355,24 +355,24 @@ defmodule Aprs.Is do
   defp update_packet_stats(stats, current_time) do
     new_total = stats.total_packets + 1
 
-    # Check if we need to reset the per-minute counter
-    if current_time - stats.last_minute_timestamp >= 60 do
+    # Check if we need to reset the per-second counter
+    if current_time - stats.last_second_timestamp >= 1 do
       %{
         total_packets: new_total,
         last_packet_at: DateTime.utc_now(),
-        packets_per_minute: 1,
-        last_minute_count: 1,
-        last_minute_timestamp: current_time
+        packets_per_second: 1,
+        last_second_count: 1,
+        last_second_timestamp: current_time
       }
     else
-      new_minute_count = stats.last_minute_count + 1
+      new_second_count = stats.last_second_count + 1
 
       %{
         stats
         | total_packets: new_total,
           last_packet_at: DateTime.utc_now(),
-          packets_per_minute: new_minute_count,
-          last_minute_count: new_minute_count
+          packets_per_second: new_second_count,
+          last_second_count: new_second_count
       }
     end
   end
@@ -385,9 +385,9 @@ defmodule Aprs.Is do
     %{
       total_packets: 0,
       last_packet_at: nil,
-      packets_per_minute: 0,
-      last_minute_count: 0,
-      last_minute_timestamp: System.system_time(:second)
+      packets_per_second: 0,
+      last_second_count: 0,
+      last_second_timestamp: System.system_time(:second)
     }
   end
 end

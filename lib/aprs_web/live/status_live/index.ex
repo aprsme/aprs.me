@@ -181,9 +181,9 @@ defmodule AprsWeb.StatusLive.Index do
                   </div>
 
                   <div class="flex items-center">
-                    <span class="text-sm font-medium text-gray-500 mr-2">Packets/Min:</span>
+                    <span class="text-sm font-medium text-gray-500 mr-2">Packets/Sec:</span>
                     <span class="text-sm text-gray-900 font-mono">
-                      {@aprs_status.packet_stats.packets_per_minute}
+                      {@aprs_status.packet_stats.packets_per_second}
                     </span>
                   </div>
 
