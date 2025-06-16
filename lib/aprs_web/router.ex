@@ -33,6 +33,7 @@ defmodule AprsWeb.Router do
     live "/status", StatusLive.Index, :index
 
     live "/packets", PacketsLive.Index, :index
+    live "/packets/:callsign", PacketsLive.CallsignView, :index
     live "/:callsign", MapLive.CallsignView, :index
   end
 

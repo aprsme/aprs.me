@@ -1,0 +1,94 @@
+<.header>
+  Packets for {@callsign}
+  <:subtitle>
+    Showing up to 100 packets (stored and live) for callsign {@callsign}
+  </:subtitle>
+</.header>
+
+<%= if @error do %>
+  <div class="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+    <div class="flex">
+      <div class="flex-shrink-0">
+        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      </div>
+      <div class="ml-3">
+        <h3 class="text-sm font-medium text-red-800">Error</h3>
+        <div class="mt-1 text-sm text-red-700">
+          {@error}
+        </div>
+      </div>
+    </div>
+  </div>
+<% else %>
+  <div class="mb-4">
+    <.link
+      navigate={~p"/#{String.downcase(@callsign)}"}
+      class="text-blue-600 hover:text-blue-800 underline"
+    >
+      ← View {@callsign} on Map
+    </.link>
+  </div>
+
+  <.table id="callsign-packets" rows={@all_packets}>
+    <:col :let={packet} label="Time">
+      <span class="text-sm text-gray-600">
+        <%= case packet.received_at do %>
+          <% %DateTime{} = dt -> %>
+            {Calendar.strftime(dt, "%H:%M:%S")}
+          <% dt when is_binary(dt) -> %>
+            <%= case DateTime.from_iso8601(dt) do %>
+              <% {:ok, parsed_dt, _} -> %>
+                {Calendar.strftime(parsed_dt, "%H:%M:%S")}
+              <% _ -> %>
+                {dt}
+            <% end %>
+          <% _ -> %>
+            N/A
+        <% end %>
+      </span>
+    </:col>
+    <:col :let={packet} label="Sender">{packet.sender}</:col>
+    <:col :let={packet} label="SSID">{packet.ssid}</:col>
+    <:col :let={packet} label="Data Type">{packet.data_type}</:col>
+    <:col :let={packet} label="Destination">{packet.destination}</:col>
+    <:col :let={packet} label="Information">
+      <span class="text-sm">
+        <%= if String.length(packet.information_field || "") > 50 do %>
+          <span title={packet.information_field}>
+            {String.slice(packet.information_field, 0, 50)}...
+          </span>
+        <% else %>
+          {packet.information_field}
+        <% end %>
+      </span>
+    </:col>
+    <:col :let={packet} label="Path">
+      <span class="text-xs text-gray-500">
+        {packet.path}
+      </span>
+    </:col>
+  </.table>
+
+  <%= if length(@all_packets) == 0 do %>
+    <div class="text-center py-8">
+      <p class="text-gray-500">No packets found for {@callsign}</p>
+      <p class="text-sm text-gray-400 mt-2">
+        Packets will appear here as they are received live or if there are stored packets for this callsign.
+      </p>
+    </div>
+  <% end %>
+
+  <div class="mt-4 text-sm text-gray-500">
+    <p>
+      Live packets: {length(@live_packets)} |
+      Stored packets: {length(@packets)} |
+      Total: {length(@all_packets)}/100
+    </p>
+  </div>
+<% end %>

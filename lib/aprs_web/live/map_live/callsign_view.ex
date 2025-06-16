@@ -595,7 +595,8 @@ defmodule AprsWeb.MapLive.CallsignView do
       <div class="callsign-title">📡 {@callsign}</div>
       <div class="nav-links">
         <a href="/" class="nav-link">← Back to Map</a>
-        <a href="/packets" class="nav-link">Packets</a>
+        <a href="/packets" class="nav-link">All Packets</a>
+        <a href={"/packets/#{String.downcase(@callsign)}"} class="nav-link">{@callsign} Packets</a>
       </div>
     </div>
 
