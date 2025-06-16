@@ -125,6 +125,7 @@ RUN chmod +x /app/bin/server
 # above and adding an entrypoint. See https://github.com/krallin/tini for details
 # ENTRYPOINT ["/tini", "--"]
 
+# Add specific capabilities needed by the app
 CMD /app/bin/server
 
 # Add security-related metadata
