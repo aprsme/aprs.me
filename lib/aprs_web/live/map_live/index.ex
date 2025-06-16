@@ -53,7 +53,11 @@ defmodule AprsWeb.MapLive.Index do
         # Flag to prevent multiple replay starts
         replay_started: false,
         # Pending geolocation to zoom to after map is ready
-        pending_geolocation: nil
+        pending_geolocation: nil,
+        # Timer for debounced bounds updates
+        bounds_update_timer: nil,
+        # Pending bounds update data
+        pending_bounds: nil
       )
 
     if connected?(socket) do
@@ -202,6 +206,41 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   @impl true
+  def handle_event("clear_and_reload_markers", _params, socket) do
+    # Clear all markers on the client first
+    socket = push_event(socket, "clear_markers", %{})
+
+    # Filter visible packets to only include those within current bounds
+    filtered_packets =
+      socket.assigns.visible_packets
+      |> Enum.filter(fn {_callsign, packet} ->
+        within_bounds?(packet, socket.assigns.map_bounds) &&
+          packet_within_time_threshold?(packet, socket.assigns.packet_age_threshold)
+      end)
+      |> Map.new()
+
+    # Convert filtered packets to packet data for the map
+    visible_packets_list =
+      filtered_packets
+      |> Enum.map(fn {_callsign, packet} -> build_packet_data(packet) end)
+      # Remove any nil packet data
+      |> Enum.filter(& &1)
+
+    # Update the state to only include the filtered packets
+    socket = assign(socket, visible_packets: filtered_packets)
+
+    # Add the visible markers back to the map
+    socket =
+      if Enum.any?(visible_packets_list) do
+        push_event(socket, "add_markers", %{markers: visible_packets_list})
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("map_ready", _params, socket) do
     IO.puts("Map ready event received")
     socket = assign(socket, map_ready: true)
@@ -229,21 +268,64 @@ defmodule AprsWeb.MapLive.Index do
       west: bounds["west"]
     }
 
-    # Don't clear markers - let the client preserve those still in view
-    # Recalculate packet count based on new bounds
-    visible_packets =
+    # Validate bounds to prevent invalid coordinates
+    if map_bounds.north > 90 or map_bounds.south < -90 or
+         map_bounds.north <= map_bounds.south do
+      # Invalid bounds, skip update
+      {:noreply, socket}
+    else
+      # Cancel any pending bounds update timer
+      if socket.assigns[:bounds_update_timer] do
+        Process.cancel_timer(socket.assigns.bounds_update_timer)
+      end
+
+      # Set a debounced update timer to prevent excessive processing
+      timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, 250)
+
+      socket = assign(socket, bounds_update_timer: timer_ref, pending_bounds: map_bounds)
+      {:noreply, socket}
+    end
+  end
+
+  defp process_bounds_update(map_bounds, socket) do
+    # Filter visible packets to only include those within the new bounds and time threshold
+    new_visible_packets =
       socket.assigns.visible_packets
       |> Enum.filter(fn {_callsign, packet} ->
-        within_bounds?(packet, map_bounds)
+        within_bounds?(packet, map_bounds) &&
+          packet_within_time_threshold?(packet, socket.assigns.packet_age_threshold)
       end)
       |> Map.new()
+
+    # Get packets that are no longer visible (to remove from map)
+    packets_to_remove =
+      socket.assigns.visible_packets
+      |> Enum.reject(fn {_callsign, packet} ->
+        within_bounds?(packet, map_bounds)
+      end)
+      |> Enum.map(fn {callsign, _packet} -> callsign end)
+
+    # Clear markers that are outside the new bounds
+    socket =
+      if Enum.any?(packets_to_remove) do
+        # Remove markers that are outside bounds
+        socket =
+          Enum.reduce(packets_to_remove, socket, fn callsign, acc_socket ->
+            push_event(acc_socket, "remove_marker", %{id: callsign})
+          end)
+
+        # Also send a general filter event to clean up any remaining out-of-bounds markers
+        push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
+      else
+        socket
+      end
 
     # If replay is not active, update the replay packets based on the new bounds
     socket =
       if socket.assigns.replay_active do
         socket
       else
-        # Clear any existing replay data when bounds change
+        # Clear any existing replay data when bounds change significantly
         socket =
           assign(socket,
             replay_packets: [],
@@ -252,17 +334,25 @@ defmodule AprsWeb.MapLive.Index do
             map_ready: true
           )
 
-        # Don't automatically start replay on every bounds change
-        # We'll handle this in initialize_replay to avoid too many restarts
         socket
       end
 
-    {:noreply, assign(socket, map_bounds: map_bounds, visible_packets: visible_packets)}
+    assign(socket,
+      map_bounds: map_bounds,
+      visible_packets: new_visible_packets,
+      bounds_update_timer: nil,
+      pending_bounds: nil
+    )
   end
 
   @impl true
   def handle_info(msg, socket) do
     case msg do
+      {:process_bounds_update, map_bounds} ->
+        # Process the debounced bounds update
+        socket = process_bounds_update(map_bounds, socket)
+        {:noreply, socket}
+
       {:delayed_zoom, %{lat: lat, lng: lng}} ->
         IO.puts("Processing delayed zoom to lat=#{lat}, lng=#{lng}")
         socket = push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
@@ -586,22 +676,49 @@ defmodule AprsWeb.MapLive.Index do
     # Update the packet age threshold to current time minus one hour
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
 
-    # Filter out packets older than one hour
+    # Get packets that need to be removed (old or outside bounds)
+    packets_to_remove =
+      socket.assigns.visible_packets
+      |> Enum.reject(fn {_key, packet} ->
+        packet_within_time_threshold?(packet, one_hour_ago) &&
+          within_bounds?(packet, socket.assigns.map_bounds)
+      end)
+      |> Enum.map(fn {callsign, _packet} -> callsign end)
+
+    # Filter out packets older than one hour and outside bounds
     visible_packets =
       socket.assigns.visible_packets
       |> Enum.filter(fn {_key, packet} ->
-        packet_within_time_threshold?(packet, one_hour_ago)
+        packet_within_time_threshold?(packet, one_hour_ago) &&
+          within_bounds?(packet, socket.assigns.map_bounds)
       end)
       |> Map.new()
 
-    # Push event to remove old markers from the map
+    # Only update if there are actual changes to prevent unnecessary events
     socket =
-      socket
-      |> push_event("refresh_markers", %{})
-      |> assign(
-        visible_packets: visible_packets,
-        packet_age_threshold: one_hour_ago
-      )
+      if map_size(visible_packets) == map_size(socket.assigns.visible_packets) do
+        # Just update the threshold without map changes
+        assign(socket, packet_age_threshold: one_hour_ago)
+        # Remove old and out-of-bounds markers from the map
+
+        # Explicitly remove markers for packets that are no longer valid
+      else
+        socket =
+          socket
+          |> push_event("refresh_markers", %{})
+          |> assign(
+            visible_packets: visible_packets,
+            packet_age_threshold: one_hour_ago
+          )
+
+        if Enum.any?(packets_to_remove) do
+          Enum.reduce(packets_to_remove, socket, fn callsign, acc_socket ->
+            push_event(acc_socket, "remove_marker", %{id: callsign})
+          end)
+        else
+          socket
+        end
+      end
 
     # Schedule the next cleanup in 1 minute
     if connected?(socket), do: Process.send_after(self(), :cleanup_old_packets, 60_000)
@@ -710,9 +827,25 @@ defmodule AprsWeb.MapLive.Index do
   defp within_bounds?(packet, bounds) do
     {lat, lng} = get_coordinates(packet)
 
-    lat && lng &&
-      lat >= bounds.south && lat <= bounds.north &&
-      lng >= bounds.west && lng <= bounds.east
+    # Basic validation
+    if is_nil(lat) or is_nil(lng) do
+      false
+    else
+      # Check latitude bounds (straightforward)
+      lat_in_bounds = lat >= bounds.south && lat <= bounds.north
+
+      # Check longitude bounds (handle potential wrapping)
+      lng_in_bounds =
+        if bounds.west <= bounds.east do
+          # Normal case: bounds don't cross antimeridian
+          lng >= bounds.west && lng <= bounds.east
+        else
+          # Bounds cross antimeridian (e.g., west=170, east=-170)
+          lng >= bounds.west || lng <= bounds.east
+        end
+
+      lat_in_bounds && lng_in_bounds
+    end
   end
 
   defp get_coordinates(packet) do
@@ -906,7 +1039,22 @@ defmodule AprsWeb.MapLive.Index do
   defp to_float(value) when is_binary(value) do
     case Float.parse(value) do
       {float_val, _} -> float_val
-      :error -> raise ArgumentError, "Invalid float string: #{value}"
+      :error -> 0.0
     end
+  end
+
+  @impl true
+  def terminate(_reason, socket) do
+    # Clean up any pending bounds update timer
+    if socket.assigns[:bounds_update_timer] do
+      Process.cancel_timer(socket.assigns.bounds_update_timer)
+    end
+
+    # Clean up replay timer
+    if socket.assigns[:replay_timer_ref] do
+      Process.cancel_timer(socket.assigns.replay_timer_ref)
+    end
+
+    :ok
   end
 end

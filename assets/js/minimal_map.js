@@ -127,14 +127,7 @@ let MinimalAPRSMap = {
         maxZoom: 19,
       });
       tileLayer.addTo(this.map);
-      console.log("Tile layer added successfully");
-
-      // Listen for tile layer events
-      tileLayer.on("loading", () => console.log("Tiles loading..."));
-      tileLayer.on("load", () => console.log("Tiles loaded"));
-      tileLayer.on("tileerror", (e) => console.error("Tile error:", e));
     } catch (error) {
-      console.error("Error adding tile layer:", error);
       this.errors.push("Tile layer failed: " + error.message);
     }
 
@@ -142,22 +135,20 @@ let MinimalAPRSMap = {
     this.markers = new Map();
     this.markerLayer = L.layerGroup().addTo(this.map);
 
+    // Track marker states to prevent unnecessary operations
+    this.markerStates = new Map();
+
     // Force initial size calculation
     try {
       this.map.invalidateSize();
-      console.log("Map size invalidated");
     } catch (error) {
       console.error("Error invalidating map size:", error);
     }
 
     // Track when map is ready
     this.map.whenReady(() => {
-      console.log("Minimal map is ready");
-      console.log("Map container size:", this.map.getSize());
-      console.log("Map zoom:", this.map.getZoom());
-      console.log("Map center:", this.map.getCenter());
-
       try {
+        this.lastZoom = this.map.getZoom();
         this.pushEvent("map_ready", {});
         this.sendBoundsToServer();
       } catch (error) {
@@ -173,9 +164,28 @@ let MinimalAPRSMap = {
       }, 300);
     });
 
+    // Handle zoom changes with optimization for large zoom differences
+    this.map.on("zoomend", () => {
+      if (this.boundsTimer) clearTimeout(this.boundsTimer);
+      this.boundsTimer = setTimeout(() => {
+        const currentZoom = this.map.getZoom();
+        const zoomDifference = this.lastZoom ? Math.abs(currentZoom - this.lastZoom) : 0;
+
+        // If zoom changed significantly (more than 2 levels), clear and reload
+        if (zoomDifference > 2) {
+          console.log(
+            `Large zoom change detected (${zoomDifference} levels), clearing and reloading markers`,
+          );
+          this.pushEvent("clear_and_reload_markers", {});
+        }
+
+        this.sendBoundsToServer();
+        this.lastZoom = currentZoom;
+      }, 300);
+    });
+
     // Handle resize
     this.resizeHandler = () => {
-      console.log("Window resized, invalidating map size");
       try {
         if (this.map) {
           this.map.invalidateSize();
@@ -188,13 +198,10 @@ let MinimalAPRSMap = {
 
     // Add a delayed size check
     setTimeout(() => {
-      console.log("Delayed map size check");
       const rect = this.el.getBoundingClientRect();
-      console.log("Map element dimensions after delay:", rect);
       if (this.map) {
         try {
           this.map.invalidateSize();
-          console.log("Map size re-invalidated after delay");
         } catch (error) {
           console.error("Error re-invalidating map size:", error);
         }
@@ -265,8 +272,6 @@ let MinimalAPRSMap = {
 
     // Zoom to location
     this.handleEvent("zoom_to_location", (data) => {
-      console.log("Zoom to location event received:", data);
-
       if (!this.map) {
         console.error("Map not initialized, cannot zoom");
         return;
@@ -293,7 +298,6 @@ let MinimalAPRSMap = {
         try {
           // Check element dimensions before zoom
           const beforeRect = this.el.getBoundingClientRect();
-          console.log("Element dimensions before zoom:", beforeRect);
 
           // Force map size recalculation before zoom
           this.map.invalidateSize();
@@ -305,7 +309,6 @@ let MinimalAPRSMap = {
                 animate: true,
                 duration: 1,
               });
-              console.log("Zoom completed successfully");
 
               // Check element dimensions after zoom
               setTimeout(() => {
@@ -369,9 +372,12 @@ let MinimalAPRSMap = {
 
     // Handle refresh markers event
     this.handleEvent("refresh_markers", () => {
-      // Remove markers for packets that are no longer visible
-      // This could be implemented to clean up old markers based on timestamp
-      console.log("Refresh markers event received");
+      // Remove markers that are outside current bounds
+      if (this.map) {
+        const bounds = this.map.getBounds();
+        this.removeMarkersOutsideBounds(bounds);
+      }
+      console.log("Refresh markers event received - cleaned up out-of-bounds markers");
     });
 
     // Handle clearing historical packets
@@ -385,6 +391,24 @@ let MinimalAPRSMap = {
       });
       markersToRemove.forEach((id) => this.removeMarker(id));
     });
+
+    // Handle bounds-based marker filtering
+    this.handleEvent("filter_markers_by_bounds", (data) => {
+      if (data.bounds) {
+        // Create Leaflet bounds object from server data
+        const bounds = L.latLngBounds(
+          [data.bounds.south, data.bounds.west],
+          [data.bounds.north, data.bounds.east],
+        );
+        this.removeMarkersOutsideBounds(bounds);
+      }
+    });
+
+    // Handle clearing all markers and reloading visible ones
+    this.handleEvent("clear_and_reload_markers", () => {
+      console.log("Clear and reload markers event received");
+      // This event is just a trigger - the server will handle clearing and adding markers
+    });
   },
 
   sendBoundsToServer() {
@@ -393,6 +417,9 @@ let MinimalAPRSMap = {
     const bounds = this.map.getBounds();
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
+
+    // Remove markers that are now outside the visible bounds
+    this.removeMarkersOutsideBounds(bounds);
 
     this.pushEvent("bounds_changed", {
       bounds: {
@@ -422,6 +449,26 @@ let MinimalAPRSMap = {
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       console.warn("Invalid coordinates:", lat, lng);
       return;
+    }
+
+    // Check if marker already exists with same position and data
+    const existingMarker = this.markers.get(data.id);
+    const existingState = this.markerStates.get(data.id);
+
+    if (existingMarker && existingState) {
+      // Check if marker needs updating
+      const currentPos = existingMarker.getLatLng();
+      const positionChanged =
+        Math.abs(currentPos.lat - lat) > 0.0001 || Math.abs(currentPos.lng - lng) > 0.0001;
+      const dataChanged =
+        existingState.symbol_table !== data.symbol_table ||
+        existingState.symbol_code !== data.symbol_code ||
+        existingState.popup !== data.popup;
+
+      if (!positionChanged && !dataChanged) {
+        // No changes needed, skip update
+        return;
+      }
     }
 
     // Remove existing marker if it exists
@@ -456,6 +503,16 @@ let MinimalAPRSMap = {
     // Add to map and store reference
     marker.addTo(this.markerLayer);
     this.markers.set(data.id, marker);
+
+    // Store marker state for optimization
+    this.markerStates.set(data.id, {
+      lat: lat,
+      lng: lng,
+      symbol_table: data.symbol_table,
+      symbol_code: data.symbol_code,
+      popup: data.popup,
+      historical: data.historical,
+    });
   },
 
   removeMarker(id) {
@@ -463,6 +520,7 @@ let MinimalAPRSMap = {
     if (marker) {
       this.markerLayer.removeLayer(marker);
       this.markers.delete(id);
+      this.markerStates.delete(id);
     }
   },
 
@@ -499,6 +557,42 @@ let MinimalAPRSMap = {
   clearAllMarkers() {
     this.markerLayer.clearLayers();
     this.markers.clear();
+    this.markerStates.clear();
+  },
+
+  removeMarkersOutsideBounds(bounds) {
+    if (!bounds || !this.markers) return;
+
+    const markersToRemove = [];
+
+    this.markers.forEach((marker, id) => {
+      const position = marker.getLatLng();
+      const lat = position.lat;
+      const lng = position.lng;
+
+      // Check latitude bounds (straightforward)
+      const latOutOfBounds = lat < bounds.getSouth() || lat > bounds.getNorth();
+
+      // Check longitude bounds (handle potential wrapping)
+      let lngOutOfBounds;
+      if (bounds.getWest() <= bounds.getEast()) {
+        // Normal case: bounds don't cross antimeridian
+        lngOutOfBounds = lng < bounds.getWest() || lng > bounds.getEast();
+      } else {
+        // Bounds cross antimeridian (e.g., west=170, east=-170)
+        lngOutOfBounds = lng < bounds.getWest() && lng > bounds.getEast();
+      }
+
+      // Check if marker is outside the current bounds
+      if (latOutOfBounds || lngOutOfBounds) {
+        markersToRemove.push(id);
+      }
+    });
+
+    // Remove out-of-bounds markers
+    markersToRemove.forEach((id) => this.removeMarker(id));
+
+    console.log(`Removed ${markersToRemove.length} markers outside bounds`);
   },
 
   createMarkerIcon(data) {
@@ -553,7 +647,7 @@ let MinimalAPRSMap = {
     const symbolDesc = data.symbol_description || "Unknown symbol";
 
     let content = `<div class="aprs-popup">
-      <div class="aprs-callsign"><strong>${callsign}</strong></div>
+      <div class="aprs-callsign"><strong><a href="/${callsign}">${callsign}</a></strong></div>
       <div class="aprs-symbol-info">${symbolDesc}</div>`;
 
     if (comment) {
@@ -590,6 +684,10 @@ let MinimalAPRSMap = {
 
     if (this.markers) {
       this.markers.clear();
+    }
+
+    if (this.markerStates) {
+      this.markerStates.clear();
     }
 
     // Clean up map

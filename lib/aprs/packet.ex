@@ -108,8 +108,6 @@ defmodule Aprs.Packet do
       :base_callsign,
       :data_type,
       :destination,
-      :information_field,
-      :path,
       :sender,
       :ssid,
       :received_at
