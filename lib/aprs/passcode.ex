@@ -15,7 +15,7 @@ defmodule Aprs.Passcode do
 
   ## Examples
       iex> Aprs.Passcode.generate("W5ISP")
-      12345
+      15748
   """
   def generate(callsign) when is_binary(callsign) do
     # Split on '-' and take first part, uppercase, and limit to 10 chars
@@ -32,22 +32,22 @@ defmodule Aprs.Passcode do
     # Initial hash value
     hash = 0x73E2
 
-    # Process characters in pairs
+    # Process characters in pairs, incrementing by 2 each time
     hash =
-      Enum.reduce_every(chars, 2, hash, fn [char1, char2], acc ->
-        acc
-        |> Bitwise.bxor(Bitwise.bsl(char1, 8))
-        |> Bitwise.bxor(char2)
-      end)
+      Enum.reduce(0..div(length(chars) - 1, 2), hash, fn i, acc ->
+        current_char = Enum.at(chars, i * 2)
+        next_char = if i * 2 + 1 < length(chars), do: Enum.at(chars, i * 2 + 1), else: nil
+        step1 = Bitwise.bxor(acc, Bitwise.bsl(current_char, 8))
 
-    # Handle odd length callsigns
-    hash =
-      if rem(length(chars), 2) == 1 do
-        last_char = List.last(chars)
-        Bitwise.bxor(hash, Bitwise.bsl(last_char, 8))
-      else
-        hash
-      end
+        step2 =
+          if next_char do
+            Bitwise.bxor(step1, next_char)
+          else
+            step1
+          end
+
+        step2
+      end)
 
     # Return final hash masked to 15 bits
     Bitwise.band(hash, 0x7FFF)
