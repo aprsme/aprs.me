@@ -417,6 +417,19 @@ defmodule AprsWeb.CoreComponents do
     """
   end
 
+  # Helper function to safely generate row IDs
+  defp safe_row_id(row) when is_map(row) do
+    cond do
+      Map.has_key?(row, :id) -> row.id
+      Map.has_key?(row, "id") -> row["id"]
+      true -> :md5 |> :crypto.hash(inspect(row)) |> Base.encode16() |> String.slice(0, 8)
+    end
+  end
+
+  defp safe_row_id(row) do
+    Phoenix.Param.to_param(row)
+  end
+
   @doc ~S"""
   Renders a table with generic styling.
 
@@ -450,7 +463,7 @@ defmodule AprsWeb.CoreComponents do
         <tbody class="relative divide-y divide-zinc-100 border-t border-zinc-200 text-sm leading-6 text-zinc-700">
           <tr
             :for={row <- @rows}
-            id={"#{@id}-#{Phoenix.Param.to_param(row)}"}
+            id={"#{@id}-#{safe_row_id(row)}"}
             class="relative group hover:bg-zinc-50"
           >
             <td
