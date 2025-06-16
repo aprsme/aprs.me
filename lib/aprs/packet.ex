@@ -134,7 +134,7 @@ defmodule Aprs.Packet do
           data_extended = get_change(changeset, :data_extended)
 
           if data_extended do
-            {data_extended.latitude, data_extended.longitude}
+            {data_extended[:latitude], data_extended[:longitude]}
           else
             {nil, nil}
           end

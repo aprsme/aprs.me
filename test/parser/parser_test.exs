@@ -52,6 +52,46 @@ defmodule Parser.ParserTest do
     assert %MicE{} = sut
   end
 
+  test "mic_e latitude/longitude access" do
+    # Test the Access behavior for MicE structs
+    mic_e = %MicE{
+      lat_degrees: 49,
+      lat_minutes: 14,
+      lat_fractional: 72,
+      lat_direction: :north,
+      lon_degrees: 12,
+      lon_minutes: 5,
+      lon_fractional: 75,
+      lon_direction: :east
+    }
+
+    # Test bracket notation access (should work)
+    assert mic_e[:latitude] == 49 + 14 / 60.0
+    assert mic_e[:longitude] == 12 + 5 / 60.0
+
+    # Test that latitude/longitude are calculated correctly
+    expected_lat = 49.0 + 14.0 / 60.0
+    expected_lon = 12.0 + 5.0 / 60.0
+
+    assert_in_delta mic_e[:latitude], expected_lat, 0.001
+    assert_in_delta mic_e[:longitude], expected_lon, 0.001
+
+    # Test south/west directions
+    mic_e_sw = %MicE{
+      lat_degrees: 49,
+      lat_minutes: 14,
+      lat_fractional: 72,
+      lat_direction: :south,
+      lon_degrees: 12,
+      lon_minutes: 5,
+      lon_fractional: 75,
+      lon_direction: :west
+    }
+
+    assert mic_e_sw[:latitude] < 0
+    assert mic_e_sw[:longitude] < 0
+  end
+
   test "weird format" do
     aprs_message =
       ~s(ON4AVM-11>APDI23,WIDE1-1,WIDE2-2,qAR,ON0LB-10:=S4`k!OZ,C# sT/A=000049DIXPRS 2.3.0b\n)

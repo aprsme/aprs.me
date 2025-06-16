@@ -94,7 +94,7 @@ defmodule Aprs.Packets do
         cond do
           # Standard position format
           is_map(data_extended) and not is_nil(data_extended[:latitude]) and not is_nil(data_extended[:longitude]) ->
-            {to_float(data_extended.latitude), to_float(data_extended.longitude)}
+            {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
 
           # MicE packet format with components
           is_map(data_extended) and data_extended.__struct__ == Parser.Types.MicE ->

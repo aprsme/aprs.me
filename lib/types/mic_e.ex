@@ -31,16 +31,24 @@ defmodule Parser.Types.MicE do
   """
   def fetch(mic_e, :latitude) do
     # Calculate decimal latitude from components
-    lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
-    lat = if mic_e.lat_direction == :south, do: -lat, else: lat
-    {:ok, lat}
+    if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) do
+      lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
+      lat = if mic_e.lat_direction == :south, do: -lat, else: lat
+      {:ok, lat}
+    else
+      :error
+    end
   end
 
   def fetch(mic_e, :longitude) do
     # Calculate decimal longitude from components
-    lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
-    lon = if mic_e.lon_direction == :west, do: -lon, else: lon
-    {:ok, lon}
+    if is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes) do
+      lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
+      lon = if mic_e.lon_direction == :west, do: -lon, else: lon
+      {:ok, lon}
+    else
+      :error
+    end
   end
 
   def fetch(mic_e, key) when is_atom(key) do
@@ -65,12 +73,16 @@ defmodule Parser.Types.MicE do
     value =
       case key do
         :latitude ->
-          lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
-          if mic_e.lat_direction == :south, do: -lat, else: lat
+          if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) do
+            lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
+            if mic_e.lat_direction == :south, do: -lat, else: lat
+          end
 
         :longitude ->
-          lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
-          if mic_e.lon_direction == :west, do: -lon, else: lon
+          if is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes) do
+            lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
+            if mic_e.lon_direction == :west, do: -lon, else: lon
+          end
 
         key when is_binary(key) ->
           # Handle string keys by converting to atom if it exists
