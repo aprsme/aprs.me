@@ -44,7 +44,7 @@ defmodule Aprs.MixProject do
       {:certifi, "~> 2.9"},
       {:ecto_sql, "~> 3.11"},
       {:finch, "~> 0.13"},
-      {:geo, "~> 3.4"},
+      {:geo, "~> 4.0.1"},
       {:geocalc, "~> 0.8"},
       {:geo_postgis, "~> 3.4"},
       {:heroicons, "~> 0.5"},

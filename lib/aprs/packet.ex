@@ -3,11 +3,8 @@ defmodule Aprs.Packet do
   use Aprs.Schema
 
   import Ecto.Changeset
-  import Ecto.Query
-  import Geo.PostGIS
 
   alias Aprs.DataExtended
-  alias Aprs.Repo
   alias Parser.Types.MicE
 
   schema "packets" do
@@ -148,8 +145,7 @@ defmodule Aprs.Packet do
 
     if is_valid_coordinates?(lat, lon) do
       location = Aprs.GeometryType.create_point(lat, lon)
-      changeset
-      |> put_change(:location, location)
+      put_change(changeset, :location, location)
     else
       changeset
     end

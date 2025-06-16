@@ -72,8 +72,6 @@ defmodule Aprs.GeometryType do
   def create_point(lat, lon) when is_number(lat) and is_number(lon) do
     if lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 do
       %Geo.Point{coordinates: {lon, lat}, srid: 4326}
-    else
-      nil
     end
   end
 
