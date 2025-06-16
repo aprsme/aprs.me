@@ -260,6 +260,13 @@ defmodule Aprs.Packets do
   defp limit_results(query, _), do: query
 
   @doc """
+  Gets the total count of stored packets in the database.
+  """
+  def get_total_packet_count do
+    Repo.one(from p in Packet, select: count(p.id))
+  end
+
+  @doc """
   Configure packet retention policy.
 
   Packets are retained based on these rules:

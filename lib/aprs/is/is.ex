@@ -106,7 +106,8 @@ defmodule Aprs.Is do
           uptime_seconds: 0,
           login_id: Application.get_env(:aprs, :aprs_is_login_id, "W5ISP"),
           filter: Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100"),
-          packet_stats: default_packet_stats()
+          packet_stats: default_packet_stats(),
+          stored_packet_count: Aprs.Packets.get_total_packet_count()
         }
 
       _pid ->
@@ -126,7 +127,8 @@ defmodule Aprs.Is do
               uptime_seconds: 0,
               login_id: Application.get_env(:aprs, :aprs_is_login_id, "W5ISP"),
               filter: Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100"),
-              packet_stats: default_packet_stats()
+              packet_stats: default_packet_stats(),
+              stored_packet_count: Aprs.Packets.get_total_packet_count()
             }
         end
     end
@@ -189,7 +191,8 @@ defmodule Aprs.Is do
       uptime_seconds: DateTime.diff(DateTime.utc_now(), state.connected_at),
       login_id: state.login_params.user_id,
       filter: state.login_params.filter,
-      packet_stats: state.packet_stats
+      packet_stats: state.packet_stats,
+      stored_packet_count: Aprs.Packets.get_total_packet_count()
     }
 
     {:reply, status, state}

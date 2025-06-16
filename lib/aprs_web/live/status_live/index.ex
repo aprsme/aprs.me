@@ -172,7 +172,7 @@ defmodule AprsWeb.StatusLive.Index do
     <!-- Packet Statistics -->
               <div class="mt-4 pt-4 border-t border-gray-200">
                 <h3 class="text-sm font-medium text-gray-700 mb-3">Packet Statistics</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div class="flex items-center">
                     <span class="text-sm font-medium text-gray-500 mr-2">Total Packets:</span>
                     <span class="text-sm text-gray-900 font-mono">
@@ -195,6 +195,13 @@ defmodule AprsWeb.StatusLive.Index do
                       <% else %>
                         <span class="text-gray-400">None</span>
                       <% end %>
+                    </span>
+                  </div>
+
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-500 mr-2">Stored Packets:</span>
+                    <span class="text-sm text-gray-900 font-mono">
+                      {format_number(@aprs_status.stored_packet_count)}
                     </span>
                   </div>
                 </div>
