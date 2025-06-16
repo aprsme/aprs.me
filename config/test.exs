@@ -24,6 +24,15 @@ config :aprs, AprsWeb.Endpoint,
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
   server: false
 
+# Disable APRS-IS external connections in test environment
+config :aprs,
+  aprs_is_server: nil,
+  aprs_is_port: nil,
+  aprs_is_default_filter: nil,
+  aprs_is_login_id: nil,
+  aprs_is_password: nil,
+  disable_aprs_connection: true
+
 # Disable automatic migrations during tests
 config :aprs, auto_migrate: false
 

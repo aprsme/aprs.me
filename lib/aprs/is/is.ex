@@ -13,55 +13,62 @@ defmodule Aprs.Is do
 
   @impl true
   def init(_opts) do
-    # Trap exits so we can gracefully shut down
-    Process.flag(:trap_exit, true)
-
-    # Add a small delay to prevent rapid reconnection attempts
-    Process.sleep(2000)
-
-    # Get startup parameters
-    server = Application.get_env(:aprs, :aprs_is_server, ~c"rotate.aprs2.net")
-    port = Application.get_env(:aprs, :aprs_is_port, 14_580)
-    default_filter = Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100")
-    aprs_user_id = Application.get_env(:aprs, :aprs_is_login_id, "W5ISP")
-    aprs_passcode = Application.get_env(:aprs, :aprs_is_password, "-1")
-
-    # Record connection start time
-    connected_at = DateTime.utc_now()
-
-    # Initialize packet statistics
-    packet_stats = %{
-      total_packets: 0,
-      last_packet_at: nil,
-      packets_per_second: 0,
-      last_second_count: 0,
-      last_second_timestamp: System.system_time(:second)
-    }
-
-    with {:ok, socket} <- connect_to_aprs_is(server, port),
-         :ok <- send_login_string(socket, aprs_user_id, aprs_passcode, default_filter) do
-      timer = create_timer(@aprs_timeout)
-      keepalive_timer = create_keepalive_timer(@keepalive_interval)
-
-      {:ok,
-       %{
-         server: server,
-         port: port,
-         socket: socket,
-         timer: timer,
-         keepalive_timer: keepalive_timer,
-         connected_at: connected_at,
-         packet_stats: packet_stats,
-         login_params: %{
-           user_id: aprs_user_id,
-           passcode: aprs_passcode,
-           filter: default_filter
-         }
-       }}
+    # Prevent APRS-IS connections in test environment
+    if Application.get_env(:aprs, :env) == :test or
+         Application.get_env(:aprs, :disable_aprs_connection, false) do
+      Logger.warning("APRS-IS connection disabled in test environment")
+      {:stop, :test_environment_disabled}
     else
-      _ ->
-        Logger.error("Unable to establish connection or log in to APRS-IS")
-        {:stop, :aprs_connection_failed}
+      # Trap exits so we can gracefully shut down
+      Process.flag(:trap_exit, true)
+
+      # Add a small delay to prevent rapid reconnection attempts
+      Process.sleep(2000)
+
+      # Get startup parameters
+      server = Application.get_env(:aprs, :aprs_is_server, ~c"rotate.aprs2.net")
+      port = Application.get_env(:aprs, :aprs_is_port, 14_580)
+      default_filter = Application.get_env(:aprs, :aprs_is_default_filter, "r/33/-96/100")
+      aprs_user_id = Application.get_env(:aprs, :aprs_is_login_id, "W5ISP")
+      aprs_passcode = Application.get_env(:aprs, :aprs_is_password, "-1")
+
+      # Record connection start time
+      connected_at = DateTime.utc_now()
+
+      # Initialize packet statistics
+      packet_stats = %{
+        total_packets: 0,
+        last_packet_at: nil,
+        packets_per_second: 0,
+        last_second_count: 0,
+        last_second_timestamp: System.system_time(:second)
+      }
+
+      with {:ok, socket} <- connect_to_aprs_is(server, port),
+           :ok <- send_login_string(socket, aprs_user_id, aprs_passcode, default_filter) do
+        timer = create_timer(@aprs_timeout)
+        keepalive_timer = create_keepalive_timer(@keepalive_interval)
+
+        {:ok,
+         %{
+           server: server,
+           port: port,
+           socket: socket,
+           timer: timer,
+           keepalive_timer: keepalive_timer,
+           connected_at: connected_at,
+           packet_stats: packet_stats,
+           login_params: %{
+             user_id: aprs_user_id,
+             passcode: aprs_passcode,
+             filter: default_filter
+           }
+         }}
+      else
+        _ ->
+          Logger.error("Unable to establish connection or log in to APRS-IS")
+          {:stop, :aprs_connection_failed}
+      end
     end
   end
 
@@ -130,9 +137,16 @@ defmodule Aprs.Is do
   # Server methods
 
   defp connect_to_aprs_is(server, port) do
-    Logger.debug("Connecting to: #{server}:#{port}")
-    opts = [:binary, active: true]
-    :gen_tcp.connect(String.to_charlist(server), port, opts)
+    # Additional safeguard: prevent connections in test environment
+    if Application.get_env(:aprs, :env) == :test or
+         Application.get_env(:aprs, :disable_aprs_connection, false) do
+      Logger.warning("Attempted APRS-IS connection blocked in test environment")
+      {:error, :test_environment_blocked}
+    else
+      Logger.debug("Connecting to: #{server}:#{port}")
+      opts = [:binary, active: true]
+      :gen_tcp.connect(String.to_charlist(server), port, opts)
+    end
   end
 
   defp send_login_string(socket, aprs_user_id, aprs_passcode, filter) do
@@ -271,7 +285,6 @@ defmodule Aprs.Is do
           try do
             # Store the packet if it has position data
             if has_position_data?(parsed_message) do
-              Logger.info("Storing packet with position data: #{inspect(parsed_message.sender)}")
               # Always set received_at timestamp to ensure consistency
               current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
               packet_data = Map.put(parsed_message, :received_at, current_time)
