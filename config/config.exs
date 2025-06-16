@@ -26,6 +26,18 @@ config :aprs, AprsWeb.Endpoint,
   pubsub_server: Aprs.PubSub,
   live_view: [signing_salt: "ees098qG"]
 
+# Configure Oban for background jobs
+config :aprs, Oban,
+  repo: Aprs.Repo,
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"0 0 * * *", Aprs.Workers.PacketCleanupWorker}
+     ]}
+  ],
+  queues: [default: 10, maintenance: 2]
+
 config :aprs,
   ecto_repos: [Aprs.Repo]
 

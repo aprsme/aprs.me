@@ -279,37 +279,45 @@ defmodule Aprs.Is do
   def dispatch(message) do
     case Parser.parse(message) do
       {:ok, parsed_message} ->
-        # IO.inspect(parsed_message)
-        # time_message_received =
-        #   :calendar.universal_time() |> :calendar.datetime_to_gregorian_seconds()
+        # Store the packet in the database for future replay
+        # Use Task to avoid slowing down the main process
+        Task.start(fn ->
+          require Logger
+          # Store the packet if it has position data
+          if has_position_data?(parsed_message) do
+            Logger.info("Storing packet with position data: #{inspect(parsed_message.sender)}")
+            # Always set received_at timestamp to ensure consistency
+            current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
+            packet_data = Map.put(parsed_message, :received_at, current_time)
 
-        # This doesnt work if dispatch if spawned as a task, since it does not own the table
-        # :ets.insert(:aprs, {parsed_message.sender, message, time_message_received})
+            # Convert to map before storing to avoid struct conversion issues
+            attrs = Map.from_struct(packet_data)
 
-        # Get messages since last time the callsign was seen
-        # TODO: Get last seen timestamp and use that
-        # _message_count =
-        #   case :ets.lookup(:aprs_messages, parsed_message.sender) do
-        #     [{_callsign, _message, timestamp}] ->
-        #       recent_messages_for(parsed_message.sender, timestamp)
+            # Normalize data_type to string if it's an atom
+            attrs = normalize_data_type(attrs)
 
-        #     [] ->
-        #       0
+            # Ensure SSID is never nil
+            attrs =
+              if Map.has_key?(attrs, :ssid) and is_nil(attrs.ssid) do
+                Map.put(attrs, :ssid, "0")
+              else
+                attrs
+              end
 
-        #     _ ->
-        #       0
-        #   end
+            # Store in database through the Packets context
+            case Aprs.Packets.store_packet(attrs) do
+              {:ok, packet} ->
+                Logger.info("Successfully stored packet from #{packet.sender}")
 
-        # Logger.debug("#{message_count} recent messages for #{parsed_message.sender}")
+              {:error, changeset} ->
+                Logger.error("Failed to store packet: #{inspect(changeset.errors)}")
+            end
+          else
+            Logger.debug("Skipping packet without position data: #{inspect(parsed_message.sender)}")
+          end
+        end)
 
-        # Do something interesting with the message
-        # process(parsed_message, parsed_message.data_type)
-
-        # Publish the parsed message to all interested parties
-        # Registry.dispatch(Registry.PubSub, "aprs_messages", fn entries ->
-        #   for {pid, _} <- entries, do: send(pid, {:broadcast, parsed_message})
-        # end)
-
+        # Broadcast to live clients
         AprsWeb.Endpoint.broadcast("aprs_messages", "packet", parsed_message)
 
       # Logger.debug("BROADCAST: " <> inspect(parsed_message))
@@ -333,21 +341,98 @@ defmodule Aprs.Is do
     end
   end
 
-  # def process(message, message_type) when message_type == :message do
-  #   # time_message_received =
-  #   #   :calendar.universal_time() |> :calendar.datetime_to_gregorian_seconds()
+  # Helper to check if a packet has position data worth storing
+  defp has_position_data?(packet) do
+    require Logger
 
-  #   # :ets.insert(
-  #   #   :aprs_messages,
-  #   #   {message.data_extended.to, message.data_extended, time_message_received}
-  #   # )
-  # end
+    result =
+      case packet do
+        %{data_extended: nil} ->
+          Logger.debug("Packet has nil data_extended: #{inspect(packet.sender)}")
+          false
 
-  # def process(_, _), do: nil
+        %{data_extended: %{latitude: lat, longitude: lon}} when not is_nil(lat) and not is_nil(lon) ->
+          # Check if coordinates are valid numbers
+          valid = are_valid_coords?(lat, lon)
 
-  # def recent_messages_for(callsign, since_time) do
-  #   callsign_guard = {:==, :"$1", {:const, callsign}}
-  #   timestamp_guard = {:>=, :"$2", {:const, since_time}}
+          if !valid do
+            Logger.debug("Invalid coordinates: lat=#{inspect(lat)}, lon=#{inspect(lon)}")
+          end
+
+          valid
+
+        %{data_extended: %Parser.Types.MicE{} = mic_e} ->
+          # MicE packets have lat/lon in separate components
+          valid =
+            is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
+              is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes)
+
+          Logger.debug("MicE packet position check: #{valid} for #{inspect(packet.sender)}")
+          valid
+
+        %{lat: lat, lon: lon} when not is_nil(lat) and not is_nil(lon) ->
+          # Handle case where coordinates are at top level
+          are_valid_coords?(lat, lon)
+
+        _other ->
+          Logger.debug("Unrecognized packet format: #{inspect(Map.keys(packet))}")
+          false
+      end
+
+    Logger.debug("Position data check for #{inspect(packet.sender)}: #{result}")
+    result
+  end
+
+  # Helper to validate coordinate values
+  defp are_valid_coords?(lat, lon) do
+    require Logger
+
+    # Convert to float if possible
+    lat_float = to_float(lat)
+    lon_float = to_float(lon)
+
+    # Log coordinate conversion
+    if !is_number(lat_float) do
+      Logger.debug("Could not convert latitude to float: #{inspect(lat)}")
+    end
+
+    if !is_number(lon_float) do
+      Logger.debug("Could not convert longitude to float: #{inspect(lon)}")
+    end
+
+    # Check if conversion succeeded and values are in valid ranges
+    result =
+      is_number(lat_float) and is_number(lon_float) and
+        lat_float >= -90 and lat_float <= 90 and lon_float >= -180 and lon_float <= 180
+
+    if !result do
+      Logger.debug("Invalid coordinates: lat=#{inspect(lat_float)}, lon=#{inspect(lon_float)}")
+    end
+
+    result
+  end
+
+  # Helper to convert various types to float
+  defp to_float(value) when is_float(value), do: value
+  defp to_float(value) when is_integer(value), do: value * 1.0
+  defp to_float(%Decimal{} = value), do: Decimal.to_float(value)
+
+  defp to_float(value) when is_binary(value) do
+    case Float.parse(value) do
+      {float, _} -> float
+      :error -> nil
+    end
+  end
+
+  defp to_float(_), do: nil
+
+  # Normalize data_type to ensure proper storage
+  defp normalize_data_type(%{data_type: data_type} = attrs) when is_atom(data_type) do
+    %{attrs | data_type: to_string(data_type)}
+  end
+
+  defp normalize_data_type(attrs), do: attrs
+
   #   total_spec = [{{:"$1", :_, :"$2"}, [{:andalso, callsign_guard, timestamp_guard}], [true]}]
   #   :ets.select_count(:aprs_messages, total_spec)
   # end

@@ -10,11 +10,15 @@ defmodule AprsWeb.MapLive.Index do
 
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
-  @ip_api_url "http://ip-api.com/json/"
+  @ip_api_url "https://ip-api.com/json/"
   @finch_name Aprs.Finch
+  @default_replay_speed 1000
 
   @impl true
   def mount(_params, _session, socket) do
+    # Calculate one hour ago for packet age filtering
+    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+
     socket =
       assign(socket,
         packets: [],
@@ -30,12 +34,35 @@ defmodule AprsWeb.MapLive.Index do
           west: -125.0
         },
         map_center: @default_center,
-        map_zoom: @default_zoom
+        map_zoom: @default_zoom,
+        # Replay controls
+        replay_active: false,
+        replay_speed: @default_replay_speed,
+        replay_paused: false,
+        replay_packets: [],
+        replay_index: 0,
+        replay_timer_ref: nil,
+        replay_start_time: nil,
+        replay_end_time: nil,
+        # Map of packet IDs to packet data for historical packets
+        historical_packets: %{},
+        # Timestamp for filtering out old packets
+        packet_age_threshold: one_hour_ago,
+        # Flag to indicate if map is ready for replay
+        map_ready: false,
+        # Flag to prevent multiple replay starts
+        replay_started: false,
+        # Pending geolocation to zoom to after map is ready
+        pending_geolocation: nil
       )
 
     if connected?(socket) do
+      IO.puts("Socket is connected, attempting to get IP location")
       Endpoint.subscribe("aprs_messages")
       # Get IP-based location on initial load
+      IO.puts("Connect info: #{inspect(socket.private[:connect_info])}")
+      IO.puts("Peer data: #{inspect(socket.private[:connect_info][:peer_data])}")
+
       ip =
         case socket.private[:connect_info][:peer_data][:address] do
           {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
@@ -43,7 +70,29 @@ defmodule AprsWeb.MapLive.Index do
           _ -> nil
         end
 
-      if ip, do: Task.async(fn -> get_ip_location(ip) end)
+      IO.puts("Extracted IP address: #{inspect(ip)}")
+
+      if ip do
+        IO.puts("Starting IP geolocation task for IP: #{ip}")
+        # Start as a separate task and await the result
+        Task.start(fn ->
+          try do
+            get_ip_location(ip)
+          rescue
+            error ->
+              IO.puts("Error in IP geolocation task: #{inspect(error)}")
+              IO.puts("Stacktrace: #{inspect(__STACKTRACE__)}")
+              send(self(), {:ip_location, @default_center})
+          end
+        end)
+      else
+        IO.puts("No IP address found, skipping geolocation")
+      end
+
+      # Schedule regular cleanup of old packets from the map
+      if connected?(socket), do: Process.send_after(self(), :cleanup_old_packets, 60_000)
+      # Schedule initialization of replay after a short delay
+      if connected?(socket), do: Process.send_after(self(), :initialize_replay, 2000)
     end
 
     {:ok, socket}
@@ -70,6 +119,25 @@ defmodule AprsWeb.MapLive.Index do
 
     packet_count = map_size(visible_packets)
 
+    # If replay is not active, update the replay packets based on the new bounds
+    socket =
+      if socket.assigns.replay_active do
+        socket
+      else
+        # Clear any existing replay data when bounds change
+        socket =
+          assign(socket,
+            replay_packets: [],
+            replay_index: 0,
+            historical_packets: %{},
+            map_ready: true
+          )
+
+        # Don't automatically start replay on every bounds change
+        # We'll handle this in initialize_replay to avoid too many restarts
+        socket
+      end
+
     {:noreply, assign(socket, map_bounds: map_bounds, visible_packets: visible_packets, packet_count: packet_count)}
   end
 
@@ -82,38 +150,182 @@ defmodule AprsWeb.MapLive.Index do
   @impl true
   def handle_event("locate_me", _params, socket) do
     # Send JavaScript command to request browser geolocation
+    IO.puts("locate_me event received, requesting geolocation")
     {:noreply, push_event(socket, "request_geolocation", %{})}
   end
 
   @impl true
   def handle_event("set_location", %{"lat" => lat, "lng" => lng}, socket) do
     # Update map center and zoom when location is received
-    {:noreply, assign(socket, map_center: %{lat: lat, lng: lng}, map_zoom: 12)}
+    IO.puts("set_location event received with lat=#{lat}, lng=#{lng}")
+
+    # Ensure coordinates are floats
+    lat_float =
+      cond do
+        is_binary(lat) -> String.to_float(lat)
+        is_integer(lat) -> lat / 1.0
+        true -> lat
+      end
+
+    lng_float =
+      cond do
+        is_binary(lng) -> String.to_float(lng)
+        is_integer(lng) -> lng / 1.0
+        true -> lng
+      end
+
+    IO.puts("Sending zoom_to_location event from set_location with lat=#{lat_float}, lng=#{lng_float}")
+
+    socket =
+      socket
+      |> assign(map_center: %{lat: lat_float, lng: lng_float}, map_zoom: 12)
+      |> push_event("zoom_to_location", %{lat: lat_float, lng: lng_float, zoom: 12})
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle_replay", _params, socket) do
+    if socket.assigns.replay_active do
+      # Stop replay
+      if socket.assigns.replay_timer_ref, do: Process.cancel_timer(socket.assigns.replay_timer_ref)
+
+      # Clear historical packets from the map
+      socket =
+        socket
+        |> push_event("clear_historical_packets", %{})
+        |> assign(
+          replay_active: false,
+          replay_timer_ref: nil,
+          replay_paused: false,
+          replay_packets: [],
+          replay_index: 0,
+          historical_packets: %{},
+          replay_started: false
+        )
+
+      # Restart replay after a short delay
+      Process.send_after(self(), :initialize_replay, 1000)
+
+      {:noreply, socket}
+    else
+      # If not active, the user manually requested a replay restart
+      {:noreply, start_historical_replay(socket)}
+    end
+  end
+
+  @impl true
+  def handle_event("pause_replay", _params, socket) do
+    if socket.assigns.replay_active do
+      if socket.assigns.replay_paused do
+        # Resume replay
+        timer_ref = Process.send_after(self(), :replay_next_packet, 1000)
+        {:noreply, assign(socket, replay_paused: false, replay_timer_ref: timer_ref)}
+      else
+        # Pause replay
+        if socket.assigns.replay_timer_ref, do: Process.cancel_timer(socket.assigns.replay_timer_ref)
+        {:noreply, assign(socket, replay_paused: true, replay_timer_ref: nil)}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("adjust_replay_speed", %{"speed" => speed}, socket) do
+    speed_float = String.to_float(speed)
+    {:noreply, assign(socket, replay_speed: speed_float)}
+  end
+
+  @impl true
+  def handle_event("map_ready", _params, socket) do
+    IO.puts("Map ready event received")
+    socket = assign(socket, map_ready: true)
+
+    # If we have pending geolocation, zoom to it now
+    socket =
+      if socket.assigns.pending_geolocation do
+        %{lat: lat, lng: lng} = socket.assigns.pending_geolocation
+        IO.puts("Map ready - zooming to pending location: lat=#{lat}, lng=#{lng}")
+        push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
+      else
+        IO.puts("Map ready - no pending geolocation")
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
   def handle_info(msg, socket) do
     case msg do
+      {:delayed_zoom, %{lat: lat, lng: lng}} ->
+        IO.puts("Processing delayed zoom to lat=#{lat}, lng=#{lng}")
+        socket = push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
+        {:noreply, socket}
+
       {:ip_location, %{lat: lat, lng: lng}} ->
-        {:noreply, assign(socket, map_center: %{lat: lat, lng: lng}, map_zoom: 12)}
+        # Log IP location received
+        IO.puts("IP location received: lat=#{lat}, lng=#{lng}")
+
+        # Ensure we're using numeric values for coordinates
+        lat_float =
+          cond do
+            is_binary(lat) -> String.to_float(lat)
+            is_integer(lat) -> lat / 1.0
+            true -> lat
+          end
+
+        lng_float =
+          cond do
+            is_binary(lng) -> String.to_float(lng)
+            is_integer(lng) -> lng / 1.0
+            true -> lng
+          end
+
+        # Update map center first
+        socket = assign(socket, map_center: %{lat: lat_float, lng: lng_float}, map_zoom: 12)
+
+        # If map is ready, zoom to location immediately, otherwise store for later
+        socket =
+          if socket.assigns.map_ready do
+            IO.puts("Map is ready, zooming to location immediately to lat=#{lat_float}, lng=#{lng_float}")
+            push_event(socket, "zoom_to_location", %{lat: lat_float, lng: lng_float, zoom: 12})
+          else
+            IO.puts("Map not ready yet, storing location lat=#{lat_float}, lng=#{lng_float} for later")
+            assign(socket, pending_geolocation: %{lat: lat_float, lng: lng_float})
+          end
+
+        {:noreply, socket}
+
+      :initialize_replay ->
+        # Only start replay if it hasn't been started yet
+        if not socket.assigns.replay_started and socket.assigns.map_ready do
+          socket = start_historical_replay(socket)
+          {:noreply, assign(socket, replay_started: true)}
+        else
+          {:noreply, socket}
+        end
+
+      :replay_next_packet ->
+        handle_replay_next_packet(socket)
+
+      :cleanup_old_packets ->
+        # Clean up packets older than 1 hour from the map display
+        handle_cleanup_old_packets(socket)
 
       %{event: "packet", payload: payload} ->
         # Sanitize the packet to prevent encoding errors
         sanitized_packet = EncodingUtils.sanitize_packet(payload)
 
-        # Log packet type for debugging
-        IO.inspect(sanitized_packet.data_type, label: "Packet type")
-
-        if sanitized_packet.data_extended do
-          # Check if data_extended is a struct before accessing __struct__
-          case sanitized_packet.data_extended do
-            %{__struct__: module} -> IO.inspect(module, label: "Data extended type")
-            _ -> IO.inspect("Plain map", label: "Data extended type")
-          end
-        end
+        # Add received timestamp if not present
+        sanitized_packet = Map.put_new(sanitized_packet, :received_at, DateTime.utc_now())
 
         # Only process packets with position data that are within current map bounds
-        if has_position_data?(sanitized_packet) && within_bounds?(sanitized_packet, socket.assigns.map_bounds) do
+        # AND are not older than 1 hour
+        if has_position_data?(sanitized_packet) &&
+             within_bounds?(sanitized_packet, socket.assigns.map_bounds) &&
+             packet_within_time_threshold?(sanitized_packet, socket.assigns.packet_age_threshold) do
           # Convert to a simple map structure for JSON encoding
           packet_data = build_packet_data(sanitized_packet)
 
@@ -139,9 +351,72 @@ defmodule AprsWeb.MapLive.Index do
             {:noreply, socket}
           end
         else
-          # Ignore packets without position data or outside bounds
+          # Ignore packets without position data, outside bounds, or too old
           {:noreply, socket}
         end
+    end
+  end
+
+  # Handle replaying the next historical packet
+  defp handle_replay_next_packet(socket) do
+    %{
+      replay_packets: packets,
+      replay_index: index,
+      replay_speed: speed,
+      historical_packets: historical_packets
+    } = socket.assigns
+
+    if index < length(packets) do
+      # Get the next packet and advance the index
+      packet = Enum.at(packets, index)
+      next_index = index + 1
+
+      # Convert to a simple map structure for JSON encoding
+      packet_data = build_packet_data(packet)
+
+      # Add is_historical flag and timestamp
+      packet_data =
+        Map.merge(packet_data, %{
+          "is_historical" => true,
+          "timestamp" => if(Map.has_key?(packet, :received_at), do: DateTime.to_iso8601(packet.received_at))
+        })
+
+      # Generate a unique key for this packet
+      packet_id = "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}"
+
+      # Update historical packets tracking
+      new_historical_packets = Map.put(historical_packets, packet_id, packet)
+
+      # Calculate delay for next packet (faster based on replay speed)
+      delay_ms = trunc(1000 / speed)
+
+      # Schedule the next packet
+      timer_ref = Process.send_after(self(), :replay_next_packet, delay_ms)
+
+      # Push the packet to the client-side JavaScript
+      socket =
+        socket
+        |> push_event("historical_packet", packet_data)
+        |> assign(
+          replay_index: next_index,
+          replay_timer_ref: timer_ref,
+          historical_packets: new_historical_packets
+        )
+
+      {:noreply, socket}
+    else
+      # All packets replayed, start over with a short delay
+      Process.send_after(self(), :initialize_replay, 10_000)
+
+      # Set active to false but don't clear packets - will auto-restart
+      socket =
+        assign(socket,
+          replay_active: false,
+          replay_timer_ref: nil,
+          replay_started: false
+        )
+
+      {:noreply, socket}
     end
   end
 
@@ -192,6 +467,7 @@ defmodule AprsWeb.MapLive.Index do
         border-radius: 5px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         z-index: 1000;
+        max-width: 300px;
       }
 
       .locate-button {
@@ -214,11 +490,115 @@ defmodule AprsWeb.MapLive.Index do
         font-size: 14px;
         font-weight: 600;
         color: #333;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .replay-badge {
+        background-color: #3498db;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: bold;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0% { opacity: 0.7; }
+        50% { opacity: 1; }
+        100% { opacity: 0.7; }
+      }
+
+      .replay-controls {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .control-buttons {
+        display: flex;
+        gap: 8px;
+      }
+
+      .replay-controls button {
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        border: none;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+      }
+
+      .btn-action {
+        background-color: #3498db;
+        color: white;
+      }
+
+      .btn-danger {
+        background-color: #e74c3c;
+        color: white;
+      }
+
+      .btn-secondary {
+        background-color: #7f8c8d;
+        color: white;
+      }
+
+      .icon {
+        font-weight: bold;
+      }
+
+      .speed-control {
+        font-size: 12px;
+        margin-top: 5px;
+      }
+
+      .speed-control input {
+        width: 100%;
+        margin-top: 5px;
+      }
+
+      .replay-progress {
+        font-size: 12px;
+        margin-top: 5px;
+        text-align: center;
+      }
+
+      .progress-bar {
+        height: 6px;
+        background-color: #eee;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 5px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background-color: #3498db;
+        transition: width 0.5s ease-in-out;
+      }
+
+      .progress-text {
+        font-size: 10px;
+        color: #666;
       }
 
       .aprs-marker {
         background: transparent !important;
         border: none !important;
+      }
+
+      .historical-marker {
+        opacity: 0.7;
       }
     </style>
 
@@ -235,7 +615,50 @@ defmodule AprsWeb.MapLive.Index do
 
     <div class="map-overlay">
       <div class="packet-counter">
-        <span id="packet-count">{@packet_count}</span> packets in view
+        <span id="packet-count">{@packet_count}</span>
+        &nbsp;packets in view
+        <%= if @replay_active do %>
+          <div class="replay-status">
+            <span class="replay-badge">Replaying historical packets</span>
+          </div>
+        <% end %>
+      </div>
+      <div class="replay-controls">
+        <%= if @replay_active do %>
+          <div class="control-buttons">
+            <button phx-click="toggle_replay" class="btn-action">
+              <span class="icon">⟳</span> Restart
+            </button>
+            <button phx-click="pause_replay" class="btn-secondary">
+              <span class="icon">{if @replay_paused, do: "▶", else: "⏸"}</span>
+              {if @replay_paused, do: "Resume", else: "Pause"}
+            </button>
+          </div>
+          <div class="speed-control">
+            <label>Speed: {@replay_speed}x</label>
+            <input
+              type="range"
+              min="1"
+              max="20"
+              step="1"
+              value={@replay_speed}
+              phx-change="adjust_replay_speed"
+              name="speed"
+            />
+          </div>
+          <div class="replay-progress">
+            <div class="progress-bar">
+              <div
+                class="progress-fill"
+                style={"width: #{if length(@replay_packets) > 0, do: @replay_index * 100 / length(@replay_packets), else: 0}%"}
+              >
+              </div>
+            </div>
+            <div class="progress-text">
+              {@replay_index} of {length(@replay_packets)} packets
+            </div>
+          </div>
+        <% end %>
       </div>
     </div>
 
@@ -259,7 +682,119 @@ defmodule AprsWeb.MapLive.Index do
     """
   end
 
+  # Handle cleanup of old packets
+  defp handle_cleanup_old_packets(socket) do
+    # Update the packet age threshold to current time minus one hour
+    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+
+    # Filter out packets older than one hour
+    visible_packets =
+      socket.assigns.visible_packets
+      |> Enum.filter(fn {_key, packet} ->
+        packet_within_time_threshold?(packet, one_hour_ago)
+      end)
+      |> Map.new()
+
+    # Get updated packet count
+    packet_count = map_size(visible_packets)
+
+    # Push event to remove old markers from the map
+    socket =
+      socket
+      |> push_event("refresh_markers", %{})
+      |> assign(
+        visible_packets: visible_packets,
+        packet_count: packet_count,
+        packet_age_threshold: one_hour_ago
+      )
+
+    # Schedule the next cleanup in 1 minute
+    if connected?(socket), do: Process.send_after(self(), :cleanup_old_packets, 60_000)
+
+    {:noreply, socket}
+  end
+
+  # Check if a packet is within the time threshold (not too old)
+  defp packet_within_time_threshold?(packet, threshold) do
+    case packet do
+      %{received_at: received_at} when not is_nil(received_at) ->
+        DateTime.compare(received_at, threshold) in [:gt, :eq]
+
+      _ ->
+        # If no timestamp, treat as current
+        true
+    end
+  end
+
   # Helper functions
+
+  # Fetch historical packets from the database
+  # Helper function to start historical replay
+  defp start_historical_replay(socket) do
+    # Get time range for historical data
+    now = DateTime.utc_now()
+    one_hour_ago = DateTime.add(now, -60 * 60, :second)
+
+    # Convert map bounds to the format expected by the database query
+    bounds = [
+      socket.assigns.map_bounds.west,
+      socket.assigns.map_bounds.south,
+      socket.assigns.map_bounds.east,
+      socket.assigns.map_bounds.north
+    ]
+
+    # Fetch historical packets with position data within the current map bounds
+    historical_packets = fetch_historical_packets(bounds, one_hour_ago, now)
+
+    if Enum.empty?(historical_packets) do
+      # No historical packets found - silently continue without replay
+      socket
+    else
+      # Clear any previous historical packets from the map
+      socket = push_event(socket, "clear_historical_packets", %{})
+
+      # Start replay
+      timer_ref = Process.send_after(self(), :replay_next_packet, 1000)
+
+      assign(socket,
+        replay_active: true,
+        replay_packets: historical_packets,
+        replay_index: 0,
+        replay_timer_ref: timer_ref,
+        replay_start_time: one_hour_ago,
+        replay_end_time: now,
+        historical_packets: %{},
+        replay_started: true
+      )
+    end
+  end
+
+  # Fetch historical packets from the database
+  defp fetch_historical_packets(bounds, start_time, end_time) do
+    # Force start_time to be at most 1 hour ago
+    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+
+    effective_start_time =
+      if DateTime.before?(start_time, one_hour_ago),
+        do: one_hour_ago,
+        else: start_time
+
+    # Use the Packets context to retrieve historical packets
+    packets_params = %{
+      bounds: bounds,
+      start_time: effective_start_time,
+      end_time: end_time,
+      with_position: true,
+      # Reasonable limit to prevent overwhelming the client
+      limit: 1000
+    }
+
+    # Call the database through the Packets context
+    packets = Aprs.Packets.get_packets_for_replay(packets_params)
+
+    # Sort packets by received_at timestamp to ensure chronological replay
+    Enum.sort_by(packets, fn packet -> packet.received_at end)
+  end
 
   defp has_position_data?(packet) do
     case packet.data_extended do
@@ -314,15 +849,14 @@ defmodule AprsWeb.MapLive.Index do
   defp build_packet_data(packet) do
     data_extended = build_data_extended(packet.data_extended)
 
-    if data_extended do
-      %{
-        "base_callsign" => packet.base_callsign || "",
-        "ssid" => packet.ssid || "",
-        "data_type" => to_string(packet.data_type || "unknown"),
-        "path" => packet.path || "",
-        "data_extended" => data_extended
-      }
-    end
+    # Always return a map, even when data_extended is nil
+    %{
+      "base_callsign" => packet.base_callsign || "",
+      "ssid" => packet.ssid || "",
+      "data_type" => to_string(packet.data_type || "unknown"),
+      "path" => packet.path || "",
+      "data_extended" => data_extended || %{}
+    }
   end
 
   # Get IP location from external service
@@ -332,26 +866,66 @@ defmodule AprsWeb.MapLive.Index do
 
   defp get_ip_location(ip) do
     url = "#{@ip_api_url}#{ip}"
-    request = Finch.build(:get, url)
+    IO.puts("Fetching location for IP: #{ip} from URL: #{url}")
 
-    case Finch.request(request, @finch_name) do
+    # Add headers to make the request more likely to succeed
+    request =
+      Finch.build(:get, url, [
+        {"User-Agent", "APRS.me/1.0"},
+        {"Accept", "application/json"}
+      ])
+
+    # Add a small delay to ensure the client is connected
+    Process.sleep(2000)
+
+    IO.puts("Making HTTP request to IP API...")
+
+    case Finch.request(request, @finch_name, receive_timeout: 10_000) do
       {:ok, %{status: 200, body: body}} ->
+        IO.puts("IP API response received successfully")
+        IO.puts("Response body: #{String.slice(body, 0, 200)}...")
+
         case Jason.decode(body) do
-          {:ok, %{"lat" => lat, "lon" => lng}} when is_number(lat) and is_number(lng) ->
+          {:ok, %{"status" => "success", "lat" => lat, "lon" => lng}} when is_number(lat) and is_number(lng) ->
+            IO.puts("Valid coordinates found: lat=#{lat}, lng=#{lng}")
+
             if lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180 do
-              send(self(), {:ip_location, %{lat: lat, lng: lng}})
+              IO.puts("Sending IP location message with coordinates")
+              # Force numeric values
+              lat_float = lat / 1.0
+              lng_float = lng / 1.0
+              send(self(), {:ip_location, %{lat: lat_float, lng: lng_float}})
             else
+              IO.puts("Coordinates out of range: lat=#{lat}, lng=#{lng}, using default center")
               send(self(), {:ip_location, @default_center})
             end
 
-          _ ->
+          {:ok, %{"status" => status}} ->
+            IO.puts("IP API returned non-success status: #{status}")
+            send(self(), {:ip_location, @default_center})
+
+          {:ok, data} ->
+            IO.puts("IP API returned unexpected format: #{inspect(data)}")
+            send(self(), {:ip_location, @default_center})
+
+          {:error, decode_error} ->
+            IO.puts("Failed to decode JSON response: #{inspect(decode_error)}")
+            IO.puts("Raw response: #{body}")
             send(self(), {:ip_location, @default_center})
         end
 
-      {:ok, _} ->
+      {:ok, response} ->
+        IO.puts("IP API request failed with status: #{response.status}")
+        IO.puts("Response headers: #{inspect(response.headers)}")
+        IO.puts("Response body: #{String.slice(response.body || "", 0, 200)}...")
         send(self(), {:ip_location, @default_center})
 
-      {:error, _} ->
+      {:error, %{reason: :timeout}} ->
+        IO.puts("IP API request timed out after 10 seconds")
+        send(self(), {:ip_location, @default_center})
+
+      {:error, error} ->
+        IO.puts("IP API request error: #{inspect(error)}")
         send(self(), {:ip_location, @default_center})
     end
   end

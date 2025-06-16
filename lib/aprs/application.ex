@@ -5,6 +5,8 @@ defmodule Aprs.Application do
 
   use Application
 
+  # Configure Oban for background jobs
+
   @impl true
   def start(_type, _args) do
     topologies = Application.get_env(:libcluster, :topologies) || []
@@ -24,6 +26,10 @@ defmodule Aprs.Application do
       # {Aprs.Worker, arg}
       {Registry, keys: :duplicate, name: Registry.PubSub, partitions: System.schedulers_online()},
       {Cluster.Supervisor, [topologies, [name: Aprs.ClusterSupervisor]]},
+      # Start Oban for background jobs
+      {Oban, :aprs |> Application.get_env(Oban, []) |> Keyword.put(:queues, default: 10, maintenance: 2)},
+      # Start the scheduler for recurring Oban jobs
+      Aprs.Workers.Scheduler,
       Aprs.Presence
     ]
 

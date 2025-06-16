@@ -33,9 +33,45 @@ Hooks.APRSMap = {
     const initialCenter = JSON.parse(this.el.dataset.center);
     const initialZoom = parseInt(this.el.dataset.zoom);
 
+    console.log("Initializing map with center:", initialCenter, "and zoom:", initialZoom);
+    console.log("Map container element:", this.el);
+    console.log("Container dimensions:", this.el.offsetWidth, "x", this.el.offsetHeight);
+    console.log("Parsed coordinates:", initialCenter.lat, initialCenter.lng, "zoom:", initialZoom);
+
     // Initialize the map with the server-provided location
-    const map = L.map(this.el).setView([initialCenter.lat, initialCenter.lng], initialZoom);
-    console.log("Map initialized:", map);
+    const map = L.map(this.el, {
+      zoomControl: true,
+      attributionControl: true,
+      closePopupOnClick: true,
+    }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
+
+    console.log("Map setView called with:", [initialCenter.lat, initialCenter.lng], initialZoom);
+    console.log("Map object created:", map);
+
+    // Validate container size and force refresh if needed
+    if (this.el.offsetWidth === 0 || this.el.offsetHeight === 0) {
+      console.warn("Map container has zero dimensions, forcing size refresh");
+      setTimeout(() => {
+        map.invalidateSize();
+        map.setView([initialCenter.lat, initialCenter.lng], initialZoom);
+        console.log("Map size refreshed and view reset");
+      }, 100);
+    }
+
+    // Force initial size calculation
+    map.invalidateSize();
+
+    // Track when map is ready
+    map.whenReady(() => {
+      console.log("Map is fully ready and rendered");
+      console.log("Map center after ready:", map.getCenter());
+      console.log("Map zoom after ready:", map.getZoom());
+      console.log("Map bounds after ready:", map.getBounds());
+      this.mapReady = true;
+      this.pushEvent("map_ready", {});
+    });
+
+    console.log("Map initialized");
 
     // Handle geolocation requests from server
     this.handleEvent("request_geolocation", () => {
@@ -112,23 +148,105 @@ Hooks.APRSMap = {
 
     // Store markers to avoid duplicates
     this.markers = new Map();
+    this.historicalMarkers = new Map();
     this.packetCount = 0;
 
-    // Store map instance
+    // Store map instance and initialize state
     this.map = map;
+    this.mapReady = false;
+    this.userLocationMarker = null;
 
     // Send initial bounds to server
     this.sendBoundsToServer();
 
     // Listen for new packets from the server
     this.handleEvent("new_packet", (packet) => {
-      console.log("Received new packet:", packet);
       this.addPacketMarker(packet);
+    });
+
+    // Listen for historical packets
+    this.handleEvent("historical_packet", (packet) => {
+      this.addPacketMarker(packet, true);
+    });
+
+    // Listen for zoom to location event
+    this.handleEvent("zoom_to_location", (data) => {
+      console.log("Received zoom_to_location event:", data);
+
+      if (data.lat && data.lng) {
+        // Convert to numbers to ensure proper handling
+        const lat = parseFloat(data.lat);
+        const lng = parseFloat(data.lng);
+        const zoom = parseInt(data.zoom || 12);
+
+        console.log(`Setting map view to [${lat}, ${lng}] with zoom ${zoom}`);
+
+        // Force map invalidation before setting view
+        this.map.invalidateSize();
+
+        // Check container dimensions before zoom
+        if (this.el.offsetWidth === 0 || this.el.offsetHeight === 0) {
+          console.warn(
+            "Container has zero dimensions during zoom, width:",
+            this.el.offsetWidth,
+            "height:",
+            this.el.offsetHeight,
+          );
+        }
+
+        // Small delay to ensure map is ready
+        setTimeout(() => {
+          // Force another size refresh right before setView
+          this.map.invalidateSize();
+          console.log("About to call setView with:", [lat, lng], zoom);
+          this.map.setView([lat, lng], zoom, {
+            animate: true,
+            duration: 1,
+          });
+
+          // Force final size refresh after setView
+          setTimeout(() => {
+            this.map.invalidateSize();
+          }, 100);
+          console.log("Map view updated after delay");
+          console.log("New map center:", this.map.getCenter());
+          console.log("New map zoom:", this.map.getZoom());
+
+          // Add a marker at the user's location
+          if (this.userLocationMarker) {
+            this.map.removeLayer(this.userLocationMarker);
+          }
+
+          this.userLocationMarker = L.marker([lat, lng], {
+            icon: L.divIcon({
+              html: '<div style="background-color: #4299e1; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>',
+              className: "user-location-marker",
+              iconSize: [16, 16],
+              iconAnchor: [8, 8],
+            }),
+          })
+            .addTo(this.map)
+            .bindPopup("Your location")
+            .openPopup();
+        }, 300);
+      } else {
+        console.error("Invalid coordinates in zoom_to_location event:", data);
+      }
+    });
+
+    // Listen for clearing historical packets
+    this.handleEvent("clear_historical_packets", () => {
+      this.clearHistoricalMarkers();
     });
 
     // Listen for clear markers event
     this.handleEvent("clear_markers", () => {
       this.clearAllMarkers();
+    });
+
+    // Listen for refresh markers event
+    this.handleEvent("refresh_markers", () => {
+      this.refreshMarkers();
     });
 
     // Handle geolocation button clicks
@@ -151,7 +269,11 @@ Hooks.APRSMap = {
 
     // Update bounds when map moves or zooms
     map.on("moveend", () => {
-      this.sendBoundsToServer();
+      // Debounce the bounds update to avoid too many server calls
+      if (this.boundsTimer) clearTimeout(this.boundsTimer);
+      this.boundsTimer = setTimeout(() => {
+        this.sendBoundsToServer();
+      }, 300);
     });
 
     // Handle map resize when window is resized
@@ -184,8 +306,12 @@ Hooks.APRSMap = {
       this.markers.forEach((marker) => {
         this.map.removeLayer(marker);
       });
+      this.historicalMarkers.forEach((marker) => {
+        this.map.removeLayer(marker);
+      });
     }
     this.markers.clear();
+    this.historicalMarkers.clear();
     this.packetCount = 0;
     const counterElement = document.getElementById("packet-count");
     if (counterElement) {
@@ -193,36 +319,70 @@ Hooks.APRSMap = {
     }
   },
 
-  removeMarkersOutsideBounds(bounds) {
-    // With clustering, the cluster group handles visibility automatically
-    // We'll just track the count of markers within bounds
-    let visibleCount = 0;
+  refreshMarkers() {
+    // More efficient refresh that doesn't require clearing all markers
+    // Filter markers to keep only those added in the last hour
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
+    // First, collect markers to remove
+    const markersToRemove = [];
     this.markers.forEach((marker, callsign) => {
-      const latLng = marker.getLatLng();
-      if (bounds.contains(latLng)) {
-        visibleCount++;
+      if (marker.addedAt && marker.addedAt < oneHourAgo) {
+        markersToRemove.push(callsign);
       }
     });
 
-    // Update counter to show visible markers
+    // Then remove them from the map and collection
+    markersToRemove.forEach((callsign) => {
+      const marker = this.markers.get(callsign);
+      if (marker) {
+        if (this.markerClusterGroup) {
+          this.markerClusterGroup.removeLayer(marker);
+        } else {
+          this.map.removeLayer(marker);
+        }
+        this.markers.delete(callsign);
+      }
+    });
+
+    // Update counter
+    this.packetCount = this.markers.size;
     const counterElement = document.getElementById("packet-count");
     if (counterElement) {
-      counterElement.textContent = visibleCount;
+      counterElement.textContent = this.packetCount;
     }
+  },
 
-    // Notify server of the updated packet count
+  clearHistoricalMarkers() {
+    // Remove only historical markers
+    if (this.markerClusterGroup) {
+      this.historicalMarkers.forEach((marker) => {
+        this.markerClusterGroup.removeLayer(marker);
+      });
+    } else {
+      // Fallback: remove markers directly from map
+      this.historicalMarkers.forEach((marker) => {
+        this.map.removeLayer(marker);
+      });
+    }
+    this.historicalMarkers.clear();
+  },
+
+  removeMarkersOutsideBounds(bounds) {
+    // Let LiveView handle the packet count
+    // The cluster handles marker visibility automatically
+    const visibleCount = this.markers.size;
     this.pushEvent("update_packet_count", { count: visibleCount });
   },
 
-  addPacketMarker(packet) {
-    console.log("addPacketMarker called with:", packet);
+  addPacketMarker(packet, isHistorical = false) {
+    // Skip packets without required data
     if (
       !packet["data_extended"] ||
       !packet["data_extended"]["latitude"] ||
       !packet["data_extended"]["longitude"]
     ) {
-      console.warn("Packet missing required location data:", packet);
       return;
     }
 
@@ -231,76 +391,112 @@ Hooks.APRSMap = {
 
     // Validate coordinates are within valid ranges
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      console.error("Invalid coordinates:", { lat, lng, packet });
       return;
     }
-    console.log("Valid coordinates:", { lat, lng, callsign: packet["base_callsign"] });
-    const callsign = packet["base_callsign"] + (packet["ssid"] ? "-" + packet["ssid"] : "");
 
-    // Create popup content
+    // Generate a unique ID for the marker
+    const callsign = packet["base_callsign"] + (packet["ssid"] ? "-" + packet["ssid"] : "");
+    // For historical packets, add a timestamp or unique ID to distinguish them
+    const markerId = isHistorical ? `hist_${callsign}_${Date.now()}` : callsign;
+
+    // Create popup content with historical indicator if needed
+    const timestamp =
+      isHistorical && packet["timestamp"]
+        ? new Date(packet["timestamp"]).toLocaleString()
+        : new Date().toLocaleTimeString();
+
     const popupContent = `
       <div style="min-width: 200px;">
-        <h4 style="margin: 0 0 5px 0; font-weight: bold;">${callsign}</h4>
+        <h4 style="margin: 0 0 5px 0; font-weight: bold;">${callsign} ${isHistorical ? "(Historical)" : ""}</h4>
         <p style="margin: 2px 0; font-size: 12px;">
           <strong>Position:</strong> ${lat.toFixed(4)}°, ${lng.toFixed(4)}°<br>
           <strong>Type:</strong> ${packet["data_type"]}<br>
           ${packet["data_extended"]["comment"] ? `<strong>Comment:</strong> ${packet["data_extended"]["comment"]}<br>` : ""}
           <strong>Path:</strong> ${packet["path"]}<br>
-          <strong>Time:</strong> ${new Date().toLocaleTimeString()}
+          <strong>Time:</strong> ${timestamp}
         </p>
       </div>
     `;
 
-    // Check if marker already exists
-    if (this.markers.has(callsign)) {
-      // Update existing marker
-      const existingMarker = this.markers.get(callsign);
-      if (this.markerClusterGroup) {
-        // Remove and re-add to cluster group
-        this.markerClusterGroup.removeLayer(existingMarker);
-        existingMarker.setLatLng([lat, lng]);
-        existingMarker.setPopupContent(popupContent);
-        this.markerClusterGroup.addLayer(existingMarker);
-      } else {
-        // Fallback: just update position
-        existingMarker.setLatLng([lat, lng]);
-        existingMarker.setPopupContent(popupContent);
+    // Determine which marker collection to use
+    const markerCollection = isHistorical ? this.historicalMarkers : this.markers;
+
+    // Check if marker already exists (only for non-historical markers)
+    if (!isHistorical && this.markers.has(markerId)) {
+      try {
+        // Update existing marker
+        const existingMarker = this.markers.get(markerId);
+        if (this.markerClusterGroup) {
+          // Remove and re-add to cluster group
+          this.markerClusterGroup.removeLayer(existingMarker);
+          existingMarker.setLatLng([lat, lng]);
+          existingMarker.setPopupContent(popupContent);
+          this.markerClusterGroup.addLayer(existingMarker);
+        } else {
+          // Fallback: just update position
+          existingMarker.setLatLng([lat, lng]);
+          existingMarker.setPopupContent(popupContent);
+        }
+      } catch (e) {
+        // If there's an error updating, proceed with creating a new marker
+        this.markers.delete(markerId);
       }
-    } else {
+    }
+
+    // Create new marker if it doesn't exist or if we're handling a historical packet
+    if (isHistorical || !this.markers.has(markerId)) {
       // Create new marker
       const icon = this.createAPRSIcon(
         packet["data_extended"]["symbol_table_id"] || "/",
         packet["data_extended"]["symbol_code"] || ">",
+        isHistorical,
       );
 
       const marker = L.marker([lat, lng], { icon: icon }).bindPopup(popupContent);
+      marker.addedAt = new Date(); // Track when the marker was added
 
-      // Add to cluster group or directly to map
-      if (this.markerClusterGroup) {
-        this.markerClusterGroup.addLayer(marker);
-      } else {
-        marker.addTo(this.map);
+      // Add CSS class for historical markers
+      if (isHistorical) {
+        marker.options.className = "historical-marker";
       }
 
-      this.markers.set(callsign, marker);
-      console.log("New marker added for:", callsign, "Total markers:", this.markers.size);
+      // Add to cluster group or directly to map
+      try {
+        if (this.markerClusterGroup) {
+          this.markerClusterGroup.addLayer(marker);
+        } else {
+          marker.addTo(this.map);
+        }
+      } catch (e) {
+        // Silently ignore errors when adding markers
+      }
 
-      // Update packet counter
-      this.packetCount++;
-      const counterElement = document.getElementById("packet-count");
-      if (counterElement) {
-        counterElement.textContent = this.packetCount;
+      // Store the marker
+      markerCollection.set(markerId, marker);
+
+      // Update packet counter (only for live packets)
+      if (!isHistorical) {
+        this.packetCount++;
+        const counterElement = document.getElementById("packet-count");
+        if (counterElement) {
+          counterElement.textContent = this.packetCount;
+        }
       }
     }
   },
 
-  createAPRSIcon(symbolTable, symbolCode) {
+  createAPRSIcon(symbolTable, symbolCode, isHistorical = false) {
     // Default icon color based on symbol table
-    const color = symbolTable === "/" ? "#2563eb" : "#dc2626";
+    let color = symbolTable === "/" ? "#2563eb" : "#dc2626";
+
+    // Use a different color for historical markers
+    if (isHistorical) {
+      color = symbolTable === "/" ? "#90b4ed" : "#e98a84";
+    }
 
     return L.divIcon({
       html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>`,
-      className: "aprs-marker",
+      className: isHistorical ? "aprs-marker historical-marker" : "aprs-marker",
       iconSize: [16, 16],
       iconAnchor: [8, 8],
       popupAnchor: [0, -8],
@@ -308,16 +504,18 @@ Hooks.APRSMap = {
   },
 
   destroyed() {
-    console.log("APRSMap hook destroyed");
+    if (this.boundsTimer) {
+      clearTimeout(this.boundsTimer);
+    }
     if (this.markerClusterGroup) {
       this.markerClusterGroup.clearLayers();
     }
     if (this.map) {
-      console.log("Removing map instance");
       this.map.remove();
       this.map = null;
     }
     this.markers.clear();
+    this.historicalMarkers.clear();
   },
 };
 

@@ -29,8 +29,11 @@ defmodule Parser do
          information_field: data,
          data_type: data_type,
          base_callsign: base_callsign,
-         ssid: ssid,
-         data_extended: data_extended
+         # Ensure ssid is never nil
+         ssid: ssid || "0",
+         data_extended: data_extended,
+         # Set received_at when creating packet
+         received_at: DateTime.truncate(DateTime.utc_now(), :microsecond)
        }}
     else
       true ->
@@ -49,7 +52,8 @@ defmodule Parser do
     if String.contains?(callsign, "-") do
       String.split(callsign, "-")
     else
-      [callsign, nil]
+      # Default SSID to "0" instead of nil
+      [callsign, "0"]
     end
   end
 
