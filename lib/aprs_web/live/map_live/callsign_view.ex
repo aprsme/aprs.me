@@ -55,14 +55,16 @@ defmodule AprsWeb.MapLive.CallsignView do
         # Pending geolocation to zoom to after map is ready
         pending_geolocation: nil,
         # Last known position for auto-zoom
-        last_known_position: nil
+        last_known_position: nil,
+        # Flag to track if packets have been loaded
+        packets_loaded: false
       )
 
     if connected?(socket) do
       Endpoint.subscribe("aprs_messages")
 
-      # Load recent packets for this callsign
-      socket = load_callsign_packets(socket, normalized_callsign)
+      # Don't load packets here - wait for map_ready event
+      # socket = load_callsign_packets(socket, normalized_callsign)
 
       # Schedule regular cleanup of old packets from the map
       Process.send_after(self(), :cleanup_old_packets, 60_000)
@@ -140,6 +142,16 @@ defmodule AprsWeb.MapLive.CallsignView do
 
   def handle_event("map_ready", _params, socket) do
     socket = assign(socket, map_ready: true)
+
+    # Load callsign packets now that the map is ready
+    socket =
+      if socket.assigns.packets_loaded do
+        socket
+      else
+        socket
+        |> load_callsign_packets(socket.assigns.callsign)
+        |> assign(packets_loaded: true)
+      end
 
     # Auto-start replay if it hasn't been started yet
     socket =
