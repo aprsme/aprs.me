@@ -275,7 +275,7 @@ defmodule Aprs.Is do
             packet_data = Map.put(parsed_message, :received_at, current_time)
 
             # Convert to map before storing to avoid struct conversion issues
-            attrs = Map.from_struct(packet_data)
+            attrs = struct_to_map(packet_data)
 
             # Extract additional data from the parsed packet including raw packet
             attrs = Aprs.Packet.extract_additional_data(attrs, message)
@@ -462,4 +462,23 @@ defmodule Aprs.Is do
       last_second_timestamp: System.system_time(:second)
     }
   end
+
+  # Helper function to recursively convert structs to maps
+  # This handles nested structs that Map.from_struct/1 cannot handle
+  defp struct_to_map(%{__struct__: struct_type} = struct) do
+    converted_map =
+      struct
+      |> Map.from_struct()
+      |> Enum.map(fn {k, v} -> {k, struct_to_map(v)} end)
+      |> Enum.into(%{})
+
+    # Add type information to help with later processing
+    Map.put(converted_map, :__original_struct__, struct_type)
+  end
+
+  defp struct_to_map(value) when is_list(value) do
+    Enum.map(value, &struct_to_map/1)
+  end
+
+  defp struct_to_map(value), do: value
 end

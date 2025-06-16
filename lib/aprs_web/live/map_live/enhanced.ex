@@ -262,7 +262,11 @@ defmodule AprsWeb.MapLive.Enhanced do
       .historical-marker {
         opacity: 0.7;
       }
+
+
     </style>
+
+
 
     <!-- Map Container -->
     <div

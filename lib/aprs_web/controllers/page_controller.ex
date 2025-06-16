@@ -6,6 +6,7 @@ defmodule AprsWeb.PageController do
   end
 
   def map(conn, _params) do
+    # This serves the legacy JavaScript-based map at /old
     render(conn, :map)
   end
 

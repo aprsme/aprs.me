@@ -6,6 +6,7 @@ defmodule AprsWeb.MapLive.Index do
 
   alias Aprs.EncodingUtils
   alias AprsWeb.Endpoint
+  alias AprsWeb.Helpers.AprsSymbols
   alias Parser.Types.MicE
 
   @default_center %{lat: 39.8283, lng: -98.5795}
@@ -98,44 +99,13 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   @impl true
+  def handle_event("bounds_changed", %{"bounds" => bounds}, socket) do
+    handle_bounds_update(bounds, socket)
+  end
+
+  @impl true
   def handle_event("update_bounds", %{"bounds" => bounds}, socket) do
-    # Update the map bounds from the client
-    map_bounds = %{
-      north: bounds["north"],
-      south: bounds["south"],
-      east: bounds["east"],
-      west: bounds["west"]
-    }
-
-    # Don't clear markers - let the client preserve those still in view
-    # Recalculate packet count based on new bounds
-    visible_packets =
-      socket.assigns.visible_packets
-      |> Enum.filter(fn {_callsign, packet} ->
-        within_bounds?(packet, map_bounds)
-      end)
-      |> Map.new()
-
-    # If replay is not active, update the replay packets based on the new bounds
-    socket =
-      if socket.assigns.replay_active do
-        socket
-      else
-        # Clear any existing replay data when bounds change
-        socket =
-          assign(socket,
-            replay_packets: [],
-            replay_index: 0,
-            historical_packets: %{},
-            map_ready: true
-          )
-
-        # Don't automatically start replay on every bounds change
-        # We'll handle this in initialize_replay to avoid too many restarts
-        socket
-      end
-
-    {:noreply, assign(socket, map_bounds: map_bounds, visible_packets: visible_packets)}
+    handle_bounds_update(bounds, socket)
   end
 
   @impl true
@@ -245,6 +215,46 @@ defmodule AprsWeb.MapLive.Index do
       end
 
     {:noreply, socket}
+  end
+
+  defp handle_bounds_update(bounds, socket) do
+    # Update the map bounds from the client
+    map_bounds = %{
+      north: bounds["north"],
+      south: bounds["south"],
+      east: bounds["east"],
+      west: bounds["west"]
+    }
+
+    # Don't clear markers - let the client preserve those still in view
+    # Recalculate packet count based on new bounds
+    visible_packets =
+      socket.assigns.visible_packets
+      |> Enum.filter(fn {_callsign, packet} ->
+        within_bounds?(packet, map_bounds)
+      end)
+      |> Map.new()
+
+    # If replay is not active, update the replay packets based on the new bounds
+    socket =
+      if socket.assigns.replay_active do
+        socket
+      else
+        # Clear any existing replay data when bounds change
+        socket =
+          assign(socket,
+            replay_packets: [],
+            replay_index: 0,
+            historical_packets: %{},
+            map_ready: true
+          )
+
+        # Don't automatically start replay on every bounds change
+        # We'll handle this in initialize_replay to avoid too many restarts
+        socket
+      end
+
+    {:noreply, assign(socket, map_bounds: map_bounds, visible_packets: visible_packets)}
   end
 
   @impl true
@@ -364,36 +374,40 @@ defmodule AprsWeb.MapLive.Index do
       # Convert to a simple map structure for JSON encoding
       packet_data = build_packet_data(packet)
 
-      # Add is_historical flag and timestamp
-      packet_data =
-        Map.merge(packet_data, %{
-          "is_historical" => true,
-          "timestamp" => if(Map.has_key?(packet, :received_at), do: DateTime.to_iso8601(packet.received_at))
-        })
+      # Only process packets with valid position data
+      socket =
+        if packet_data do
+          # Add is_historical flag and timestamp
+          packet_data =
+            Map.merge(packet_data, %{
+              "is_historical" => true,
+              "timestamp" => if(Map.has_key?(packet, :received_at), do: DateTime.to_iso8601(packet.received_at))
+            })
 
-      # Generate a unique key for this packet
-      packet_id = "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}"
+          # Generate a unique key for this packet
+          packet_id = "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}"
 
-      # Update historical packets tracking
-      new_historical_packets = Map.put(historical_packets, packet_id, packet)
+          # Update historical packets tracking
+          new_historical_packets = Map.put(historical_packets, packet_id, packet)
+
+          # Send packet data to client
+          socket
+          |> push_event("historical_packet", packet_data)
+          |> assign(
+            replay_index: next_index,
+            historical_packets: new_historical_packets
+          )
+        else
+          # Skip packets without position data, just advance the index
+          assign(socket, replay_index: next_index)
+        end
 
       # Calculate delay for next packet (faster based on replay speed)
       delay_ms = trunc(1000 / speed)
 
       # Schedule the next packet
       timer_ref = Process.send_after(self(), :replay_next_packet, delay_ms)
-
-      # Push the packet to the client-side JavaScript
-      socket =
-        socket
-        |> push_event("historical_packet", packet_data)
-        |> assign(
-          replay_index: next_index,
-          replay_timer_ref: timer_ref,
-          historical_packets: new_historical_packets
-        )
-
-      {:noreply, socket}
+      {:noreply, assign(socket, replay_timer_ref: timer_ref)}
     else
       # All packets replayed, start over with a short delay
       Process.send_after(self(), :initialize_replay, 10_000)
@@ -448,6 +462,8 @@ defmodule AprsWeb.MapLive.Index do
         z-index: 1;
       }
 
+
+
       .locate-button {
         position: absolute;
         left: 10px;
@@ -472,7 +488,68 @@ defmodule AprsWeb.MapLive.Index do
       .historical-marker {
         opacity: 0.7;
       }
+
+      .aprs-popup {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 12px;
+        line-height: 1.4;
+        max-width: 200px;
+      }
+
+      .aprs-callsign {
+        font-size: 14px;
+        font-weight: bold;
+        color: #1e40af;
+        margin-bottom: 4px;
+      }
+
+      .aprs-symbol-info {
+        color: #6b7280;
+        font-style: italic;
+        margin-bottom: 4px;
+      }
+
+      .aprs-comment {
+        color: #374151;
+        margin-bottom: 4px;
+        word-wrap: break-word;
+      }
+
+      .aprs-coords {
+        color: #6b7280;
+        font-size: 11px;
+        font-family: monospace;
+      }
+
+      /* High-DPI support for APRS symbols */
+      @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+        .aprs-marker div[style*="aprs-symbols-24-0.png"] {
+          background-image: url('/aprs-symbols/aprs-symbols-24-0@2x.png') !important;
+          background-size: 384px 144px !important;
+        }
+
+        .aprs-marker div[style*="aprs-symbols-24-1.png"] {
+          background-image: url('/aprs-symbols/aprs-symbols-24-1@2x.png') !important;
+          background-size: 384px 144px !important;
+        }
+
+        .aprs-marker div[style*="aprs-symbols-24-2.png"] {
+          background-image: url('/aprs-symbols/aprs-symbols-24-2@2x.png') !important;
+          background-size: 384px 144px !important;
+        }
+      }
+
+      /* Leaflet popup improvements for APRS data */
+      .leaflet-popup-content-wrapper {
+        border-radius: 8px;
+      }
+
+      .leaflet-popup-content {
+        margin: 8px 12px;
+      }
     </style>
+
+
 
     <div
       id="aprs-map"
@@ -667,15 +744,50 @@ defmodule AprsWeb.MapLive.Index do
 
   defp build_packet_data(packet) do
     data_extended = build_data_extended(packet.data_extended)
+    {lat, lng} = get_coordinates(packet)
 
-    # Always return a map, even when data_extended is nil
-    %{
-      "base_callsign" => packet.base_callsign || "",
-      "ssid" => packet.ssid || "",
-      "data_type" => to_string(packet.data_type || "unknown"),
-      "path" => packet.path || "",
-      "data_extended" => data_extended || %{}
-    }
+    # Only include packets with valid position data
+    if lat && lng do
+      # Get symbol information from data_extended
+      symbol_table_id = get_in(data_extended, ["symbol_table_id"]) ||
+                       packet.symbol_table_id || "/"
+      symbol_code = get_in(data_extended, ["symbol_code"]) ||
+                   packet.symbol_code || ">"
+
+      # Validate symbol
+      {final_table_id, final_symbol_code} =
+        if AprsSymbols.valid_symbol?(symbol_table_id, symbol_code) do
+          {symbol_table_id, symbol_code}
+        else
+          AprsSymbols.default_symbol()
+        end
+
+      # Generate callsign for display
+      callsign = if packet.ssid && packet.ssid != "" do
+        "#{packet.base_callsign}-#{packet.ssid}"
+      else
+        packet.base_callsign || ""
+      end
+
+      %{
+        "id" => callsign,
+        "callsign" => callsign,
+        "base_callsign" => packet.base_callsign || "",
+        "ssid" => packet.ssid || "",
+        "lat" => lat,
+        "lng" => lng,
+        "symbol_table_id" => final_table_id,
+        "symbol_code" => final_symbol_code,
+        "symbol_description" => AprsSymbols.symbol_description(final_table_id, final_symbol_code),
+        "data_type" => to_string(packet.data_type || "unknown"),
+        "path" => packet.path || "",
+        "comment" => get_in(data_extended, ["comment"]) || "",
+        "data_extended" => data_extended || %{}
+      }
+    else
+      # Return nil for packets without position data
+      nil
+    end
   end
 
   # Get IP location from external service

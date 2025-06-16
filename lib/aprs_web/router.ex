@@ -29,7 +29,7 @@ defmodule AprsWeb.Router do
 
     live "/", MapLive.Index, :index
     live "/enhanced", MapLive.Enhanced, :index
-    get "/map", PageController, :map
+    get "/old", PageController, :map
     live "/status", StatusLive.Index, :index
 
     live "/packets", PacketsLive.Index, :index

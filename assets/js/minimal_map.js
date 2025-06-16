@@ -20,7 +20,8 @@ let MinimalAPRSMap = {
 
     // Add OpenStreetMap tile layer
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
       maxZoom: 19,
     }).addTo(this.map);
 
@@ -39,7 +40,7 @@ let MinimalAPRSMap = {
     });
 
     // Send bounds to LiveView when map moves
-    this.map.on('moveend', () => {
+    this.map.on("moveend", () => {
       if (this.boundsTimer) clearTimeout(this.boundsTimer);
       this.boundsTimer = setTimeout(() => {
         this.sendBoundsToServer();
@@ -64,7 +65,7 @@ let MinimalAPRSMap = {
     // Add multiple markers at once
     this.handleEvent("add_markers", (data) => {
       if (data.markers && Array.isArray(data.markers)) {
-        data.markers.forEach(marker => this.addMarker(marker));
+        data.markers.forEach((marker) => this.addMarker(marker));
       }
     });
 
@@ -92,7 +93,7 @@ let MinimalAPRSMap = {
 
         this.map.setView([lat, lng], zoom, {
           animate: true,
-          duration: 1
+          duration: 1,
         });
       }
     });
@@ -108,12 +109,49 @@ let MinimalAPRSMap = {
           (error) => {
             console.warn("Geolocation error:", error.message);
             this.pushEvent("geolocation_error", { error: error.message });
-          }
+          },
         );
       } else {
         console.warn("Geolocation not available");
         this.pushEvent("geolocation_error", { error: "Geolocation not supported" });
       }
+    });
+
+    // Handle new packets from LiveView
+    this.handleEvent("new_packet", (data) => {
+      this.addMarker({
+        ...data,
+        historical: false,
+        popup: this.buildPopupContent(data),
+      });
+    });
+
+    // Handle historical packets during replay
+    this.handleEvent("historical_packet", (data) => {
+      this.addMarker({
+        ...data,
+        historical: true,
+        popup: this.buildPopupContent(data),
+      });
+    });
+
+    // Handle refresh markers event
+    this.handleEvent("refresh_markers", () => {
+      // Remove markers for packets that are no longer visible
+      // This could be implemented to clean up old markers based on timestamp
+      console.log("Refresh markers event received");
+    });
+
+    // Handle clearing historical packets
+    this.handleEvent("clear_historical_packets", () => {
+      // Remove all historical markers
+      const markersToRemove = [];
+      this.markers.forEach((marker, id) => {
+        if (marker._isHistorical) {
+          markersToRemove.push(id);
+        }
+      });
+      markersToRemove.forEach((id) => this.removeMarker(id));
     });
   },
 
@@ -133,9 +171,9 @@ let MinimalAPRSMap = {
       },
       center: {
         lat: center.lat,
-        lng: center.lng
+        lng: center.lng,
       },
-      zoom: zoom
+      zoom: zoom,
     });
   },
 
@@ -169,14 +207,19 @@ let MinimalAPRSMap = {
     }
 
     // Handle marker click
-    marker.on('click', () => {
+    marker.on("click", () => {
       this.pushEvent("marker_clicked", {
         id: data.id,
         callsign: data.callsign,
         lat: lat,
-        lng: lng
+        lng: lng,
       });
     });
+
+    // Mark historical markers for identification
+    if (data.historical) {
+      marker._isHistorical = true;
+    }
 
     // Add to map and store reference
     marker.addTo(this.markerLayer);
@@ -227,27 +270,72 @@ let MinimalAPRSMap = {
   },
 
   createMarkerIcon(data) {
-    // Determine color based on symbol table or provided color
-    let color = data.color || (data.symbol_table === "/" ? "#2563eb" : "#dc2626");
+    // Get symbol information
+    const symbolTableId = data.symbol_table_id || "/";
+    const symbolCode = data.symbol_code || ">";
+
+    // Determine sprite file based on symbol table
+    let spriteFile;
+    switch (symbolTableId) {
+      case "/":
+        spriteFile = "/aprs-symbols/aprs-symbols-24-0.png";
+        break;
+      case "\\":
+        spriteFile = "/aprs-symbols/aprs-symbols-24-1.png";
+        break;
+      default:
+        spriteFile = "/aprs-symbols/aprs-symbols-24-0.png";
+    }
+
+    // Calculate sprite position
+    const charCode = symbolCode.charCodeAt(0);
+    const position = charCode - 32;
+    const col = position % 16;
+    const row = Math.floor(position / 16);
+    const x = -col * 24;
+    const y = -row * 24;
 
     // Use different opacity for historical markers
-    const opacity = data.historical ? 0.6 : 1.0;
+    const opacity = data.historical ? 0.7 : 1.0;
 
     return L.divIcon({
       html: `<div style="
-        background-color: ${color};
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        border: 2px solid white;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        background-image: url('${spriteFile}');
+        background-position: ${x}px ${y}px;
+        background-repeat: no-repeat;
+        width: 24px;
+        height: 24px;
         opacity: ${opacity};
+        background-size: auto;
       "></div>`,
       className: data.historical ? "aprs-marker historical-marker" : "aprs-marker",
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-      popupAnchor: [0, -8],
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+      popupAnchor: [0, -12],
     });
+  },
+
+  buildPopupContent(data) {
+    const callsign = data.callsign || data.id || "Unknown";
+    const comment = data.comment || "";
+    const symbolDesc = data.symbol_description || "Unknown symbol";
+
+    let content = `<div class="aprs-popup">
+      <div class="aprs-callsign"><strong>${callsign}</strong></div>
+      <div class="aprs-symbol-info">${symbolDesc}</div>`;
+
+    if (comment) {
+      content += `<div class="aprs-comment">${comment}</div>`;
+    }
+
+    if (data.lat && data.lng) {
+      content += `<div class="aprs-coords">
+        ${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}
+      </div>`;
+    }
+
+    content += `</div>`;
+    return content;
   },
 
   destroyed() {
@@ -272,7 +360,7 @@ let MinimalAPRSMap = {
       this.map.remove();
       this.map = null;
     }
-  }
+  },
 };
 
 export default MinimalAPRSMap;

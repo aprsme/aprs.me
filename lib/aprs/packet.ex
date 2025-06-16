@@ -158,6 +158,9 @@ defmodule Aprs.Packet do
     # Extract data based on the type of data_extended
     additional_data =
       case data_extended do
+        %{__original_struct__: Parser.Types.MicE} = mic_e_map ->
+          extract_from_mic_e_map(mic_e_map)
+
         %{} when is_map(data_extended) ->
           extract_from_map(data_extended)
 
@@ -207,8 +210,20 @@ defmodule Aprs.Packet do
     |> maybe_put(:equipment_type, mic_e.equipment_type)
     |> maybe_put(:course, mic_e.course)
     |> maybe_put(:speed, mic_e.speed)
-    |> maybe_put(:symbol_code, mic_e.symbol_code)
-    |> maybe_put(:symbol_table_id, mic_e.symbol_table_id)
+    |> maybe_put(:symbol_code, ">")  # Default car symbol for MicE
+    |> maybe_put(:symbol_table_id, "/")  # Primary table
+  end
+
+  # Extract data from converted MicE map (from struct_to_map conversion)
+  defp extract_from_mic_e_map(mic_e_map) do
+    %{}
+    |> maybe_put(:comment, mic_e_map[:message])
+    |> maybe_put(:manufacturer, mic_e_map[:manufacturer])
+    |> maybe_put(:equipment_type, mic_e_map[:equipment_type])
+    |> maybe_put(:course, mic_e_map[:heading])
+    |> maybe_put(:speed, mic_e_map[:speed])
+    |> maybe_put(:symbol_code, ">")  # Default car symbol for MicE
+    |> maybe_put(:symbol_table_id, "/")  # Primary table
   end
 
   # Extract weather data from various formats
