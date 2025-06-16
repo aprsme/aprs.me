@@ -49,8 +49,6 @@ defmodule Aprs.DbTest do
         # Attempt to store the packet
         case Packets.store_packet(test_packet) do
           {:ok, stored_packet} ->
-            IO.puts("Successfully stored packet!")
-            IO.puts("Stored packet ID: #{stored_packet.id}")
             {:ok, stored_packet}
 
           {:error, changeset} ->
