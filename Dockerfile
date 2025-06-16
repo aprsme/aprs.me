@@ -11,12 +11,19 @@ ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 
 FROM ${BUILDER_IMAGE} AS builder
 
+# Set non-interactive frontend for debconf
+ENV DEBIAN_FRONTEND=noninteractive
+
 # install build dependencies
 RUN apt-get update -y && \
     apt-get upgrade -y && \
-    apt-get install -y build-essential git && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
 
 # prepare build dir
 WORKDIR /app
