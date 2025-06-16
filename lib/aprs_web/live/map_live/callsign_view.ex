@@ -64,8 +64,8 @@ defmodule AprsWeb.MapLive.CallsignView do
 
       # Schedule regular cleanup of old packets from the map
       Process.send_after(self(), :cleanup_old_packets, 60_000)
-      # Schedule initialization of replay after a short delay
-      Process.send_after(self(), :initialize_replay, 2000)
+      # Auto-start replay after a short delay
+      Process.send_after(self(), :auto_start_replay, 2000)
 
       {:ok, socket}
     else
@@ -109,33 +109,6 @@ defmodule AprsWeb.MapLive.CallsignView do
     {:noreply, socket}
   end
 
-  def handle_event("toggle_replay", _params, socket) do
-    if socket.assigns.replay_active do
-      # Stop replay
-      if socket.assigns.replay_timer_ref do
-        Process.cancel_timer(socket.assigns.replay_timer_ref)
-      end
-
-      # Clear historical packets from map
-      socket = push_event(socket, "clear_historical_packets", %{})
-
-      socket =
-        assign(socket,
-          replay_active: false,
-          replay_paused: false,
-          replay_timer_ref: nil,
-          replay_index: 0,
-          historical_packets: %{}
-        )
-
-      {:noreply, socket}
-    else
-      # Start replay
-      socket = start_historical_replay(socket)
-      {:noreply, assign(socket, replay_active: true, replay_paused: false)}
-    end
-  end
-
   def handle_event("pause_replay", _params, socket) do
     if socket.assigns.replay_timer_ref do
       Process.cancel_timer(socket.assigns.replay_timer_ref)
@@ -165,6 +138,15 @@ defmodule AprsWeb.MapLive.CallsignView do
 
   def handle_event("map_ready", _params, socket) do
     socket = assign(socket, map_ready: true)
+
+    # Auto-start replay if it hasn't been started yet
+    socket =
+      if socket.assigns.replay_started do
+        socket
+      else
+        socket = start_historical_replay(socket)
+        assign(socket, replay_started: true, replay_active: true)
+      end
 
     # If we have a pending geolocation, zoom to it now
     socket =
@@ -214,12 +196,17 @@ defmodule AprsWeb.MapLive.CallsignView do
         socket = push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
         {:noreply, socket}
 
-      :initialize_replay ->
-        # Only start replay if it hasn't been started yet
+      :auto_start_replay ->
+        # Auto-start replay if it hasn't been started yet and map is ready
         if not socket.assigns.replay_started and socket.assigns.map_ready do
           socket = start_historical_replay(socket)
-          {:noreply, assign(socket, replay_started: true)}
+          {:noreply, assign(socket, replay_started: true, replay_active: true)}
         else
+          # If map isn't ready yet, try again in a bit
+          if not socket.assigns.map_ready do
+            Process.send_after(self(), :auto_start_replay, 1000)
+          end
+
           {:noreply, socket}
         end
 
@@ -583,15 +570,8 @@ defmodule AprsWeb.MapLive.CallsignView do
       </div>
     </div>
 
-    <div class="replay-controls">
-      <button
-        class={"replay-button #{if @replay_active, do: "active", else: ""}"}
-        phx-click="toggle_replay"
-      >
-        {if @replay_active, do: "Stop Replay", else: "Start Replay"}
-      </button>
-
-      <%= if @replay_active do %>
+    <%= if @replay_active do %>
+      <div class="replay-controls">
         <button class="replay-button" phx-click="pause_replay">
           {if @replay_paused, do: "Resume", else: "Pause"}
         </button>
@@ -608,8 +588,8 @@ defmodule AprsWeb.MapLive.CallsignView do
             name="speed"
           />x
         </div>
-      <% end %>
-    </div>
+      </div>
+    <% end %>
 
     <button class="locate-button" phx-click="locate_me" title="Find my location">
       🎯
@@ -617,9 +597,9 @@ defmodule AprsWeb.MapLive.CallsignView do
 
     <%= if map_size(@visible_packets) == 0 and not @replay_active do %>
       <div class="empty-state">
-        <h3>No Recent Packets</h3>
+        <h3>Loading Historical Data</h3>
         <p>
-          No packets found for {@callsign} in the last hour. Try starting a historical replay to see older data.
+          Loading packet history for {@callsign}...
         </p>
       </div>
     <% end %>
@@ -666,23 +646,23 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   defp start_historical_replay(socket) do
-    # Fetch historical packets for the specific callsign
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
-    six_hours_ago = DateTime.add(DateTime.utc_now(), -21_600, :second)
+    # Fetch historical packets for the specific callsign from the last hour
+    now = DateTime.utc_now()
+    one_hour_ago = DateTime.add(now, -3600, :second)
 
     packets =
       fetch_historical_packets_for_callsign(
         socket.assigns.callsign,
-        six_hours_ago,
-        one_hour_ago
+        one_hour_ago,
+        now
       )
 
     socket =
       assign(socket,
         replay_packets: packets,
         replay_index: 0,
-        replay_start_time: six_hours_ago,
-        replay_end_time: one_hour_ago,
+        replay_start_time: one_hour_ago,
+        replay_end_time: now,
         historical_packets: %{}
       )
 

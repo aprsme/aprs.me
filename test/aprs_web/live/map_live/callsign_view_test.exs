@@ -19,11 +19,11 @@ defmodule AprsWeb.MapLive.CallsignViewTest do
       assert html =~ "📡 W5ISP-9"
     end
 
-    test "shows empty state when no packets found", %{conn: conn} do
+    test "shows loading state when no packets found", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/TESTCALL-1")
 
-      assert html =~ "No Recent Packets"
-      assert html =~ "No packets found for TESTCALL-1"
+      assert html =~ "Loading Historical Data"
+      assert html =~ "Loading packet history for TESTCALL-1"
     end
 
     test "handles callsign without SSID", %{conn: conn} do
@@ -32,23 +32,33 @@ defmodule AprsWeb.MapLive.CallsignViewTest do
       assert html =~ "📡 W5ISP"
     end
 
-    test "has replay controls", %{conn: conn} do
+    test "auto-starts replay and has pause controls", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/W5ISP-9")
 
-      assert has_element?(view, "button", "Start Replay")
+      # Simulate map ready event to trigger auto-replay
+      render_hook(view, "map_ready", %{})
+
+      # Should have pause controls but no start/stop replay button
+      assert has_element?(view, "button", "Pause")
+      refute has_element?(view, "button", "Start Replay")
     end
 
-    test "can start and stop replay", %{conn: conn} do
+    test "can pause and resume replay", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/W5ISP-9")
 
-      # Start replay
-      view |> element("button", "Start Replay") |> render_click()
-      assert has_element?(view, "button", "Stop Replay")
+      # Trigger map ready to start auto-replay
+      render_hook(view, "map_ready", %{})
+
+      # Should have pause button available
       assert has_element?(view, "button", "Pause")
 
-      # Stop replay
-      view |> element("button", "Stop Replay") |> render_click()
-      assert has_element?(view, "button", "Start Replay")
+      # Pause replay
+      view |> element("button", "Pause") |> render_click()
+      assert has_element?(view, "button", "Resume")
+
+      # Resume replay
+      view |> element("button", "Resume") |> render_click()
+      assert has_element?(view, "button", "Pause")
     end
 
     test "handles locate me button", %{conn: conn} do
