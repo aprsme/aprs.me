@@ -293,6 +293,9 @@ defmodule Aprs.Is do
             # Convert to map before storing to avoid struct conversion issues
             attrs = Map.from_struct(packet_data)
 
+            # Extract additional data from the parsed packet including raw packet
+            attrs = Aprs.Packet.extract_additional_data(attrs, message)
+
             # Normalize data_type to string if it's an atom
             attrs = normalize_data_type(attrs)
 

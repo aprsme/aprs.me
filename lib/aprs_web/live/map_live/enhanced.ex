@@ -63,10 +63,16 @@ defmodule AprsWeb.MapLive.Enhanced do
       "zoom" => zoom
     } = params
 
+    # Normalize center to use atom keys
+    normalized_center = %{
+      lat: center["lat"],
+      lng: center["lng"]
+    }
+
     socket =
       socket
       |> assign(:map_bounds, bounds)
-      |> assign(:map_center, center)
+      |> assign(:map_center, normalized_center)
       |> assign(:map_zoom, zoom)
       |> load_markers_in_bounds()
 

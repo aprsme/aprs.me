@@ -48,6 +48,7 @@ config :aprs,
   aprs_is_default_filter: System.get_env("APRS_FILTER"),
   aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
   aprs_is_password: System.get_env("APRS_PASSCODE"),
+  auto_migrate: true,
   env: config_env()
 
 # Configure esbuild (the version is required)

@@ -23,6 +23,9 @@ config :aprs, AprsWeb.Endpoint,
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
   server: false
 
+# Disable automatic migrations during tests
+config :aprs, auto_migrate: false
+
 # Only in tests, remove the complexity from the password hashing algorithm
 config :bcrypt_elixir, :log_rounds, 1
 

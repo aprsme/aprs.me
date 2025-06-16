@@ -9,6 +9,9 @@ defmodule Aprs.Application do
 
   @impl true
   def start(_type, _args) do
+    # Run migrations on startup
+    migrate()
+
     topologies = Application.get_env(:libcluster, :topologies) || []
 
     children = [
@@ -52,5 +55,26 @@ defmodule Aprs.Application do
   def config_change(changed, _new, removed) do
     AprsWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp migrate do
+    if Application.get_env(:aprs, :auto_migrate, true) do
+      require Logger
+
+      Logger.info("Running database migrations...")
+      Aprs.Release.migrate()
+      Logger.info("Database migrations completed")
+    else
+      require Logger
+
+      Logger.info("Automatic migrations disabled")
+    end
+  rescue
+    error ->
+      require Logger
+
+      Logger.error("Failed to run migrations: #{inspect(error)}")
+      # Don't crash the application, just log the error
+      :ok
   end
 end
