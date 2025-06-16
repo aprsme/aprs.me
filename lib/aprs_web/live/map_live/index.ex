@@ -194,7 +194,7 @@ defmodule AprsWeb.MapLive.Index do
 
   @impl true
   def handle_event("adjust_replay_speed", %{"speed" => speed}, socket) do
-    speed_float = String.to_float(speed)
+    speed_float = to_float(speed)
     {:noreply, assign(socket, replay_speed: speed_float)}
   end
 
@@ -895,4 +895,9 @@ defmodule AprsWeb.MapLive.Index do
         }
     end
   end
+
+  # Helper function to convert string or float to float
+  defp to_float(value) when is_float(value), do: value
+  defp to_float(value) when is_binary(value), do: String.to_float(value)
+  defp to_float(value) when is_integer(value), do: value * 1.0
 end

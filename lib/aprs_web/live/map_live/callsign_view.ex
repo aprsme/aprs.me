@@ -160,7 +160,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   def handle_event("adjust_replay_speed", %{"speed" => speed}, socket) do
-    {:noreply, assign(socket, replay_speed: String.to_float(speed))}
+    {:noreply, assign(socket, replay_speed: to_float(speed))}
   end
 
   def handle_event("map_ready", _params, socket) do
@@ -187,14 +187,24 @@ defmodule AprsWeb.MapLive.CallsignView do
   defp handle_bounds_update(bounds, socket) do
     # Convert string keys to atom keys and parse values
     normalized_bounds = %{
-      north: String.to_float(bounds["north"]),
-      south: String.to_float(bounds["south"]),
-      east: String.to_float(bounds["east"]),
-      west: String.to_float(bounds["west"])
+      north: to_float(bounds["north"]),
+      south: to_float(bounds["south"]),
+      east: to_float(bounds["east"]),
+      west: to_float(bounds["west"])
     }
 
     socket = assign(socket, map_bounds: normalized_bounds)
     {:noreply, socket}
+  end
+
+  # Helper function to convert string or float to float
+  defp to_float(value) when is_float(value), do: value
+  defp to_float(value) when is_integer(value), do: value * 1.0
+  defp to_float(value) when is_binary(value) do
+    case Float.parse(value) do
+      {float_val, _} -> float_val
+      :error -> raise ArgumentError, "Invalid float string: #{value}"
+    end
   end
 
   def handle_info(msg, socket) do
