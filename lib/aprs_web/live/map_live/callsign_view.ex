@@ -602,55 +602,58 @@ defmodule AprsWeb.MapLive.CallsignView do
       }
     </style>
 
-    <div class="callsign-header">
-      <div class="callsign-title">📡 {@callsign}</div>
-      <div class="nav-links">
-        <a href="/" class="nav-link">← Back to Map</a>
-        <a href="/packets" class="nav-link">All Packets</a>
-        <a href={"/packets/#{String.downcase(@callsign)}"} class="nav-link">{@callsign} Packets</a>
-      </div>
-    </div>
-
-    <%= if @replay_active do %>
-      <div class="replay-controls">
-        <button class="replay-button" phx-click="pause_replay">
-          {if @replay_paused, do: "Resume", else: "Pause"}
-        </button>
-
-        <div class="speed-control">
-          <label>Speed:</label>
-          <input
-            type="number"
-            min="0.1"
-            max="10"
-            step="0.1"
-            value={@replay_speed}
-            phx-change="adjust_replay_speed"
-            name="speed"
-          />x
+    <div style="position: relative; width: 100vw; height: 100vh;">
+      <div class="callsign-header">
+        <div class="callsign-title">📡 {@callsign}</div>
+        <div class="nav-links">
+          <a href="/" class="nav-link">← Back to Map</a>
+          <a href="/packets" class="nav-link">All Packets</a>
+          <a href={"/packets/#{String.downcase(@callsign)}"} class="nav-link">{@callsign} Packets</a>
         </div>
       </div>
-    <% end %>
 
-    <button class="locate-button" phx-click="locate_me" title="Find my location">
-      🎯
-    </button>
+      <%= if @replay_active do %>
+        <div class="replay-controls">
+          <button class="replay-button" phx-click="pause_replay">
+            {if @replay_paused, do: "Resume", else: "Pause"}
+          </button>
 
-    <%= if map_size(@visible_packets) == 0 and not @replay_active do %>
-      <div class="empty-state">
-        <h3>Loading Historical Data</h3>
-        <p>
-          Loading packet history for {@callsign}...
-        </p>
+          <div class="speed-control">
+            <label>Speed:</label>
+            <input
+              type="number"
+              min="0.1"
+              max="10"
+              step="0.1"
+              value={@replay_speed}
+              phx-change="adjust_replay_speed"
+              name="speed"
+            />x
+          </div>
+        </div>
+      <% end %>
+
+      <button class="locate-button" phx-click="locate_me" title="Find my location">
+        🎯
+      </button>
+
+      <%= if map_size(@visible_packets) == 0 and not @replay_active do %>
+        <div class="empty-state">
+          <h3>Loading Historical Data</h3>
+          <p>
+            Loading packet history for {@callsign}...
+          </p>
+        </div>
+      <% end %>
+
+      <div
+        id="aprs-map"
+        phx-hook="APRSMap"
+        phx-update="ignore"
+        data-center={Jason.encode!(@map_center || @default_center)}
+        data-zoom={@map_zoom || @default_zoom}
+      >
       </div>
-    <% end %>
-
-    <div
-      id="aprs-map"
-      phx-hook="APRSMap"
-      data-center={Jason.encode!(@map_center || @default_center)}
-      data-zoom={@map_zoom || @default_zoom}
-    >
     </div>
     """
   end

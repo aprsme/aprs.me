@@ -65,6 +65,18 @@ let MinimalAPRSMap = {
   },
 
   initializeMap(initialCenter, initialZoom) {
+    // Ensure the element and its parent exist
+    if (!this.el || !this.el.parentNode) {
+      console.warn("Map element or parent not found, retrying...");
+      if (this.initializationAttempts < this.maxInitializationAttempts) {
+        setTimeout(() => this.attemptInitialization(), 500);
+        return;
+      } else {
+        this.handleFatalError("Map element structure invalid");
+        return;
+      }
+    }
+
     // Check element dimensions
     const rect = this.el.getBoundingClientRect();
 
@@ -72,6 +84,10 @@ let MinimalAPRSMap = {
     if (rect.width === 0 || rect.height === 0) {
       console.warn("Map element has no dimensions, retrying...");
       this.errors.push("Map element has zero dimensions");
+
+      // Try to force dimensions
+      this.el.style.width = "100%";
+      this.el.style.height = "100vh";
 
       if (this.initializationAttempts < this.maxInitializationAttempts) {
         setTimeout(() => this.attemptInitialization(), 500);
@@ -84,6 +100,12 @@ let MinimalAPRSMap = {
 
     // Initialize basic map
     try {
+      // Ensure element ID is unique and not already initialized
+      if (this.el._leaflet_id) {
+        console.warn("Map already initialized on this element");
+        return;
+      }
+
       this.map = L.map(this.el, {
         zoomControl: true,
         attributionControl: true,
@@ -92,6 +114,15 @@ let MinimalAPRSMap = {
     } catch (error) {
       console.error("Error initializing map:", error);
       this.errors.push("Map initialization failed: " + error.message);
+
+      // Check if it's a container already initialized error
+      if (error.message && error.message.includes("already initialized")) {
+        // Try to get the existing map instance
+        if (this.el._leaflet_id && L.DomUtil.get(this.el.id)) {
+          console.warn("Attempting to recover existing map instance");
+          return;
+        }
+      }
 
       if (this.initializationAttempts < this.maxInitializationAttempts) {
         setTimeout(() => this.attemptInitialization(), 1000);
@@ -178,12 +209,14 @@ let MinimalAPRSMap = {
 
     // Add a delayed size check
     setTimeout(() => {
-      const rect = this.el.getBoundingClientRect();
-      if (this.map) {
-        try {
-          this.map.invalidateSize();
-        } catch (error) {
-          console.error("Error re-invalidating map size:", error);
+      if (this.el && this.el.parentNode) {
+        const rect = this.el.getBoundingClientRect();
+        if (this.map && rect.width > 0 && rect.height > 0) {
+          try {
+            this.map.invalidateSize();
+          } catch (error) {
+            console.error("Error re-invalidating map size:", error);
+          }
         }
       }
     }, 1000);
