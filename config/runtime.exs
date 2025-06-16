@@ -55,7 +55,8 @@ if config_env() == :prod do
     # ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    socket_options: maybe_ipv6
+    socket_options: maybe_ipv6,
+    types: Aprs.PostgresTypes
 
   config :aprs, AprsWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
