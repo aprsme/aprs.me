@@ -122,17 +122,26 @@ defmodule AprsIsMock do
   end
 
   def handle_call(:get_status, _from, state) do
-    mock_status = %{
-      state
-      | connected: false,
-        uptime_seconds: 0
-    }
+    uptime_seconds =
+      if state.connected_at do
+        DateTime.diff(DateTime.utc_now(), state.connected_at, :second)
+      else
+        0
+      end
+
+    mock_status =
+      Map.put(state, :uptime_seconds, uptime_seconds)
 
     {:reply, mock_status, state}
   end
 
   def handle_call({:set_connection_state, connected}, _from, state) do
-    new_state = %{state | connected: connected, connected_at: if(connected, do: DateTime.utc_now())}
+    new_state = %{
+      state
+      | connected: connected,
+        connected_at: if(connected, do: DateTime.utc_now())
+    }
+
     {:reply, :ok, new_state}
   end
 

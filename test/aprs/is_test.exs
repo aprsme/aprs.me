@@ -2,7 +2,8 @@ defmodule Aprs.IsTest do
   @moduledoc """
   Tests to ensure APRS-IS external connections are properly blocked in test environment.
   """
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+  use Aprs.DataCase
 
   require Logger
 
@@ -27,7 +28,7 @@ defmodule Aprs.IsTest do
       # Should return disconnected status without attempting external connection
       assert status.connected == false
       assert status.server != nil
-      assert status.port != nil
+      assert status.port == 14_580
       assert status.connected_at == nil
       assert status.uptime_seconds == 0
     end
@@ -56,10 +57,21 @@ defmodule Aprs.IsTest do
       # Start the mock if not already running
       case GenServer.start_link(AprsIsMock, [], name: AprsIsMock) do
         {:ok, pid} ->
-          on_exit(fn -> GenServer.stop(pid, :normal) end)
+          on_exit(fn ->
+            if Process.alive?(pid) do
+              GenServer.stop(pid, :normal)
+            end
+          end)
+
           {:ok, mock_pid: pid}
 
         {:error, {:already_started, pid}} ->
+          on_exit(fn ->
+            if Process.alive?(pid) do
+              GenServer.stop(pid, :normal)
+            end
+          end)
+
           {:ok, mock_pid: pid}
       end
     end

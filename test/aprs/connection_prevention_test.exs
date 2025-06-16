@@ -2,7 +2,8 @@ defmodule Aprs.ConnectionPreventionTest do
   @moduledoc """
   Simple test to verify APRS connections are prevented in test environment.
   """
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+  use Aprs.DataCase
 
   test "APRS connection is disabled in test environment" do
     # Verify we're in test environment

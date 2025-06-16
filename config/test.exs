@@ -24,13 +24,16 @@ config :aprs, AprsWeb.Endpoint,
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
   server: false
 
+# Disable Oban during tests to prevent background job execution
+config :aprs, Oban, testing: :inline
+
 # Disable APRS-IS external connections in test environment
 config :aprs,
-  aprs_is_server: nil,
-  aprs_is_port: nil,
-  aprs_is_default_filter: nil,
-  aprs_is_login_id: nil,
-  aprs_is_password: nil,
+  aprs_is_server: "mock.aprs.test",
+  aprs_is_port: 14_580,
+  aprs_is_default_filter: "r/33/-96/100",
+  aprs_is_login_id: "TEST",
+  aprs_is_password: "-1",
   disable_aprs_connection: true
 
 # Disable automatic migrations during tests

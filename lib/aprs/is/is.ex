@@ -308,7 +308,9 @@ defmodule Aprs.Is do
 
               # Store in database through the Packets context
               case Aprs.Packets.store_packet(attrs) do
-                # {:ok, packet} ->
+                {:ok, _packet} ->
+                  # Packet stored successfully
+                  :ok
 
                 {:error, changeset} ->
                   Logger.error(
