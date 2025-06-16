@@ -57,42 +57,45 @@ defmodule AprsWeb.MapLive.Index do
       )
 
     if connected?(socket) do
-      IO.puts("Socket is connected, attempting to get IP location")
       Endpoint.subscribe("aprs_messages")
-      # Get IP-based location on initial load
-      IO.puts("Connect info: #{inspect(socket.private[:connect_info])}")
-      IO.puts("Peer data: #{inspect(socket.private[:connect_info][:peer_data])}")
 
-      ip =
-        case socket.private[:connect_info][:peer_data][:address] do
-          {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
-          {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
-          _ -> nil
-        end
+      # Only do IP geolocation in non-test environments
+      if Mix.env() != :test do
+        IO.puts("Socket is connected, attempting to get IP location")
+        # Get IP-based location on initial load
+        IO.puts("Connect info: #{inspect(socket.private[:connect_info])}")
+        IO.puts("Peer data: #{inspect(socket.private[:connect_info][:peer_data])}")
 
-      IO.puts("Extracted IP address: #{inspect(ip)}")
-
-      if ip do
-        IO.puts("Starting IP geolocation task for IP: #{ip}")
-        # Start as a separate task and await the result
-        Task.start(fn ->
-          try do
-            get_ip_location(ip)
-          rescue
-            error ->
-              IO.puts("Error in IP geolocation task: #{inspect(error)}")
-              IO.puts("Stacktrace: #{inspect(__STACKTRACE__)}")
-              send(self(), {:ip_location, @default_center})
+        ip =
+          case socket.private[:connect_info][:peer_data][:address] do
+            {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
+            {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
+            _ -> nil
           end
-        end)
-      else
-        IO.puts("No IP address found, skipping geolocation")
+
+        # Only attempt IP geolocation if not localhost
+        if ip && !String.starts_with?(ip, "127.") && !String.starts_with?(ip, "::1") do
+          IO.puts("Starting IP geolocation task for IP: #{ip}")
+          # Start as a separate task and await the result
+          Task.start(fn ->
+            try do
+              get_ip_location(ip)
+            rescue
+              error ->
+                IO.puts("Error in IP geolocation task: #{inspect(error)}")
+                IO.puts("Stacktrace: #{inspect(__STACKTRACE__)}")
+                send(self(), {:ip_location, @default_center})
+            end
+          end)
+        else
+          IO.puts("No IP address found, skipping geolocation")
+        end
       end
 
       # Schedule regular cleanup of old packets from the map
-      if connected?(socket), do: Process.send_after(self(), :cleanup_old_packets, 60_000)
+      Process.send_after(self(), :cleanup_old_packets, 60_000)
       # Schedule initialization of replay after a short delay
-      if connected?(socket), do: Process.send_after(self(), :initialize_replay, 2000)
+      Process.send_after(self(), :initialize_replay, 2000)
     end
 
     {:ok, socket}
@@ -898,6 +901,12 @@ defmodule AprsWeb.MapLive.Index do
 
   # Helper function to convert string or float to float
   defp to_float(value) when is_float(value), do: value
-  defp to_float(value) when is_binary(value), do: String.to_float(value)
   defp to_float(value) when is_integer(value), do: value * 1.0
+
+  defp to_float(value) when is_binary(value) do
+    case Float.parse(value) do
+      {float_val, _} -> float_val
+      :error -> raise ArgumentError, "Invalid float string: #{value}"
+    end
+  end
 end

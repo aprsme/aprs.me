@@ -146,6 +146,7 @@ defmodule Aprs.Packet do
     if is_valid_coordinates?(lat, lon) do
       try do
         location = create_point(lat, lon)
+
         if location do
           put_change(changeset, :location, location)
         else
@@ -154,6 +155,7 @@ defmodule Aprs.Packet do
       rescue
         error ->
           require Logger
+
           Logger.error("Failed to create geometry for lat=#{lat}, lon=#{lon}: #{inspect(error)}")
           changeset
       end

@@ -299,7 +299,10 @@ defmodule Aprs.Is do
                   Logger.info("Successfully stored packet from #{packet.sender}")
 
                 {:error, changeset} ->
-                  Logger.error("Failed to store packet from #{inspect(parsed_message.sender)}: #{inspect(changeset.errors)}")
+                  Logger.error(
+                    "Failed to store packet from #{inspect(parsed_message.sender)}: #{inspect(changeset.errors)}"
+                  )
+
                   # Log the problematic attributes for debugging
                   Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
               end

@@ -74,7 +74,6 @@ defmodule Aprs.Packets do
       %Packet{}
       |> Packet.changeset(packet_attrs)
       |> Repo.insert()
-
     rescue
       error ->
         Logger.error("Exception in store_packet for #{inspect(packet_data[:sender])}: #{inspect(error)}")

@@ -200,6 +200,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   # Helper function to convert string or float to float
   defp to_float(value) when is_float(value), do: value
   defp to_float(value) when is_integer(value), do: value * 1.0
+
   defp to_float(value) when is_binary(value) do
     case Float.parse(value) do
       {float_val, _} -> float_val

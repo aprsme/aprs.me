@@ -19,6 +19,7 @@ import Config
 # Always start the server in production/docker environments
 if System.get_env("PHX_SERVER") || config_env() == :prod do
   config :aprs, AprsWeb.Endpoint, server: true
+
   IO.puts("Phoenix server enabled - will start HTTP listener")
 else
   IO.puts("Phoenix server disabled - no HTTP listener will start")
