@@ -10,6 +10,11 @@ on:
   pull_request:
     branches: ["main"] # adapt branch for project
 
+# Cancel in-progress runs when a new workflow with the same group is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Sets the ENV `MIX_ENV` to `test` for running tests
 env:
   MIX_ENV: test

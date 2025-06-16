@@ -5,6 +5,11 @@ on:
     - cron: "0 0 * * 0" # Weekly on Sunday at midnight
   workflow_dispatch: # Allow manual triggering
 
+# Cancel in-progress runs when a new workflow with the same group is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   update-dependencies:
     name: Rebuild with Latest Dependencies
