@@ -28,6 +28,7 @@ defmodule AprsWeb.Router do
     pipe_through :browser
 
     live "/", MapLive.Index, :index
+    live "/enhanced", MapLive.Enhanced, :index
     get "/map", PageController, :map
     live "/status", StatusLive.Index, :index
 
