@@ -61,17 +61,17 @@ defmodule Parser.ParserTest do
 
   describe "parse/1" do
     test "with invalid packet" do
-      assert {:error, :invalid_packet} = Parser.parse("invalid packet")
+      assert {:error, "Invalid packet format"} = Parser.parse("invalid packet")
     end
   end
 
   describe "parse_callsign/1" do
     test "callsign with ssid" do
-      assert Parser.parse_callsign("W5ISP-1") == ["W5ISP", "1"]
+      assert Parser.parse_callsign("W5ISP-1") == {:ok, ["W5ISP", "1"]}
     end
 
     test "callsign without ssid" do
-      assert Parser.parse_callsign("W5ISP") == ["W5ISP", nil]
+      assert Parser.parse_callsign("W5ISP") == {:ok, ["W5ISP", "0"]}
     end
   end
 
