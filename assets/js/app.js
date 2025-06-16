@@ -73,26 +73,6 @@ Hooks.APRSMap = {
 
     console.log("Map initialized");
 
-    // Handle geolocation requests from server
-    this.handleEvent("request_geolocation", () => {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            console.log("User location:", latitude, longitude);
-            map.setView([latitude, longitude], 12);
-            // Notify server of new location
-            this.pushEvent("set_location", { lat: latitude, lng: longitude });
-          },
-          (error) => {
-            console.warn("Geolocation error:", error.message);
-          },
-        );
-      } else {
-        console.warn("Geolocation not available in this browser");
-      }
-    });
-
     // Add OpenStreetMap tile layer
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution:
@@ -149,12 +129,10 @@ Hooks.APRSMap = {
     // Store markers to avoid duplicates
     this.markers = new Map();
     this.historicalMarkers = new Map();
-    this.packetCount = 0;
 
     // Store map instance and initialize state
     this.map = map;
     this.mapReady = false;
-    this.userLocationMarker = null;
 
     // Send initial bounds to server
     this.sendBoundsToServer();
@@ -211,23 +189,6 @@ Hooks.APRSMap = {
           console.log("Map view updated after delay");
           console.log("New map center:", this.map.getCenter());
           console.log("New map zoom:", this.map.getZoom());
-
-          // Add a marker at the user's location
-          if (this.userLocationMarker) {
-            this.map.removeLayer(this.userLocationMarker);
-          }
-
-          this.userLocationMarker = L.marker([lat, lng], {
-            icon: L.divIcon({
-              html: '<div style="background-color: #4299e1; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>',
-              className: "user-location-marker",
-              iconSize: [16, 16],
-              iconAnchor: [8, 8],
-            }),
-          })
-            .addTo(this.map)
-            .bindPopup("Your location")
-            .openPopup();
         }, 300);
       } else {
         console.error("Invalid coordinates in zoom_to_location event:", data);
@@ -312,11 +273,6 @@ Hooks.APRSMap = {
     }
     this.markers.clear();
     this.historicalMarkers.clear();
-    this.packetCount = 0;
-    const counterElement = document.getElementById("packet-count");
-    if (counterElement) {
-      counterElement.textContent = this.packetCount;
-    }
   },
 
   refreshMarkers() {
@@ -345,13 +301,6 @@ Hooks.APRSMap = {
         this.markers.delete(callsign);
       }
     });
-
-    // Update counter
-    this.packetCount = this.markers.size;
-    const counterElement = document.getElementById("packet-count");
-    if (counterElement) {
-      counterElement.textContent = this.packetCount;
-    }
   },
 
   clearHistoricalMarkers() {
@@ -370,10 +319,7 @@ Hooks.APRSMap = {
   },
 
   removeMarkersOutsideBounds(bounds) {
-    // Let LiveView handle the packet count
     // The cluster handles marker visibility automatically
-    const visibleCount = this.markers.size;
-    this.pushEvent("update_packet_count", { count: visibleCount });
   },
 
   addPacketMarker(packet, isHistorical = false) {
@@ -473,15 +419,6 @@ Hooks.APRSMap = {
 
       // Store the marker
       markerCollection.set(markerId, marker);
-
-      // Update packet counter (only for live packets)
-      if (!isHistorical) {
-        this.packetCount++;
-        const counterElement = document.getElementById("packet-count");
-        if (counterElement) {
-          counterElement.textContent = this.packetCount;
-        }
-      }
     }
   },
 

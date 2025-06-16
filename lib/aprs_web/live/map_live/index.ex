@@ -22,7 +22,6 @@ defmodule AprsWeb.MapLive.Index do
     socket =
       assign(socket,
         packets: [],
-        packet_count: 0,
         page_title: "APRS Map",
         # Track visible packets by callsign
         visible_packets: %{},
@@ -117,8 +116,6 @@ defmodule AprsWeb.MapLive.Index do
       end)
       |> Map.new()
 
-    packet_count = map_size(visible_packets)
-
     # If replay is not active, update the replay packets based on the new bounds
     socket =
       if socket.assigns.replay_active do
@@ -138,13 +135,7 @@ defmodule AprsWeb.MapLive.Index do
         socket
       end
 
-    {:noreply, assign(socket, map_bounds: map_bounds, visible_packets: visible_packets, packet_count: packet_count)}
-  end
-
-  @impl true
-  def handle_event("update_packet_count", %{"count" => count}, socket) do
-    # Update packet count from client after markers are removed
-    {:noreply, assign(socket, packet_count: count)}
+    {:noreply, assign(socket, map_bounds: map_bounds, visible_packets: visible_packets)}
   end
 
   @impl true
@@ -337,13 +328,12 @@ defmodule AprsWeb.MapLive.Index do
 
             # Update visible packets tracking
             visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, sanitized_packet)
-            packet_count = map_size(visible_packets)
 
             # Push the packet to the client-side JavaScript
             socket =
               socket
               |> push_event("new_packet", packet_data)
-              |> assign(visible_packets: visible_packets, packet_count: packet_count)
+              |> assign(visible_packets: visible_packets)
 
             {:noreply, socket}
           else
@@ -458,18 +448,6 @@ defmodule AprsWeb.MapLive.Index do
         z-index: 1;
       }
 
-      .map-overlay {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: rgba(255, 255, 255, 0.9);
-        padding: 10px 15px;
-        border-radius: 5px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        z-index: 1000;
-        max-width: 300px;
-      }
-
       .locate-button {
         position: absolute;
         left: 10px;
@@ -484,112 +462,6 @@ defmodule AprsWeb.MapLive.Index do
 
       .locate-button:hover {
         background: #f4f4f4;
-      }
-
-      .packet-counter {
-        font-size: 14px;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .replay-badge {
-        background-color: #3498db;
-        color: white;
-        padding: 2px 6px;
-        border-radius: 10px;
-        font-size: 10px;
-        font-weight: bold;
-        animation: pulse 2s infinite;
-      }
-
-      @keyframes pulse {
-        0% { opacity: 0.7; }
-        50% { opacity: 1; }
-        100% { opacity: 0.7; }
-      }
-
-      .replay-controls {
-        margin-top: 10px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .control-buttons {
-        display: flex;
-        gap: 8px;
-      }
-
-      .replay-controls button {
-        padding: 5px 10px;
-        border-radius: 4px;
-        font-size: 12px;
-        cursor: pointer;
-        font-weight: 600;
-        border: none;
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-      }
-
-      .btn-action {
-        background-color: #3498db;
-        color: white;
-      }
-
-      .btn-danger {
-        background-color: #e74c3c;
-        color: white;
-      }
-
-      .btn-secondary {
-        background-color: #7f8c8d;
-        color: white;
-      }
-
-      .icon {
-        font-weight: bold;
-      }
-
-      .speed-control {
-        font-size: 12px;
-        margin-top: 5px;
-      }
-
-      .speed-control input {
-        width: 100%;
-        margin-top: 5px;
-      }
-
-      .replay-progress {
-        font-size: 12px;
-        margin-top: 5px;
-        text-align: center;
-      }
-
-      .progress-bar {
-        height: 6px;
-        background-color: #eee;
-        border-radius: 3px;
-        overflow: hidden;
-        margin-bottom: 5px;
-      }
-
-      .progress-fill {
-        height: 100%;
-        background-color: #3498db;
-        transition: width 0.5s ease-in-out;
-      }
-
-      .progress-text {
-        font-size: 10px;
-        color: #666;
       }
 
       .aprs-marker {
@@ -611,55 +483,6 @@ defmodule AprsWeb.MapLive.Index do
       data-lat={@map_center.lat}
       data-lng={@map_center.lng}
     >
-    </div>
-
-    <div class="map-overlay">
-      <div class="packet-counter">
-        <span id="packet-count">{@packet_count}</span>
-        &nbsp;packets in view
-        <%= if @replay_active do %>
-          <div class="replay-status">
-            <span class="replay-badge">Replaying historical packets</span>
-          </div>
-        <% end %>
-      </div>
-      <div class="replay-controls">
-        <%= if @replay_active do %>
-          <div class="control-buttons">
-            <button phx-click="toggle_replay" class="btn-action">
-              <span class="icon">⟳</span> Restart
-            </button>
-            <button phx-click="pause_replay" class="btn-secondary">
-              <span class="icon">{if @replay_paused, do: "▶", else: "⏸"}</span>
-              {if @replay_paused, do: "Resume", else: "Pause"}
-            </button>
-          </div>
-          <div class="speed-control">
-            <label>Speed: {@replay_speed}x</label>
-            <input
-              type="range"
-              min="1"
-              max="20"
-              step="1"
-              value={@replay_speed}
-              phx-change="adjust_replay_speed"
-              name="speed"
-            />
-          </div>
-          <div class="replay-progress">
-            <div class="progress-bar">
-              <div
-                class="progress-fill"
-                style={"width: #{if length(@replay_packets) > 0, do: @replay_index * 100 / length(@replay_packets), else: 0}%"}
-              >
-              </div>
-            </div>
-            <div class="progress-text">
-              {@replay_index} of {length(@replay_packets)} packets
-            </div>
-          </div>
-        <% end %>
-      </div>
     </div>
 
     <button class="locate-button" phx-click="locate_me" title="Find my location">
@@ -695,16 +518,12 @@ defmodule AprsWeb.MapLive.Index do
       end)
       |> Map.new()
 
-    # Get updated packet count
-    packet_count = map_size(visible_packets)
-
     # Push event to remove old markers from the map
     socket =
       socket
       |> push_event("refresh_markers", %{})
       |> assign(
         visible_packets: visible_packets,
-        packet_count: packet_count,
         packet_age_threshold: one_hour_ago
       )
 
