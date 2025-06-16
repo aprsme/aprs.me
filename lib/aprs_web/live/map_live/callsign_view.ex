@@ -66,8 +66,8 @@ defmodule AprsWeb.MapLive.CallsignView do
 
       # Schedule regular cleanup of old packets from the map
       Process.send_after(self(), :cleanup_old_packets, 60_000)
-      # Auto-start replay after a short delay - TEMPORARILY DISABLED FOR DEBUGGING
-      # Process.send_after(self(), :auto_start_replay, 2000)
+      # Auto-start replay after a short delay
+      Process.send_after(self(), :auto_start_replay, 2000)
 
       {:ok, socket}
     else
@@ -141,14 +141,13 @@ defmodule AprsWeb.MapLive.CallsignView do
   def handle_event("map_ready", _params, socket) do
     socket = assign(socket, map_ready: true)
 
-    # Auto-start replay if it hasn't been started yet - TEMPORARILY DISABLED FOR DEBUGGING
+    # Auto-start replay if it hasn't been started yet
     socket =
       if socket.assigns.replay_started do
         socket
       else
-        # socket = start_historical_replay(socket)
-        # assign(socket, replay_started: true, replay_active: true)
-        socket
+        socket = start_historical_replay(socket)
+        assign(socket, replay_started: true, replay_active: true)
       end
 
     # If we have a pending geolocation, zoom to it after a delay
@@ -871,6 +870,15 @@ defmodule AprsWeb.MapLive.CallsignView do
       |> Stream.filter(&(&1 != nil))
       |> Enum.to_list()
 
+    # Build visible_packets map from the loaded packets
+    visible_packets =
+      recent_packets
+      |> Stream.filter(&has_position_data?/1)
+      |> Map.new(fn packet ->
+        callsign_key = "#{packet.base_callsign}#{if packet.ssid, do: "-#{packet.ssid}", else: ""}"
+        {callsign_key, packet}
+      end)
+
     # Send packets to map if any exist
     socket =
       if length(packet_data_list) > 0 do
@@ -879,7 +887,7 @@ defmodule AprsWeb.MapLive.CallsignView do
         socket
       end
 
-    assign(socket, last_known_position: last_known_position)
+    assign(socket, last_known_position: last_known_position, visible_packets: visible_packets)
   end
 
   defp map_empty?(socket) do
