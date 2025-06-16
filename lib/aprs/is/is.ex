@@ -469,8 +469,7 @@ defmodule Aprs.Is do
     converted_map =
       struct
       |> Map.from_struct()
-      |> Enum.map(fn {k, v} -> {k, struct_to_map(v)} end)
-      |> Enum.into(%{})
+      |> Map.new(fn {k, v} -> {k, struct_to_map(v)} end)
 
     # Add type information to help with later processing
     Map.put(converted_map, :__original_struct__, struct_type)

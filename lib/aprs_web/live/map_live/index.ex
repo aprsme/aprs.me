@@ -462,8 +462,6 @@ defmodule AprsWeb.MapLive.Index do
         z-index: 1;
       }
 
-
-
       .locate-button {
         position: absolute;
         left: 10px;
@@ -548,8 +546,6 @@ defmodule AprsWeb.MapLive.Index do
         margin: 8px 12px;
       }
     </style>
-
-
 
     <div
       id="aprs-map"
@@ -749,10 +745,13 @@ defmodule AprsWeb.MapLive.Index do
     # Only include packets with valid position data
     if lat && lng do
       # Get symbol information from data_extended
-      symbol_table_id = get_in(data_extended, ["symbol_table_id"]) ||
-                       packet.symbol_table_id || "/"
-      symbol_code = get_in(data_extended, ["symbol_code"]) ||
-                   packet.symbol_code || ">"
+      symbol_table_id =
+        get_in(data_extended, ["symbol_table_id"]) ||
+          packet.symbol_table_id || "/"
+
+      symbol_code =
+        get_in(data_extended, ["symbol_code"]) ||
+          packet.symbol_code || ">"
 
       # Validate symbol
       {final_table_id, final_symbol_code} =
@@ -763,11 +762,12 @@ defmodule AprsWeb.MapLive.Index do
         end
 
       # Generate callsign for display
-      callsign = if packet.ssid && packet.ssid != "" do
-        "#{packet.base_callsign}-#{packet.ssid}"
-      else
-        packet.base_callsign || ""
-      end
+      callsign =
+        if packet.ssid && packet.ssid != "" do
+          "#{packet.base_callsign}-#{packet.ssid}"
+        else
+          packet.base_callsign || ""
+        end
 
       %{
         "id" => callsign,
@@ -784,9 +784,8 @@ defmodule AprsWeb.MapLive.Index do
         "comment" => get_in(data_extended, ["comment"]) || "",
         "data_extended" => data_extended || %{}
       }
-    else
+
       # Return nil for packets without position data
-      nil
     end
   end
 

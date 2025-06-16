@@ -26,7 +26,8 @@ defmodule AprsWeb.Helpers.AprsSymbols do
     case symbol_table_id do
       "/" -> "aprs-symbols-24-0.png"
       "\\" -> "aprs-symbols-24-1.png"
-      _ -> "aprs-symbols-24-0.png"  # Default to primary table
+      # Default to primary table
+      _ -> "aprs-symbols-24-0.png"
     end
   end
 
@@ -96,9 +97,9 @@ defmodule AprsWeb.Helpers.AprsSymbols do
     {x, y} = get_symbol_position(symbol_code)
 
     "background-image: url('/aprs-symbols/#{sprite_file}'); " <>
-    "background-position: #{x}px #{y}px; " <>
-    "width: 24px; height: 24px; " <>
-    "background-repeat: no-repeat;"
+      "background-position: #{x}px #{y}px; " <>
+      "width: 24px; height: 24px; " <>
+      "background-repeat: no-repeat;"
   end
 
   @doc """
@@ -109,7 +110,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
     extra_style = Keyword.get(opts, :style, "")
 
     base_style = symbol_css_style(symbol_table_id, symbol_code)
-    full_style = if extra_style != "", do: base_style <> " " <> extra_style, else: base_style
+    full_style = if extra_style == "", do: base_style, else: base_style <> " " <> extra_style
 
     Phoenix.HTML.raw(~s(<div class="#{css_class}" style="#{full_style}"></div>))
   end
@@ -137,7 +138,8 @@ defmodule AprsWeb.Helpers.AprsSymbols do
   Get the default symbol for unknown or invalid symbols.
   """
   def default_symbol do
-    {"/", ">"}  # Car icon as default
+    # Car icon as default
+    {"/", ">"}
   end
 
   @doc """
@@ -148,6 +150,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
       {table, code} when table in ["/", "\\"] and is_binary(code) and byte_size(code) > 0 ->
         char_code = code |> String.first() |> String.to_charlist() |> List.first()
         char_code >= 32 and char_code <= 127
+
       _ ->
         false
     end
