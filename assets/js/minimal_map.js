@@ -3,10 +3,6 @@
 
 let MinimalAPRSMap = {
   mounted() {
-    console.log("MinimalAPRSMap hook mounted");
-    console.log("Element:", this.el);
-    console.log("Element dataset:", this.el.dataset);
-
     // Initialize error tracking
     this.errors = [];
     this.initializationAttempts = 0;
@@ -17,9 +13,6 @@ let MinimalAPRSMap = {
 
   attemptInitialization() {
     this.initializationAttempts++;
-    console.log(
-      `Initialization attempt ${this.initializationAttempts}/${this.maxInitializationAttempts}`,
-    );
 
     // Check if Leaflet is available
     if (typeof L === "undefined") {
@@ -27,7 +20,6 @@ let MinimalAPRSMap = {
       this.errors.push("Leaflet library not available");
 
       if (this.initializationAttempts < this.maxInitializationAttempts) {
-        console.log("Retrying initialization in 1 second...");
         setTimeout(() => this.attemptInitialization(), 1000);
         return;
       } else {
@@ -61,28 +53,20 @@ let MinimalAPRSMap = {
       if (isNaN(initialZoom) || initialZoom < 1 || initialZoom > 20) {
         throw new Error("Invalid zoom data");
       }
-
-      console.log("Parsed data - center:", initialCenter, "zoom:", initialZoom);
     } catch (error) {
       console.error("Error parsing map data attributes:", error);
-      console.log("Raw center data:", this.el.dataset.center);
-      console.log("Raw zoom data:", this.el.dataset.zoom);
 
       // Fallback values
       initialCenter = { lat: 39.8283, lng: -98.5795 };
       initialZoom = 5;
-      console.log("Using fallback values:", initialCenter, initialZoom);
     }
 
     this.initializeMap(initialCenter, initialZoom);
   },
 
   initializeMap(initialCenter, initialZoom) {
-    console.log("Initializing minimal map with center:", initialCenter, "and zoom:", initialZoom);
-
     // Check element dimensions
     const rect = this.el.getBoundingClientRect();
-    console.log("Map element dimensions:", rect);
 
     // Validate element has dimensions
     if (rect.width === 0 || rect.height === 0) {
@@ -105,7 +89,6 @@ let MinimalAPRSMap = {
         attributionControl: true,
         closePopupOnClick: true,
       }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
-      console.log("Map initialized successfully");
     } catch (error) {
       console.error("Error initializing map:", error);
       this.errors.push("Map initialization failed: " + error.message);
@@ -173,9 +156,6 @@ let MinimalAPRSMap = {
 
         // If zoom changed significantly (more than 2 levels), clear and reload
         if (zoomDifference > 2) {
-          console.log(
-            `Large zoom change detected (${zoomDifference} levels), clearing and reloading markers`,
-          );
           this.pushEvent("clear_and_reload_markers", {});
         }
 
@@ -293,8 +273,6 @@ let MinimalAPRSMap = {
           return;
         }
 
-        console.log("Zooming map to:", lat, lng, "at zoom level:", zoom);
-
         try {
           // Check element dimensions before zoom
           const beforeRect = this.el.getBoundingClientRect();
@@ -313,7 +291,6 @@ let MinimalAPRSMap = {
               // Check element dimensions after zoom
               setTimeout(() => {
                 const afterRect = this.el.getBoundingClientRect();
-                console.log("Element dimensions after zoom:", afterRect);
 
                 if (afterRect.width === 0 || afterRect.height === 0) {
                   console.error("Map element lost dimensions after zoom!");
@@ -377,7 +354,6 @@ let MinimalAPRSMap = {
         const bounds = this.map.getBounds();
         this.removeMarkersOutsideBounds(bounds);
       }
-      console.log("Refresh markers event received - cleaned up out-of-bounds markers");
     });
 
     // Handle clearing historical packets
@@ -406,7 +382,6 @@ let MinimalAPRSMap = {
 
     // Handle clearing all markers and reloading visible ones
     this.handleEvent("clear_and_reload_markers", () => {
-      console.log("Clear and reload markers event received");
       // This event is just a trigger - the server will handle clearing and adding markers
     });
   },
@@ -591,8 +566,6 @@ let MinimalAPRSMap = {
 
     // Remove out-of-bounds markers
     markersToRemove.forEach((id) => this.removeMarker(id));
-
-    console.log(`Removed ${markersToRemove.length} markers outside bounds`);
   },
 
   createMarkerIcon(data) {
@@ -665,8 +638,6 @@ let MinimalAPRSMap = {
   },
 
   destroyed() {
-    console.log("MinimalAPRSMap hook destroyed");
-
     // Clean up timers
     if (this.boundsTimer) {
       clearTimeout(this.boundsTimer);
