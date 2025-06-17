@@ -3,6 +3,7 @@ defmodule Aprs.BadPacket do
   use Ecto.Schema
 
   import Ecto.Changeset
+  import Ecto.Query
 
   schema "badpackets" do
     field :raw_packet, :string
@@ -18,5 +19,36 @@ defmodule Aprs.BadPacket do
     bad_packet
     |> cast(attrs, [:raw_packet, :error_message, :error_type, :attempted_at])
     |> validate_required([:raw_packet])
+  end
+
+  @doc """
+  Returns recent bad packets, ordered by attempted_at descending
+  """
+  def recent(query \\ __MODULE__, limit \\ 100) do
+    from(b in query,
+      order_by: [desc: b.attempted_at],
+      limit: ^limit
+    )
+  end
+
+  @doc """
+  Returns bad packets by error type
+  """
+  def by_error_type(query \\ __MODULE__, error_type) do
+    from(b in query,
+      where: b.error_type == ^error_type
+    )
+  end
+
+  @doc """
+  Returns count of bad packets in the last N hours
+  """
+  def count_recent(hours \\ 24) do
+    cutoff = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
+
+    from(b in __MODULE__,
+      where: b.attempted_at > ^cutoff,
+      select: count(b.id)
+    )
   end
 end

@@ -34,6 +34,7 @@ defmodule AprsWeb.Router do
 
     live "/packets", PacketsLive.Index, :index
     live "/packets/:callsign", PacketsLive.CallsignView, :index
+    live "/badpackets", BadPacketsLive.Index, :index
     live "/:callsign", MapLive.CallsignView, :index
   end
 

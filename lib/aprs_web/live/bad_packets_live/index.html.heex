@@ -1,0 +1,163 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-8">
+  <div class="mb-8">
+    <.header>
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-semibold text-gray-900">
+            Bad APRS Packets
+            <span class="ml-2 text-base font-normal text-gray-500">
+              (Showing {length(@bad_packets)} most recent)
+            </span>
+          </h1>
+          <p class="mt-1 text-sm text-gray-500">
+            Packets that failed to parse or process (limited to 100 most recent)
+            <%= if @last_updated do %>
+              <span class="text-xs text-gray-400 ml-2">
+                Last updated: {Calendar.strftime(@last_updated, "%H:%M:%S UTC")}
+              </span>
+            <% end %>
+          </p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <button
+            phx-click="refresh"
+            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={@loading}
+          >
+            <%= if @loading do %>
+              <svg
+                class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                >
+                </circle>
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                >
+                </path>
+              </svg>
+              Refreshing...
+            <% else %>
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Refresh
+            <% end %>
+          </button>
+          <.link navigate={~p"/packets"} class="text-sm text-blue-600 hover:text-blue-800">
+            View Good Packets →
+          </.link>
+          <.link navigate={~p"/"} class="text-sm text-blue-600 hover:text-blue-800">
+            ← Back to Map
+          </.link>
+        </div>
+      </div>
+    </.header>
+  </div>
+
+  <div class="mt-6 bg-white shadow-sm rounded-lg overflow-hidden">
+    <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+      <span class="text-xs text-gray-500">
+        Auto-refreshes every 5 seconds
+      </span>
+      <%= if @loading do %>
+        <span class="flex items-center text-xs text-blue-600">
+          <svg
+            class="animate-spin -ml-1 mr-1 h-3 w-3"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            >
+            </circle>
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            >
+            </path>
+          </svg>
+          Updating...
+        </span>
+      <% end %>
+    </div>
+    <.table id="bad_packets" rows={@bad_packets}>
+      <:col :let={bad_packet} label="Attempted At">
+        <span class="text-sm text-gray-900">
+          {Calendar.strftime(
+            bad_packet.attempted_at || bad_packet.inserted_at,
+            "%Y-%m-%d %H:%M:%S UTC"
+          )}
+        </span>
+      </:col>
+      <:col :let={bad_packet} label="Error Type">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          {bad_packet.error_type || "Unknown"}
+        </span>
+      </:col>
+      <:col :let={bad_packet} label="Error Message">
+        <span class="text-sm text-red-600 font-mono">
+          {bad_packet.error_message || "No error message"}
+        </span>
+      </:col>
+      <:col :let={bad_packet} label="Raw Packet">
+        <div class="max-w-md">
+          <details class="group">
+            <summary class="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+              <span class="font-mono">
+                {String.slice(bad_packet.raw_packet || "", 0..50)}{if String.length(
+                                                                        bad_packet.raw_packet ||
+                                                                          ""
+                                                                      ) > 50,
+                                                                      do: "..."}
+              </span>
+            </summary>
+            <div class="mt-2 p-2 bg-gray-50 rounded text-xs font-mono text-gray-700 break-all">
+              {bad_packet.raw_packet}
+            </div>
+          </details>
+        </div>
+      </:col>
+    </.table>
+  </div>
+
+  <%= if length(@bad_packets) == 0 do %>
+    <div class="mt-8 text-center">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
+        <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      </div>
+      <h3 class="mt-2 text-sm font-medium text-gray-900">No bad packets</h3>
+      <p class="mt-1 text-sm text-gray-500">All packets are parsing successfully!</p>
+    </div>
+  <% end %>
+</div>
