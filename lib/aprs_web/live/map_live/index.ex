@@ -17,92 +17,85 @@ defmodule AprsWeb.MapLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    # Calculate one hour ago for packet age filtering
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
 
-    socket =
-      assign(socket,
-        packets: [],
-        page_title: "APRS Map",
-        # Track visible packets by callsign
-        visible_packets: %{},
-        # Default bounds for USA
-        map_bounds: %{
-          north: 49.0,
-          south: 24.0,
-          east: -66.0,
-          west: -125.0
-        },
-        map_center: @default_center,
-        map_zoom: @default_zoom,
-        # Replay controls
-        replay_active: false,
-        replay_speed: @default_replay_speed,
-        replay_paused: false,
-        replay_packets: [],
-        replay_index: 0,
-        replay_timer_ref: nil,
-        replay_start_time: nil,
-        replay_end_time: nil,
-        # Map of packet IDs to packet data for historical packets
-        historical_packets: %{},
-        # Timestamp for filtering out old packets
-        packet_age_threshold: one_hour_ago,
-        # Flag to indicate if map is ready for replay
-        map_ready: false,
-        # Flag to prevent multiple replay starts
-        replay_started: false,
-        # Pending geolocation to zoom to after map is ready
-        pending_geolocation: nil,
-        # Timer for debounced bounds updates
-        bounds_update_timer: nil,
-        # Pending bounds update data
-        pending_bounds: nil
-      )
+    socket = assign_defaults(socket, one_hour_ago)
 
     if connected?(socket) do
       Endpoint.subscribe("aprs_messages")
-
-      # Only do IP geolocation in non-test environments
-      if Application.get_env(:aprs, :disable_aprs_connection, false) != true do
-        IO.puts("Socket is connected, attempting to get IP location")
-        # Get IP-based location on initial load
-        IO.puts("Connect info: #{inspect(socket.private[:connect_info])}")
-        IO.puts("Peer data: #{inspect(socket.private[:connect_info][:peer_data])}")
-
-        ip =
-          case socket.private[:connect_info][:peer_data][:address] do
-            {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
-            {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
-            _ -> nil
-          end
-
-        # Only attempt IP geolocation if not localhost
-        if ip && !String.starts_with?(ip, "127.") && !String.starts_with?(ip, "::1") do
-          IO.puts("Starting IP geolocation task for IP: #{ip}")
-          # Start as a separate task and await the result
-          Task.start(fn ->
-            try do
-              get_ip_location(ip)
-            rescue
-              error ->
-                IO.puts("Error in IP geolocation task: #{inspect(error)}")
-                IO.puts("Stacktrace: #{inspect(__STACKTRACE__)}")
-                send(self(), {:ip_location, @default_center})
-            end
-          end)
-        else
-          IO.puts("No IP address found, skipping geolocation")
-        end
-      end
-
-      # Schedule regular cleanup of old packets from the map
-      Process.send_after(self(), :cleanup_old_packets, 60_000)
-      # Schedule initialization of replay after a short delay
-      Process.send_after(self(), :initialize_replay, 2000)
+      maybe_start_geolocation(socket)
+      schedule_timers()
     end
 
     {:ok, socket}
+  end
+
+  defp assign_defaults(socket, one_hour_ago) do
+    assign(socket,
+      packets: [],
+      page_title: "APRS Map",
+      visible_packets: %{},
+      map_bounds: %{
+        north: 49.0,
+        south: 24.0,
+        east: -66.0,
+        west: -125.0
+      },
+      map_center: @default_center,
+      map_zoom: @default_zoom,
+      replay_active: false,
+      replay_speed: @default_replay_speed,
+      replay_paused: false,
+      replay_packets: [],
+      replay_index: 0,
+      replay_timer_ref: nil,
+      replay_start_time: nil,
+      replay_end_time: nil,
+      historical_packets: %{},
+      packet_age_threshold: one_hour_ago,
+      map_ready: false,
+      replay_started: false,
+      pending_geolocation: nil,
+      bounds_update_timer: nil,
+      pending_bounds: nil
+    )
+  end
+
+  defp maybe_start_geolocation(socket) do
+    if Application.get_env(:aprs, :disable_aprs_connection, false) != true do
+      IO.puts("Socket is connected, attempting to get IP location")
+      IO.puts("Connect info: #{inspect(socket.private[:connect_info])}")
+      IO.puts("Peer data: #{inspect(socket.private[:connect_info][:peer_data])}")
+
+      ip =
+        case socket.private[:connect_info][:peer_data][:address] do
+          {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
+          {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
+          _ -> nil
+        end
+
+      if ip && !String.starts_with?(ip, "127.") && !String.starts_with?(ip, "::1") do
+        IO.puts("Starting IP geolocation task for IP: #{ip}")
+
+        Task.start(fn ->
+          try do
+            get_ip_location(ip)
+          rescue
+            error ->
+              IO.puts("Error in IP geolocation task: #{inspect(error)}")
+              IO.puts("Stacktrace: #{inspect(__STACKTRACE__)}")
+              send(self(), {:ip_location, @default_center})
+          end
+        end)
+      else
+        IO.puts("No IP address found, skipping geolocation")
+      end
+    end
+  end
+
+  defp schedule_timers do
+    Process.send_after(self(), :cleanup_old_packets, 60_000)
+    Process.send_after(self(), :initialize_replay, 2000)
   end
 
   @impl true
@@ -156,7 +149,8 @@ defmodule AprsWeb.MapLive.Index do
   def handle_event("toggle_replay", _params, socket) do
     if socket.assigns.replay_active do
       # Stop replay
-      if socket.assigns.replay_timer_ref, do: Process.cancel_timer(socket.assigns.replay_timer_ref)
+      if socket.assigns.replay_timer_ref,
+        do: Process.cancel_timer(socket.assigns.replay_timer_ref)
 
       # Clear historical packets from the map
       socket =
@@ -191,7 +185,9 @@ defmodule AprsWeb.MapLive.Index do
         {:noreply, assign(socket, replay_paused: false, replay_timer_ref: timer_ref)}
       else
         # Pause replay
-        if socket.assigns.replay_timer_ref, do: Process.cancel_timer(socket.assigns.replay_timer_ref)
+        if socket.assigns.replay_timer_ref,
+          do: Process.cancel_timer(socket.assigns.replay_timer_ref)
+
         {:noreply, assign(socket, replay_paused: true, replay_timer_ref: nil)}
       end
     else
@@ -256,6 +252,11 @@ defmodule AprsWeb.MapLive.Index do
         socket
       end
 
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("marker_clicked", %{"id" => id, "callsign" => callsign, "lat" => lat, "lng" => lng}, socket) do
     {:noreply, socket}
   end
 
@@ -384,9 +385,11 @@ defmodule AprsWeb.MapLive.Index do
         socket =
           if socket.assigns.map_ready do
             IO.puts("Map is ready, zooming to location immediately to lat=#{lat_float}, lng=#{lng_float}")
+
             push_event(socket, "zoom_to_location", %{lat: lat_float, lng: lng_float, zoom: 12})
           else
             IO.puts("Map not ready yet, storing location lat=#{lat_float}, lng=#{lng_float} for later")
+
             assign(socket, pending_geolocation: %{lat: lat_float, lng: lng_float})
           end
 
@@ -430,7 +433,8 @@ defmodule AprsWeb.MapLive.Index do
               "#{sanitized_packet.base_callsign}#{if sanitized_packet.ssid, do: "-#{sanitized_packet.ssid}", else: ""}"
 
             # Update visible packets tracking
-            visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, sanitized_packet)
+            visible_packets =
+              Map.put(socket.assigns.visible_packets, callsign_key, sanitized_packet)
 
             # Push the packet to the client-side JavaScript
             socket =
@@ -474,11 +478,15 @@ defmodule AprsWeb.MapLive.Index do
           packet_data =
             Map.merge(packet_data, %{
               "is_historical" => true,
-              "timestamp" => if(Map.has_key?(packet, :received_at), do: DateTime.to_iso8601(packet.received_at))
+              "timestamp" =>
+                if(Map.has_key?(packet, :received_at),
+                  do: DateTime.to_iso8601(packet.received_at)
+                )
             })
 
           # Generate a unique key for this packet
-          packet_id = "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}"
+          packet_id =
+            "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}"
 
           # Update historical packets tracking
           new_historical_packets = Map.put(historical_packets, packet_id, packet)
@@ -952,7 +960,8 @@ defmodule AprsWeb.MapLive.Index do
         IO.puts("Response body: #{String.slice(body, 0, 200)}...")
 
         case Jason.decode(body) do
-          {:ok, %{"status" => "success", "lat" => lat, "lon" => lng}} when is_number(lat) and is_number(lng) ->
+          {:ok, %{"status" => "success", "lat" => lat, "lon" => lng}}
+          when is_number(lat) and is_number(lng) ->
             IO.puts("Valid coordinates found: lat=#{lat}, lng=#{lng}")
 
             if lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180 do
@@ -998,38 +1007,37 @@ defmodule AprsWeb.MapLive.Index do
 
   defp build_data_extended(nil), do: nil
 
-  defp build_data_extended(data_extended) do
-    case data_extended do
-      %MicE{} = mic_e ->
-        # Convert MicE components to decimal degrees
-        lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0 + mic_e.lat_fractional / 6000.0
-        lat = if mic_e.lat_direction == :south, do: -lat, else: lat
+  defp build_data_extended(%MicE{} = mic_e), do: build_mice_data_extended(mic_e)
+  defp build_data_extended(data_extended), do: build_map_data_extended(data_extended)
 
-        lng = mic_e.lon_degrees + mic_e.lon_minutes / 60.0 + mic_e.lon_fractional / 6000.0
-        lng = if mic_e.lon_direction == :west, do: -lng, else: lng
+  defp build_mice_data_extended(mic_e) do
+    lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0 + mic_e.lat_fractional / 6000.0
+    lat = if mic_e.lat_direction == :south, do: -lat, else: lat
 
-        # Validate coordinates are within valid ranges
-        if lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 do
-          %{
-            "latitude" => lat,
-            "longitude" => lng,
-            "comment" => mic_e.message || "",
-            "symbol_table_id" => "/",
-            "symbol_code" => ">",
-            "aprs_messaging" => false
-          }
-        end
+    lng = mic_e.lon_degrees + mic_e.lon_minutes / 60.0 + mic_e.lon_fractional / 6000.0
+    lng = if mic_e.lon_direction == :west, do: -lng, else: lng
 
-      _ ->
-        %{
-          "latitude" => data_extended[:latitude],
-          "longitude" => data_extended[:longitude],
-          "comment" => data_extended[:comment] || "",
-          "symbol_table_id" => data_extended[:symbol_table_id] || "/",
-          "symbol_code" => data_extended[:symbol_code] || ">",
-          "aprs_messaging" => data_extended[:aprs_messaging] || false
-        }
+    if lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 do
+      %{
+        "latitude" => lat,
+        "longitude" => lng,
+        "comment" => mic_e.message || "",
+        "symbol_table_id" => "/",
+        "symbol_code" => ">",
+        "aprs_messaging" => false
+      }
     end
+  end
+
+  defp build_map_data_extended(data_extended) do
+    %{
+      "latitude" => data_extended[:latitude],
+      "longitude" => data_extended[:longitude],
+      "comment" => data_extended[:comment] || "",
+      "symbol_table_id" => data_extended[:symbol_table_id] || "/",
+      "symbol_code" => data_extended[:symbol_code] || ">",
+      "aprs_messaging" => data_extended[:aprs_messaging] || false
+    }
   end
 
   # Helper function to convert string or float to float

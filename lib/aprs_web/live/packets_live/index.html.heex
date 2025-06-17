@@ -1,27 +1,100 @@
-<.header>
-  Packets
-</.header>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-8">
+  <div class="mb-8">
+    <.header>
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-semibold text-gray-900">APRS Packets</h1>
+          <p class="mt-1 text-sm text-gray-500">Live and recent APRS packets from the network</p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <.link navigate={~p"/"} class="text-sm text-blue-600 hover:text-blue-800">
+            ← Back to Map
+          </.link>
+        </div>
+      </div>
+    </.header>
+  </div>
 
-<.table id="packets" rows={@packets}>
-  <:col :let={packet} label="sender">
-    <.link
-      navigate={~p"/packets/#{packet.base_callsign}"}
-      class="text-blue-600 hover:text-blue-800 underline"
-    >
-      {packet.sender}
-    </.link>
-  </:col>
-  <:col :let={packet} label="ssid">{packet.ssid}</:col>
-  <:col :let={packet} label="base_callsign">
-    <.link
-      navigate={~p"/packets/#{packet.base_callsign}"}
-      class="text-blue-600 hover:text-blue-800 underline"
-    >
-      {packet.base_callsign}
-    </.link>
-  </:col>
-  <:col :let={packet} label="data_type">{packet.data_type}</:col>
-  <:col :let={packet} label="destination">{packet.destination}</:col>
-  <:col :let={packet} label="information_field">{packet.information_field}</:col>
-  <:col :let={packet} label="path">{packet.path}</:col>
-</.table>
+  <div class="mt-6 bg-white shadow-sm rounded-lg overflow-hidden">
+    <.table id="packets" rows={@packets} class="min-w-full divide-y divide-gray-200">
+      <:col
+        :let={packet}
+        label="Sender"
+        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+      >
+        <.link
+          navigate={~p"/packets/#{packet.base_callsign}"}
+          class="text-blue-600 hover:text-blue-800 font-medium"
+        >
+          {packet.sender}
+        </.link>
+      </:col>
+      <:col
+        :let={packet}
+        label="SSID"
+        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+      >
+        <span class="text-sm text-gray-900">{packet.ssid}</span>
+      </:col>
+      <:col
+        :let={packet}
+        label="Base Callsign"
+        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+      >
+        <.link
+          navigate={~p"/packets/#{packet.base_callsign}"}
+          class="text-blue-600 hover:text-blue-800 font-medium"
+        >
+          {packet.base_callsign}
+        </.link>
+      </:col>
+      <:col
+        :let={packet}
+        label="Data Type"
+        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+      >
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          {packet.data_type}
+        </span>
+      </:col>
+      <:col
+        :let={packet}
+        label="Destination"
+        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+      >
+        <span class="text-sm text-gray-900">{packet.destination}</span>
+      </:col>
+      <:col
+        :let={packet}
+        label="Information"
+        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+      >
+        <span class="text-sm text-gray-900 font-mono">{packet.information_field}</span>
+      </:col>
+      <:col
+        :let={packet}
+        label="Path"
+        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+      >
+        <span class="text-xs text-gray-500 font-mono">{packet.path}</span>
+      </:col>
+    </.table>
+  </div>
+
+  <%= if length(@packets) == 0 do %>
+    <div class="mt-8 text-center">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100">
+        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+          />
+        </svg>
+      </div>
+      <h3 class="mt-2 text-sm font-medium text-gray-900">No packets</h3>
+      <p class="mt-1 text-sm text-gray-500">Packets will appear here as they are received.</p>
+    </div>
+  <% end %>
+</div>

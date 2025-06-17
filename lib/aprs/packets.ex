@@ -5,6 +5,7 @@ defmodule Aprs.Packets do
 
   import Ecto.Query, warn: false
 
+  alias Aprs.BadPacket
   alias Aprs.EncodingUtils
   alias Aprs.Packet
   alias Aprs.Repo
@@ -63,25 +64,79 @@ defmodule Aprs.Packets do
             |> Map.put(:region, "#{Float.round(lat, 1)},#{Float.round(lon, 1)}")
           else
             Logger.debug("Invalid coordinates for packet from #{packet_attrs[:sender]}: lat=#{lat}, lon=#{lon}")
+
             # Set region based on callsign if coordinates are invalid
-            sender_region = if packet_attrs[:sender], do: String.slice(packet_attrs.sender || "", 0, 3), else: "unknown"
+            sender_region =
+              if packet_attrs[:sender],
+                do: String.slice(packet_attrs.sender || "", 0, 3),
+                else: "unknown"
+
             Map.put(packet_attrs, :region, "call:#{sender_region}")
           end
         else
           # Set region based on callsign if no position
-          sender_region = if packet_attrs[:sender], do: String.slice(packet_attrs.sender || "", 0, 3), else: "unknown"
+          sender_region =
+            if packet_attrs[:sender],
+              do: String.slice(packet_attrs.sender || "", 0, 3),
+              else: "unknown"
+
           Map.put(packet_attrs, :region, "call:#{sender_region}")
         end
 
       # Insert the packet
-      %Packet{}
-      |> Packet.changeset(packet_attrs)
-      |> Repo.insert()
+      case %Packet{}
+           |> Packet.changeset(packet_attrs)
+           |> Repo.insert() do
+        {:ok, packet} ->
+          {:ok, packet}
+
+        {:error, changeset} ->
+          # Store validation errors as bad packets
+          error_message =
+            Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field}: #{msg}" end)
+
+          store_bad_packet(packet_data, %{message: error_message, type: "ValidationError"})
+          {:error, :validation_error}
+      end
     rescue
       error ->
         Logger.error("Exception in store_packet for #{inspect(packet_data[:sender])}: #{inspect(error)}")
+
+        store_bad_packet(packet_data, error)
         {:error, :storage_exception}
     end
+  end
+
+  @doc """
+  Stores a bad packet in the database.
+
+  ## Parameters
+    * `packet_data` - The original packet data that failed to parse
+    * `error` - The error that occurred during parsing
+  """
+  def store_bad_packet(packet_data, error) do
+    error_type =
+      case error do
+        %{type: type} -> type
+        %{__struct__: struct} -> struct
+        _ -> "UnknownError"
+      end
+
+    error_message =
+      case error do
+        %{message: message} -> message
+        %{__struct__: _} -> Exception.message(error)
+        _ -> inspect(error)
+      end
+
+    %BadPacket{}
+    |> BadPacket.changeset(%{
+      raw_packet: inspect(packet_data),
+      error_message: error_message,
+      error_type: error_type,
+      attempted_at: DateTime.utc_now()
+    })
+    |> Repo.insert()
   end
 
   # Extracts position data from packet, checking various possible locations
@@ -97,7 +152,8 @@ defmodule Aprs.Packets do
 
         cond do
           # Standard position format
-          is_map(data_extended) and not is_nil(data_extended[:latitude]) and not is_nil(data_extended[:longitude]) ->
+          is_map(data_extended) and not is_nil(data_extended[:latitude]) and
+              not is_nil(data_extended[:longitude]) ->
             {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
 
           # MicE packet format with components
@@ -184,7 +240,9 @@ defmodule Aprs.Packets do
   defp filter_by_time(query, %{start_time: start_time, end_time: end_time}) do
     # Ensure we prioritize packets from the last hour
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
-    effective_start_time = if DateTime.before?(start_time, one_hour_ago), do: one_hour_ago, else: start_time
+
+    effective_start_time =
+      if DateTime.before?(start_time, one_hour_ago), do: one_hour_ago, else: start_time
 
     from p in query,
       where: p.received_at >= ^effective_start_time and p.received_at <= ^end_time

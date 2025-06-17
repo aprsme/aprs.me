@@ -239,27 +239,45 @@ defmodule Aprs.Packet do
   defp extract_from_map(data_extended) do
     %{}
     |> maybe_put(:symbol_code, data_extended[:symbol_code] || data_extended["symbol_code"])
-    |> maybe_put(:symbol_table_id, data_extended[:symbol_table_id] || data_extended["symbol_table_id"])
+    |> maybe_put(
+      :symbol_table_id,
+      data_extended[:symbol_table_id] || data_extended["symbol_table_id"]
+    )
     |> maybe_put(:comment, data_extended[:comment] || data_extended["comment"])
     |> maybe_put(:timestamp, data_extended[:timestamp] || data_extended["timestamp"])
-    |> maybe_put(:aprs_messaging, data_extended[:aprs_messaging?] || data_extended["aprs_messaging?"])
+    |> maybe_put(
+      :aprs_messaging,
+      data_extended[:aprs_messaging?] || data_extended["aprs_messaging?"]
+    )
     |> maybe_put(:temperature, data_extended[:temperature] || data_extended["temperature"])
     |> maybe_put(:humidity, data_extended[:humidity] || data_extended["humidity"])
     |> maybe_put(:wind_speed, data_extended[:wind_speed] || data_extended["wind_speed"])
-    |> maybe_put(:wind_direction, data_extended[:wind_direction] || data_extended["wind_direction"])
+    |> maybe_put(
+      :wind_direction,
+      data_extended[:wind_direction] || data_extended["wind_direction"]
+    )
     |> maybe_put(:wind_gust, data_extended[:wind_gust] || data_extended["wind_gust"])
     |> maybe_put(:pressure, data_extended[:pressure] || data_extended["pressure"])
     |> maybe_put(:rain_1h, data_extended[:rain_1h] || data_extended["rain_1h"])
     |> maybe_put(:rain_24h, data_extended[:rain_24h] || data_extended["rain_24h"])
-    |> maybe_put(:rain_since_midnight, data_extended[:rain_since_midnight] || data_extended["rain_since_midnight"])
+    |> maybe_put(
+      :rain_since_midnight,
+      data_extended[:rain_since_midnight] || data_extended["rain_since_midnight"]
+    )
     |> maybe_put(:manufacturer, data_extended[:manufacturer] || data_extended["manufacturer"])
-    |> maybe_put(:equipment_type, data_extended[:equipment_type] || data_extended["equipment_type"])
+    |> maybe_put(
+      :equipment_type,
+      data_extended[:equipment_type] || data_extended["equipment_type"]
+    )
     |> maybe_put(:course, data_extended[:course] || data_extended["course"])
     |> maybe_put(:speed, data_extended[:speed] || data_extended["speed"])
     |> maybe_put(:altitude, data_extended[:altitude] || data_extended["altitude"])
     |> maybe_put(:addressee, data_extended[:addressee] || data_extended["addressee"])
     |> maybe_put(:message_text, data_extended[:message_text] || data_extended["message_text"])
-    |> maybe_put(:message_number, data_extended[:message_number] || data_extended["message_number"])
+    |> maybe_put(
+      :message_number,
+      data_extended[:message_number] || data_extended["message_number"]
+    )
     |> extract_weather_data(data_extended)
   end
 
@@ -270,10 +288,8 @@ defmodule Aprs.Packet do
     |> maybe_put(:manufacturer, mic_e.manufacturer)
     |> maybe_put(:course, mic_e.heading)
     |> maybe_put(:speed, mic_e.speed)
-    # Default car symbol for MicE
-    |> maybe_put(:symbol_code, ">")
-    # Primary table
-    |> maybe_put(:symbol_table_id, "/")
+    |> maybe_put(:symbol_code, mic_e.symbol_code)
+    |> maybe_put(:symbol_table_id, mic_e.symbol_table_id)
   end
 
   # Extract data from converted MicE map (from struct_to_map conversion)
@@ -313,7 +329,10 @@ defmodule Aprs.Packet do
     # This is a simplified parser - a full implementation would handle
     # the complete APRS weather format specification
     attrs
-    |> maybe_extract_weather_field(weather_string, ~r/(\d{3})\/(\d{3})/, [:wind_direction, :wind_speed])
+    |> maybe_extract_weather_field(weather_string, ~r/(\d{3})\/(\d{3})/, [
+      :wind_direction,
+      :wind_speed
+    ])
     |> maybe_extract_weather_field(weather_string, ~r/t(\d{3})/, [:temperature])
     |> maybe_extract_weather_field(weather_string, ~r/h(\d{2})/, [:humidity])
     |> maybe_extract_weather_field(weather_string, ~r/b(\d{5})/, [:pressure])

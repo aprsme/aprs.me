@@ -300,14 +300,6 @@ defmodule Aprs.Is do
               # Normalize data_type to string if it's an atom
               attrs = normalize_data_type(attrs)
 
-              # Ensure SSID is never nil
-              attrs =
-                if Map.has_key?(attrs, :ssid) and is_nil(attrs.ssid) do
-                  Map.put(attrs, :ssid, "0")
-                else
-                  attrs
-                end
-
               # Store in database through the Packets context
               case Aprs.Packets.store_packet(attrs) do
                 {:ok, _packet} ->
@@ -317,15 +309,11 @@ defmodule Aprs.Is do
                 {:error, :storage_exception} ->
                   Logger.error("Storage exception while storing packet from #{inspect(parsed_message.sender)}")
 
-                  # Log the problematic attributes for debugging
                   Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
 
-                {:error, changeset} when is_map(changeset) and is_map_key(changeset, :errors) ->
-                  Logger.error(
-                    "Failed to store packet from #{inspect(parsed_message.sender)}: #{inspect(changeset.errors)}"
-                  )
+                {:error, :validation_error} ->
+                  Logger.error("Validation error while storing packet from #{inspect(parsed_message.sender)}")
 
-                  # Log the problematic attributes for debugging
                   Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
 
                 {:error, other_error} ->
@@ -333,7 +321,6 @@ defmodule Aprs.Is do
                     "Unknown error storing packet from #{inspect(parsed_message.sender)}: #{inspect(other_error)}"
                   )
 
-                  # Log the problematic attributes for debugging
                   Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
               end
             else
@@ -342,6 +329,7 @@ defmodule Aprs.Is do
           rescue
             error ->
               Logger.error("Exception while storing packet from #{inspect(parsed_message.sender)}: #{inspect(error)}")
+
               Logger.debug("Raw message: #{inspect(message)}")
               Logger.debug("Parsed message: #{inspect(parsed_message)}")
           end
@@ -363,11 +351,18 @@ defmodule Aprs.Is do
       {:error, :invalid_packet} ->
         Logger.debug("PARSE ERROR: invalid packet")
 
+        Aprs.Packets.store_bad_packet(message, %{
+          message: "Invalid packet format",
+          type: "ParseError"
+        })
+
       {:error, error} ->
         Logger.debug("PARSE ERROR: " <> error)
+        Aprs.Packets.store_bad_packet(message, %{message: error, type: "ParseError"})
 
       x ->
         Logger.debug("PARSE ERROR: " <> x)
+        Aprs.Packets.store_bad_packet(message, %{message: inspect(x), type: "ParseError"})
     end
   end
 
@@ -381,7 +376,8 @@ defmodule Aprs.Is do
           Logger.debug("Packet has nil data_extended: #{inspect(packet.sender)}")
           false
 
-        %{data_extended: %{latitude: lat, longitude: lon}} when not is_nil(lat) and not is_nil(lon) ->
+        %{data_extended: %{latitude: lat, longitude: lon}}
+        when not is_nil(lat) and not is_nil(lon) ->
           # Check if coordinates are valid numbers
           valid = are_valid_coords?(lat, lon)
 
@@ -409,7 +405,6 @@ defmodule Aprs.Is do
           false
       end
 
-    Logger.debug("Position data check for #{inspect(packet.sender)}: #{result}")
     result
   end
 

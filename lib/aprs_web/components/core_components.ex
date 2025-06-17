@@ -452,8 +452,8 @@ defmodule AprsWeb.CoreComponents do
 
   def table(assigns) do
     ~H"""
-    <div id={@id} class="overflow-y-auto px-4 sm:overflow-visible sm:px-0">
-      <table class="mt-11 w-[40rem] sm:w-full">
+    <div id={@id} class="overflow-y-auto px-0 sm:overflow-visible sm:px-0">
+      <table class="w-[40rem] sm:w-full">
         <thead class="text-left text-[0.8125rem] leading-6 text-zinc-500">
           <tr>
             <th :for={col <- @col} class="p-0 pb-4 pr-6 font-normal">{col[:label]}</th>
@@ -472,7 +472,7 @@ defmodule AprsWeb.CoreComponents do
               class={["p-0", @row_click && "hover:cursor-pointer"]}
             >
               <div :if={i == 0}>
-                <span class="absolute h-full w-4 top-0 -left-4 group-hover:bg-zinc-50 sm:rounded-l-xl" />
+                <span class="absolute h-full w-4 top-0 left-0 group-hover:bg-zinc-50 sm:rounded-l-xl" />
                 <span class="absolute h-full w-4 top-0 -right-4 group-hover:bg-zinc-50 sm:rounded-r-xl" />
               </div>
               <div class="block py-4 pr-6">

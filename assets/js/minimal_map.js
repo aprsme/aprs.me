@@ -100,10 +100,21 @@ let MinimalAPRSMap = {
 
     // Initialize basic map
     try {
+      // Check if map is already initialized
+      if (this.map) {
+        console.warn("Map already exists, reinitializing...");
+        this.map.remove();
+        this.map = null;
+      }
+
       // Ensure element ID is unique and not already initialized
       if (this.el._leaflet_id) {
-        console.warn("Map already initialized on this element");
-        return;
+        console.warn("Map element already has Leaflet ID, cleaning up...");
+        // Remove any existing Leaflet instance
+        if (L.DomUtil.get(this.el.id)) {
+          L.DomUtil.remove(L.DomUtil.get(this.el.id));
+        }
+        delete this.el._leaflet_id;
       }
 
       this.map = L.map(this.el, {
@@ -114,15 +125,6 @@ let MinimalAPRSMap = {
     } catch (error) {
       console.error("Error initializing map:", error);
       this.errors.push("Map initialization failed: " + error.message);
-
-      // Check if it's a container already initialized error
-      if (error.message && error.message.includes("already initialized")) {
-        // Try to get the existing map instance
-        if (this.el._leaflet_id && L.DomUtil.get(this.el.id)) {
-          console.warn("Attempting to recover existing map instance");
-          return;
-        }
-      }
 
       if (this.initializationAttempts < this.maxInitializationAttempts) {
         setTimeout(() => this.attemptInitialization(), 1000);
@@ -602,55 +604,75 @@ let MinimalAPRSMap = {
   },
 
   createMarkerIcon(data) {
-    // Get symbol information
     const symbolTableId = data.symbol_table_id || "/";
     const symbolCode = data.symbol_code || ">";
-
-    // Determine sprite file based on symbol table
-    let spriteFile;
-    switch (symbolTableId) {
-      case "/":
-        spriteFile = "/aprs-symbols/aprs-symbols-24-0.png";
-        break;
-      case "\\":
-        spriteFile = "/aprs-symbols/aprs-symbols-24-1.png";
-        break;
-      default:
-        spriteFile = "/aprs-symbols/aprs-symbols-24-0.png";
-    }
+    
+    // Get the correct sprite sheet based on symbol table
+    // Use high-DPI versions (@2x) for better quality
+    const spriteFile = symbolTableId === "/" 
+      ? "/aprs-symbols/aprs-symbols-24-0@2x.png"
+      : "/aprs-symbols/aprs-symbols-24-1@2x.png";
 
     // Calculate sprite position
+    // The sprite sheet is organized as a 16x8 grid (128 symbols total)
+    // ASCII codes 32-127 map to positions 0-95
     const charCode = symbolCode.charCodeAt(0);
+    
+    // Convert ASCII to sprite sheet position
+    // The sprite sheet is organized in a specific way:
+    // - First row (0): ASCII 32-47
+    // - Second row (1): ASCII 48-63
+    // - Third row (2): ASCII 64-79
+    // - Fourth row (3): ASCII 80-95
+    // - Fifth row (4): ASCII 96-111
+    // - Sixth row (5): ASCII 112-127
+    // - Rows 6-7: Reserved for future use
     const position = charCode - 32;
-    const col = position % 16;
     const row = Math.floor(position / 16);
-    const x = -col * 24;
-    const y = -row * 24;
+    const column = position % 16;
+    
+    // Each symbol is 48x48 pixels in @2x version (24x24 * 2)
+    const x = -column * 48;
+    const y = -row * 48;
 
-    // Use different opacity for historical markers
-    const opacity = data.historical ? 0.7 : 1.0;
+    // Debug info
+    console.log('Symbol debug:', {
+      symbolTableId,
+      symbolCode,
+      charCode,
+      position,
+      row,
+      column,
+      x,
+      y,
+      spriteFile
+    });
+
+    // Create icon element
+    const icon = document.createElement('div');
+    icon.style.width = '24px';
+    icon.style.height = '24px';
+    icon.style.backgroundImage = `url(${spriteFile})`;
+    icon.style.backgroundPosition = `${x}px ${y}px`;
+    icon.style.backgroundSize = '768px 384px'; // 16x8 grid of 48x48 symbols (@2x)
+    icon.style.backgroundRepeat = 'no-repeat';
+    icon.style.imageRendering = 'pixelated'; // Ensure crisp pixel rendering
+    icon.style.opacity = data.historical ? '0.7' : '1.0';
 
     return L.divIcon({
-      html: `<div style="
-        background-image: url('${spriteFile}');
-        background-position: ${x}px ${y}px;
-        background-repeat: no-repeat;
-        width: 24px;
-        height: 24px;
-        opacity: ${opacity};
-        background-size: auto;
-      "></div>`,
-      className: data.historical ? "aprs-marker historical-marker" : "aprs-marker",
+      html: icon,
+      className: 'aprs-symbol',
       iconSize: [24, 24],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -12],
+      iconAnchor: [12, 12]
     });
   },
 
   buildPopupContent(data) {
     const callsign = data.callsign || data.id || "Unknown";
     const comment = data.comment || "";
-    const symbolDesc = data.symbol_description || "Unknown symbol";
+    const symbolTableId = data.symbol_table_id || "/";
+    const symbolCode = data.symbol_code || ">";
+    const symbolDesc = data.symbol_description || `Symbol: ${symbolTableId}${symbolCode}`;
 
     let content = `<div class="aprs-popup">
       <div class="aprs-callsign"><strong><a href="/${callsign}">${callsign}</a></strong></div>
@@ -666,7 +688,7 @@ let MinimalAPRSMap = {
       </div>`;
     }
 
-    content += `</div>`;
+    content += "</div>";
     return content;
   },
 

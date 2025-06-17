@@ -72,6 +72,7 @@ defmodule Aprs.MixProject do
       {:faker, "~> 0.18", only: [:dev, :test]},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
       {:styler, "~> 1.4.2", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
       {:sobelow, "~> 0.8", only: :dev}
     ]

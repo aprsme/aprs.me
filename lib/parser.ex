@@ -43,9 +43,9 @@ defmodule Parser do
   rescue
     error ->
       Logger.debug("PARSE ERROR: #{inspect(error)} for message: #{message}")
-      {:ok, file} = File.open("./badpackets.txt", [:append])
-      IO.binwrite(file, message <> "\n\n")
-      File.close(file)
+      # {:ok, file} = File.open("./badpackets.txt", [:append])
+      # IO.binwrite(file, message <> "\n\n")
+      # File.close(file)
       {:error, :invalid_packet}
   end
 
@@ -90,37 +90,14 @@ defmodule Parser do
       byte_size(callsign) == 0 ->
         {:error, "Empty callsign"}
 
-      byte_size(callsign) > 15 ->
-        {:error, "Callsign too long"}
-
       String.contains?(callsign, "-") ->
         case String.split(callsign, "-") do
-          [base, ssid] when byte_size(base) > 0 and byte_size(base) <= 6 ->
-            case validate_ssid(ssid) do
-              {:ok, valid_ssid} -> {:ok, [base, valid_ssid]}
-              {:error, _} -> {:error, "Invalid SSID"}
-            end
-
-          _ ->
-            {:error, "Invalid callsign-SSID format"}
+          [base, ssid] -> {:ok, [base, ssid]}
+          _ -> {:ok, [callsign, "0"]}
         end
 
-      byte_size(callsign) <= 6 ->
-        {:ok, [callsign, "0"]}
-
       true ->
-        {:error, "Invalid callsign"}
-    end
-  end
-
-  # Validate SSID (0-15)
-  defp validate_ssid(ssid) do
-    case Integer.parse(ssid) do
-      {num, ""} when num >= 0 and num <= 15 ->
-        {:ok, Integer.to_string(num)}
-
-      _ ->
-        {:error, "SSID must be 0-15"}
+        {:ok, [callsign, "0"]}
     end
   end
 
@@ -158,46 +135,70 @@ defmodule Parser do
 
   def parse_data(:mic_e, destination, data), do: parse_mic_e(destination, data)
   def parse_data(:mic_e_old, destination, data), do: parse_mic_e(destination, data)
-  def parse_data(:position, _destination, data), do: parse_position_without_timestamp(false, data)
 
-  def parse_data(:position_with_message, _destination, data), do: parse_position_without_timestamp(true, data)
+  def parse_data(:position, _destination, data) do
+    case data do
+      <<"/", _::binary>> ->
+        result = parse_position_without_timestamp(false, data)
+        %{result | data_type: :position}
 
-  def parse_data(:timestamped_position, _destination, data), do: parse_position_with_timestamp(false, data)
-
-  def parse_data(
-        :timestamped_position_with_message,
-        _destination,
-        <<_dti::binary-size(1), date_time_position::binary-size(25), "_", weather_report::binary>>
-      ) do
-    parse_position_with_datetime_and_weather(true, date_time_position, weather_report)
+      _ ->
+        result = parse_position_without_timestamp(false, data)
+        %{result | data_type: :position}
+    end
   end
 
-  def parse_data(:timestamped_position_with_message, _destination, data), do: parse_position_with_timestamp(true, data)
+  def parse_data(:position_with_message, _destination, data) do
+    result = parse_position_without_timestamp(true, data)
+    %{result | data_type: :position}
+  end
 
-  def parse_data(:message, _destination, <<":", addressee::binary-size(9), ":", message_text::binary>>) do
-    # Aprs messages can have an optional message number tacked onto the end
-    # for the purposes of acknowledging message receipt.
-    # The sender tacks the message number onto the end of the message,
-    # and the receiving station is supposed to respond back with an
-    # acknowledgement of that message number.
-    # Example
-    # Sender: Hello world{123
-    # Receiver: ack123
-    # Special thanks to Jeff Smith(https://github.com/electricshaman) for the regex
-    regex = ~r/^(?<message>.*?)(?:{(?<message_number>\w+))?$/i
-    result = find_matches(regex, message_text)
+  def parse_data(:timestamped_position, _destination, data) do
+    case data do
+      <<"/", _::binary>> ->
+        %{
+          data_type: :timestamped_position_error,
+          error: "Compressed position not supported in timestamped position"
+        }
 
-    message_text =
-      case result["message"] do
-        nil -> ""
-        m -> String.trim(m)
-      end
+      _ ->
+        parse_position_with_timestamp(false, data)
+    end
+  end
 
-    %{
-      to: String.trim(addressee),
-      message_text: message_text,
-      message_number: result["message_number"]
-    }
+  def parse_data(:timestamped_position_with_message, _destination, data) do
+    case data do
+      <<"/", _::binary>> ->
+        %{
+          data_type: :timestamped_position_error,
+          error: "Compressed position not supported in timestamped position"
+        }
+
+      _ ->
+        parse_position_with_timestamp(true, data)
+    end
+  end
+
+  def parse_data(:message, _destination, data) do
+    case Regex.run(~r/^:([^:]+):(.+?)(?:\{(\d+)\})?$/, data) do
+      [_, addressee, message_text, message_number] ->
+        %{
+          data_type: :message,
+          addressee: String.trim(addressee),
+          message_text: String.trim(message_text),
+          message_number: message_number
+        }
+
+      [_, addressee, message_text] ->
+        %{
+          data_type: :message,
+          addressee: String.trim(addressee),
+          message_text: String.trim(message_text)
+        }
+
+      _ ->
+        nil
+    end
   end
 
   def parse_data(:status, _destination, data), do: parse_status(data)
@@ -216,31 +217,51 @@ defmodule Parser do
   def parse_data(_type, _destination, _data), do: nil
 
   def parse_position_with_datetime_and_weather(aprs_messaging?, date_time_position_data, weather_report) do
-    <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> =
-      date_time_position_data
+    case date_time_position_data do
+      <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
+        %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
 
-    # position = Parser.Types.Position.from_aprs(latitude, longitude)
-    %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
+        weather_data = parse_weather_data(weather_report)
 
-    %{
-      latitude: lat,
-      longitude: lon,
-      timestamp: time,
-      symbol_table_id: sym_table_id,
-      symbol_code: "_",
-      weather: weather_report,
-      data_type: :position_with_datetime_and_weather,
-      aprs_messaging?: aprs_messaging?
-    }
+        %{
+          latitude: lat,
+          longitude: lon,
+          timestamp: time,
+          symbol_table_id: sym_table_id,
+          symbol_code: "_",
+          weather: weather_data,
+          data_type: :position_with_datetime_and_weather,
+          aprs_messaging?: aprs_messaging?
+        }
+
+      _ ->
+        weather_data = parse_weather_data(weather_report)
+
+        %{
+          latitude: nil,
+          longitude: nil,
+          timestamp: nil,
+          symbol_table_id: nil,
+          symbol_code: nil,
+          weather: weather_data,
+          data_type: :position_with_datetime_and_weather,
+          aprs_messaging?: aprs_messaging?
+        }
+    end
   end
 
   def decode_compressed_position(
-        <<"/", latitude::binary-size(4), longitude::binary-size(4), _symbol::binary-size(1), _cs::binary-size(2),
+        <<"/", latitude::binary-size(4), longitude::binary-size(4), symbol_code::binary-size(1), _cs::binary-size(2),
           _compression_type::binary-size(2), _rest::binary>>
       ) do
     lat = convert_to_base91(latitude)
     lon = convert_to_base91(longitude)
-    [:ok, lat, lon]
+
+    %{
+      latitude: lat,
+      longitude: lon,
+      symbol_code: symbol_code
+    }
   end
 
   def convert_to_base91(<<value::binary-size(4)>>) do
@@ -248,141 +269,55 @@ defmodule Parser do
     (v1 - 33) * 91 * 91 * 91 + (v2 - 33) * 91 * 91 + (v3 - 33) * 91 + v4
   end
 
-  def parse_position_without_timestamp(_aprs_messaging?, <<"!!", rest::binary>> = message) do
-    # this is an ultimeter weather station. need to parse its weird format
-    # {:ok, file} = File.open("badpackets.txt")
-    # IO.puts(file, message)
-    # File.close(file)
+  def parse_position_without_timestamp(aprs_messaging?, position_data) do
+    case position_data do
+      <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
+        %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
 
-    # a = "0000000001FF000427C70002CCD30001026E003A050F00040000"
-
-    [
-      wind_speed,
-      wind_direction,
-      temp,
-      rain_long_term_total,
-      barrometer,
-      barrometer_delta_value,
-      barrometer_corr_factor_lsw,
-      barrometer_corr_factor_msw,
-      humidity,
-      _day_of_year,
-      _minute_of_day,
-      today_rain_total,
-      wind_speed_avg
-    ] =
-      rest
-      |> String.codepoints()
-      |> Enum.chunk_every(4)
-      |> Enum.map(&Enum.join/1)
-      |> Enum.map(&hex_decode(&1))
-
-    %{
-      wind_speed: Convert.wind(wind_speed, :ultimeter, :mph),
-      wind_direction: wind_direction,
-      temp_f: Convert.temp(temp, :ultimeter, :f),
-      rain_long_term_total: rain_long_term_total,
-      barrometer: barrometer,
-      barrometer_delta_value: barrometer_delta_value,
-      barrometer_corr_factor_lsw: barrometer_corr_factor_lsw,
-      barrometer_corr_factor_msw: barrometer_corr_factor_msw,
-      humidity: humidity,
-      today_rain_total: today_rain_total,
-      wind_speed_avg: wind_speed_avg
-    }
-
-    Logger.debug("TODO: PARSE ULTIMETER DATA: " <> message)
-  end
-
-  def parse_position_without_timestamp(
-        aprs_messaging?,
-        <<_dti::binary-size(1), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9),
-          symbol_code::binary-size(1), comment::binary>>
-      ) do
-    case validate_position_data(latitude, longitude) do
-      {:ok, {lat, lon}} ->
         %{
           latitude: lat,
           longitude: lon,
+          timestamp: nil,
           symbol_table_id: sym_table_id,
-          symbol_code: symbol_code,
-          comment: comment,
+          symbol_code: "_",
           data_type: :position,
-          aprs_messaging?: aprs_messaging?
+          aprs_messaging?: aprs_messaging?,
+          compressed?: false
         }
 
-      {:error, reason} ->
-        Logger.warning("Invalid position data: #{reason}")
+      <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
+        cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
+        converted_lat = convert_compressed_lat(latitude_compressed)
+        converted_lon = convert_compressed_lon(longitude_compressed)
+        compressed_cs = convert_compressed_cs(cs)
 
+        base_data = %{
+          latitude: converted_lat,
+          longitude: converted_lon,
+          symbol_table_id: "/",
+          symbol_code: symbol_code,
+          comment: comment,
+          position_format: :compressed,
+          compression_type: compression_type,
+          data_type: :position,
+          compressed?: true
+        }
+
+        Map.merge(base_data, compressed_cs)
+
+      _ ->
         %{
           latitude: nil,
           longitude: nil,
-          symbol_table_id: sym_table_id,
-          symbol_code: symbol_code,
-          comment: comment,
-          data_type: :invalid_position,
+          timestamp: nil,
+          symbol_table_id: nil,
+          symbol_code: nil,
+          data_type: :malformed_position,
           aprs_messaging?: aprs_messaging?,
-          error: reason
+          compressed?: false,
+          comment: String.trim(position_data)
         }
     end
-  rescue
-    e ->
-      Logger.error(Exception.format(:error, e, __STACKTRACE__))
-
-      %{
-        latitude: nil,
-        longitude: nil,
-        data_type: :parse_error,
-        error: "Position parsing failed"
-      }
-  end
-
-  def parse_position_without_timestamp(
-        aprs_messaging?,
-        <<_dti::binary-size(1), "/", latitude::binary-size(4), longitude::binary-size(4), symbol_code::binary-size(1),
-          cs::binary-size(2), _compression_type::binary-size(1), comment::binary>> = _message
-      ) do
-    # Parse compressed latitude and longitude
-    converted_lat = convert_compressed_lat(latitude)
-    converted_lon = convert_compressed_lon(longitude)
-    position = Position.from_decimal(converted_lat, converted_lon)
-
-    # Parse compressed course/speed or range data
-    compressed_cs = convert_compressed_cs(cs)
-
-    # In compressed format, the symbol is a single character that represents both
-    # the symbol table and symbol code. For proper APRS compatibility, we would
-    # need to decode this, but for now we'll treat it as the symbol code.
-    result = %{
-      latitude: converted_lat,
-      longitude: converted_lon,
-      position: position,
-      # Compressed format uses "/" as default table
-      symbol_table_id: "/",
-      symbol_code: symbol_code,
-      comment: comment,
-      data_type: :position,
-      aprs_messaging?: aprs_messaging?
-    }
-
-    # Add course/speed or range information if available
-    Map.merge(result, compressed_cs)
-  end
-
-  # Catch-all pattern for malformed position packets
-  def parse_position_without_timestamp(aprs_messaging?, <<_dti::binary-size(1), rest::binary>> = data) do
-    Logger.warning("Malformed position packet: #{inspect(data)}")
-
-    %{
-      latitude: nil,
-      longitude: nil,
-      symbol_table_id: nil,
-      symbol_code: nil,
-      comment: rest,
-      data_type: :malformed_position,
-      aprs_messaging?: aprs_messaging?,
-      raw_data: data
-    }
   end
 
   def parse_position_with_timestamp(
@@ -403,7 +338,8 @@ defmodule Parser do
           symbol_code: symbol_code,
           comment: comment,
           data_type: :position,
-          aprs_messaging?: aprs_messaging?
+          aprs_messaging?: aprs_messaging?,
+          compressed?: false
         }
 
       {:error, reason} ->
@@ -416,7 +352,7 @@ defmodule Parser do
           symbol_table_id: sym_table_id,
           symbol_code: symbol_code,
           comment: comment,
-          data_type: :invalid_position,
+          data_type: :timestamped_position_error,
           aprs_messaging?: aprs_messaging?,
           error: reason
         }
@@ -428,9 +364,24 @@ defmodule Parser do
       %{
         latitude: nil,
         longitude: nil,
-        data_type: :parse_error,
+        data_type: :timestamped_position_error,
         error: "Timestamped position parsing failed"
       }
+  end
+
+  def parse_position_with_timestamp(_aprs_messaging?, <<"/", _::binary>>) do
+    %{
+      data_type: :timestamped_position_error,
+      error: "Compressed position not supported in timestamped position"
+    }
+  end
+
+  def parse_position_with_timestamp(_aprs_messaging?, data) do
+    %{
+      data_type: :timestamped_position_error,
+      error: "Invalid timestamped position format",
+      raw_data: data
+    }
   end
 
   def parse_mic_e(destination_field, information_field) do
@@ -464,6 +415,29 @@ defmodule Parser do
       manufacturer: information_data.manufacturer,
       message: information_data.message
     }
+  end
+
+  def parse_mic_e(data) do
+    case data do
+      <<dti::binary-size(1), latitude::binary-size(6), longitude::binary-size(7), symbol_code::binary-size(1),
+        speed::binary-size(1), course::binary-size(1), symbol_table_id::binary-size(1), rest::binary>> ->
+        %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
+
+        %{
+          latitude: lat,
+          longitude: lon,
+          symbol_table_id: symbol_table_id,
+          symbol_code: symbol_code,
+          speed: speed,
+          course: course,
+          dti: dti,
+          comment: rest,
+          data_type: :mic_e
+        }
+
+      _ ->
+        nil
+    end
   end
 
   def parse_mic_e_digit(<<c>>) when c in ?0..?9, do: [c - ?0, 0, nil]
@@ -618,7 +592,6 @@ defmodule Parser do
   end
 
   def parse_manufacturer(" ", _s2, _s3), do: "Original MIC-E"
-  def parse_manufacturer(">", _s2, "="), do: "Kenwood TH-D72"
   def parse_manufacturer(">", _s2, "^"), do: "Kenwood TH-D74"
   def parse_manufacturer(">", _s2, _s3), do: "Kenwood TH-D74A"
   def parse_manufacturer("]", _s2, "="), do: "Kenwood DM-710"
@@ -642,7 +615,7 @@ defmodule Parser do
   def parse_manufacturer(_s1, "^", _s3), do: "HinzTec anyfrog"
   def parse_manufacturer(_s1, "*", _s3), do: "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"
   def parse_manufacturer(_s1, "~", _s3), do: "Other"
-  def parse_manufacturer(_symbol1, _symbol2, _symbol3), do: :unknown_manufacturer
+  def parse_manufacturer(_symbol1, _symbol2, _symbol3), do: "Unknown"
 
   defp find_matches(regex, text) do
     case Regex.names(regex) do
@@ -657,15 +630,6 @@ defmodule Parser do
         Regex.named_captures(regex, text)
     end
   end
-
-  defp hex_decode(input) do
-    {result, ""} = Integer.parse(input, 16)
-    result
-  end
-
-  # defp convert_ultimeter_humidity(hum) do
-  #   hum * 10
-  # end
 
   def convert_compressed_lat(lat) do
     [l1, l2, l3, l4] = to_charlist(lat)
@@ -698,12 +662,7 @@ defmodule Parser do
         }
 
       _ ->
-        IO.inspect(cs, label: "not parsable")
-
-        %{
-          course: 0,
-          speed: 0
-        }
+        %{}
     end
   end
 
@@ -883,141 +842,122 @@ defmodule Parser do
   end
 
   # Comprehensive weather data parsing
-  defp parse_weather_data(weather_string) do
-    %{}
-    |> parse_wind_data(weather_string)
-    |> parse_temperature_data(weather_string)
-    |> parse_rain_data(weather_string)
-    |> parse_humidity_data(weather_string)
-    |> parse_barometric_data(weather_string)
-    |> parse_snow_data(weather_string)
-    |> parse_other_weather_data(weather_string)
-    |> Map.put(:raw_weather_data, weather_string)
+  defp parse_weather_data(weather_data) do
+    # Extract timestamp if present
+    timestamp = extract_timestamp(weather_data)
+    weather_data = remove_timestamp(weather_data)
+
+    # Parse each weather component
+    weather_values = %{
+      wind_direction: parse_wind_direction(weather_data),
+      wind_speed: parse_wind_speed(weather_data),
+      wind_gust: parse_wind_gust(weather_data),
+      temperature: parse_temperature(weather_data),
+      rain_1h: parse_rainfall_1h(weather_data),
+      rain_24h: parse_rainfall_24h(weather_data),
+      rain_since_midnight: parse_rainfall_since_midnight(weather_data),
+      humidity: parse_humidity(weather_data),
+      pressure: parse_pressure(weather_data),
+      luminosity: parse_luminosity(weather_data),
+      snow: parse_snow(weather_data)
+    }
+
+    # Build base result map
+    result = %{
+      timestamp: timestamp,
+      data_type: :weather,
+      raw_weather_data: weather_data
+    }
+
+    # Add non-nil weather values to result
+    Enum.reduce(weather_values, result, fn {key, value}, acc ->
+      if value == nil, do: acc, else: Map.put(acc, key, value)
+    end)
   end
 
-  # Parse wind direction and speed (ddd/sss format)
-  defp parse_wind_data(data, weather_string) do
-    case Regex.run(~r/(\d{3})\/(\d{3})/, weather_string) do
-      [_, direction, speed] ->
-        data
-        |> Map.put(:wind_direction, String.to_integer(direction))
-        |> Map.put(:wind_speed, String.to_integer(speed))
-
-      _ ->
-        data
+  defp parse_temperature(weather_data) do
+    case Regex.run(~r/t(-?\d{3})/, weather_data) do
+      [_, temp] -> String.to_integer(temp)
+      nil -> nil
     end
   end
 
-  # Parse temperature (tTTT format, in Fahrenheit)
-  defp parse_temperature_data(data, weather_string) do
-    case Regex.run(~r/t(-?\d{3})/, weather_string) do
-      [_, temp] ->
-        temp_f = String.to_integer(temp)
-        temp_c = (temp_f - 32) * 5 / 9
-
-        data
-        |> Map.put(:temperature_f, temp_f)
-        |> Map.put(:temperature_c, Float.round(temp_c, 1))
-
-      _ ->
-        data
+  defp parse_wind_direction(weather_data) do
+    case Regex.run(~r/(\d{3})\//, weather_data) do
+      [_, direction] -> String.to_integer(direction)
+      nil -> nil
     end
   end
 
-  # Parse rainfall data
-  defp parse_rain_data(data, weather_string) do
-    data
-    |> parse_rain_field(weather_string, ~r/r(\d{3})/, :rain_1h)
-    |> parse_rain_field(weather_string, ~r/p(\d{3})/, :rain_24h)
-    |> parse_rain_field(weather_string, ~r/P(\d{3})/, :rain_today)
-  end
-
-  defp parse_rain_field(data, weather_string, regex, field) do
-    case Regex.run(regex, weather_string) do
-      [_, rain] ->
-        rain_hundredths = String.to_integer(rain)
-        rain_inches = rain_hundredths / 100.0
-        Map.put(data, field, rain_inches)
-
-      _ ->
-        data
+  defp parse_wind_speed(weather_data) do
+    case Regex.run(~r/\/(\d{3})/, weather_data) do
+      [_, speed] -> String.to_integer(speed)
+      nil -> nil
     end
   end
 
-  # Parse humidity (hHH format)
-  defp parse_humidity_data(data, weather_string) do
-    case Regex.run(~r/h(\d{2})/, weather_string) do
+  defp parse_wind_gust(weather_data) do
+    case Regex.run(~r/g(\d{3})/, weather_data) do
+      [_, gust] -> String.to_integer(gust)
+      nil -> nil
+    end
+  end
+
+  defp parse_rainfall_1h(weather_data) do
+    case Regex.run(~r/r(\d{3})/, weather_data) do
+      [_, rain] -> String.to_integer(rain)
+      nil -> nil
+    end
+  end
+
+  defp parse_rainfall_24h(weather_data) do
+    case Regex.run(~r/p(\d{3})/, weather_data) do
+      [_, rain] -> String.to_integer(rain)
+      nil -> nil
+    end
+  end
+
+  defp parse_rainfall_since_midnight(weather_data) do
+    case Regex.run(~r/P(\d{3})/, weather_data) do
+      [_, rain] -> String.to_integer(rain)
+      nil -> nil
+    end
+  end
+
+  defp parse_humidity(weather_data) do
+    case Regex.run(~r/h(\d{2})/, weather_data) do
       [_, humidity] ->
-        humidity_val = String.to_integer(humidity)
-        # Handle special case where 00 means 100%
-        humidity_percent = if humidity_val == 0, do: 100, else: humidity_val
-        Map.put(data, :humidity, humidity_percent)
+        val = String.to_integer(humidity)
+        if val == 0, do: 100, else: val
 
-      _ ->
-        data
+      nil ->
+        nil
     end
   end
 
-  # Parse barometric pressure (bBBBBB format, in tenths of millibars)
-  defp parse_barometric_data(data, weather_string) do
-    case Regex.run(~r/b(\d{5})/, weather_string) do
-      [_, pressure] ->
-        pressure_tenths_mb = String.to_integer(pressure)
-        pressure_mb = pressure_tenths_mb / 10.0
-        pressure_inhg = pressure_mb * 0.02953
-
-        data
-        |> Map.put(:barometric_pressure_mb, pressure_mb)
-        |> Map.put(:barometric_pressure_inhg, Float.round(pressure_inhg, 2))
-
-      _ ->
-        data
+  defp parse_pressure(weather_data) do
+    case Regex.run(~r/b(\d{5})/, weather_data) do
+      [_, pressure] -> String.to_integer(pressure) / 10.0
+      nil -> nil
     end
   end
 
-  # Parse snow data (sSS format, in inches)
-  defp parse_snow_data(data, weather_string) do
-    case Regex.run(~r/s(\d{3})/, weather_string) do
-      [_, snow] ->
-        snow_inches = String.to_integer(snow)
-        Map.put(data, :snow_24h, snow_inches)
-
-      _ ->
-        data
+  defp parse_luminosity(weather_data) do
+    case Regex.run(~r/[lL](\d{3})/, weather_data) do
+      [_, luminosity] -> String.to_integer(luminosity)
+      nil -> nil
     end
   end
 
-  # Parse other weather data (luminosity, etc.)
-  defp parse_other_weather_data(data, weather_string) do
-    data
-    |> parse_luminosity(weather_string)
-    |> parse_wind_gust(weather_string)
-  end
-
-  # Parse luminosity (LLLLL format)
-  defp parse_luminosity(data, weather_string) do
-    case Regex.run(~r/L(\d{3})/, weather_string) do
-      [_, luminosity] ->
-        Map.put(data, :luminosity, String.to_integer(luminosity))
-
-      _ ->
-        data
-    end
-  end
-
-  # Parse wind gust (gGGG format)
-  defp parse_wind_gust(data, weather_string) do
-    case Regex.run(~r/g(\d{3})/, weather_string) do
-      [_, gust] ->
-        Map.put(data, :wind_gust, String.to_integer(gust))
-
-      _ ->
-        data
+  defp parse_snow(weather_data) do
+    case Regex.run(~r/s(\d{3})/, weather_data) do
+      [_, snow] -> String.to_integer(snow)
+      nil -> nil
     end
   end
 
   # Telemetry parsing
-  def parse_telemetry(<<"T", rest::binary>>) do
+  def parse_telemetry(<<"T#", rest::binary>>) do
     case String.split(rest, ",") do
       [seq | [_ | _] = values] ->
         analog_values = Enum.take(values, 5)
@@ -1041,22 +981,62 @@ defmodule Parser do
 
   # Handle telemetry parameter definitions (PARM)
   def parse_telemetry(<<":PARM.", rest::binary>>) do
-    parse_telemetry_parameters(rest)
+    %{
+      data_type: :telemetry_parameters,
+      parameter_names: String.split(rest, ",", trim: true),
+      raw_data: rest
+    }
   end
 
   # Handle telemetry equation definitions (EQNS)
   def parse_telemetry(<<":EQNS.", rest::binary>>) do
-    parse_telemetry_equations(rest)
+    equations =
+      rest
+      |> String.split(",", trim: true)
+      |> Enum.chunk_every(3)
+      |> Enum.map(fn [a, b, c] ->
+        %{
+          a: parse_coefficient(a),
+          b: parse_coefficient(b),
+          c: parse_coefficient(c)
+        }
+      end)
+
+    %{
+      data_type: :telemetry_equations,
+      equations: equations,
+      raw_data: rest
+    }
   end
 
   # Handle telemetry unit definitions (UNIT)
   def parse_telemetry(<<":UNIT.", rest::binary>>) do
-    parse_telemetry_units(rest)
+    %{
+      data_type: :telemetry_units,
+      units: String.split(rest, ",", trim: true),
+      raw_data: rest
+    }
   end
 
   # Handle telemetry bit sense definitions (BITS)
   def parse_telemetry(<<":BITS.", rest::binary>>) do
-    parse_telemetry_bits(rest)
+    case String.split(rest, ",", trim: true) do
+      [bits_sense | project_names] ->
+        %{
+          data_type: :telemetry_bits,
+          bits_sense: String.to_charlist(bits_sense),
+          project_names: project_names,
+          raw_data: rest
+        }
+
+      [] ->
+        %{
+          data_type: :telemetry_bits,
+          bits_sense: [],
+          project_names: [],
+          raw_data: rest
+        }
+    end
   end
 
   def parse_telemetry(data) do
@@ -1070,85 +1050,52 @@ defmodule Parser do
   defp parse_telemetry_sequence(seq) do
     case Integer.parse(seq) do
       {num, _} -> num
-      :error -> seq
+      :error -> nil
     end
+  end
+
+  # Parse digital values (convert to integers where possible)
+  defp parse_digital_values(values) do
+    values
+    |> Enum.map(fn value ->
+      case value do
+        "0" ->
+          false
+
+        "1" ->
+          true
+
+        binary when is_binary(binary) ->
+          # Handle binary string format (e.g., "00000000")
+          binary
+          |> String.graphemes()
+          |> Enum.map(fn
+            "0" -> false
+            "1" -> true
+            _ -> nil
+          end)
+
+        _ ->
+          nil
+      end
+    end)
+    |> List.flatten()
   end
 
   # Parse analog values (convert to floats where possible)
   defp parse_analog_values(values) do
     Enum.map(values, fn value ->
-      case Float.parse(value) do
-        {float_val, _} ->
-          float_val
+      case value do
+        "" ->
+          nil
 
-        :error ->
-          case Integer.parse(value) do
-            {int_val, _} -> int_val
-            :error -> value
+        value ->
+          case Float.parse(value) do
+            {float_val, _} -> float_val
+            :error -> nil
           end
       end
     end)
-  end
-
-  # Parse digital values (convert to integers where possible)
-  defp parse_digital_values(values) do
-    Enum.map(values, fn value ->
-      case Integer.parse(value) do
-        {int_val, _} -> int_val
-        :error -> value
-      end
-    end)
-  end
-
-  # Parse telemetry parameter names
-  defp parse_telemetry_parameters(params_string) do
-    parameters = String.split(params_string, ",", trim: true)
-
-    %{
-      parameter_names: parameters,
-      data_type: :telemetry_parameters
-    }
-  end
-
-  # Parse telemetry equations (a,b,c coefficients for each channel)
-  defp parse_telemetry_equations(eqns_string) do
-    equations =
-      eqns_string
-      |> String.split(",", trim: true)
-      |> Enum.chunk_every(3)
-      |> Enum.map(fn [a, b, c] ->
-        %{
-          a: parse_coefficient(a),
-          b: parse_coefficient(b),
-          c: parse_coefficient(c)
-        }
-      end)
-
-    %{
-      equations: equations,
-      data_type: :telemetry_equations
-    }
-  end
-
-  # Parse telemetry units
-  defp parse_telemetry_units(units_string) do
-    units = String.split(units_string, ",", trim: true)
-
-    %{
-      units: units,
-      data_type: :telemetry_units
-    }
-  end
-
-  # Parse telemetry bit sense and project names
-  defp parse_telemetry_bits(bits_string) do
-    [bits_sense | project_names] = String.split(bits_string, ",", trim: true)
-
-    %{
-      bits_sense: bits_sense,
-      project_names: project_names,
-      data_type: :telemetry_bits
-    }
   end
 
   # Parse equation coefficient
@@ -1444,4 +1391,18 @@ defmodule Parser do
   end
 
   defp validate_timestamp(time), do: time
+
+  defp extract_timestamp(weather_data) do
+    case Regex.run(~r/^(\d{6}[hz\/])/, weather_data) do
+      [_, timestamp] -> timestamp
+      nil -> nil
+    end
+  end
+
+  defp remove_timestamp(weather_data) do
+    case Regex.run(~r/^\d{6}[hz\/]/, weather_data) do
+      [timestamp] -> String.replace(weather_data, timestamp, "")
+      nil -> weather_data
+    end
+  end
 end

@@ -18,8 +18,10 @@ defmodule Parser.Types.MicE do
             lon_minutes: 0,
             lon_fractional: 0,
             speed: 0,
-            manufacturer: :unknown,
-            message: ""
+            manufacturer: "Unknown",
+            message: "",
+            symbol_table_id: "/",
+            symbol_code: ">"
 
   @doc """
   Implements the Access behaviour for MicE struct.

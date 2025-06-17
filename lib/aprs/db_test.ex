@@ -51,10 +51,18 @@ defmodule Aprs.DbTest do
           {:ok, stored_packet} ->
             {:ok, stored_packet}
 
-          {:error, changeset} ->
+          {:error, :storage_exception} ->
+            IO.puts("Failed to store packet! (storage exception)")
+            {:error, :storage_exception}
+
+          {:error, :validation_error} ->
+            IO.puts("Failed to store packet! (validation error)")
+            {:error, :validation_error}
+
+          {:error, other_error} ->
             IO.puts("Failed to store packet!")
-            IO.puts("Errors: #{inspect(changeset.errors, pretty: true)}")
-            {:error, changeset}
+            IO.puts("Error: #{inspect(other_error)}")
+            {:error, other_error}
         end
 
       error ->
@@ -123,7 +131,11 @@ defmodule Aprs.DbTest do
             where: p.has_position == true,
             order_by: [desc: p.received_at],
             limit: ^limit,
-            select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
+            select: %{
+              p
+              | lat: fragment("ST_Y(?)", p.location),
+                lon: fragment("ST_X(?)", p.location)
+            }
           )
         )
 
