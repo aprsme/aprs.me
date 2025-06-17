@@ -16,12 +16,8 @@
   </div>
 
   <div class="mt-6 bg-white shadow-sm rounded-lg overflow-hidden">
-    <.table id="packets" rows={@packets} class="min-w-full divide-y divide-gray-200">
-      <:col
-        :let={packet}
-        label="Sender"
-        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-      >
+    <.table id="packets" rows={@packets}>
+      <:col :let={packet} label="Sender">
         <.link
           navigate={~p"/packets/#{packet.base_callsign}"}
           class="text-blue-600 hover:text-blue-800 font-medium"
@@ -29,18 +25,10 @@
           {packet.sender}
         </.link>
       </:col>
-      <:col
-        :let={packet}
-        label="SSID"
-        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-      >
+      <:col :let={packet} label="SSID">
         <span class="text-sm text-gray-900">{packet.ssid}</span>
       </:col>
-      <:col
-        :let={packet}
-        label="Base Callsign"
-        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-      >
+      <:col :let={packet} label="Base Callsign">
         <.link
           navigate={~p"/packets/#{packet.base_callsign}"}
           class="text-blue-600 hover:text-blue-800 font-medium"
@@ -48,34 +36,18 @@
           {packet.base_callsign}
         </.link>
       </:col>
-      <:col
-        :let={packet}
-        label="Data Type"
-        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-      >
+      <:col :let={packet} label="Data Type">
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
           {packet.data_type}
         </span>
       </:col>
-      <:col
-        :let={packet}
-        label="Destination"
-        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-      >
+      <:col :let={packet} label="Destination">
         <span class="text-sm text-gray-900">{packet.destination}</span>
       </:col>
-      <:col
-        :let={packet}
-        label="Information"
-        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-      >
+      <:col :let={packet} label="Information">
         <span class="text-sm text-gray-900 font-mono">{packet.information_field}</span>
       </:col>
-      <:col
-        :let={packet}
-        label="Path"
-        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-      >
+      <:col :let={packet} label="Path">
         <span class="text-xs text-gray-500 font-mono">{packet.path}</span>
       </:col>
     </.table>

@@ -256,7 +256,7 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   @impl true
-  def handle_event("marker_clicked", %{"id" => id, "callsign" => callsign, "lat" => lat, "lng" => lng}, socket) do
+  def handle_event("marker_clicked", %{"id" => _id, "callsign" => _callsign, "lat" => _lat, "lng" => _lng}, socket) do
     {:noreply, socket}
   end
 

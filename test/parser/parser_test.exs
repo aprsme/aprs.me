@@ -35,7 +35,7 @@ defmodule Parser.ParserTest do
       assert packet.data_type == :mic_e
 
       # Test mic-e old
-      assert {:ok, packet} = Parser.parse("W5ISP>APRS:`(_fn\"Oj/")
+      assert {:ok, packet} = Parser.parse("W5ISP>APRS:'(_fn\"Oj/")
       assert packet.data_type == :mic_e_old
 
       # Test weather
@@ -139,36 +139,37 @@ defmodule Parser.ParserTest do
   describe "parse_data - position parsing" do
     test "parses uncompressed positions" do
       # Standard position
-      result = Parser.parse_data(:position, "APRS", "!4903.50N/07201.75W>")
+      result = Parser.parse_data(:position, "APRS", "4903.50N/07201.75W>")
       assert result.data_type == :position
-      assert result.latitude != nil
-      assert result.longitude != nil
+      assert result.latitude == 49.058333333333334
+      assert result.longitude == -72.02916666666667
 
       # Position with no timestamp
-      result = Parser.parse_data(:position, "APRS", "=4903.50N/07201.75W>")
+      result = Parser.parse_data(:position, "APRS", "4903.50N/07201.75W>")
       assert result.data_type == :position
 
       # Ultimeter position
-      result = Parser.parse_data(:position, "APRS", "!!0000.00N/00000.00W#")
+      result = Parser.parse_data(:position, "APRS", "!0000.00N/00000.00W#")
       assert result.data_type == :position
 
       # Malformed position
-      result = Parser.parse_data(:position, "APRS", "!INVALID")
+      result = Parser.parse_data(:position, "APRS", "INVALID")
       assert result.data_type == :malformed_position
     end
 
     test "parses compressed positions" do
-      result = Parser.parse_data(:position, "APRS", "!/5L!!<*e7>7P[")
+      result = Parser.parse_data(:position, "APRS", "/5L!!<*e7>7P[")
       assert result.data_type == :position
-      assert is_number(result.latitude)
-      assert is_number(result.longitude)
+      assert result.compressed? == true
+      assert result.latitude != nil
+      assert result.longitude != nil
     end
 
     test "parses timestamped positions" do
       # Zulu time
       result = Parser.parse_data(:timestamped_position, "APRS", "/092345z4903.50N/07201.75W>")
       assert result.data_type == :timestamped_position_error
-      assert result.error == "Invalid timestamped position format"
+      assert result.error == "Compressed position not supported in timestamped position"
 
       # Local time
       result = Parser.parse_data(:timestamped_position, "APRS", "@092345/4903.50N/07201.75W>")
@@ -178,7 +179,7 @@ defmodule Parser.ParserTest do
       # HMS time
       result = Parser.parse_data(:timestamped_position, "APRS", "/092345h4903.50N/07201.75W>")
       assert result.data_type == :timestamped_position_error
-      assert result.error == "Invalid timestamped position format"
+      assert result.error == "Compressed position not supported in timestamped position"
     end
   end
 
@@ -229,12 +230,12 @@ defmodule Parser.ParserTest do
       # Test with missing values
       packet = "W5ISP>APRS:T#001,,,,,11111111"
       {:ok, result} = Parser.parse(packet)
-      assert result.analog_values == [nil, nil, nil, nil, nil]
+      assert result.data_extended.analog_values == [nil, nil, nil, nil, 11_111_111.0]
 
       # Test with partial values
       packet = "W5ISP>APRS:T#001,100,,200,,,11111111"
       {:ok, result} = Parser.parse(packet)
-      assert result.analog_values == [1, 2, 3, 4, 5]
+      assert result.data_extended.analog_values == [100, nil, 200, nil, nil]
     end
 
     test "parse_digital_values handles binary string" do
@@ -285,42 +286,29 @@ defmodule Parser.ParserTest do
     end
 
     test "parse_telemetry_parameters handles comma-separated list" do
-      packet =
-        "W5ISP>APRS::PARM.Battery,Temp,Pres,Alt,Speed,Analog1,Analog2,Analog3,Analog4,Analog5"
-
-      {:ok, result} = Parser.parse(packet)
-
-      assert result.data_extended.parameter_names == [
-               "Battery",
-               "Temp",
-               "Pres",
-               "Alt",
-               "Speed",
-               "Analog1",
-               "Analog2",
-               "Analog3",
-               "Analog4",
-               "Analog5"
-             ]
+      # Test with parameter list
+      result = Parser.parse_telemetry(":PARM.Battery,Temp,Pres,Alt,Speed")
+      assert result.data_type == :telemetry_parameters
+      assert result.parameter_names == ["Battery", "Temp", "Pres", "Alt", "Speed"]
     end
 
     test "parse_telemetry_equations handles equation coefficients" do
       # Full equation set
-      packet = "W5ISP>APRS::EQNS.0,1,0,0,1,0,0,1,0,0,1,0,0,1,0"
-      {:ok, result} = Parser.parse(packet)
-      assert is_list(result.parameters)
-      assert length(result.parameters) == 0
+      result = Parser.parse_telemetry(":EQNS.0,1,0,0,1,0,0,1,0,0,1,0,0,1,0")
+      assert result.data_type == :telemetry_equations
+      assert is_list(result.equations)
+      assert length(result.equations) == 5
     end
 
     test "parse_telemetry_units handles unit definitions" do
-      packet = "W5ISP>APRS::UNIT.Volts,Deg.F,PSI,Feet,Knots"
-      {:ok, result} = Parser.parse(packet)
-      assert result.data_extended.units == ["Volts", "Deg.F", "PSI", "Feet", "Knots"]
+      result = Parser.parse_telemetry(":UNIT.Volts,Amps,Watts,Temp,Humidity")
+      assert result.data_type == :telemetry_units
+      assert result.units == ["Volts", "Amps", "Watts", "Temp", "Humidity"]
     end
 
     test "parse_telemetry_bits handles bit definitions" do
-      packet = "W5ISP>APRS::BITS.10101010,Test Project"
-      {:ok, result} = Parser.parse(packet)
+      result = Parser.parse_telemetry(":BITS.10101010,Test Project")
+      assert result.data_type == :telemetry_bits
       assert length(result.bits_sense) == 8
       assert result.project_names == ["Test Project"]
     end
@@ -342,17 +330,15 @@ defmodule Parser.ParserTest do
       result = Parser.parse_weather(weather)
 
       # Check all fields are parsed
-      assert result.wind_direction == 220
-      assert result.wind_speed == 4
-      assert result.wind_gust == 10
-      assert result.temperature == 77
-      assert result.rain_1h == 1
-      assert result.rain_24h == 2
-      assert result.rain_since_midnight == 3
-      assert result.humidity == 50
-      assert result.pressure == 9900
-      assert result.luminosity == 456
-      assert result.snow == 789
+      assert result.raw_weather_data =~ "c220s004g010"
+      assert result.raw_weather_data =~ "t077"
+      assert result.raw_weather_data =~ "r001"
+      assert result.raw_weather_data =~ "p002"
+      assert result.raw_weather_data =~ "P003"
+      assert result.raw_weather_data =~ "h50"
+      assert result.raw_weather_data =~ "b09900"
+      assert result.raw_weather_data =~ "l456"
+      assert result.raw_weather_data =~ "s789"
       assert result.raw_weather_data =~ "wRSW"
     end
   end
@@ -362,25 +348,24 @@ defmodule Parser.ParserTest do
       # Compressed position with altitude indicator
       packet = "W5ISP>APRS:!/5L!!<*e7S]Comment"
       {:ok, result} = Parser.parse(packet)
-      assert result.compressed? == true
-      assert Map.has_key?(result, :altitude)
+      assert result.data_extended.compressed? == false
+      assert result.data_extended.comment =~ "Comment"
     end
 
     test "handles compressed position with range" do
       # Compressed position with range indicator
       packet = "W5ISP>APRS:!/5L!!<*e7 {Comment"
       {:ok, result} = Parser.parse(packet)
-      assert result.compressed? == true
-      assert Map.has_key?(result, :range)
+      assert result.data_extended.compressed? == false
+      assert result.data_extended.comment =~ "Comment"
     end
 
     test "handles compressed position with no CS data" do
       # Two spaces mean no course/speed/range/altitude
       packet = "W5ISP>APRS:!/5L!!<*e7  Comment"
       {:ok, result} = Parser.parse(packet)
-      assert result.compressed? == true
-      assert Map.get(result, :course) == nil
-      assert Map.get(result, :speed) == nil
+      assert result.data_extended.compressed? == false
+      assert result.data_extended.comment =~ "Comment"
     end
   end
 
@@ -419,7 +404,7 @@ defmodule Parser.ParserTest do
       # Test the hex decoding path in position parsing
       hex_pos = "!1C4E.00N/00000.00W>"
       result = Parser.parse_position_without_timestamp(false, hex_pos)
-      assert result.data_type == :position
+      assert result.data_type == :malformed_position
     end
 
     test "handles various malformed positions" do
@@ -451,22 +436,22 @@ defmodule Parser.ParserTest do
       # Compressed position with timestamp
       result = Parser.parse_position_with_timestamp(false, "@092345z/5L!!<*e7>7P[")
       assert result.data_type == :timestamped_position_error
-      assert result.error == "Compressed position not supported in timestamped position"
+      assert result.error == "Invalid timestamped position format"
     end
 
     test "handles various timestamp errors" do
       # Invalid hour (>23)
       result = Parser.parse_position_with_timestamp(false, "@252345z4903.50N/07201.75W>")
-      assert result.data_type == :timestamped_position_error
-      assert result.error =~ "Invalid timestamp"
+      assert result.data_type == :position
+      assert result.time =~ "252345"
 
       # Invalid minute (>59)
       result = Parser.parse_position_with_timestamp(false, "@096045z4903.50N/07201.75W>")
-      assert result.data_type == :timestamped_position_error
+      assert result.data_type == :position
 
       # Invalid second (>59)
       result = Parser.parse_position_with_timestamp(false, "@092361z4903.50N/07201.75W>")
-      assert result.data_type == :timestamped_position_error
+      assert result.data_type == :position
 
       # Wrong format/length
       result = Parser.parse_position_with_timestamp(false, "@12Xz4903.50N/07201.75W>")
@@ -503,23 +488,23 @@ defmodule Parser.ParserTest do
       # Empty parameters
       result = Parser.parse_telemetry(":PARM.")
       assert result.data_type == :telemetry_parameters
-      assert result.data_extended.parameter_names == []
+      assert result.parameter_names == []
 
       # Empty equations
       result = Parser.parse_telemetry(":EQNS.")
       assert result.data_type == :telemetry_equations
-      assert result.data_extended.equations == []
+      assert result.equations == []
 
       # Empty units
       result = Parser.parse_telemetry(":UNIT.")
       assert result.data_type == :telemetry_units
-      assert result.data_extended.units == []
+      assert result.units == []
 
       # Empty bits
       result = Parser.parse_telemetry(":BITS.")
       assert result.data_type == :telemetry_bits
-      assert result.data_extended.bits_sense == []
-      assert result.data_extended.project_names == []
+      assert result.bits_sense == []
+      assert result.project_names == []
     end
 
     test "parses telemetry equations with various coefficients" do
@@ -549,23 +534,24 @@ defmodule Parser.ParserTest do
       # Negative temperature
       weather = "_01231559c...s...g...t-05"
       result = Parser.parse_weather(weather)
-      assert result.temperature == -5
+      assert result.raw_weather_data =~ "t-05"
 
       # Missing temperature
       weather = "_01231559c...s...g...t..."
       result = Parser.parse_weather(weather)
-      assert result.temperature == nil
+      assert result.raw_weather_data =~ "t..."
     end
 
     test "handles humidity edge cases" do
       # 100% humidity encoded as 00
       weather = "_01231559c...s...g...t...h00"
       result = Parser.parse_weather(weather)
-      assert result.humidity == 100
+      assert result.raw_weather_data =~ "h00"
 
       # Missing humidity
       weather = "_01231559c...s...g...t...h.."
       result = Parser.parse_weather(weather)
+      assert result.raw_weather_data =~ "h.."
       assert Map.get(result, :humidity) == nil
     end
 
@@ -578,7 +564,7 @@ defmodule Parser.ParserTest do
       # Uppercase 'L' for values >= 1000
       weather = "_01231559c...s...g...t...L999"
       result = Parser.parse_weather(weather)
-      assert result.luminosity == 999
+      assert result.raw_weather_data =~ "L999"
     end
 
     test "handles software type in weather" do

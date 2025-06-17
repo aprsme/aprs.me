@@ -15,7 +15,9 @@ defmodule Parser do
          {:ok, data_type} <- parse_datatype_safe(data),
          {:ok, [destination, path]} <- split_path(path) do
       data_trimmed = String.trim(data)
-      data_extended = parse_data(data_type, destination, data_trimmed)
+      # Strip the first character (datatype indicator) from the data
+      data_without_type = String.slice(data_trimmed, 1..-1//1)
+      data_extended = parse_data(data_type, destination, data_without_type)
 
       {:ok,
        %{
@@ -180,8 +182,8 @@ defmodule Parser do
   end
 
   def parse_data(:message, _destination, data) do
-    case Regex.run(~r/^:([^:]+):(.+?)(?:\{(\d+)\})?$/, data) do
-      [_, addressee, message_text, message_number] ->
+    case Regex.run(~r/^:([^:]+):(.+?)(\{(\d+)\})?$/s, data) do
+      [_, addressee, message_text, _full_ack, message_number] ->
         %{
           data_type: :message,
           addressee: String.trim(addressee),

@@ -393,7 +393,6 @@ defmodule Aprs.Is do
             is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
               is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes)
 
-          Logger.debug("MicE packet position check: #{valid} for #{inspect(packet.sender)}")
           valid
 
         %{lat: lat, lon: lon} when not is_nil(lat) and not is_nil(lon) ->
