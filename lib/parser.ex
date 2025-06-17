@@ -21,7 +21,6 @@ defmodule Parser do
 
       {:ok,
        %{
-         # TODO: temporary for liveview
          id: 16 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower),
          sender: sender,
          path: path,

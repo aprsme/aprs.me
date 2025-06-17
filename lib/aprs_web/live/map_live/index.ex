@@ -861,48 +861,55 @@ defmodule AprsWeb.MapLive.Index do
 
     # Only include packets with valid position data
     if lat && lng do
-      # Get symbol information from data_extended
-      symbol_table_id =
-        get_in(data_extended, ["symbol_table_id"]) ||
-          packet.symbol_table_id || "/"
+      build_packet_map(packet, lat, lng, data_extended)
+    end
+  end
 
-      symbol_code =
-        get_in(data_extended, ["symbol_code"]) ||
-          packet.symbol_code || ">"
+  defp build_packet_map(packet, lat, lng, data_extended) do
+    {final_table_id, final_symbol_code} = get_validated_symbol(packet, data_extended)
+    callsign = generate_callsign(packet)
 
-      # Validate symbol
-      {final_table_id, final_symbol_code} =
-        if AprsSymbols.valid_symbol?(symbol_table_id, symbol_code) do
-          {symbol_table_id, symbol_code}
-        else
-          AprsSymbols.default_symbol()
-        end
+    %{
+      "id" => callsign,
+      "callsign" => callsign,
+      "base_callsign" => packet.base_callsign || "",
+      "ssid" => packet.ssid || "",
+      "lat" => lat,
+      "lng" => lng,
+      "symbol_table_id" => final_table_id,
+      "symbol_code" => final_symbol_code,
+      "symbol_description" => AprsSymbols.symbol_description(final_table_id, final_symbol_code),
+      "data_type" => to_string(packet.data_type || "unknown"),
+      "path" => packet.path || "",
+      "comment" => get_in(data_extended, ["comment"]) || "",
+      "data_extended" => data_extended || %{}
+    }
+  end
 
-      # Generate callsign for display
-      callsign =
-        if packet.ssid && packet.ssid != "" do
-          "#{packet.base_callsign}-#{packet.ssid}"
-        else
-          packet.base_callsign || ""
-        end
+  defp get_validated_symbol(packet, data_extended) do
+    symbol_table_id = get_symbol_table_id(packet, data_extended)
+    symbol_code = get_symbol_code(packet, data_extended)
 
-      %{
-        "id" => callsign,
-        "callsign" => callsign,
-        "base_callsign" => packet.base_callsign || "",
-        "ssid" => packet.ssid || "",
-        "lat" => lat,
-        "lng" => lng,
-        "symbol_table_id" => final_table_id,
-        "symbol_code" => final_symbol_code,
-        "symbol_description" => AprsSymbols.symbol_description(final_table_id, final_symbol_code),
-        "data_type" => to_string(packet.data_type || "unknown"),
-        "path" => packet.path || "",
-        "comment" => get_in(data_extended, ["comment"]) || "",
-        "data_extended" => data_extended || %{}
-      }
+    if AprsSymbols.valid_symbol?(symbol_table_id, symbol_code) do
+      {symbol_table_id, symbol_code}
+    else
+      AprsSymbols.default_symbol()
+    end
+  end
 
-      # Return nil for packets without position data
+  defp get_symbol_table_id(packet, data_extended) do
+    get_in(data_extended, ["symbol_table_id"]) || packet.symbol_table_id || "/"
+  end
+
+  defp get_symbol_code(packet, data_extended) do
+    get_in(data_extended, ["symbol_code"]) || packet.symbol_code || ">"
+  end
+
+  defp generate_callsign(packet) do
+    if packet.ssid && packet.ssid != "" do
+      "#{packet.base_callsign}-#{packet.ssid}"
+    else
+      packet.base_callsign || ""
     end
   end
 

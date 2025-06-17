@@ -60,6 +60,7 @@ defmodule Aprs.Is do
            keepalive_timer: keepalive_timer,
            connected_at: connected_at,
            packet_stats: packet_stats,
+           buffer: "",
            login_params: %{
              user_id: aprs_user_id,
              passcode: aprs_passcode,
@@ -223,20 +224,29 @@ defmodule Aprs.Is do
     current_time = System.system_time(:second)
     packet_stats = update_packet_stats(state.packet_stats, current_time)
 
-    # Handle the incoming message
-    # Task.start(Aprs, :dispatch, [packet])
+    # Append new packet data to buffer
+    buffer = state.buffer <> packet
 
-    if String.contains?(packet, "\n") or String.contains?(packet, "\r") do
-      packet
-      |> String.split("\r\n")
-      |> Enum.each(&dispatch(String.trim(&1)))
-    else
-      dispatch(packet)
-    end
+    # Process complete lines (ending with \r\n or \n)
+    {complete_lines, remaining_buffer} = extract_complete_lines(buffer)
+
+    # Dispatch each complete line
+    Enum.each(complete_lines, fn line ->
+      trimmed = String.trim(line)
+
+      if trimmed != "" do
+        dispatch(trimmed)
+      end
+    end)
 
     # Start a new timer
     timer = Process.send_after(self(), :aprs_no_message_timeout, @aprs_timeout)
-    state = state |> Map.put(:timer, timer) |> Map.put(:packet_stats, packet_stats)
+
+    state =
+      state
+      |> Map.put(:timer, timer)
+      |> Map.put(:packet_stats, packet_stats)
+      |> Map.put(:buffer, remaining_buffer)
 
     {:noreply, state}
   end
@@ -251,10 +261,42 @@ defmodule Aprs.Is do
     {:stop, :normal, state}
   end
 
+  # Extract complete lines from buffer, returning {complete_lines, remaining_buffer}
+  defp extract_complete_lines(buffer) do
+    # Split by both \r\n and \n to handle different line endings
+    parts = String.split(buffer, ~r/\r?\n/, parts: :infinity)
+
+    # The last part might be incomplete
+    case parts do
+      [] ->
+        {[], ""}
+
+      [single] ->
+        # No newline found, entire buffer is incomplete
+        {[], single}
+
+      parts ->
+        # Last element might be incomplete line
+        {complete, [maybe_incomplete]} = Enum.split(parts, -1)
+
+        # If buffer ended with newline, maybe_incomplete will be empty string
+        if String.ends_with?(buffer, "\n") or String.ends_with?(buffer, "\r\n") do
+          {complete ++ [maybe_incomplete], ""}
+        else
+          {complete, maybe_incomplete}
+        end
+    end
+  end
+
   @impl true
   def terminate(reason, state) do
     # Do Shutdown Stuff
     Logger.info("Terminating APRS-IS connection: #{inspect(reason)}")
+
+    # Log any remaining buffered data
+    if Map.has_key?(state, :buffer) and state.buffer != "" do
+      Logger.warning("Terminating with incomplete packet in buffer: #{inspect(state.buffer)}")
+    end
 
     # Cancel timers
     if Map.has_key?(state, :timer), do: Process.cancel_timer(state.timer)

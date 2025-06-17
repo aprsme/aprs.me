@@ -72,34 +72,38 @@ defmodule Parser.Types.MicE do
   Gets a value and updates it with the given function.
   """
   def get_and_update(mic_e, key, fun) do
-    value =
-      case key do
-        :latitude ->
-          if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) do
-            lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
-            if mic_e.lat_direction == :south, do: -lat, else: lat
-          end
+    value = get_value(mic_e, key)
+    apply_update_function(mic_e, key, value, fun)
+  end
 
-        :longitude ->
-          if is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes) do
-            lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
-            if mic_e.lon_direction == :west, do: -lon, else: lon
-          end
+  defp get_value(mic_e, :latitude), do: calculate_latitude(mic_e)
+  defp get_value(mic_e, :longitude), do: calculate_longitude(mic_e)
+  defp get_value(mic_e, key) when is_binary(key), do: get_string_key_value(mic_e, key)
+  defp get_value(mic_e, key), do: Map.get(mic_e, key)
 
-        key when is_binary(key) ->
-          # Handle string keys by converting to atom if it exists
-          try do
-            atom_key = String.to_existing_atom(key)
-            Map.get(mic_e, atom_key)
-          rescue
-            ArgumentError ->
-              nil
-          end
+  defp calculate_latitude(mic_e) do
+    if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) do
+      lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
+      if mic_e.lat_direction == :south, do: -lat, else: lat
+    end
+  end
 
-        _ ->
-          Map.get(mic_e, key)
-      end
+  defp calculate_longitude(mic_e) do
+    if is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes) do
+      lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
+      if mic_e.lon_direction == :west, do: -lon, else: lon
+    end
+  end
 
+  defp get_string_key_value(mic_e, key) do
+    atom_key = String.to_existing_atom(key)
+    Map.get(mic_e, atom_key)
+  rescue
+    ArgumentError ->
+      nil
+  end
+
+  defp apply_update_function(mic_e, key, value, fun) do
     case fun.(value) do
       {get, update} -> {get, Map.put(mic_e, key, update)}
       :pop -> {value, Map.put(mic_e, key, nil)}
