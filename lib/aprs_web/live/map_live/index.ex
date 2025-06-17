@@ -63,10 +63,6 @@ defmodule AprsWeb.MapLive.Index do
 
   defp maybe_start_geolocation(socket) do
     if Application.get_env(:aprs, :disable_aprs_connection, false) != true do
-      IO.puts("Socket is connected, attempting to get IP location")
-      IO.puts("Connect info: #{inspect(socket.private[:connect_info])}")
-      IO.puts("Peer data: #{inspect(socket.private[:connect_info][:peer_data])}")
-
       ip =
         case socket.private[:connect_info][:peer_data][:address] do
           {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
@@ -75,20 +71,14 @@ defmodule AprsWeb.MapLive.Index do
         end
 
       if ip && !String.starts_with?(ip, "127.") && !String.starts_with?(ip, "::1") do
-        IO.puts("Starting IP geolocation task for IP: #{ip}")
-
         Task.start(fn ->
           try do
             get_ip_location(ip)
           rescue
-            error ->
-              IO.puts("Error in IP geolocation task: #{inspect(error)}")
-              IO.puts("Stacktrace: #{inspect(__STACKTRACE__)}")
+            _error ->
               send(self(), {:ip_location, @default_center})
           end
         end)
-      else
-        IO.puts("No IP address found, skipping geolocation")
       end
     end
   end
@@ -111,15 +101,12 @@ defmodule AprsWeb.MapLive.Index do
   @impl true
   def handle_event("locate_me", _params, socket) do
     # Send JavaScript command to request browser geolocation
-    IO.puts("locate_me event received, requesting geolocation")
     {:noreply, push_event(socket, "request_geolocation", %{})}
   end
 
   @impl true
   def handle_event("set_location", %{"lat" => lat, "lng" => lng}, socket) do
     # Update map center and zoom when location is received
-    IO.puts("set_location event received with lat=#{lat}, lng=#{lng}")
-
     # Ensure coordinates are floats
     lat_float =
       cond do
@@ -134,8 +121,6 @@ defmodule AprsWeb.MapLive.Index do
         is_integer(lng) -> lng / 1.0
         true -> lng
       end
-
-    IO.puts("Sending zoom_to_location event from set_location with lat=#{lat_float}, lng=#{lng_float}")
 
     socket =
       socket
@@ -238,17 +223,14 @@ defmodule AprsWeb.MapLive.Index do
 
   @impl true
   def handle_event("map_ready", _params, socket) do
-    IO.puts("Map ready event received")
     socket = assign(socket, map_ready: true)
 
     # If we have pending geolocation, zoom to it now
     socket =
       if socket.assigns.pending_geolocation do
         %{lat: lat, lng: lng} = socket.assigns.pending_geolocation
-        IO.puts("Map ready - zooming to pending location: lat=#{lat}, lng=#{lng}")
         push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
       else
-        IO.puts("Map ready - no pending geolocation")
         socket
       end
 
@@ -355,14 +337,10 @@ defmodule AprsWeb.MapLive.Index do
         {:noreply, socket}
 
       {:delayed_zoom, %{lat: lat, lng: lng}} ->
-        IO.puts("Processing delayed zoom to lat=#{lat}, lng=#{lng}")
         socket = push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
         {:noreply, socket}
 
       {:ip_location, %{lat: lat, lng: lng}} ->
-        # Log IP location received
-        IO.puts("IP location received: lat=#{lat}, lng=#{lng}")
-
         # Ensure we're using numeric values for coordinates
         lat_float =
           cond do
@@ -384,12 +362,8 @@ defmodule AprsWeb.MapLive.Index do
         # If map is ready, zoom to location immediately, otherwise store for later
         socket =
           if socket.assigns.map_ready do
-            IO.puts("Map is ready, zooming to location immediately to lat=#{lat_float}, lng=#{lng_float}")
-
             push_event(socket, "zoom_to_location", %{lat: lat_float, lng: lng_float, zoom: 12})
           else
-            IO.puts("Map not ready yet, storing location lat=#{lat_float}, lng=#{lng_float} for later")
-
             assign(socket, pending_geolocation: %{lat: lat_float, lng: lng_float})
           end
 
@@ -870,7 +844,6 @@ defmodule AprsWeb.MapLive.Index do
         if lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 do
           {lat, lng}
         else
-          IO.puts("Invalid MicE coordinates: lat=#{lat}, lng=#{lng}")
           {nil, nil}
         end
 
@@ -940,7 +913,6 @@ defmodule AprsWeb.MapLive.Index do
 
   defp get_ip_location(ip) do
     url = "#{@ip_api_url}#{ip}"
-    IO.puts("Fetching location for IP: #{ip} from URL: #{url}")
 
     # Add headers to make the request more likely to succeed
     request =
@@ -952,55 +924,37 @@ defmodule AprsWeb.MapLive.Index do
     # Add a small delay to ensure the client is connected
     Process.sleep(2000)
 
-    IO.puts("Making HTTP request to IP API...")
-
     case Finch.request(request, @finch_name, receive_timeout: 10_000) do
       {:ok, %{status: 200, body: body}} ->
-        IO.puts("IP API response received successfully")
-        IO.puts("Response body: #{String.slice(body, 0, 200)}...")
-
         case Jason.decode(body) do
           {:ok, %{"status" => "success", "lat" => lat, "lon" => lng}}
           when is_number(lat) and is_number(lng) ->
-            IO.puts("Valid coordinates found: lat=#{lat}, lng=#{lng}")
-
             if lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180 do
-              IO.puts("Sending IP location message with coordinates")
               # Force numeric values
               lat_float = lat / 1.0
               lng_float = lng / 1.0
               send(self(), {:ip_location, %{lat: lat_float, lng: lng_float}})
             else
-              IO.puts("Coordinates out of range: lat=#{lat}, lng=#{lng}, using default center")
               send(self(), {:ip_location, @default_center})
             end
 
-          {:ok, %{"status" => status}} ->
-            IO.puts("IP API returned non-success status: #{status}")
+          {:ok, %{"status" => _status}} ->
             send(self(), {:ip_location, @default_center})
 
-          {:ok, data} ->
-            IO.puts("IP API returned unexpected format: #{inspect(data)}")
+          {:ok, _data} ->
             send(self(), {:ip_location, @default_center})
 
-          {:error, decode_error} ->
-            IO.puts("Failed to decode JSON response: #{inspect(decode_error)}")
-            IO.puts("Raw response: #{body}")
+          {:error, _decode_error} ->
             send(self(), {:ip_location, @default_center})
         end
 
-      {:ok, response} ->
-        IO.puts("IP API request failed with status: #{response.status}")
-        IO.puts("Response headers: #{inspect(response.headers)}")
-        IO.puts("Response body: #{String.slice(response.body || "", 0, 200)}...")
+      {:ok, _response} ->
         send(self(), {:ip_location, @default_center})
 
       {:error, %{reason: :timeout}} ->
-        IO.puts("IP API request timed out after 10 seconds")
         send(self(), {:ip_location, @default_center})
 
-      {:error, error} ->
-        IO.puts("IP API request error: #{inspect(error)}")
+      {:error, _error} ->
         send(self(), {:ip_location, @default_center})
     end
   end

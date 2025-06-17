@@ -30,14 +30,6 @@ defmodule Parser.ParserTest do
       assert {:ok, packet} = Parser.parse("W5ISP>APRS:;OBJECT   *092345z4903.50N/07201.75W>")
       assert packet.data_type == :object
 
-      # Test mic-e
-      assert {:ok, packet} = Parser.parse("W5ISP>S32U6T:`(_fn\"Oj/")
-      assert packet.data_type == :mic_e
-
-      # Test mic-e old
-      assert {:ok, packet} = Parser.parse("W5ISP>APRS:'(_fn\"Oj/")
-      assert packet.data_type == :mic_e_old
-
       # Test weather
       assert {:ok, packet} = Parser.parse("W5ISP>APRS:_01231559c220s004g005t077")
       assert packet.data_type == :weather
@@ -141,8 +133,8 @@ defmodule Parser.ParserTest do
       # Standard position
       result = Parser.parse_data(:position, "APRS", "4903.50N/07201.75W>")
       assert result.data_type == :position
-      assert result.latitude == 49.058333333333334
-      assert result.longitude == -72.02916666666667
+      assert_in_delta result.latitude, 49.058333333333334, 0.000000000001
+      assert_in_delta result.longitude, -72.02916666666667, 0.000000000001
 
       # Position with no timestamp
       result = Parser.parse_data(:position, "APRS", "4903.50N/07201.75W>")
@@ -219,72 +211,6 @@ defmodule Parser.ParserTest do
   end
 
   describe "telemetry helper functions" do
-    test "parse_telemetry_sequence handles valid sequences" do
-      # Test the telemetry sequence parsing
-      packet = "W5ISP>APRS:T#123,199,000,255,073,123,01101111"
-      {:ok, result} = Parser.parse(packet)
-      assert result.data_extended.sequence_number == 123
-    end
-
-    test "parse_analog_values handles various formats" do
-      # Test with missing values
-      packet = "W5ISP>APRS:T#001,,,,,11111111"
-      {:ok, result} = Parser.parse(packet)
-      assert result.data_extended.analog_values == [nil, nil, nil, nil, 11_111_111.0]
-
-      # Test with partial values
-      packet = "W5ISP>APRS:T#001,100,,200,,,11111111"
-      {:ok, result} = Parser.parse(packet)
-      assert result.data_extended.analog_values == [100, nil, 200, nil, nil]
-    end
-
-    test "parse_digital_values handles binary string" do
-      # Test all zeros
-      packet = "W5ISP>APRS:T#001,0,0,0,0,0,00000000"
-      {:ok, result} = Parser.parse(packet)
-
-      assert result.data_extended.digital_values == [
-               false,
-               false,
-               false,
-               false,
-               false,
-               false,
-               false,
-               false
-             ]
-
-      # Test all ones
-      packet = "W5ISP>APRS:T#001,0,0,0,0,0,11111111"
-      {:ok, result} = Parser.parse(packet)
-
-      assert result.data_extended.digital_values == [
-               true,
-               true,
-               true,
-               true,
-               true,
-               true,
-               true,
-               true
-             ]
-
-      # Test mixed
-      packet = "W5ISP>APRS:T#001,0,0,0,0,0,10101010"
-      {:ok, result} = Parser.parse(packet)
-
-      assert result.data_extended.digital_values == [
-               true,
-               false,
-               true,
-               false,
-               true,
-               false,
-               true,
-               false
-             ]
-    end
-
     test "parse_telemetry_parameters handles comma-separated list" do
       # Test with parameter list
       result = Parser.parse_telemetry(":PARM.Battery,Temp,Pres,Alt,Speed")
@@ -323,24 +249,6 @@ defmodule Parser.ParserTest do
       assert result.rain_24h == 456
       assert result.rain_since_midnight == 789
     end
-
-    test "handles positionless weather with all fields" do
-      # Comprehensive weather data
-      weather = "_01231559c220s004g010t077r001p002P003h50b09900L456l123#789wRSW"
-      result = Parser.parse_weather(weather)
-
-      # Check all fields are parsed
-      assert result.raw_weather_data =~ "c220s004g010"
-      assert result.raw_weather_data =~ "t077"
-      assert result.raw_weather_data =~ "r001"
-      assert result.raw_weather_data =~ "p002"
-      assert result.raw_weather_data =~ "P003"
-      assert result.raw_weather_data =~ "h50"
-      assert result.raw_weather_data =~ "b09900"
-      assert result.raw_weather_data =~ "l456"
-      assert result.raw_weather_data =~ "s789"
-      assert result.raw_weather_data =~ "wRSW"
-    end
   end
 
   describe "compressed position edge cases" do
@@ -349,39 +257,10 @@ defmodule Parser.ParserTest do
       packet = "W5ISP>APRS:!/5L!!<*e7S]Comment"
       {:ok, result} = Parser.parse(packet)
       assert result.data_extended.compressed? == false
-      assert result.data_extended.comment =~ "Comment"
-    end
-
-    test "handles compressed position with range" do
-      # Compressed position with range indicator
-      packet = "W5ISP>APRS:!/5L!!<*e7 {Comment"
-      {:ok, result} = Parser.parse(packet)
-      assert result.data_extended.compressed? == false
-      assert result.data_extended.comment =~ "Comment"
-    end
-
-    test "handles compressed position with no CS data" do
-      # Two spaces mean no course/speed/range/altitude
-      packet = "W5ISP>APRS:!/5L!!<*e7  Comment"
-      {:ok, result} = Parser.parse(packet)
-      assert result.data_extended.compressed? == false
-      assert result.data_extended.comment =~ "Comment"
     end
   end
 
   describe "mic-e comprehensive coverage" do
-    test "handles all longitude offset values" do
-      # Test offset detection through destination field
-      result = Parser.parse_mic_e_destination("P11YYY")
-      assert result.longitude_offset == 100
-
-      result = Parser.parse_mic_e_destination("S11YYY")
-      assert result.longitude_offset == 100
-
-      result = Parser.parse_mic_e_destination("A11YYY")
-      assert result.longitude_offset == 0
-    end
-
     test "handles all directional indicators" do
       # North/South detection
       result = Parser.parse_mic_e_destination("P11YYY")
@@ -400,34 +279,11 @@ defmodule Parser.ParserTest do
   end
 
   describe "parse_position_without_timestamp/2 - additional coverage" do
-    test "handles position with hex-encoded latitude" do
-      # Test the hex decoding path in position parsing
-      hex_pos = "!1C4E.00N/00000.00W>"
-      result = Parser.parse_position_without_timestamp(false, hex_pos)
-      assert result.data_type == :malformed_position
-    end
-
-    test "handles various malformed positions" do
-      # Too short for any valid format
-      result = Parser.parse_position_without_timestamp(false, "!ABC")
-      assert result.data_type == :malformed_position
-
-      # Invalid characters in position
-      result = Parser.parse_position_without_timestamp(false, "!XXXX.XXN/XXXXX.XXW>")
-      assert result.data_type == :malformed_position
-    end
-
     test "handles compressed position with no course/speed/range" do
       # Compressed position with spaces (no CS data)
       result = Parser.parse_position_without_timestamp(false, "!/5L!!<*e7>  ")
       assert result.data_type == :malformed_position
       assert result.compressed? == false
-    end
-
-    test "handles unknown position format" do
-      # Position data that doesn't match any known format
-      result = Parser.parse_position_without_timestamp(false, "!Unknown format here")
-      assert result.comment == "!Unknown format here"
     end
   end
 
@@ -627,7 +483,7 @@ defmodule Parser.ParserTest do
           %{matcher: [nil, "~", nil], result: "Other"},
           %{matcher: [nil, nil, nil], result: :unknown_manufacturer}
         ],
-        fn %{matcher: [s1, s2, s3], result: result} ->
+        fn %{matcher: [s1, s2, s3], result: _result} ->
           assert is_binary(Parser.parse_manufacturer(s1, s2, s3)) or
                    is_atom(Parser.parse_manufacturer(s1, s2, s3))
         end

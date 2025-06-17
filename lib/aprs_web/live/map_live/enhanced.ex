@@ -79,12 +79,9 @@ defmodule AprsWeb.MapLive.Enhanced do
     {:noreply, socket}
   end
 
-  def handle_event("marker_clicked", params, socket) do
-    %{"id" => marker_id, "callsign" => callsign} = params
-
+  def handle_event("marker_clicked", _params, socket) do
     # You could add marker click logic here
     # For example, show detailed info, center map, etc.
-    IO.puts("Marker clicked: #{callsign} (#{marker_id})")
 
     {:noreply, socket}
   end

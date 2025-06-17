@@ -142,11 +142,21 @@ defmodule Parser do
     case data do
       <<"/", _::binary>> ->
         result = parse_position_without_timestamp(false, data)
-        %{result | data_type: :position}
+
+        if result.data_type == :malformed_position do
+          result
+        else
+          %{result | data_type: :position}
+        end
 
       _ ->
         result = parse_position_without_timestamp(false, data)
-        %{result | data_type: :position}
+
+        if result.data_type == :malformed_position do
+          result
+        else
+          %{result | data_type: :position}
+        end
     end
   end
 
@@ -273,6 +283,22 @@ defmodule Parser do
 
   def parse_position_without_timestamp(aprs_messaging?, position_data) do
     case position_data do
+      <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
+        comment::binary>> ->
+        %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
+
+        %{
+          latitude: lat,
+          longitude: lon,
+          timestamp: nil,
+          symbol_table_id: sym_table_id,
+          symbol_code: symbol_code,
+          comment: comment,
+          data_type: :position,
+          aprs_messaging?: aprs_messaging?,
+          compressed?: false
+        }
+
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
         %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
 

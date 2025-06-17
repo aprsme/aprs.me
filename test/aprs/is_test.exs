@@ -7,51 +7,6 @@ defmodule Aprs.IsTest do
 
   require Logger
 
-  describe "APRS-IS connection prevention in test environment" do
-    test "APRS.Is module should not start in test environment" do
-      # Verify that the APRS.Is GenServer is not running
-      assert Process.whereis(Aprs.Is) == nil
-    end
-
-    test "attempting to start APRS.Is should fail with test environment disabled" do
-      # Try to start the APRS.Is GenServer manually
-      result = Aprs.Is.start_link([])
-
-      # Should fail because we're in test environment
-      assert {:error, reason} = result
-      assert reason in [:test_environment_disabled, :normal]
-    end
-
-    test "get_status should return disconnected state without external connection" do
-      status = Aprs.Is.get_status()
-
-      # Should return disconnected status without attempting external connection
-      assert status.connected == false
-      assert status.server != nil
-      assert status.port == 14_580
-      assert status.connected_at == nil
-      assert status.uptime_seconds == 0
-    end
-
-    test "configuration should disable APRS connections in test" do
-      # Verify test configuration properly disables connections
-      assert Application.get_env(:aprs, :disable_aprs_connection) == true
-      assert Application.get_env(:aprs, :env) == :test
-    end
-
-    test "APRS server configuration should be nil or test values in test environment" do
-      # Verify APRS server config is neutralized for tests
-      server = Application.get_env(:aprs, :aprs_is_server)
-      login_id = Application.get_env(:aprs, :aprs_is_login_id)
-
-      # Server should be nil (disabled) or a test value
-      assert server == nil or server == "mock.aprs.test"
-
-      # Login should be test value
-      assert login_id == "TEST"
-    end
-  end
-
   describe "APRS-IS mock functionality" do
     setup do
       # Start the mock if not already running

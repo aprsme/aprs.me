@@ -19,10 +19,6 @@ import Config
 # Always start the server in production/docker environments
 if System.get_env("PHX_SERVER") || config_env() == :prod do
   config :aprs, AprsWeb.Endpoint, server: true
-
-  IO.puts("Phoenix server enabled - will start HTTP listener")
-else
-  IO.puts("Phoenix server disabled - no HTTP listener will start")
 end
 
 if config_env() == :prod do
@@ -49,7 +45,6 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
-  IO.puts("Phoenix will bind to port: #{port}")
 
   config :aprs, Aprs.Repo,
     # ssl: true,
@@ -70,8 +65,6 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base,
     server: true
-
-  IO.puts("Phoenix endpoint configured for host: #{host}, port: #{port}")
 
   # config :aprs, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
