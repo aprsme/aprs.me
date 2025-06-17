@@ -7,12 +7,11 @@ defmodule Aprs.Workers.PacketCleanupWorker do
   2. Providing granular cleanup with custom age parameters
   3. Logging statistics about cleanup operations
 
+  This worker is scheduled to run daily at midnight UTC via Oban's cron feature.
+
   ## Functions
   - `perform/1` - Standard cleanup using configured retention period
   - `cleanup_packets_older_than/1` - Cleanup packets older than specified days
-  - `schedule_cleanup/0` - Schedule standard cleanup job
-  - `schedule_cleanup_for_age/1` - Schedule cleanup with custom age parameter
-  - `schedule_daily_cleanup/0` - Schedule daily cleanup at midnight UTC
   """
 
   use Oban.Worker, queue: :maintenance, max_attempts: 3
@@ -57,43 +56,6 @@ defmodule Aprs.Workers.PacketCleanupWorker do
 
     # Return success
     :ok
-  end
-
-  # Schedule this job to run daily
-  def schedule_cleanup do
-    %{}
-    |> Oban.Job.new(worker: __MODULE__, queue: :maintenance)
-    |> Oban.insert()
-  end
-
-  # Schedule cleanup with custom age parameter
-  def schedule_cleanup_for_age(days) when is_integer(days) and days > 0 do
-    %{"cleanup_days" => days}
-    |> Oban.Job.new(worker: __MODULE__, queue: :maintenance)
-    |> Oban.insert()
-  end
-
-  # Schedule this job to run daily at midnight UTC
-  def schedule_daily_cleanup do
-    # Calculate when the next midnight UTC is
-    now = DateTime.utc_now()
-    tomorrow = Date.add(now, 1)
-
-    next_midnight = %{
-      now
-      | year: tomorrow.year,
-        month: tomorrow.month,
-        day: tomorrow.day,
-        hour: 0,
-        minute: 0,
-        second: 0,
-        microsecond: {0, 6}
-    }
-
-    # Schedule the job
-    %{}
-    |> Oban.Job.new(worker: __MODULE__, queue: :maintenance)
-    |> Oban.insert(scheduled_at: next_midnight)
   end
 
   defp count_total_packets do

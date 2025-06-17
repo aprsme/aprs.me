@@ -31,8 +31,6 @@ defmodule Aprs.Application do
       {Cluster.Supervisor, [topologies, [name: Aprs.ClusterSupervisor]]},
       # Start Oban for background jobs
       {Oban, :aprs |> Application.get_env(Oban, []) |> Keyword.put(:queues, default: 10, maintenance: 2)},
-      # Start the scheduler for recurring Oban jobs
-      Aprs.Workers.Scheduler,
       Aprs.Presence
     ]
 
