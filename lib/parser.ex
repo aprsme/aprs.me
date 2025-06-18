@@ -24,6 +24,8 @@ defmodule Parser do
 
   @type parse_result :: {:ok, packet()} | {:error, atom() | String.t()}
 
+  @type position_ambiguity :: 0..4
+
   @spec parse(String.t()) :: parse_result()
   def parse(message) do
     with {:ok, [sender, path, data]} <- split_packet(message),
@@ -71,10 +73,12 @@ defmodule Parser do
     split_packet_parts(String.split(message, [">", ":"], parts: 3))
   end
 
+  @spec split_packet_parts([String.t()]) :: {:ok, [String.t()]} | {:error, String.t()}
   defp split_packet_parts([sender, path, data]) when byte_size(sender) > 0 and byte_size(path) > 0 do
     {:ok, [sender, path, data]}
   end
 
+  @spec split_packet_parts(list()) :: {:error, String.t()}
   defp split_packet_parts(_), do: {:error, "Invalid packet format"}
 
   # Safely split path into destination and digipeater path
@@ -241,6 +245,20 @@ defmodule Parser do
   def parse_data(:peet_logging, _destination, data), do: parse_peet_logging(data)
   def parse_data(:invalid_test_data, _destination, data), do: parse_invalid_test_data(data)
 
+  def parse_data(:raw_gps_ultimeter, _destination, data) do
+    case parse_nmea_sentence(data) do
+      {:ok, parsed_data} ->
+        Map.put(parsed_data, :data_type, :raw_gps_ultimeter)
+
+      {:error, reason} ->
+        %{
+          data_type: :raw_gps_ultimeter,
+          error: reason,
+          raw_data: data
+        }
+    end
+  end
+
   def parse_data(_type, _destination, _data), do: nil
 
   @spec parse_position_with_datetime_and_weather(boolean(), String.t(), String.t()) :: map()
@@ -305,8 +323,10 @@ defmodule Parser do
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
         comment::binary>> ->
         %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
+        ambiguity = calculate_position_ambiguity(latitude, longitude)
+        dao_data = parse_dao_extension(comment)
 
-        %{
+        base_data = %{
           latitude: lat,
           longitude: lon,
           timestamp: nil,
@@ -315,11 +335,15 @@ defmodule Parser do
           comment: comment,
           data_type: :position,
           aprs_messaging?: aprs_messaging?,
-          compressed?: false
+          compressed?: false,
+          position_ambiguity: ambiguity
         }
+
+        if dao_data, do: Map.put(base_data, :dao, dao_data), else: base_data
 
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
         %{latitude: lat, longitude: lon} = Position.from_aprs(latitude, longitude)
+        ambiguity = calculate_position_ambiguity(latitude, longitude)
 
         %{
           latitude: lat,
@@ -329,7 +353,8 @@ defmodule Parser do
           symbol_code: "_",
           data_type: :position,
           aprs_messaging?: aprs_messaging?,
-          compressed?: false
+          compressed?: false,
+          position_ambiguity: ambiguity
         }
 
       <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
@@ -337,6 +362,7 @@ defmodule Parser do
         converted_lat = convert_compressed_lat(latitude_compressed)
         converted_lon = convert_compressed_lon(longitude_compressed)
         compressed_cs = convert_compressed_cs(cs)
+        ambiguity = calculate_compressed_ambiguity(compression_type)
 
         base_data = %{
           latitude: converted_lat,
@@ -347,7 +373,8 @@ defmodule Parser do
           position_format: :compressed,
           compression_type: compression_type,
           data_type: :position,
-          compressed?: true
+          compressed?: true,
+          position_ambiguity: ambiguity
         }
 
         Map.merge(base_data, compressed_cs)
@@ -364,6 +391,69 @@ defmodule Parser do
           compressed?: false,
           comment: String.trim(position_data)
         }
+    end
+  end
+
+  @spec calculate_position_ambiguity(String.t(), String.t()) :: position_ambiguity()
+  defp calculate_position_ambiguity(latitude, longitude) do
+    # Count spaces in latitude and longitude
+    lat_spaces = count_spaces(latitude)
+    lon_spaces = count_spaces(longitude)
+
+    # Position ambiguity is determined by the number of spaces
+    # 0 = no ambiguity
+    # 1 = 1/60th of a degree
+    # 2 = 1/10th of a degree
+    # 3 = 1 degree
+    # 4 = 10 degrees
+    cond do
+      lat_spaces == 0 and lon_spaces == 0 -> 0
+      lat_spaces == 1 and lon_spaces == 1 -> 1
+      lat_spaces == 2 and lon_spaces == 2 -> 2
+      lat_spaces == 3 and lon_spaces == 3 -> 3
+      lat_spaces == 4 and lon_spaces == 4 -> 4
+      true -> 0
+    end
+  end
+
+  @spec calculate_compressed_ambiguity(binary()) :: position_ambiguity()
+  defp calculate_compressed_ambiguity(compression_type) do
+    case compression_type do
+      # No ambiguity
+      " " -> 0
+      # 1/60th of a degree
+      "!" -> 1
+      # 1/10th of a degree
+      "\"" -> 2
+      # 1 degree
+      "#" -> 3
+      # 10 degrees
+      "$" -> 4
+      _ -> 0
+    end
+  end
+
+  @spec count_spaces(String.t()) :: non_neg_integer()
+  defp count_spaces(str) do
+    str
+    |> String.graphemes()
+    |> Enum.count(fn c -> c == " " end)
+  end
+
+  # Add DAO (Datum) extension support
+  @spec parse_dao_extension(String.t()) :: map() | nil
+  defp parse_dao_extension(comment) do
+    case Regex.run(~r/!([A-Za-z])([A-Za-z])([A-Za-z])!/, comment) do
+      [_, lat_dao, lon_dao, _] ->
+        %{
+          lat_dao: lat_dao,
+          lon_dao: lon_dao,
+          # APRS uses WGS84 by default
+          datum: "WGS84"
+        }
+
+      nil ->
+        nil
     end
   end
 
@@ -675,6 +765,7 @@ defmodule Parser do
     -180 + ((l1 - 33) * 91 ** 3 + (l2 - 33) * 91 ** 2 + (l3 - 33) * 91 + l4 - 33) / 190_463
   end
 
+  @spec convert_compressed_cs(binary()) :: map()
   def convert_compressed_cs(cs) do
     [c, s] = to_charlist(cs)
     c = c - 33
@@ -811,6 +902,7 @@ defmodule Parser do
   end
 
   # Parse item position data (similar to object position parsing)
+  @spec parse_item_position(String.t()) :: map()
   defp parse_item_position(position_data) do
     case position_data do
       # Uncompressed position format
@@ -1086,6 +1178,7 @@ defmodule Parser do
   end
 
   # Parse telemetry sequence number
+  @spec parse_telemetry_sequence(String.t()) :: integer() | nil
   defp parse_telemetry_sequence(seq) do
     case Integer.parse(seq) do
       {num, _} -> num
@@ -1094,6 +1187,7 @@ defmodule Parser do
   end
 
   # Parse digital values (convert to integers where possible)
+  @spec parse_digital_values([String.t()]) :: [boolean() | nil]
   defp parse_digital_values(values) do
     values
     |> Enum.map(fn value ->
@@ -1122,6 +1216,7 @@ defmodule Parser do
   end
 
   # Parse analog values (convert to floats where possible)
+  @spec parse_analog_values([String.t()]) :: [float() | nil]
   defp parse_analog_values(values) do
     Enum.map(values, fn value ->
       case value do
@@ -1138,6 +1233,7 @@ defmodule Parser do
   end
 
   # Parse equation coefficient
+  @spec parse_coefficient(String.t()) :: float() | integer() | String.t()
   defp parse_coefficient(coeff) do
     case Float.parse(coeff) do
       {float_val, _} ->
@@ -1228,31 +1324,33 @@ defmodule Parser do
   end
 
   # Third Party Traffic parsing
+  @spec parse_third_party_traffic(String.t()) :: map()
   def parse_third_party_traffic(<<"}", third_party_packet::binary>>) do
     # Third party traffic contains a complete APRS packet
-    case String.split(third_party_packet, ":", parts: 2) do
-      [header, information] ->
-        case String.split(header, ">", parts: 2) do
-          [sender, path] ->
+    case parse_tunneled_packet(third_party_packet) do
+      {:ok, parsed_packet} ->
+        # Check for nested tunnels
+        case parse_nested_tunnel(third_party_packet) do
+          {:ok, nested_packet} ->
             %{
-              third_party_sender: sender,
-              third_party_path: path,
-              third_party_information: information,
+              third_party_packet: nested_packet,
               data_type: :third_party_traffic,
               raw_data: third_party_packet
             }
 
-          _ ->
+          {:error, _} ->
             %{
-              third_party_data: third_party_packet,
-              data_type: :third_party_traffic
+              third_party_packet: parsed_packet,
+              data_type: :third_party_traffic,
+              raw_data: third_party_packet
             }
         end
 
-      _ ->
+      {:error, reason} ->
         %{
           third_party_data: third_party_packet,
-          data_type: :third_party_traffic
+          data_type: :third_party_traffic,
+          error: reason
         }
     end
   end
@@ -1263,6 +1361,124 @@ defmodule Parser do
       third_party_data: data,
       data_type: :third_party_traffic
     }
+  end
+
+  @spec parse_tunneled_packet(String.t()) :: {:ok, map()} | {:error, String.t()}
+  defp parse_tunneled_packet(packet) do
+    # Split the packet into header and information field
+    case String.split(packet, ":", parts: 2) do
+      [header, information] ->
+        # Parse the header (source>destination,digipeaters)
+        case parse_tunneled_header(header) do
+          {:ok, header_data} ->
+            # Parse the information field based on its type
+            case parse_datatype_safe(information) do
+              {:ok, data_type} ->
+                data_without_type = String.slice(information, 1..-1//1)
+                data_extended = parse_data(data_type, header_data.destination, data_without_type)
+
+                {:ok,
+                 Map.merge(header_data, %{
+                   information_field: information,
+                   data_type: data_type,
+                   data_extended: data_extended
+                 })}
+
+              {:error, reason} ->
+                {:error, "Invalid data type: #{reason}"}
+            end
+
+          {:error, reason} ->
+            {:error, "Invalid header: #{reason}"}
+        end
+
+      _ ->
+        {:error, "Invalid tunneled packet format"}
+    end
+  end
+
+  @spec parse_tunneled_header(String.t()) :: {:ok, map()} | {:error, String.t()}
+  defp parse_tunneled_header(header) do
+    case String.split(header, ">", parts: 2) do
+      [sender, path] ->
+        case parse_callsign(sender) do
+          {:ok, [base_callsign, ssid]} ->
+            case split_path(path) do
+              {:ok, [destination, digi_path]} ->
+                {:ok,
+                 %{
+                   sender: sender,
+                   base_callsign: base_callsign,
+                   ssid: ssid,
+                   destination: destination,
+                   digi_path: digi_path
+                 }}
+
+              {:error, reason} ->
+                {:error, "Invalid path: #{reason}"}
+            end
+
+          {:error, reason} ->
+            {:error, "Invalid callsign: #{reason}"}
+        end
+
+      _ ->
+        {:error, "Invalid header format"}
+    end
+  end
+
+  # Add network tunneling support
+  @spec parse_network_tunnel(String.t()) :: {:ok, map()} | {:error, String.t()}
+  defp parse_network_tunnel(packet) do
+    # Network tunneling packets start with "}" and contain a complete APRS packet
+    case String.slice(packet, 1..-1//1) do
+      tunneled_packet ->
+        case parse_tunneled_packet(tunneled_packet) do
+          {:ok, parsed_packet} ->
+            {:ok,
+             Map.merge(parsed_packet, %{
+               tunnel_type: :network,
+               raw_data: packet
+             })}
+
+          {:error, reason} ->
+            {:error, "Invalid tunneled packet: #{reason}"}
+        end
+    end
+  end
+
+  # Add support for multiple levels of tunneling
+  @spec parse_nested_tunnel(String.t(), non_neg_integer()) :: {:ok, map()} | {:error, String.t()}
+  defp parse_nested_tunnel(packet, depth \\ 0) do
+    cond do
+      depth > 3 ->
+        {:error, "Maximum tunnel depth exceeded"}
+
+      String.starts_with?(packet, "}") ->
+        case parse_network_tunnel(packet) do
+          {:ok, parsed_packet} ->
+            # Recursively parse any nested tunnels
+            case Map.get(parsed_packet, :data_extended) do
+              %{raw_data: nested_data} when is_binary(nested_data) ->
+                case parse_nested_tunnel(nested_data, depth + 1) do
+                  {:ok, nested_packet} ->
+                    {:ok, Map.put(parsed_packet, :nested_packet, nested_packet)}
+
+                  {:error, _} ->
+                    {:ok, parsed_packet}
+                end
+
+              _ ->
+                {:ok, parsed_packet}
+            end
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      true ->
+        {:error, "Not a tunneled packet"}
+    end
   end
 
   # PHG Data parsing (Power, Height, Gain, Directivity)
@@ -1437,6 +1653,7 @@ defmodule Parser do
   @spec validate_timestamp(any()) :: nil
   defp validate_timestamp(_), do: nil
 
+  @spec extract_timestamp(String.t()) :: String.t() | nil
   defp extract_timestamp(weather_data) do
     case Regex.run(~r/^(\d{6}[hz\/])/, weather_data) do
       [_, timestamp] -> timestamp
@@ -1444,10 +1661,240 @@ defmodule Parser do
     end
   end
 
+  @spec remove_timestamp(String.t()) :: String.t()
   defp remove_timestamp(weather_data) do
     case Regex.run(~r/^\d{6}[hz\/]/, weather_data) do
       [timestamp] -> String.replace(weather_data, timestamp, "")
       nil -> weather_data
     end
   end
+
+  @spec parse_nmea_sentence(String.t()) :: {:ok, map()} | {:error, String.t()}
+  defp parse_nmea_sentence(sentence) do
+    # Validate NMEA sentence format
+    with {:ok, sentence_type} <- validate_nmea_sentence(sentence),
+         {:ok, fields} <- split_nmea_fields(sentence),
+         {:ok, _checksum} <- validate_nmea_checksum(sentence) do
+      parse_nmea_by_type(sentence_type, fields)
+    end
+  end
+
+  @spec validate_nmea_sentence(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  defp validate_nmea_sentence(sentence) do
+    case Regex.run(~r/^\$([A-Z]{5}),/, sentence) do
+      [_, sentence_type] -> {:ok, sentence_type}
+      nil -> {:error, "Invalid NMEA sentence format"}
+    end
+  end
+
+  @spec split_nmea_fields(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
+  defp split_nmea_fields(sentence) do
+    # Remove $ and checksum, then split by comma
+    case String.split(sentence, ["$", "*"], parts: 2) do
+      [_, fields] ->
+        {:ok, String.split(fields, ",")}
+
+      _ ->
+        {:error, "Invalid NMEA sentence format"}
+    end
+  end
+
+  @spec validate_nmea_checksum(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  defp validate_nmea_checksum(sentence) do
+    case Regex.run(~r/\*([0-9A-F]{2})$/, sentence) do
+      [_, checksum] ->
+        calculated = calculate_nmea_checksum(sentence)
+
+        if calculated == checksum do
+          {:ok, checksum}
+        else
+          {:error, "Invalid NMEA checksum"}
+        end
+
+      nil ->
+        {:error, "Missing NMEA checksum"}
+    end
+  end
+
+  @spec calculate_nmea_checksum(String.t()) :: String.t()
+  defp calculate_nmea_checksum(sentence) do
+    # Remove $ and everything after *
+    sentence
+    |> String.split("*")
+    |> List.first()
+    |> String.slice(1..-1//-1)
+    |> String.to_charlist()
+    |> Enum.reduce(0, &Bitwise.bxor/2)
+    |> Integer.to_string(16)
+    |> String.pad_leading(2, "0")
+    |> String.upcase()
+  end
+
+  @spec parse_nmea_by_type(String.t(), [String.t()]) :: {:ok, map()} | {:error, String.t()}
+  defp parse_nmea_by_type("GPGGA", fields) do
+    with {:ok, time} <- parse_nmea_time(Enum.at(fields, 1)),
+         {:ok, lat} <- parse_nmea_coordinate(Enum.at(fields, 2), Enum.at(fields, 3)),
+         {:ok, lon} <- parse_nmea_coordinate(Enum.at(fields, 4), Enum.at(fields, 5)),
+         {:ok, quality} <- parse_nmea_quality(Enum.at(fields, 6)),
+         {:ok, satellites} <- parse_nmea_satellites(Enum.at(fields, 7)),
+         {:ok, hdop} <- parse_nmea_hdop(Enum.at(fields, 8)),
+         {:ok, altitude} <- parse_nmea_altitude(Enum.at(fields, 9), Enum.at(fields, 10)) do
+      {:ok,
+       %{
+         time: time,
+         latitude: lat,
+         longitude: lon,
+         quality: quality,
+         satellites: satellites,
+         hdop: hdop,
+         altitude: altitude,
+         nmea_type: "GPGGA"
+       }}
+    end
+  end
+
+  defp parse_nmea_by_type("GPRMC", fields) do
+    with {:ok, time} <- parse_nmea_time(Enum.at(fields, 1)),
+         {:ok, status} <- parse_nmea_status(Enum.at(fields, 2)),
+         {:ok, lat} <- parse_nmea_coordinate(Enum.at(fields, 3), Enum.at(fields, 4)),
+         {:ok, lon} <- parse_nmea_coordinate(Enum.at(fields, 5), Enum.at(fields, 6)),
+         {:ok, speed} <- parse_nmea_speed(Enum.at(fields, 7)),
+         {:ok, course} <- parse_nmea_course(Enum.at(fields, 8)),
+         {:ok, date} <- parse_nmea_date(Enum.at(fields, 9)) do
+      {:ok,
+       %{
+         time: time,
+         status: status,
+         latitude: lat,
+         longitude: lon,
+         speed: speed,
+         course: course,
+         date: date,
+         nmea_type: "GPRMC"
+       }}
+    end
+  end
+
+  defp parse_nmea_by_type("GPGLL", fields) do
+    with {:ok, lat} <- parse_nmea_coordinate(Enum.at(fields, 1), Enum.at(fields, 2)),
+         {:ok, lon} <- parse_nmea_coordinate(Enum.at(fields, 3), Enum.at(fields, 4)),
+         {:ok, time} <- parse_nmea_time(Enum.at(fields, 5)),
+         {:ok, status} <- parse_nmea_status(Enum.at(fields, 6)) do
+      {:ok,
+       %{
+         latitude: lat,
+         longitude: lon,
+         time: time,
+         status: status,
+         nmea_type: "GPGLL"
+       }}
+    end
+  end
+
+  defp parse_nmea_by_type(type, _fields) do
+    {:error, "Unsupported NMEA sentence type: #{type}"}
+  end
+
+  @spec parse_nmea_time(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  defp parse_nmea_time(time) when is_binary(time) and byte_size(time) == 10 do
+    {:ok, time}
+  end
+
+  defp parse_nmea_time(_), do: {:error, "Invalid NMEA time format"}
+
+  @spec parse_nmea_coordinate(String.t(), String.t()) :: {:ok, float()} | {:error, String.t()}
+  defp parse_nmea_coordinate(value, direction) when is_binary(value) and is_binary(direction) do
+    case Float.parse(value) do
+      {coord, _} ->
+        coord = coord / 100.0
+
+        coord =
+          case direction do
+            "N" -> coord
+            "S" -> -coord
+            "E" -> coord
+            "W" -> -coord
+            _ -> {:error, "Invalid coordinate direction"}
+          end
+
+        {:ok, coord}
+
+      :error ->
+        {:error, "Invalid coordinate value"}
+    end
+  end
+
+  defp parse_nmea_coordinate(_, _), do: {:error, "Invalid coordinate format"}
+
+  @spec parse_nmea_quality(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  defp parse_nmea_quality("0"), do: {:ok, "Invalid"}
+  defp parse_nmea_quality("1"), do: {:ok, "GPS fix"}
+  defp parse_nmea_quality("2"), do: {:ok, "DGPS fix"}
+  defp parse_nmea_quality("4"), do: {:ok, "RTK fix"}
+  defp parse_nmea_quality("5"), do: {:ok, "RTK float"}
+  defp parse_nmea_quality(_), do: {:error, "Invalid quality indicator"}
+
+  @spec parse_nmea_satellites(String.t()) :: {:ok, integer()} | {:error, String.t()}
+  defp parse_nmea_satellites(satellites) do
+    case Integer.parse(satellites) do
+      {num, _} -> {:ok, num}
+      :error -> {:error, "Invalid satellite count"}
+    end
+  end
+
+  @spec parse_nmea_hdop(String.t()) :: {:ok, float()} | {:error, String.t()}
+  defp parse_nmea_hdop(hdop) do
+    case Float.parse(hdop) do
+      {num, _} -> {:ok, num}
+      :error -> {:error, "Invalid HDOP value"}
+    end
+  end
+
+  @spec parse_nmea_altitude(String.t(), String.t()) :: {:ok, float()} | {:error, String.t()}
+  defp parse_nmea_altitude(altitude, unit) do
+    case Float.parse(altitude) do
+      {num, _} ->
+        num =
+          case unit do
+            "M" -> num
+            # Convert feet to meters
+            "F" -> num * 0.3048
+            _ -> {:error, "Invalid altitude unit"}
+          end
+
+        {:ok, num}
+
+      :error ->
+        {:error, "Invalid altitude value"}
+    end
+  end
+
+  @spec parse_nmea_status(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  defp parse_nmea_status("A"), do: {:ok, "Valid"}
+  defp parse_nmea_status("V"), do: {:ok, "Invalid"}
+  defp parse_nmea_status(_), do: {:error, "Invalid status"}
+
+  @spec parse_nmea_speed(String.t()) :: {:ok, float()} | {:error, String.t()}
+  defp parse_nmea_speed(speed) do
+    case Float.parse(speed) do
+      # Convert knots to km/h
+      {num, _} -> {:ok, num * 1.852}
+      :error -> {:error, "Invalid speed value"}
+    end
+  end
+
+  @spec parse_nmea_course(String.t()) :: {:ok, float()} | {:error, String.t()}
+  defp parse_nmea_course(course) do
+    case Float.parse(course) do
+      {num, _} -> {:ok, num}
+      :error -> {:error, "Invalid course value"}
+    end
+  end
+
+  @spec parse_nmea_date(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  defp parse_nmea_date(date) when is_binary(date) and byte_size(date) == 6 do
+    {:ok, date}
+  end
+
+  defp parse_nmea_date(_), do: {:error, "Invalid NMEA date format"}
 end
