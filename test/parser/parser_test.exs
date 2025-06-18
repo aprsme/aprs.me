@@ -297,16 +297,34 @@ defmodule Parser.ParserTest do
 
     test "handles various timestamp errors" do
       # Invalid hour (>23)
-      result = Parser.parse_position_with_timestamp(false, "252345z4903.50N/07201.75W>", :timestamped_position)
+      result =
+        Parser.parse_position_with_timestamp(
+          false,
+          "252345z4903.50N/07201.75W>",
+          :timestamped_position
+        )
+
       assert result.data_type == :position
       assert result.time =~ "252345"
 
       # Invalid minute (>59)
-      result = Parser.parse_position_with_timestamp(false, "096045z4903.50N/07201.75W>", :timestamped_position)
+      result =
+        Parser.parse_position_with_timestamp(
+          false,
+          "096045z4903.50N/07201.75W>",
+          :timestamped_position
+        )
+
       assert result.data_type == :position
 
       # Invalid second (>59)
-      result = Parser.parse_position_with_timestamp(false, "092361z4903.50N/07201.75W>", :timestamped_position)
+      result =
+        Parser.parse_position_with_timestamp(
+          false,
+          "092361z4903.50N/07201.75W>",
+          :timestamped_position
+        )
+
       assert result.data_type == :position
 
       # Wrong format/length
@@ -316,7 +334,13 @@ defmodule Parser.ParserTest do
 
     test "handles MDHM timestamp format errors" do
       # Invalid MDHM format
-      result = Parser.parse_position_with_timestamp(false, "9999999/4903.50N/07201.75W>", :timestamped_position)
+      result =
+        Parser.parse_position_with_timestamp(
+          false,
+          "9999999/4903.50N/07201.75W>",
+          :timestamped_position
+        )
+
       assert result.data_type == :position
     end
   end
@@ -475,10 +499,13 @@ defmodule Parser.ParserTest do
           %{matcher: "':4", result: "SCS GmbH & Co. P4dragon DR-7400 modems"},
           %{matcher: "':8", result: "SCS GmbH & Co. P4dragon DR-7800 modems"},
           %{matcher: "'" <> <<0, 0>>, result: "McTrackr"},
-          %{matcher: <<0>> <> "\"" <> <<0>>, result: "Hamhud ?"},
-          %{matcher: <<0>> <> "/" <> <<0>>, result: "Argent ?"},
+          %{matcher: <<0>> <> "\"" <> <<0>>, result: "Hamhud"},
+          %{matcher: <<0>> <> "/" <> <<0>>, result: "Argent"},
           %{matcher: <<0>> <> "^" <> <<0>>, result: "HinzTec anyfrog"},
-          %{matcher: <<0>> <> "*" <> <<0>>, result: "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"},
+          %{
+            matcher: <<0>> <> "*" <> <<0>>,
+            result: "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"
+          },
           %{matcher: <<0>> <> "~" <> <<0>>, result: "Other"},
           %{matcher: <<0, 0, 0>>, result: "Unknown"}
         ],

@@ -644,31 +644,9 @@ defmodule Parser do
   end
 
   @spec parse_manufacturer(binary()) :: String.t()
-  def parse_manufacturer(<<" ", _::binary-size(2)>>), do: "Original MIC-E"
-  def parse_manufacturer(<<">", _, "^">>), do: "Kenwood TH-D74"
-  def parse_manufacturer(<<">", _::binary-size(2)>>), do: "Kenwood TH-D74A"
-  def parse_manufacturer(<<"]", _, "=">>), do: "Kenwood DM-710"
-  def parse_manufacturer(<<"]", _::binary-size(2)>>), do: "Kenwood DM-700"
-  def parse_manufacturer(<<"`", "_", " ">>), do: "Yaesu VX-8"
-  def parse_manufacturer(<<"`", "_", "\"">>), do: "Yaesu FTM-350"
-  def parse_manufacturer(<<"`", "_", "#">>), do: "Yaesu VX-8G"
-  def parse_manufacturer(<<"`", "_", "$">>), do: "Yaesu FT1D"
-  def parse_manufacturer(<<"`", "_", "%">>), do: "Yaesu FTM-400DR"
-  def parse_manufacturer(<<"`", "_", ")">>), do: "Yaesu FTM-100D"
-  def parse_manufacturer(<<"`", "_", "(">>), do: "Yaesu FT2D"
-  def parse_manufacturer(<<"`", " ", "X">>), do: "AP510"
-  def parse_manufacturer(<<"`", _::binary-size(2)>>), do: "Mic-Emsg"
-  def parse_manufacturer(<<"'", "|", "3">>), do: "Byonics TinyTrack3"
-  def parse_manufacturer(<<"'", "|", "4">>), do: "Byonics TinyTrack4"
-  def parse_manufacturer(<<"'", ":", "4">>), do: "SCS GmbH & Co. P4dragon DR-7400 modems"
-  def parse_manufacturer(<<"'", ":", "8">>), do: "SCS GmbH & Co. P4dragon DR-7800 modems"
-  def parse_manufacturer(<<"'", _::binary-size(2)>>), do: "McTrackr"
-  def parse_manufacturer(<<_, "\"", _>>), do: "Hamhud ?"
-  def parse_manufacturer(<<_, "/", _>>), do: "Argent ?"
-  def parse_manufacturer(<<_, "^", _>>), do: "HinzTec anyfrog"
-  def parse_manufacturer(<<_, "*", _>>), do: "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"
-  def parse_manufacturer(<<_, "~", _>>), do: "Other"
-  def parse_manufacturer(_), do: "Unknown"
+  def parse_manufacturer(symbols) do
+    Aprs.DeviceIdentification.identify_device(symbols)
+  end
 
   @spec find_matches(Regex.t(), String.t()) :: [String.t()]
   defp find_matches(regex, text) do

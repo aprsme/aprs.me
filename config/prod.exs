@@ -13,13 +13,6 @@ config :aprs, AprsWeb.Endpoint, cache_static_manifest: "priv/static/cache_manife
 
 # Runtime production configuration, including reading
 
-# Do not print debug messages in production
-# of environment variables, is done on config/runtime.exs.
-config :logger, level: :info
-
-# Configures Swoosh API Client
-config :swoosh, :api_client, Aprs.Finch
-
 config :esbuild,
   version: "0.17.11",
   default: [
@@ -27,3 +20,10 @@ config :esbuild,
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
+
+# Do not print debug messages in production
+# of environment variables, is done on config/runtime.exs.
+config :logger, level: :info
+
+# Configures Swoosh API Client
+config :swoosh, :api_client, Aprs.Finch
