@@ -169,7 +169,7 @@ defmodule Aprs.PacketReplay do
 
     # Send notification to client that replay is starting
     Endpoint.broadcast(state.replay_topic, "replay_started", %{
-      total_packets: Packets.get_historical_packet_count(replay_opts),
+      total_packets: Packets.get_historical_packet_count(Map.new(replay_opts)),
       start_time: state.start_time,
       end_time: state.end_time,
       replay_speed: state.replay_speed,
@@ -177,7 +177,12 @@ defmodule Aprs.PacketReplay do
     })
 
     # Get packets and start streaming
-    stream = Packets.stream_packets_for_replay(Keyword.put(replay_opts, :playback_speed, state.replay_speed))
+    replay_opts_map =
+      replay_opts
+      |> Keyword.put(:playback_speed, state.replay_speed)
+      |> Map.new()
+
+    stream = Packets.stream_packets_for_replay(replay_opts_map)
 
     # Schedule the first packet
     case stream |> Stream.take(1) |> Enum.to_list() do

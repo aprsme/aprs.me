@@ -357,13 +357,6 @@ defmodule Aprs.Is do
                   Logger.error("Validation error while storing packet from #{inspect(parsed_message.sender)}")
 
                   Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
-
-                {:error, other_error} ->
-                  Logger.error(
-                    "Unknown error storing packet from #{inspect(parsed_message.sender)}: #{inspect(other_error)}"
-                  )
-
-                  Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
               end
             else
               Logger.debug("Skipping packet without position data: #{inspect(parsed_message.sender)}")
@@ -380,16 +373,6 @@ defmodule Aprs.Is do
         # Broadcast to live clients
         AprsWeb.Endpoint.broadcast("aprs_messages", "packet", parsed_message)
 
-      # Logger.debug("BROADCAST: " <> inspect(parsed_message))
-
-      # Phoenix.PubSub.broadcast(
-      #   Aprs.PubSub,
-      #   "aprs_messages",
-      #   {:packet, parsed_message}
-      # )
-
-      # IO.inspect(parsed_message)
-      # Logger.debug("SERVER:" <> message)
       {:error, :invalid_packet} ->
         Logger.debug("PARSE ERROR: invalid packet")
 
@@ -401,10 +384,6 @@ defmodule Aprs.Is do
       {:error, error} ->
         Logger.debug("PARSE ERROR: " <> error)
         Aprs.Packets.store_bad_packet(message, %{message: error, type: "ParseError"})
-
-      x ->
-        Logger.debug("PARSE ERROR: " <> x)
-        Aprs.Packets.store_bad_packet(message, %{message: inspect(x), type: "ParseError"})
     end
   end
 
@@ -436,10 +415,6 @@ defmodule Aprs.Is do
               is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes)
 
           valid
-
-        %{lat: lat, lon: lon} when not is_nil(lat) and not is_nil(lon) ->
-          # Handle case where coordinates are at top level
-          are_valid_coords?(lat, lon)
 
         _other ->
           Logger.debug("Unrecognized packet format: #{inspect(Map.keys(packet))}")

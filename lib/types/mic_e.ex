@@ -4,6 +4,29 @@ defmodule Parser.Types.MicE do
   """
   @behaviour Access
 
+  @type direction :: :north | :south | :east | :west | :unknown
+
+  @type t :: %__MODULE__{
+          lat_degrees: number(),
+          lat_minutes: number(),
+          lat_fractional: number(),
+          lat_direction: direction(),
+          lon_direction: direction(),
+          longitude_offset: number(),
+          message_code: String.t() | nil,
+          message_description: String.t() | nil,
+          dti: String.t() | nil,
+          heading: number(),
+          lon_degrees: number(),
+          lon_minutes: number(),
+          lon_fractional: number(),
+          speed: number(),
+          manufacturer: String.t(),
+          message: String.t(),
+          symbol_table_id: String.t(),
+          symbol_code: String.t()
+        }
+
   defstruct lat_degrees: 0,
             lat_minutes: 0,
             lat_fractional: 0,
@@ -31,6 +54,7 @@ defmodule Parser.Types.MicE do
   Fetch a key from the MicE struct.
   Special handling for :latitude and :longitude which are calculated from components.
   """
+  @spec fetch(t(), atom() | String.t()) :: {:ok, any()} | :error
   def fetch(mic_e, :latitude) do
     # Calculate decimal latitude from components
     if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) do
@@ -71,16 +95,19 @@ defmodule Parser.Types.MicE do
   @doc """
   Gets a value and updates it with the given function.
   """
+  @spec get_and_update(t(), atom() | String.t(), (any() -> {any(), any()} | :pop)) :: {any(), t()}
   def get_and_update(mic_e, key, fun) do
     value = get_value(mic_e, key)
     apply_update_function(mic_e, key, value, fun)
   end
 
+  @spec get_value(t(), atom() | String.t()) :: any()
   defp get_value(mic_e, :latitude), do: calculate_latitude(mic_e)
   defp get_value(mic_e, :longitude), do: calculate_longitude(mic_e)
   defp get_value(mic_e, key) when is_binary(key), do: get_string_key_value(mic_e, key)
   defp get_value(mic_e, key), do: Map.get(mic_e, key)
 
+  @spec calculate_latitude(t()) :: float() | nil
   defp calculate_latitude(mic_e) do
     if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) do
       lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
@@ -88,6 +115,7 @@ defmodule Parser.Types.MicE do
     end
   end
 
+  @spec calculate_longitude(t()) :: float() | nil
   defp calculate_longitude(mic_e) do
     if is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes) do
       lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
@@ -95,6 +123,7 @@ defmodule Parser.Types.MicE do
     end
   end
 
+  @spec get_string_key_value(t(), String.t()) :: any()
   defp get_string_key_value(mic_e, key) do
     atom_key = String.to_existing_atom(key)
     Map.get(mic_e, atom_key)
@@ -103,6 +132,7 @@ defmodule Parser.Types.MicE do
       nil
   end
 
+  @spec apply_update_function(t(), atom() | String.t(), any(), (any() -> {any(), any()} | :pop)) :: {any(), t()}
   defp apply_update_function(mic_e, key, value, fun) do
     case fun.(value) do
       {get, update} -> {get, Map.put(mic_e, key, update)}
@@ -113,6 +143,7 @@ defmodule Parser.Types.MicE do
   @doc """
   Removes the given key from the struct with the default implementation.
   """
+  @spec pop(t(), atom() | String.t()) :: {any(), t()}
   def pop(mic_e, key) when is_atom(key) do
     {Map.get(mic_e, key), Map.put(mic_e, key, nil)}
   end
