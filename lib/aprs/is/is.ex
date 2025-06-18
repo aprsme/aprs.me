@@ -273,6 +273,41 @@ defmodule Aprs.Is do
     {:noreply, state}
   end
 
+  def handle_info({:tcp, _socket, data}, state) do
+    # Cancel the previous timer
+    Process.cancel_timer(state.timer)
+
+    # Update packet statistics
+    current_time = System.system_time(:second)
+    packet_stats = update_packet_stats(state.packet_stats, current_time)
+
+    # Append new packet data to buffer
+    buffer = state.buffer <> data
+
+    # Process complete lines (ending with \r\n or \n)
+    {complete_lines, remaining_buffer} = extract_complete_lines(buffer)
+
+    # Dispatch each complete line
+    Enum.each(complete_lines, fn line ->
+      trimmed = String.trim(line)
+
+      if trimmed != "" do
+        dispatch(trimmed)
+      end
+    end)
+
+    # Start a new timer
+    timer = Process.send_after(self(), :aprs_no_message_timeout, @aprs_timeout)
+
+    state =
+      state
+      |> Map.put(:timer, timer)
+      |> Map.put(:packet_stats, packet_stats)
+      |> Map.put(:buffer, remaining_buffer)
+
+    {:noreply, state}
+  end
+
   def handle_info({:tcp_closed, _socket}, state) do
     Logger.warning("Socket has been closed by remote server - will reconnect")
     {:stop, :normal, state}
