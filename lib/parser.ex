@@ -68,14 +68,14 @@ defmodule Parser do
   # Safely split packet into components
   @spec split_packet(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
   def split_packet(message) do
-    case String.split(message, [">", ":"], parts: 3) do
-      [sender, path, data] when byte_size(sender) > 0 and byte_size(path) > 0 ->
-        {:ok, [sender, path, data]}
-
-      _ ->
-        {:error, "Invalid packet format"}
-    end
+    split_packet_parts(String.split(message, [">", ":"], parts: 3))
   end
+
+  defp split_packet_parts([sender, path, data]) when byte_size(sender) > 0 and byte_size(path) > 0 do
+    {:ok, [sender, path, data]}
+  end
+
+  defp split_packet_parts(_), do: {:error, "Invalid packet format"}
 
   # Safely split path into destination and digipeater path
   @spec split_path(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
@@ -94,12 +94,8 @@ defmodule Parser do
 
   # Safe version of parse_datatype that returns {:ok, type} or {:error, reason}
   @spec parse_datatype_safe(String.t()) :: {:ok, atom()} | {:error, String.t()}
-  def parse_datatype_safe(data) do
-    case String.first(data) do
-      nil -> {:error, "Empty data field"}
-      first_char -> {:ok, parse_datatype(first_char)}
-    end
-  end
+  def parse_datatype_safe(""), do: {:error, "Empty data"}
+  def parse_datatype_safe(data), do: {:ok, parse_datatype(data)}
 
   @spec parse_callsign(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
   def parse_callsign(callsign) do
@@ -128,31 +124,30 @@ defmodule Parser do
   # weird case right now. It seems like its for a specific type of old
   # TNC hardware that probably doesn't even exist anymore.
   @spec parse_datatype(String.t()) :: atom()
-  def parse_datatype(datatype) when datatype == ":", do: :message
-  def parse_datatype(datatype) when datatype == ">", do: :status
-  def parse_datatype(datatype) when datatype == "!", do: :position
-  def parse_datatype(datatype) when datatype == "/", do: :timestamped_position
-  def parse_datatype(datatype) when datatype == "=", do: :position_with_message
-  def parse_datatype(datatype) when datatype == "@", do: :timestamped_position_with_message
-  def parse_datatype(datatype) when datatype == ";", do: :object
-  def parse_datatype(datatype) when datatype == "`", do: :mic_e
-  def parse_datatype(datatype) when datatype == "'", do: :mic_e_old
-  def parse_datatype(datatype) when datatype == "_", do: :weather
-  def parse_datatype(datatype) when datatype == "T", do: :telemetry
-  def parse_datatype(datatype) when datatype == "$", do: :raw_gps_ultimeter
-  def parse_datatype(datatype) when datatype == "<", do: :station_capabilities
-  def parse_datatype(datatype) when datatype == "?", do: :query
-  def parse_datatype(datatype) when datatype == "{", do: :user_defined
-  def parse_datatype(datatype) when datatype == "}", do: :third_party_traffic
-  def parse_datatype(datatype) when datatype == "%", do: :item
-  def parse_datatype(datatype) when datatype == ")", do: :item
-  def parse_datatype(datatype) when datatype == "*", do: :peet_logging
-  def parse_datatype(datatype) when datatype == ",", do: :invalid_test_data
-  def parse_datatype(datatype) when datatype == "#", do: :phg_data
-  def parse_datatype(datatype) when datatype == "(", do: :unused
-  def parse_datatype(datatype) when datatype == "&", do: :reserved
-
-  def parse_datatype(_datatype), do: :unknown_datatype
+  def parse_datatype(<<":", _::binary>>), do: :message
+  def parse_datatype(<<">", _::binary>>), do: :status
+  def parse_datatype(<<"!", _::binary>>), do: :position
+  def parse_datatype(<<"/", _::binary>>), do: :timestamped_position
+  def parse_datatype(<<"=", _::binary>>), do: :position_with_message
+  def parse_datatype(<<"@", _::binary>>), do: :timestamped_position_with_message
+  def parse_datatype(<<";", _::binary>>), do: :object
+  def parse_datatype(<<"`", _::binary>>), do: :mic_e
+  def parse_datatype(<<"'", _::binary>>), do: :mic_e_old
+  def parse_datatype(<<"_", _::binary>>), do: :weather
+  def parse_datatype(<<"T", _::binary>>), do: :telemetry
+  def parse_datatype(<<"$", _::binary>>), do: :raw_gps_ultimeter
+  def parse_datatype(<<"<", _::binary>>), do: :station_capabilities
+  def parse_datatype(<<"?", _::binary>>), do: :query
+  def parse_datatype(<<"{", _::binary>>), do: :user_defined
+  def parse_datatype(<<"}", _::binary>>), do: :third_party_traffic
+  def parse_datatype(<<"%", _::binary>>), do: :item
+  def parse_datatype(<<")", _::binary>>), do: :item
+  def parse_datatype(<<"*", _::binary>>), do: :peet_logging
+  def parse_datatype(<<",", _::binary>>), do: :invalid_test_data
+  def parse_datatype(<<"#", _::binary>>), do: :phg_data
+  def parse_datatype(<<"(", _::binary>>), do: :unused
+  def parse_datatype(<<"&", _::binary>>), do: :reserved
+  def parse_datatype(_), do: :unknown_datatype
 
   @spec parse_data(atom(), String.t(), String.t()) :: map() | nil
   def parse_data(:mic_e, destination, data), do: parse_mic_e(destination, data)
@@ -501,12 +496,10 @@ defmodule Parser do
   def parse_mic_e_digit(<<c>>) when c in ?0..?9, do: [c - ?0, 0, nil]
   def parse_mic_e_digit(<<c>>) when c in ?A..?J, do: [c - ?A, 1, :custom]
   def parse_mic_e_digit(<<c>>) when c in ?P..?Y, do: [c - ?P, 1, :standard]
-
-  def parse_mic_e_digit("K"), do: [0, 1, :custom]
-  def parse_mic_e_digit("L"), do: [0, 0, nil]
-  def parse_mic_e_digit("Z"), do: [0, 1, :standard]
-
-  def parse_mic_e_digit(_c), do: [:unknown, :unknown, :unknown]
+  def parse_mic_e_digit(<<"K">>), do: [0, 1, :custom]
+  def parse_mic_e_digit(<<"L">>), do: [0, 0, nil]
+  def parse_mic_e_digit(<<"Z">>), do: [0, 1, :standard]
+  def parse_mic_e_digit(_), do: [:unknown, :unknown, :unknown]
 
   @spec parse_mic_e_destination(String.t()) :: map()
   def parse_mic_e_destination(destination_field) do
@@ -634,7 +627,7 @@ defmodule Parser do
         result["first"]
       end
 
-    manufacturer = parse_manufacturer(symbol1, result["secondtolast"], result["last"])
+    manufacturer = parse_manufacturer(symbol1 <> result["secondtolast"] <> result["last"])
 
     %{
       dti: dti,
@@ -650,32 +643,32 @@ defmodule Parser do
     }
   end
 
-  @spec parse_manufacturer(String.t(), String.t(), String.t()) :: String.t()
-  def parse_manufacturer(" ", _s2, _s3), do: "Original MIC-E"
-  def parse_manufacturer(">", _s2, "^"), do: "Kenwood TH-D74"
-  def parse_manufacturer(">", _s2, _s3), do: "Kenwood TH-D74A"
-  def parse_manufacturer("]", _s2, "="), do: "Kenwood DM-710"
-  def parse_manufacturer("]", _s2, _s3), do: "Kenwood DM-700"
-  def parse_manufacturer("`", "_", " "), do: "Yaesu VX-8"
-  def parse_manufacturer("`", "_", "\""), do: "Yaesu FTM-350"
-  def parse_manufacturer("`", "_", "#"), do: "Yaesu VX-8G"
-  def parse_manufacturer("`", "_", "$"), do: "Yaesu FT1D"
-  def parse_manufacturer("`", "_", "%"), do: "Yaesu FTM-400DR"
-  def parse_manufacturer("`", "_", ")"), do: "Yaesu FTM-100D"
-  def parse_manufacturer("`", "_", "("), do: "Yaesu FT2D"
-  def parse_manufacturer("`", " ", "X"), do: "AP510"
-  def parse_manufacturer("`", _s2, _s3), do: "Mic-Emsg"
-  def parse_manufacturer("'", "|", "3"), do: "Byonics TinyTrack3"
-  def parse_manufacturer("'", "|", "4"), do: "Byonics TinyTrack4"
-  def parse_manufacturer("'", ":", "4"), do: "SCS GmbH & Co. P4dragon DR-7400 modems"
-  def parse_manufacturer("'", ":", "8"), do: "SCS GmbH & Co. P4dragon DR-7800 modems"
-  def parse_manufacturer("'", _s2, _s3), do: "McTrackr"
-  def parse_manufacturer(_s1, "\"", _s3), do: "Hamhud ?"
-  def parse_manufacturer(_s1, "/", _s3), do: "Argent ?"
-  def parse_manufacturer(_s1, "^", _s3), do: "HinzTec anyfrog"
-  def parse_manufacturer(_s1, "*", _s3), do: "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"
-  def parse_manufacturer(_s1, "~", _s3), do: "Other"
-  def parse_manufacturer(_symbol1, _symbol2, _symbol3), do: "Unknown"
+  @spec parse_manufacturer(binary()) :: String.t()
+  def parse_manufacturer(<<" ", _::binary-size(2)>>), do: "Original MIC-E"
+  def parse_manufacturer(<<">", _, "^">>), do: "Kenwood TH-D74"
+  def parse_manufacturer(<<">", _::binary-size(2)>>), do: "Kenwood TH-D74A"
+  def parse_manufacturer(<<"]", _, "=">>), do: "Kenwood DM-710"
+  def parse_manufacturer(<<"]", _::binary-size(2)>>), do: "Kenwood DM-700"
+  def parse_manufacturer(<<"`", "_", " ">>), do: "Yaesu VX-8"
+  def parse_manufacturer(<<"`", "_", "\"">>), do: "Yaesu FTM-350"
+  def parse_manufacturer(<<"`", "_", "#">>), do: "Yaesu VX-8G"
+  def parse_manufacturer(<<"`", "_", "$">>), do: "Yaesu FT1D"
+  def parse_manufacturer(<<"`", "_", "%">>), do: "Yaesu FTM-400DR"
+  def parse_manufacturer(<<"`", "_", ")">>), do: "Yaesu FTM-100D"
+  def parse_manufacturer(<<"`", "_", "(">>), do: "Yaesu FT2D"
+  def parse_manufacturer(<<"`", " ", "X">>), do: "AP510"
+  def parse_manufacturer(<<"`", _::binary-size(2)>>), do: "Mic-Emsg"
+  def parse_manufacturer(<<"'", "|", "3">>), do: "Byonics TinyTrack3"
+  def parse_manufacturer(<<"'", "|", "4">>), do: "Byonics TinyTrack4"
+  def parse_manufacturer(<<"'", ":", "4">>), do: "SCS GmbH & Co. P4dragon DR-7400 modems"
+  def parse_manufacturer(<<"'", ":", "8">>), do: "SCS GmbH & Co. P4dragon DR-7800 modems"
+  def parse_manufacturer(<<"'", _::binary-size(2)>>), do: "McTrackr"
+  def parse_manufacturer(<<_, "\"", _>>), do: "Hamhud ?"
+  def parse_manufacturer(<<_, "/", _>>), do: "Argent ?"
+  def parse_manufacturer(<<_, "^", _>>), do: "HinzTec anyfrog"
+  def parse_manufacturer(<<_, "*", _>>), do: "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"
+  def parse_manufacturer(<<_, "~", _>>), do: "Other"
+  def parse_manufacturer(_), do: "Unknown"
 
   @spec find_matches(Regex.t(), String.t()) :: [String.t()]
   defp find_matches(regex, text) do
@@ -1295,36 +1288,33 @@ defmodule Parser do
   end
 
   # PHG Data parsing (Power, Height, Gain, Directivity)
+  def parse_phg_data(<<"#PHG", p, h, g, d, rest::binary>>) do
+    %{
+      power: parse_phg_power(p),
+      height: parse_phg_height(h),
+      gain: parse_phg_gain(g),
+      directivity: parse_phg_directivity(d),
+      comment: rest,
+      data_type: :phg_data
+    }
+  end
+
+  def parse_phg_data(<<"#DFS", s, h, g, d, rest::binary>>) do
+    %{
+      df_strength: parse_df_strength(s),
+      height: parse_phg_height(h),
+      gain: parse_phg_gain(g),
+      directivity: parse_phg_directivity(d),
+      comment: rest,
+      data_type: :df_report
+    }
+  end
+
   def parse_phg_data(<<"#", phg_data::binary>>) do
-    case phg_data do
-      <<"PHG", power::binary-size(1), height::binary-size(1), gain::binary-size(1), directivity::binary-size(1),
-        rest::binary>> ->
-        %{
-          power: parse_phg_power(power),
-          height: parse_phg_height(height),
-          gain: parse_phg_gain(gain),
-          directivity: parse_phg_directivity(directivity),
-          comment: rest,
-          data_type: :phg_data
-        }
-
-      <<"DFS", strength::binary-size(1), height::binary-size(1), gain::binary-size(1), directivity::binary-size(1),
-        rest::binary>> ->
-        %{
-          df_strength: parse_df_strength(strength),
-          height: parse_phg_height(height),
-          gain: parse_phg_gain(gain),
-          directivity: parse_phg_directivity(directivity),
-          comment: rest,
-          data_type: :df_report
-        }
-
-      _ ->
-        %{
-          phg_data: phg_data,
-          data_type: :phg_data
-        }
-    end
+    %{
+      phg_data: phg_data,
+      data_type: :phg_data
+    }
   end
 
   @spec parse_phg_data(String.t()) :: map()
@@ -1336,69 +1326,69 @@ defmodule Parser do
   end
 
   # PHG Power conversion (0-9)
-  defp parse_phg_power("0"), do: {0, "0 watts"}
-  defp parse_phg_power("1"), do: {1, "1 watt"}
-  defp parse_phg_power("2"), do: {4, "4 watts"}
-  defp parse_phg_power("3"), do: {9, "9 watts"}
-  defp parse_phg_power("4"), do: {16, "16 watts"}
-  defp parse_phg_power("5"), do: {25, "25 watts"}
-  defp parse_phg_power("6"), do: {36, "36 watts"}
-  defp parse_phg_power("7"), do: {49, "49 watts"}
-  defp parse_phg_power("8"), do: {64, "64 watts"}
-  defp parse_phg_power("9"), do: {81, "81 watts"}
-  defp parse_phg_power(p), do: {nil, "Unknown power: #{p}"}
+  defp parse_phg_power(?0), do: {0, "0 watts"}
+  defp parse_phg_power(?1), do: {1, "1 watt"}
+  defp parse_phg_power(?2), do: {4, "4 watts"}
+  defp parse_phg_power(?3), do: {9, "9 watts"}
+  defp parse_phg_power(?4), do: {16, "16 watts"}
+  defp parse_phg_power(?5), do: {25, "25 watts"}
+  defp parse_phg_power(?6), do: {36, "36 watts"}
+  defp parse_phg_power(?7), do: {49, "49 watts"}
+  defp parse_phg_power(?8), do: {64, "64 watts"}
+  defp parse_phg_power(?9), do: {81, "81 watts"}
+  defp parse_phg_power(p), do: {nil, "Unknown power: #{<<p>>}"}
 
   # PHG Height conversion (0-9)
-  defp parse_phg_height("0"), do: {10, "10 feet"}
-  defp parse_phg_height("1"), do: {20, "20 feet"}
-  defp parse_phg_height("2"), do: {40, "40 feet"}
-  defp parse_phg_height("3"), do: {80, "80 feet"}
-  defp parse_phg_height("4"), do: {160, "160 feet"}
-  defp parse_phg_height("5"), do: {320, "320 feet"}
-  defp parse_phg_height("6"), do: {640, "640 feet"}
-  defp parse_phg_height("7"), do: {1280, "1280 feet"}
-  defp parse_phg_height("8"), do: {2560, "2560 feet"}
-  defp parse_phg_height("9"), do: {5120, "5120 feet"}
-  defp parse_phg_height(h), do: {nil, "Unknown height: #{h}"}
+  defp parse_phg_height(?0), do: {10, "10 feet"}
+  defp parse_phg_height(?1), do: {20, "20 feet"}
+  defp parse_phg_height(?2), do: {40, "40 feet"}
+  defp parse_phg_height(?3), do: {80, "80 feet"}
+  defp parse_phg_height(?4), do: {160, "160 feet"}
+  defp parse_phg_height(?5), do: {320, "320 feet"}
+  defp parse_phg_height(?6), do: {640, "640 feet"}
+  defp parse_phg_height(?7), do: {1280, "1280 feet"}
+  defp parse_phg_height(?8), do: {2560, "2560 feet"}
+  defp parse_phg_height(?9), do: {5120, "5120 feet"}
+  defp parse_phg_height(h), do: {nil, "Unknown height: #{<<h>>}"}
 
   # PHG Gain conversion (0-9)
-  defp parse_phg_gain("0"), do: {0, "0 dB"}
-  defp parse_phg_gain("1"), do: {1, "1 dB"}
-  defp parse_phg_gain("2"), do: {2, "2 dB"}
-  defp parse_phg_gain("3"), do: {3, "3 dB"}
-  defp parse_phg_gain("4"), do: {4, "4 dB"}
-  defp parse_phg_gain("5"), do: {5, "5 dB"}
-  defp parse_phg_gain("6"), do: {6, "6 dB"}
-  defp parse_phg_gain("7"), do: {7, "7 dB"}
-  defp parse_phg_gain("8"), do: {8, "8 dB"}
-  defp parse_phg_gain("9"), do: {9, "9 dB"}
-  defp parse_phg_gain(g), do: {nil, "Unknown gain: #{g}"}
+  defp parse_phg_gain(?0), do: {0, "0 dB"}
+  defp parse_phg_gain(?1), do: {1, "1 dB"}
+  defp parse_phg_gain(?2), do: {2, "2 dB"}
+  defp parse_phg_gain(?3), do: {3, "3 dB"}
+  defp parse_phg_gain(?4), do: {4, "4 dB"}
+  defp parse_phg_gain(?5), do: {5, "5 dB"}
+  defp parse_phg_gain(?6), do: {6, "6 dB"}
+  defp parse_phg_gain(?7), do: {7, "7 dB"}
+  defp parse_phg_gain(?8), do: {8, "8 dB"}
+  defp parse_phg_gain(?9), do: {9, "9 dB"}
+  defp parse_phg_gain(g), do: {nil, "Unknown gain: #{<<g>>}"}
 
   # PHG Directivity conversion (0-9)
-  defp parse_phg_directivity("0"), do: {360, "Omni"}
-  defp parse_phg_directivity("1"), do: {45, "45° NE"}
-  defp parse_phg_directivity("2"), do: {90, "90° E"}
-  defp parse_phg_directivity("3"), do: {135, "135° SE"}
-  defp parse_phg_directivity("4"), do: {180, "180° S"}
-  defp parse_phg_directivity("5"), do: {225, "225° SW"}
-  defp parse_phg_directivity("6"), do: {270, "270° W"}
-  defp parse_phg_directivity("7"), do: {315, "315° NW"}
-  defp parse_phg_directivity("8"), do: {360, "360° N"}
-  defp parse_phg_directivity("9"), do: {nil, "Undefined"}
-  defp parse_phg_directivity(d), do: {nil, "Unknown directivity: #{d}"}
+  defp parse_phg_directivity(?0), do: {360, "Omni"}
+  defp parse_phg_directivity(?1), do: {45, "45° NE"}
+  defp parse_phg_directivity(?2), do: {90, "90° E"}
+  defp parse_phg_directivity(?3), do: {135, "135° SE"}
+  defp parse_phg_directivity(?4), do: {180, "180° S"}
+  defp parse_phg_directivity(?5), do: {225, "225° SW"}
+  defp parse_phg_directivity(?6), do: {270, "270° W"}
+  defp parse_phg_directivity(?7), do: {315, "315° NW"}
+  defp parse_phg_directivity(?8), do: {360, "360° N"}
+  defp parse_phg_directivity(?9), do: {nil, "Undefined"}
+  defp parse_phg_directivity(d), do: {nil, "Unknown directivity: #{<<d>>}"}
 
   # DF Strength conversion (0-9)
-  defp parse_df_strength("0"), do: {0, "0 dB"}
-  defp parse_df_strength("1"), do: {1, "3 dB above S0"}
-  defp parse_df_strength("2"), do: {2, "6 dB above S0"}
-  defp parse_df_strength("3"), do: {3, "9 dB above S0"}
-  defp parse_df_strength("4"), do: {4, "12 dB above S0"}
-  defp parse_df_strength("5"), do: {5, "15 dB above S0"}
-  defp parse_df_strength("6"), do: {6, "18 dB above S0"}
-  defp parse_df_strength("7"), do: {7, "21 dB above S0"}
-  defp parse_df_strength("8"), do: {8, "24 dB above S0"}
-  defp parse_df_strength("9"), do: {9, "27 dB above S0"}
-  defp parse_df_strength(s), do: {nil, "Unknown strength: #{s}"}
+  defp parse_df_strength(?0), do: {0, "0 dB"}
+  defp parse_df_strength(?1), do: {1, "3 dB above S0"}
+  defp parse_df_strength(?2), do: {2, "6 dB above S0"}
+  defp parse_df_strength(?3), do: {3, "9 dB above S0"}
+  defp parse_df_strength(?4), do: {4, "12 dB above S0"}
+  defp parse_df_strength(?5), do: {5, "15 dB above S0"}
+  defp parse_df_strength(?6), do: {6, "18 dB above S0"}
+  defp parse_df_strength(?7), do: {7, "21 dB above S0"}
+  defp parse_df_strength(?8), do: {8, "24 dB above S0"}
+  defp parse_df_strength(?9), do: {9, "27 dB above S0"}
+  defp parse_df_strength(s), do: {nil, "Unknown strength: #{<<s>>}"}
 
   # PEET Logging parsing
   def parse_peet_logging(<<"*", peet_data::binary>>) do

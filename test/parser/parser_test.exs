@@ -452,40 +452,38 @@ defmodule Parser.ParserTest do
     end
   end
 
-  describe "parse_manufacturer/3" do
+  describe "parse_manufacturer/1" do
     test "with any manufacturer" do
       Enum.each(
         [
-          %{matcher: [" ", nil, nil], result: "Original MIC-E"},
-          %{matcher: [">", nil, "="], result: "Kenwood TH-D72"},
-          %{matcher: [">", nil, "^"], result: "Kenwood TH-D74"},
-          %{matcher: [">", nil, nil], result: "Kenwood TH-D74A"},
-          %{matcher: ["]", nil, "="], result: "Kenwood DM-710"},
-          %{matcher: ["]", nil, nil], result: "Kenwood DM-700"},
-          %{matcher: ["`", "_", " "], result: "Yaesu VX-8"},
-          %{matcher: ["`", "_", "\""], result: "Yaesu FTM-350"},
-          %{matcher: ["`", "_", "#"], result: "Yaesu VX-8G"},
-          %{matcher: ["`", "_", "$"], result: "Yaesu FT1D"},
-          %{matcher: ["`", "_", "%"], result: "Yaesu FTM-400DR"},
-          %{matcher: ["`", "_", ")"], result: "Yaesu FTM-100D"},
-          %{matcher: ["`", "_", "("], result: "Yaesu FT2D"},
-          %{matcher: ["`", " ", "X"], result: "AP510"},
-          %{matcher: ["`", nil, nil], result: "Mic-Emsg"},
-          %{matcher: ["'", "|", "3"], result: "Byonics TinyTrack3"},
-          %{matcher: ["'", "|", "4"], result: "Byonics TinyTrack4"},
-          %{matcher: ["'", ":", "4"], result: "SCS GmbH & Co. P4dragon DR-7400 modems"},
-          %{matcher: ["'", ":", "8"], result: "SCS GmbH & Co. P4dragon DR-7800 modems"},
-          %{matcher: ["'", nil, nil], result: "McTrackr"},
-          %{matcher: [nil, "\"", nil], result: "Hamhud ?"},
-          %{matcher: [nil, "/", nil], result: "Argent ?"},
-          %{matcher: [nil, "^", nil], result: "HinzTec anyfrog"},
-          %{matcher: [nil, "*", nil], result: "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"},
-          %{matcher: [nil, "~", nil], result: "Other"},
-          %{matcher: [nil, nil, nil], result: :unknown_manufacturer}
+          %{matcher: " " <> <<0, 0>>, result: "Original MIC-E"},
+          %{matcher: ">" <> <<0>> <> "^", result: "Kenwood TH-D74"},
+          %{matcher: ">" <> <<0, 0>>, result: "Kenwood TH-D74A"},
+          %{matcher: "]" <> <<0>> <> "=", result: "Kenwood DM-710"},
+          %{matcher: "]" <> <<0, 0>>, result: "Kenwood DM-700"},
+          %{matcher: "`_" <> " ", result: "Yaesu VX-8"},
+          %{matcher: "`_" <> "\"", result: "Yaesu FTM-350"},
+          %{matcher: "`_" <> "#", result: "Yaesu VX-8G"},
+          %{matcher: "`_" <> "$", result: "Yaesu FT1D"},
+          %{matcher: "`_" <> "%", result: "Yaesu FTM-400DR"},
+          %{matcher: "`_" <> ")", result: "Yaesu FTM-100D"},
+          %{matcher: "`_" <> "(", result: "Yaesu FT2D"},
+          %{matcher: "` X", result: "AP510"},
+          %{matcher: "`" <> <<0, 0>>, result: "Mic-Emsg"},
+          %{matcher: "'|3", result: "Byonics TinyTrack3"},
+          %{matcher: "'|4", result: "Byonics TinyTrack4"},
+          %{matcher: "':4", result: "SCS GmbH & Co. P4dragon DR-7400 modems"},
+          %{matcher: "':8", result: "SCS GmbH & Co. P4dragon DR-7800 modems"},
+          %{matcher: "'" <> <<0, 0>>, result: "McTrackr"},
+          %{matcher: <<0>> <> "\"" <> <<0>>, result: "Hamhud ?"},
+          %{matcher: <<0>> <> "/" <> <<0>>, result: "Argent ?"},
+          %{matcher: <<0>> <> "^" <> <<0>>, result: "HinzTec anyfrog"},
+          %{matcher: <<0>> <> "*" <> <<0>>, result: "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"},
+          %{matcher: <<0>> <> "~" <> <<0>>, result: "Other"},
+          %{matcher: <<0, 0, 0>>, result: "Unknown"}
         ],
-        fn %{matcher: [s1, s2, s3], result: _result} ->
-          assert is_binary(Parser.parse_manufacturer(s1, s2, s3)) or
-                   is_atom(Parser.parse_manufacturer(s1, s2, s3))
+        fn %{matcher: symbols, result: result} ->
+          assert Parser.parse_manufacturer(symbols) == result
         end
       )
     end
