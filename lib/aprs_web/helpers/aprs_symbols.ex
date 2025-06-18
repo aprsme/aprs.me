@@ -22,6 +22,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
       iex> AprsWeb.Helpers.AprsSymbols.get_sprite_filename("\\")
       "aprs-symbols-24-1.png"
   """
+  @spec get_sprite_filename(String.t()) :: String.t()
   def get_sprite_filename(symbol_table_id) do
     case symbol_table_id do
       "/" -> "aprs-symbols-24-0.png"
@@ -34,6 +35,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
   @doc """
   Get the high-resolution sprite sheet filename for retina displays.
   """
+  @spec get_sprite_filename_2x(String.t()) :: String.t()
   def get_sprite_filename_2x(symbol_table_id) do
     case symbol_table_id do
       "/" -> "aprs-symbols-24-0@2x.png"
@@ -56,6 +58,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
       iex> AprsWeb.Helpers.AprsSymbols.get_symbol_position("!")
       {-216, 0}   # ASCII 33, position 1 -> column 1, row 0
   """
+  @spec get_symbol_position(String.t() | integer()) :: {integer(), integer()}
   def get_symbol_position(symbol_code) when is_binary(symbol_code) do
     # Get first character if string
     char_code = symbol_code |> String.first() |> String.to_charlist() |> List.first()
@@ -92,6 +95,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
       iex> AprsWeb.Helpers.AprsSymbols.symbol_css_style("/", ">")
       "background-image: url('/aprs-symbols/aprs-symbols-24-0.png'); background-position: -1440px 0px; width: 24px; height: 24px;"
   """
+  @spec symbol_css_style(String.t(), String.t() | integer()) :: String.t()
   def symbol_css_style(symbol_table_id, symbol_code) do
     sprite_file = get_sprite_filename(symbol_table_id)
     {x, y} = get_symbol_position(symbol_code)
@@ -105,6 +109,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
   @doc """
   Generate HTML for an APRS symbol with proper sprite positioning.
   """
+  @spec symbol_html(String.t(), String.t() | integer(), keyword()) :: {:safe, String.t()}
   def symbol_html(symbol_table_id, symbol_code, opts \\ []) do
     css_class = Keyword.get(opts, :class, "aprs-symbol")
     extra_style = Keyword.get(opts, :style, "")
@@ -119,6 +124,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
   Get a data URL for the symbol that can be used in JavaScript/Leaflet.
   This creates a small canvas with just the symbol extracted from the sprite.
   """
+  @spec get_symbol_data_attributes(String.t(), String.t() | integer()) :: map()
   def get_symbol_data_attributes(symbol_table_id, symbol_code) do
     sprite_file = get_sprite_filename(symbol_table_id)
     sprite_file_2x = get_sprite_filename_2x(symbol_table_id)
@@ -137,6 +143,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
   @doc """
   Get the default symbol for unknown or invalid symbols.
   """
+  @spec default_symbol() :: {String.t(), String.t()}
   def default_symbol do
     # Car icon as default
     {"/", ">"}
@@ -145,6 +152,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
   @doc """
   Validate if a symbol table ID and code combination is valid.
   """
+  @spec valid_symbol?(any(), any()) :: boolean()
   def valid_symbol?(symbol_table_id, symbol_code) do
     case {symbol_table_id, symbol_code} do
       {table, code} when table in ["/", "\\"] and is_binary(code) and byte_size(code) > 0 ->
@@ -161,6 +169,7 @@ defmodule AprsWeb.Helpers.AprsSymbols do
   This is a subset of common symbols - for a complete list, you'd want to
   reference the official APRS symbol specification.
   """
+  @spec symbol_description(String.t(), String.t()) :: String.t()
   def symbol_description(symbol_table_id, symbol_code) do
     case {symbol_table_id, symbol_code} do
       # Primary Table (/)

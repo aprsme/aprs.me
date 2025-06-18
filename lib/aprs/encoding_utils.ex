@@ -7,6 +7,8 @@ defmodule Aprs.EncodingUtils do
   to web clients.
   """
 
+  alias Parser.Types.MicE
+
   @doc """
   Sanitizes a binary to ensure it can be safely JSON encoded.
 
@@ -22,6 +24,7 @@ defmodule Aprs.EncodingUtils do
       iex> Aprs.EncodingUtils.sanitize_string(<<72, 101, 108, 108, 111, 211, 87, 111, 114, 108, 100>>)
       "HelloWorld"
   """
+  @spec sanitize_string(binary() | nil | any()) :: binary() | nil | any()
   def sanitize_string(binary) when is_binary(binary) do
     # Always scrub problematic bytes, even from valid UTF-8 strings
     # PostgreSQL rejects null bytes and other control characters even if they're valid UTF-8
@@ -34,6 +37,7 @@ defmodule Aprs.EncodingUtils do
   @doc """
   Sanitizes all string fields in an APRS packet to ensure safe JSON encoding.
   """
+  @spec sanitize_packet(struct() | map()) :: struct() | map()
   def sanitize_packet(%Aprs.Packet{} = packet) do
     %{
       packet
@@ -51,13 +55,14 @@ defmodule Aprs.EncodingUtils do
   @doc """
   Sanitizes string fields in the data_extended structure.
   """
+  @spec sanitize_data_extended(nil | map() | MicE.t() | any()) :: nil | map() | MicE.t() | any()
   def sanitize_data_extended(nil), do: nil
 
   def sanitize_data_extended(%{comment: comment} = data_extended) when is_map(data_extended) do
     %{data_extended | comment: sanitize_string(comment)}
   end
 
-  def sanitize_data_extended(%Parser.Types.MicE{message: message} = mic_e) do
+  def sanitize_data_extended(%MicE{message: message} = mic_e) do
     %{mic_e | message: sanitize_string(message)}
   end
 
@@ -78,6 +83,7 @@ defmodule Aprs.EncodingUtils do
 
   # Private helper functions
 
+  @spec scrub_problematic_bytes(binary()) :: String.t()
   defp scrub_problematic_bytes(binary) do
     # Handle both invalid UTF-8 sequences and problematic control characters
     cleaned =
@@ -101,11 +107,13 @@ defmodule Aprs.EncodingUtils do
   end
 
   # Check if byte should be kept (ASCII printable + safe whitespace)
+  @spec valid_utf8_byte?(integer()) :: boolean()
   defp valid_utf8_byte?(byte) when byte >= 32 and byte <= 126, do: true
   defp valid_utf8_byte?(byte) when byte in [9, 10, 13], do: true
   defp valid_utf8_byte?(_), do: false
 
   # Ensure the final result is valid UTF-8
+  @spec ensure_valid_utf8(binary()) :: binary()
   defp ensure_valid_utf8(binary) do
     if String.valid?(binary) do
       binary
@@ -133,6 +141,7 @@ defmodule Aprs.EncodingUtils do
       iex> Aprs.EncodingUtils.to_hex(<<72, 101, 108, 108, 111>>)
       "48656C6C6F"
   """
+  @spec to_hex(binary()) :: String.t()
   def to_hex(binary) when is_binary(binary) do
     binary
     |> :binary.bin_to_list()
@@ -151,6 +160,7 @@ defmodule Aprs.EncodingUtils do
       iex> Aprs.EncodingUtils.encoding_info(<<72, 101, 211, 108, 111>>)
       %{valid_utf8: false, byte_count: 5, invalid_at: 2}
   """
+  @spec encoding_info(binary()) :: map()
   def encoding_info(binary) when is_binary(binary) do
     valid = String.valid?(binary)
     byte_count = byte_size(binary)
@@ -169,6 +179,7 @@ defmodule Aprs.EncodingUtils do
     end
   end
 
+  @spec find_invalid_byte_position(binary(), non_neg_integer()) :: non_neg_integer() | nil
   defp find_invalid_byte_position(<<>>, _pos), do: nil
 
   defp find_invalid_byte_position(binary, pos) do

@@ -4,6 +4,19 @@ defmodule Parser.Types.Position do
   """
   require Logger
 
+  @type direction :: :north | :south | :east | :west | :unknown
+
+  @type t :: %__MODULE__{
+          lat_degrees: non_neg_integer(),
+          lat_minutes: non_neg_integer(),
+          lat_fractional: non_neg_integer(),
+          lat_direction: direction(),
+          lon_direction: direction(),
+          lon_degrees: non_neg_integer(),
+          lon_minutes: non_neg_integer(),
+          lon_fractional: non_neg_integer()
+        }
+
   defstruct lat_degrees: 0,
             lat_minutes: 0,
             lat_fractional: 0,
@@ -13,6 +26,7 @@ defmodule Parser.Types.Position do
             lon_minutes: 0,
             lon_fractional: 0
 
+  @spec from_aprs(String.t(), String.t()) :: %{latitude: float(), longitude: float()}
   def from_aprs(aprs_latitude, aprs_longitude) do
     aprs_latitude = aprs_latitude |> String.replace(" ", "0") |> String.pad_leading(9, "0")
     aprs_longitude = aprs_longitude |> String.replace(" ", "0") |> String.pad_leading(9, "0")
@@ -49,10 +63,12 @@ defmodule Parser.Types.Position do
     end
   end
 
+  @spec from_decimal(number(), number()) :: %{latitude: number(), longitude: number()}
   def from_decimal(latitude, longitude) do
     %{latitude: latitude, longitude: longitude}
   end
 
+  @spec convert_garbage_to_zero(String.t()) :: String.t()
   defp convert_garbage_to_zero(value) do
     _ = String.to_float(value)
     value
@@ -90,6 +106,7 @@ defmodule Parser.Types.Position do
   #     |> Kernel.*(60)
   #     |> Float.round(2)
 
+  @spec convert_fractional(String.t()) :: float()
   defp convert_fractional(fractional),
     do: fractional |> String.trim() |> String.pad_leading(4, "0") |> String.to_float() |> Kernel.*(60)
 end

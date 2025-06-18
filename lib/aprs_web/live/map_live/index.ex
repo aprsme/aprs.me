@@ -8,6 +8,7 @@ defmodule AprsWeb.MapLive.Index do
   alias AprsWeb.Endpoint
   alias AprsWeb.Helpers.AprsSymbols
   alias Parser.Types.MicE
+  alias Phoenix.LiveView.Socket
 
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
@@ -30,6 +31,7 @@ defmodule AprsWeb.MapLive.Index do
     {:ok, socket}
   end
 
+  @spec assign_defaults(Socket.t(), DateTime.t()) :: Socket.t()
   defp assign_defaults(socket, one_hour_ago) do
     assign(socket,
       packets: [],
@@ -61,6 +63,7 @@ defmodule AprsWeb.MapLive.Index do
     )
   end
 
+  @spec maybe_start_geolocation(Socket.t()) :: Socket.t()
   defp maybe_start_geolocation(socket) do
     if Application.get_env(:aprs, :disable_aprs_connection, false) != true do
       ip =
@@ -81,6 +84,8 @@ defmodule AprsWeb.MapLive.Index do
         end)
       end
     end
+
+    socket
   end
 
   defp schedule_timers do
@@ -242,6 +247,7 @@ defmodule AprsWeb.MapLive.Index do
     {:noreply, socket}
   end
 
+  @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
   defp handle_bounds_update(bounds, socket) do
     # Update the map bounds from the client
     map_bounds = %{
@@ -270,6 +276,7 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
+  @spec process_bounds_update(map(), Socket.t()) :: Socket.t()
   defp process_bounds_update(map_bounds, socket) do
     # Filter visible packets to only include those within the new bounds and time threshold
     new_visible_packets =
@@ -709,6 +716,7 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   # Check if a packet is within the time threshold (not too old)
+  @spec packet_within_time_threshold?(map(), DateTime.t()) :: boolean()
   defp packet_within_time_threshold?(packet, threshold) do
     case packet do
       %{received_at: received_at} when not is_nil(received_at) ->
@@ -724,6 +732,7 @@ defmodule AprsWeb.MapLive.Index do
 
   # Fetch historical packets from the database
   # Helper function to start historical replay
+  @spec start_historical_replay(Socket.t()) :: Socket.t()
   defp start_historical_replay(socket) do
     # Get time range for historical data
     now = DateTime.utc_now()
@@ -764,6 +773,7 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   # Fetch historical packets from the database
+  @spec fetch_historical_packets(list(), DateTime.t(), DateTime.t()) :: [struct()]
   defp fetch_historical_packets(bounds, start_time, end_time) do
     # Force start_time to be at most 1 hour ago
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
@@ -790,6 +800,7 @@ defmodule AprsWeb.MapLive.Index do
     Enum.sort_by(packets, fn packet -> packet.received_at end)
   end
 
+  @spec has_position_data?(map() | struct()) :: boolean()
   defp has_position_data?(packet) do
     case packet.data_extended do
       %MicE{} = mic_e ->
@@ -806,6 +817,7 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
+  @spec within_bounds?(map() | struct(), map()) :: boolean()
   defp within_bounds?(packet, bounds) do
     {lat, lng} = get_coordinates(packet)
 
@@ -830,6 +842,7 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
+  @spec get_coordinates(map() | struct()) :: {number() | nil, number() | nil}
   defp get_coordinates(packet) do
     case packet.data_extended do
       %MicE{} = mic_e ->
@@ -855,6 +868,7 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
+  @spec build_packet_data(map() | struct()) :: map() | nil
   defp build_packet_data(packet) do
     data_extended = build_data_extended(packet.data_extended)
     {lat, lng} = get_coordinates(packet)
@@ -865,6 +879,7 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
+  @spec build_packet_map(map() | struct(), number(), number(), map() | nil) :: map()
   defp build_packet_map(packet, lat, lng, data_extended) do
     {final_table_id, final_symbol_code} = get_validated_symbol(packet, data_extended)
     callsign = generate_callsign(packet)
@@ -886,6 +901,7 @@ defmodule AprsWeb.MapLive.Index do
     }
   end
 
+  @spec get_validated_symbol(map() | struct(), map() | nil) :: {String.t(), String.t()}
   defp get_validated_symbol(packet, data_extended) do
     symbol_table_id = get_symbol_table_id(packet, data_extended)
     symbol_code = get_symbol_code(packet, data_extended)
@@ -897,14 +913,17 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
+  @spec get_symbol_table_id(map() | struct(), map() | nil) :: String.t()
   defp get_symbol_table_id(packet, data_extended) do
     get_in(data_extended, ["symbol_table_id"]) || packet.symbol_table_id || "/"
   end
 
+  @spec get_symbol_code(map() | struct(), map() | nil) :: String.t()
   defp get_symbol_code(packet, data_extended) do
     get_in(data_extended, ["symbol_code"]) || packet.symbol_code || ">"
   end
 
+  @spec generate_callsign(map() | struct()) :: String.t()
   defp generate_callsign(packet) do
     if packet.ssid && packet.ssid != "" do
       "#{packet.base_callsign}-#{packet.ssid}"
@@ -916,8 +935,10 @@ defmodule AprsWeb.MapLive.Index do
   # Get IP location from external service
 
   # Get location from IP using ip-api.com
+  @spec get_ip_location(String.t() | nil) :: {float(), float()} | nil
   defp get_ip_location(nil), do: nil
 
+  @spec get_ip_location(String.t()) :: {float(), float()} | nil
   defp get_ip_location(ip) do
     url = "#{@ip_api_url}#{ip}"
 
@@ -966,11 +987,13 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
+  @spec build_data_extended(nil | MicE.t() | map()) :: nil | map()
   defp build_data_extended(nil), do: nil
 
   defp build_data_extended(%MicE{} = mic_e), do: build_mice_data_extended(mic_e)
   defp build_data_extended(data_extended), do: build_map_data_extended(data_extended)
 
+  @spec build_mice_data_extended(MicE.t()) :: map()
   defp build_mice_data_extended(mic_e) do
     lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0 + mic_e.lat_fractional / 6000.0
     lat = if mic_e.lat_direction == :south, do: -lat, else: lat
@@ -990,6 +1013,7 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
+  @spec build_map_data_extended(map()) :: map()
   defp build_map_data_extended(data_extended) do
     %{
       "latitude" => data_extended[:latitude],
@@ -1002,9 +1026,11 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   # Helper function to convert string or float to float
+  @spec to_float(number() | String.t()) :: float()
   defp to_float(value) when is_float(value), do: value
   defp to_float(value) when is_integer(value), do: value * 1.0
 
+  @spec to_float(String.t()) :: float()
   defp to_float(value) when is_binary(value) do
     case Float.parse(value) do
       {float_val, _} -> float_val

@@ -164,7 +164,7 @@ defmodule Parser.ParserTest do
       assert result.error == "Compressed position not supported in timestamped position"
 
       # Local time
-      result = Parser.parse_data(:timestamped_position, "APRS", "@092345/4903.50N/07201.75W>")
+      result = Parser.parse_data(:timestamped_position, "APRS", "092345/4903.50N/07201.75W>")
       assert result.data_type == :position
       assert result.time == "092345/"
 
@@ -297,16 +297,16 @@ defmodule Parser.ParserTest do
 
     test "handles various timestamp errors" do
       # Invalid hour (>23)
-      result = Parser.parse_position_with_timestamp(false, "@252345z4903.50N/07201.75W>")
+      result = Parser.parse_position_with_timestamp(false, "252345z4903.50N/07201.75W>", :timestamped_position)
       assert result.data_type == :position
       assert result.time =~ "252345"
 
       # Invalid minute (>59)
-      result = Parser.parse_position_with_timestamp(false, "@096045z4903.50N/07201.75W>")
+      result = Parser.parse_position_with_timestamp(false, "096045z4903.50N/07201.75W>", :timestamped_position)
       assert result.data_type == :position
 
       # Invalid second (>59)
-      result = Parser.parse_position_with_timestamp(false, "@092361z4903.50N/07201.75W>")
+      result = Parser.parse_position_with_timestamp(false, "092361z4903.50N/07201.75W>", :timestamped_position)
       assert result.data_type == :position
 
       # Wrong format/length
@@ -316,7 +316,7 @@ defmodule Parser.ParserTest do
 
     test "handles MDHM timestamp format errors" do
       # Invalid MDHM format
-      result = Parser.parse_position_with_timestamp(false, "@9999999/4903.50N/07201.75W>")
+      result = Parser.parse_position_with_timestamp(false, "9999999/4903.50N/07201.75W>", :timestamped_position)
       assert result.data_type == :position
     end
   end

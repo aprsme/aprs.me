@@ -17,6 +17,7 @@ defmodule Aprs.Passcode do
       iex> Aprs.Passcode.generate("W5ISP")
       15748
   """
+  @spec generate(String.t()) :: non_neg_integer()
   def generate(callsign) when is_binary(callsign) do
     # Split on '-' and take first part, uppercase, and limit to 10 chars
     realcall =

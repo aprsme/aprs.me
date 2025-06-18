@@ -19,6 +19,24 @@ defmodule Aprs.PacketReplay do
   @default_replay_window_minutes 60
   @default_replay_speed 5.0
 
+  @type state :: %{
+          user_id: String.t(),
+          replay_topic: String.t(),
+          replay_speed: float(),
+          start_time: DateTime.t(),
+          end_time: DateTime.t(),
+          region: String.t() | nil,
+          bounds: map(),
+          callsign: String.t() | nil,
+          with_position: boolean(),
+          limit: pos_integer(),
+          paused: boolean(),
+          packets_sent: non_neg_integer(),
+          replay_started_at: DateTime.t(),
+          replay_timer: reference() | nil,
+          last_packet_time: DateTime.t() | nil
+        }
+
   # Client API
 
   @doc """
@@ -34,6 +52,7 @@ defmodule Aprs.PacketReplay do
     * `:limit` - Maximum number of packets to replay (default: 5000)
     * `:with_position` - Only include packets with position data (default: true)
   """
+  @spec start_replay(keyword()) :: {:ok, pid()} | {:error, any()}
   def start_replay(opts) do
     user_id = Keyword.fetch!(opts, :user_id)
 
@@ -53,6 +72,7 @@ defmodule Aprs.PacketReplay do
   @doc """
   Stops an active replay session for a user.
   """
+  @spec stop_replay(String.t()) :: :ok
   def stop_replay(user_id) do
     name = via_tuple(user_id)
 
@@ -66,6 +86,7 @@ defmodule Aprs.PacketReplay do
   @doc """
   Pauses an active replay session.
   """
+  @spec pause_replay(String.t()) :: :ok | :already_paused
   def pause_replay(user_id) do
     name = via_tuple(user_id)
     GenServer.call(name, :pause)
@@ -74,6 +95,7 @@ defmodule Aprs.PacketReplay do
   @doc """
   Resumes a paused replay session.
   """
+  @spec resume_replay(String.t()) :: :ok
   def resume_replay(user_id) do
     name = via_tuple(user_id)
     GenServer.call(name, :resume)
@@ -82,6 +104,7 @@ defmodule Aprs.PacketReplay do
   @doc """
   Changes the replay speed.
   """
+  @spec set_replay_speed(String.t(), number()) :: :ok
   def set_replay_speed(user_id, speed) when is_number(speed) and speed > 0 do
     name = via_tuple(user_id)
     GenServer.call(name, {:set_speed, speed})
@@ -90,6 +113,7 @@ defmodule Aprs.PacketReplay do
   @doc """
   Updates replay filters (region, bounds, callsign, etc.)
   """
+  @spec update_filters(String.t(), keyword()) :: :ok
   def update_filters(user_id, filters) when is_list(filters) do
     name = via_tuple(user_id)
     GenServer.call(name, {:update_filters, filters})
@@ -98,6 +122,7 @@ defmodule Aprs.PacketReplay do
   @doc """
   Gets information about the current replay session.
   """
+  @spec get_replay_info(String.t()) :: map()
   def get_replay_info(user_id) do
     name = via_tuple(user_id)
     GenServer.call(name, :get_info)
@@ -106,6 +131,7 @@ defmodule Aprs.PacketReplay do
   # Server implementation
 
   @impl true
+  @spec init(keyword()) :: {:ok, state()}
   def init(opts) do
     user_id = Keyword.fetch!(opts, :user_id)
 
@@ -152,6 +178,7 @@ defmodule Aprs.PacketReplay do
   end
 
   @impl true
+  @spec handle_info(any(), state()) :: {:noreply, state()} | {:stop, :normal, state()}
   def handle_info(:start_replay, state) do
     # Fetch historical packets based on filters
     # Always filter by bounds (visible map area) and limit to packets with position
@@ -245,6 +272,7 @@ defmodule Aprs.PacketReplay do
   end
 
   @impl true
+  @spec handle_call(any(), {pid(), any()}, state()) :: {:reply, any(), state()}
   def handle_call(:pause, _from, state) do
     if state.replay_timer do
       Process.cancel_timer(state.replay_timer)
@@ -345,6 +373,7 @@ defmodule Aprs.PacketReplay do
   end
 
   @impl true
+  @spec terminate(any(), state()) :: :ok
   def terminate(_reason, state) do
     # Clean up any timers
     if state.replay_timer do
@@ -362,10 +391,12 @@ defmodule Aprs.PacketReplay do
 
   # Helper functions
 
+  @spec via_tuple(String.t()) :: {:via, Registry, {atom(), String.t()}}
   defp via_tuple(user_id) do
     {:via, Registry, {Aprs.ReplayRegistry, "replay:#{user_id}"}}
   end
 
+  @spec sanitize_packet_for_transport(any()) :: map()
   defp sanitize_packet_for_transport(packet) do
     # Convert to map and ensure all fields are JSON-safe
     packet
@@ -374,6 +405,7 @@ defmodule Aprs.PacketReplay do
     |> sanitize_map_values()
   end
 
+  @spec sanitize_map_values(map()) :: map()
   defp sanitize_map_values(map) when is_map(map) do
     Enum.reduce(map, %{}, fn {k, v}, acc ->
       Map.put(acc, k, sanitize_value(v))

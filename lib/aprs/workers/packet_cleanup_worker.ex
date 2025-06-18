@@ -25,6 +25,7 @@ defmodule Aprs.Workers.PacketCleanupWorker do
   require Logger
 
   @impl Oban.Worker
+  @spec perform(Oban.Job.t()) :: :ok | {:error, String.t()}
   def perform(%Oban.Job{args: %{"cleanup_days" => days}}) when is_integer(days) do
     Logger.info("Starting scheduled APRS packet cleanup for packets older than #{days} days")
 
@@ -41,6 +42,7 @@ defmodule Aprs.Workers.PacketCleanupWorker do
     :ok
   end
 
+  @spec perform(Oban.Job.t()) :: :ok | {:error, String.t()}
   def perform(%Oban.Job{args: _args}) do
     Logger.info("Starting scheduled APRS packet cleanup")
 
@@ -78,6 +80,7 @@ defmodule Aprs.Workers.PacketCleanupWorker do
   ## Returns
   - Number of packets deleted
   """
+  @spec cleanup_packets_older_than(pos_integer()) :: non_neg_integer()
   def cleanup_packets_older_than(days) when is_integer(days) and days > 0 do
     Logger.info("Starting APRS packet cleanup for packets older than #{days} days")
 

@@ -61,6 +61,7 @@ defmodule Aprs.Packet do
   end
 
   @doc false
+  @spec changeset(%Aprs.Packet{}, map()) :: Ecto.Changeset.t()
   def changeset(packet, attrs) do
     # Convert atom data_type to string
     attrs = normalize_data_type(attrs)
@@ -121,6 +122,7 @@ defmodule Aprs.Packet do
     |> maybe_set_has_position()
   end
 
+  @spec maybe_create_geometry_from_lat_lon(Ecto.Changeset.t()) :: Ecto.Changeset.t()
   defp maybe_create_geometry_from_lat_lon(changeset) do
     lat = get_field(changeset, :lat) || get_change(changeset, :lat)
     lon = get_field(changeset, :lon) || get_change(changeset, :lon)
@@ -207,9 +209,10 @@ defmodule Aprs.Packet do
   defp normalize_data_type(attrs), do: attrs
 
   @doc """
-  Extracts additional data from the parsed packet's data_extended field
+  Extracts additional data from the raw packet and data_extended structure
   and merges it with the packet attributes for storage.
   """
+  @spec extract_additional_data(map(), String.t() | nil) :: map()
   def extract_additional_data(attrs, raw_packet \\ nil) do
     data_extended = attrs[:data_extended] || attrs["data_extended"] || %{}
 
@@ -446,6 +449,7 @@ defmodule Aprs.Packet do
   @doc """
   Create a geometry point from lat/lon coordinates.
   """
+  @spec create_point(number() | nil, number() | nil) :: Geo.Point.t() | nil
   def create_point(lat, lon) when is_number(lat) and is_number(lon) do
     if lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 do
       %Geo.Point{coordinates: {lon, lat}, srid: 4326}
@@ -457,18 +461,21 @@ defmodule Aprs.Packet do
   @doc """
   Extract lat/lon from a PostGIS geometry point.
   """
+  @spec extract_coordinates(Geo.Point.t() | any()) :: {number() | nil, number() | nil}
   def extract_coordinates(%Geo.Point{coordinates: {lon, lat}}), do: {lat, lon}
   def extract_coordinates(_), do: {nil, nil}
 
   @doc """
   Get latitude from a packet's location geometry.
   """
+  @spec lat(%Aprs.Packet{}) :: number() | nil
   def lat(%__MODULE__{location: %Geo.Point{coordinates: {_lon, lat}}}), do: lat
   def lat(_), do: nil
 
   @doc """
   Get longitude from a packet's location geometry.
   """
+  @spec lon(%Aprs.Packet{}) :: number() | nil
   def lon(%__MODULE__{location: %Geo.Point{coordinates: {lon, _lat}}}), do: lon
   def lon(_), do: nil
 

@@ -16,6 +16,7 @@ defmodule Aprs.Packets do
   ## Parameters
     * `packet_data` - Map containing packet data to be stored
   """
+  @spec store_packet(map()) :: {:ok, struct()} | {:error, :validation_error | :storage_exception}
   def store_packet(packet_data) do
     require Logger
 
@@ -114,6 +115,7 @@ defmodule Aprs.Packets do
     * `packet_data` - The original packet data that failed to parse
     * `error` - The error that occurred during parsing
   """
+  @spec store_bad_packet(map() | String.t(), any()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
   def store_bad_packet(packet_data, error) do
     error_type =
       case error do
@@ -216,6 +218,7 @@ defmodule Aprs.Packets do
   @doc """
   Gets historical packet count for a map area.
   """
+  @spec get_historical_packet_count(map()) :: non_neg_integer()
   def get_historical_packet_count(opts \\ %{}) do
     base_query = from(p in Packet, select: count(p.id), where: p.has_position == true)
 
@@ -262,9 +265,10 @@ defmodule Aprs.Packets do
   defp filter_by_time(query, _), do: query
 
   @doc """
-  Get packets only from the last hour for current display.
+  Gets recent packets for the map view.
   This is used for initial map loading to show only recent packets.
   """
+  @spec get_recent_packets(map()) :: [struct()]
   def get_recent_packets(opts \\ %{}) do
     # Always limit to the last hour
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
@@ -361,6 +365,7 @@ defmodule Aprs.Packets do
   @doc """
   Gets the total count of stored packets in the database.
   """
+  @spec get_total_packet_count() :: non_neg_integer()
   def get_total_packet_count do
     Repo.one(from p in Packet, select: count(p.id))
   end
@@ -382,17 +387,20 @@ defmodule Aprs.Packets do
   end
 
   @doc """
-  Clean packets older than a specific number of days.
+    Clean packets older than a specific number of days.
 
-  This function allows for more granular cleanup operations by specifying
-  the exact age threshold for packet deletion.
+    This function allows for more granular cleanup operations by specifying
+    the exact age threshold for packet deletion.
+  @doc \"""
+  Removes packets older than the specified number of days.
 
   ## Parameters
-  - `days` - Number of days to retain packets (packets older than this will be deleted)
+  - `days` - Number of days to keep (packets older than this will be deleted)
 
   ## Returns
   - Number of packets deleted
   """
+  @spec clean_packets_older_than(pos_integer()) :: non_neg_integer()
   def clean_packets_older_than(days) when is_integer(days) and days > 0 do
     cutoff_time = DateTime.add(DateTime.utc_now(), -days * 86_400, :second)
 
@@ -481,6 +489,7 @@ defmodule Aprs.Packets do
   end
 
   # Get packets from last hour only - used to initialize the map
+  @spec get_last_hour_packets() :: [struct()]
   def get_last_hour_packets do
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
 

@@ -17,6 +17,7 @@ defmodule Aprs.DataExtended do
   end
 
   @doc false
+  @spec changeset(%Aprs.DataExtended{}, map()) :: Ecto.Changeset.t()
   def changeset(%DataExtended{} = data_extended, attrs) do
     data_extended
     |> cast(attrs, [

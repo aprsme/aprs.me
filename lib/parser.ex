@@ -9,6 +9,22 @@ defmodule Parser do
 
   require Logger
 
+  @type packet :: %{
+          id: String.t(),
+          sender: String.t(),
+          path: String.t(),
+          destination: String.t(),
+          information_field: String.t(),
+          data_type: atom(),
+          base_callsign: String.t(),
+          ssid: String.t(),
+          data_extended: map() | nil,
+          received_at: DateTime.t()
+        }
+
+  @type parse_result :: {:ok, packet()} | {:error, atom() | String.t()}
+
+  @spec parse(String.t()) :: parse_result()
   def parse(message) do
     with {:ok, [sender, path, data]} <- split_packet(message),
          {:ok, [base_callsign, ssid]} <- parse_callsign(sender),
@@ -50,7 +66,8 @@ defmodule Parser do
   end
 
   # Safely split packet into components
-  defp split_packet(message) do
+  @spec split_packet(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
+  def split_packet(message) do
     case String.split(message, [">", ":"], parts: 3) do
       [sender, path, data] when byte_size(sender) > 0 and byte_size(path) > 0 ->
         {:ok, [sender, path, data]}
@@ -61,7 +78,8 @@ defmodule Parser do
   end
 
   # Safely split path into destination and digipeater path
-  defp split_path(path) do
+  @spec split_path(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
+  def split_path(path) do
     case String.split(path, ",", parts: 2) do
       [destination, digi_path] ->
         {:ok, [destination, digi_path]}
@@ -75,13 +93,15 @@ defmodule Parser do
   end
 
   # Safe version of parse_datatype that returns {:ok, type} or {:error, reason}
-  defp parse_datatype_safe(data) do
+  @spec parse_datatype_safe(String.t()) :: {:ok, atom()} | {:error, String.t()}
+  def parse_datatype_safe(data) do
     case String.first(data) do
       nil -> {:error, "Empty data field"}
       first_char -> {:ok, parse_datatype(first_char)}
     end
   end
 
+  @spec parse_callsign(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
   def parse_callsign(callsign) do
     cond do
       not is_binary(callsign) ->
@@ -107,6 +127,7 @@ defmodule Parser do
   # first 40 characters of the message. I'm not going to deal with that
   # weird case right now. It seems like its for a specific type of old
   # TNC hardware that probably doesn't even exist anymore.
+  @spec parse_datatype(String.t()) :: atom()
   def parse_datatype(datatype) when datatype == ":", do: :message
   def parse_datatype(datatype) when datatype == ">", do: :status
   def parse_datatype(datatype) when datatype == "!", do: :position
@@ -133,6 +154,7 @@ defmodule Parser do
 
   def parse_datatype(_datatype), do: :unknown_datatype
 
+  @spec parse_data(atom(), String.t(), String.t()) :: map() | nil
   def parse_data(:mic_e, destination, data), do: parse_mic_e(destination, data)
   def parse_data(:mic_e_old, destination, data), do: parse_mic_e(destination, data)
 
@@ -172,7 +194,7 @@ defmodule Parser do
         }
 
       _ ->
-        parse_position_with_timestamp(false, data)
+        parse_position_with_timestamp(false, data, :timestamped_position)
     end
   end
 
@@ -226,6 +248,7 @@ defmodule Parser do
 
   def parse_data(_type, _destination, _data), do: nil
 
+  @spec parse_position_with_datetime_and_weather(boolean(), String.t(), String.t()) :: map()
   def parse_position_with_datetime_and_weather(aprs_messaging?, date_time_position_data, weather_report) do
     case date_time_position_data do
       <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
@@ -260,6 +283,7 @@ defmodule Parser do
     end
   end
 
+  @spec decode_compressed_position(binary()) :: map()
   def decode_compressed_position(
         <<"/", latitude::binary-size(4), longitude::binary-size(4), symbol_code::binary-size(1), _cs::binary-size(2),
           _compression_type::binary-size(2), _rest::binary>>
@@ -274,11 +298,13 @@ defmodule Parser do
     }
   end
 
+  @spec convert_to_base91(binary()) :: integer()
   def convert_to_base91(<<value::binary-size(4)>>) do
     [v1, v2, v3, v4] = to_charlist(value)
     (v1 - 33) * 91 * 91 * 91 + (v2 - 33) * 91 * 91 + (v3 - 33) * 91 + v4
   end
 
+  @spec parse_position_without_timestamp(boolean(), String.t()) :: map()
   def parse_position_without_timestamp(aprs_messaging?, position_data) do
     case position_data do
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
@@ -346,10 +372,12 @@ defmodule Parser do
     end
   end
 
+  @spec parse_position_with_timestamp(boolean(), binary(), atom()) :: map()
   def parse_position_with_timestamp(
         aprs_messaging?,
-        <<_dti::binary-size(1), time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1),
-          longitude::binary-size(9), symbol_code::binary-size(1), comment::binary>>
+        <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9),
+          symbol_code::binary-size(1), comment::binary>>,
+        _data_type
       ) do
     case validate_position_data(latitude, longitude) do
       {:ok, {lat, lon}} ->
@@ -395,6 +423,7 @@ defmodule Parser do
       }
   end
 
+  @spec parse_position_with_timestamp(boolean(), binary()) :: map()
   def parse_position_with_timestamp(_aprs_messaging?, <<"/", _::binary>>) do
     %{
       data_type: :timestamped_position_error,
@@ -410,6 +439,7 @@ defmodule Parser do
     }
   end
 
+  @spec parse_mic_e(String.t(), String.t()) :: MicE.t() | map()
   def parse_mic_e(destination_field, information_field) do
     # Logger.debug("MIC-E: " <> destination_field <> " :: " <> information_field)
     # Mic-E is kind of a nutty compression scheme, APRS packs additional
@@ -443,6 +473,7 @@ defmodule Parser do
     }
   end
 
+  @spec parse_mic_e(binary()) :: map()
   def parse_mic_e(data) do
     case data do
       <<dti::binary-size(1), latitude::binary-size(6), longitude::binary-size(7), symbol_code::binary-size(1),
@@ -466,6 +497,7 @@ defmodule Parser do
     end
   end
 
+  @spec parse_mic_e_digit(binary()) :: [integer() | atom() | nil]
   def parse_mic_e_digit(<<c>>) when c in ?0..?9, do: [c - ?0, 0, nil]
   def parse_mic_e_digit(<<c>>) when c in ?A..?J, do: [c - ?A, 1, :custom]
   def parse_mic_e_digit(<<c>>) when c in ?P..?Y, do: [c - ?P, 1, :standard]
@@ -476,6 +508,7 @@ defmodule Parser do
 
   def parse_mic_e_digit(_c), do: [:unknown, :unknown, :unknown]
 
+  @spec parse_mic_e_destination(String.t()) :: map()
   def parse_mic_e_destination(destination_field) do
     digits =
       destination_field
@@ -617,6 +650,7 @@ defmodule Parser do
     }
   end
 
+  @spec parse_manufacturer(String.t(), String.t(), String.t()) :: String.t()
   def parse_manufacturer(" ", _s2, _s3), do: "Original MIC-E"
   def parse_manufacturer(">", _s2, "^"), do: "Kenwood TH-D74"
   def parse_manufacturer(">", _s2, _s3), do: "Kenwood TH-D74A"
@@ -643,6 +677,7 @@ defmodule Parser do
   def parse_manufacturer(_s1, "~", _s3), do: "Other"
   def parse_manufacturer(_symbol1, _symbol2, _symbol3), do: "Unknown"
 
+  @spec find_matches(Regex.t(), String.t()) :: [String.t()]
   defp find_matches(regex, text) do
     case Regex.names(regex) do
       [] ->
@@ -657,11 +692,13 @@ defmodule Parser do
     end
   end
 
+  @spec convert_compressed_lat(binary()) :: float()
   def convert_compressed_lat(lat) do
     [l1, l2, l3, l4] = to_charlist(lat)
     90 - ((l1 - 33) * 91 ** 3 + (l2 - 33) * 91 ** 2 + (l3 - 33) * 91 + l4 - 33) / 380_926
   end
 
+  @spec convert_compressed_lon(binary()) :: float()
   def convert_compressed_lon(lon) do
     [l1, l2, l3, l4] = to_charlist(lon)
     -180 + ((l1 - 33) * 91 ** 3 + (l2 - 33) * 91 ** 2 + (l3 - 33) * 91 + l4 - 33) / 190_463
@@ -700,6 +737,7 @@ defmodule Parser do
     }
   end
 
+  @spec parse_status(String.t()) :: map()
   def parse_status(data) do
     %{
       status_text: data,
@@ -761,6 +799,7 @@ defmodule Parser do
     )
   end
 
+  @spec parse_object(String.t()) :: map()
   def parse_object(data) do
     %{
       raw_data: data,
@@ -769,6 +808,7 @@ defmodule Parser do
   end
 
   # Item Report parsing
+  @spec parse_item(binary()) :: map()
   def parse_item(<<item_indicator, item_name_and_data::binary>>) when item_indicator in [?%, ?)] do
     # Items can have up to 9 character names, followed by ! for position or _ for killed
     case Regex.run(~r/^(.{1,9})([\!\_])(.*)$/, item_name_and_data) do
@@ -856,6 +896,7 @@ defmodule Parser do
     )
   end
 
+  @spec parse_weather(String.t()) :: map()
   def parse_weather(data) do
     weather_data = parse_weather_data(data)
 
@@ -1065,6 +1106,7 @@ defmodule Parser do
     end
   end
 
+  @spec parse_telemetry(String.t()) :: map()
   def parse_telemetry(data) do
     %{
       raw_data: data,
@@ -1146,6 +1188,7 @@ defmodule Parser do
     }
   end
 
+  @spec parse_station_capabilities(String.t()) :: map()
   def parse_station_capabilities(data) do
     %{
       capabilities: data,
@@ -1162,6 +1205,7 @@ defmodule Parser do
     }
   end
 
+  @spec parse_query(String.t()) :: map()
   def parse_query(data) do
     %{
       query_data: data,
@@ -1183,6 +1227,7 @@ defmodule Parser do
     )
   end
 
+  @spec parse_user_defined(String.t()) :: map()
   def parse_user_defined(data) do
     %{
       user_data: data,
@@ -1241,6 +1286,7 @@ defmodule Parser do
     end
   end
 
+  @spec parse_third_party_traffic(String.t()) :: map()
   def parse_third_party_traffic(data) do
     %{
       third_party_data: data,
@@ -1281,6 +1327,7 @@ defmodule Parser do
     end
   end
 
+  @spec parse_phg_data(String.t()) :: map()
   def parse_phg_data(data) do
     %{
       phg_data: data,
@@ -1361,6 +1408,7 @@ defmodule Parser do
     }
   end
 
+  @spec parse_peet_logging(String.t()) :: map()
   def parse_peet_logging(data) do
     %{
       peet_data: data,
@@ -1376,6 +1424,7 @@ defmodule Parser do
     }
   end
 
+  @spec parse_invalid_test_data(String.t()) :: map()
   def parse_invalid_test_data(data) do
     %{
       test_data: data,
@@ -1408,6 +1457,7 @@ defmodule Parser do
   end
 
   # Validate timestamp format
+  @spec validate_timestamp(String.t()) :: String.t() | nil
   defp validate_timestamp(time) when byte_size(time) == 7 do
     if Regex.match?(~r/^\d{6}[hz\/]$/, time) do
       time
@@ -1416,7 +1466,8 @@ defmodule Parser do
     end
   end
 
-  defp validate_timestamp(time), do: time
+  @spec validate_timestamp(any()) :: nil
+  defp validate_timestamp(_), do: nil
 
   defp extract_timestamp(weather_data) do
     case Regex.run(~r/^(\d{6}[hz\/])/, weather_data) do

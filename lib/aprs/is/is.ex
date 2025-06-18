@@ -9,6 +9,22 @@ defmodule Aprs.Is do
   @aprs_timeout 60 * 1000
   @keepalive_interval 20 * 1000
 
+  @type state :: %{
+          server: charlist() | String.t(),
+          port: pos_integer(),
+          socket: :ssl.sslsocket() | nil,
+          timer: reference() | nil,
+          keepalive_timer: reference() | nil,
+          connected_at: DateTime.t(),
+          packet_stats: map(),
+          buffer: String.t(),
+          login_params: %{
+            user_id: String.t(),
+            passcode: String.t(),
+            filter: String.t()
+          }
+        }
+
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -139,6 +155,7 @@ defmodule Aprs.Is do
 
   # Server methods
 
+  @spec connect_to_aprs_is(String.t() | charlist(), pos_integer()) :: {:ok, :ssl.sslsocket()} | {:error, any()}
   defp connect_to_aprs_is(server, port) do
     # Additional safeguard: prevent connections in test environment
     if Application.get_env(:aprs, :env) == :test or
@@ -152,6 +169,7 @@ defmodule Aprs.Is do
     end
   end
 
+  @spec send_login_string(:ssl.sslsocket(), String.t(), String.t(), String.t()) :: :ok | {:error, any()}
   defp send_login_string(socket, aprs_user_id, aprs_passcode, filter) do
     login_string =
       "user #{aprs_user_id} pass #{aprs_passcode} vers aprs.me 0.1 filter #{filter}\r\n"
@@ -161,10 +179,12 @@ defmodule Aprs.Is do
     :gen_tcp.send(socket, login_string)
   end
 
+  @spec create_timer(non_neg_integer()) :: reference()
   defp create_timer(timeout) do
     Process.send_after(self(), :aprs_no_message_timeout, timeout)
   end
 
+  @spec create_keepalive_timer(non_neg_integer()) :: reference()
   defp create_keepalive_timer(interval) do
     Process.send_after(self(), :send_keepalive, interval)
   end
@@ -216,7 +236,9 @@ defmodule Aprs.Is do
     end
   end
 
-  def handle_info({:tcp, _socket, packet}, state) do
+  @impl true
+  @spec handle_info({:ssl, port(), binary()} | any(), state()) :: {:noreply, state()}
+  def handle_info({:ssl, _socket, data}, state) do
     # Cancel the previous timer
     Process.cancel_timer(state.timer)
 
@@ -225,7 +247,7 @@ defmodule Aprs.Is do
     packet_stats = update_packet_stats(state.packet_stats, current_time)
 
     # Append new packet data to buffer
-    buffer = state.buffer <> packet
+    buffer = state.buffer <> data
 
     # Process complete lines (ending with \r\n or \n)
     {complete_lines, remaining_buffer} = extract_complete_lines(buffer)
@@ -262,6 +284,7 @@ defmodule Aprs.Is do
   end
 
   # Extract complete lines from buffer, returning {complete_lines, remaining_buffer}
+  @spec extract_complete_lines(String.t()) :: {[String.t()], String.t()}
   defp extract_complete_lines(buffer) do
     # Split by both \r\n and \n to handle different line endings
     parts = String.split(buffer, ~r/\r?\n/, parts: :infinity)
@@ -388,6 +411,7 @@ defmodule Aprs.Is do
   end
 
   # Helper to check if a packet has position data worth storing
+  @spec has_position_data?(map()) :: boolean()
   defp has_position_data?(packet) do
     require Logger
 
@@ -425,6 +449,7 @@ defmodule Aprs.Is do
   end
 
   # Helper to validate coordinate values
+  @spec are_valid_coords?(any(), any()) :: boolean()
   defp are_valid_coords?(lat, lon) do
     require Logger
 
@@ -454,6 +479,7 @@ defmodule Aprs.Is do
   end
 
   # Helper to convert various types to float
+  @spec to_float(any()) :: float() | nil
   defp to_float(value) when is_float(value), do: value
   defp to_float(value) when is_integer(value), do: value * 1.0
   defp to_float(%Decimal{} = value), do: Decimal.to_float(value)
@@ -468,6 +494,7 @@ defmodule Aprs.Is do
   defp to_float(_), do: nil
 
   # Normalize data_type to ensure proper storage
+  @spec normalize_data_type(map()) :: map()
   defp normalize_data_type(%{data_type: data_type} = attrs) when is_atom(data_type) do
     %{attrs | data_type: to_string(data_type)}
   end
@@ -478,6 +505,7 @@ defmodule Aprs.Is do
   #   :ets.select_count(:aprs_messages, total_spec)
   # end
 
+  @spec update_packet_stats(map(), integer()) :: map()
   defp update_packet_stats(stats, current_time) do
     new_total = stats.total_packets + 1
 
@@ -503,10 +531,12 @@ defmodule Aprs.Is do
     end
   end
 
+  @spec server_to_string(String.t() | charlist() | any()) :: String.t()
   defp server_to_string(server) when is_list(server), do: List.to_string(server)
   defp server_to_string(server) when is_binary(server), do: server
   defp server_to_string(server), do: to_string(server)
 
+  @spec default_packet_stats() :: map()
   defp default_packet_stats do
     %{
       total_packets: 0,
@@ -519,6 +549,7 @@ defmodule Aprs.Is do
 
   # Helper function to recursively convert structs to maps
   # This handles nested structs that Map.from_struct/1 cannot handle
+  @spec struct_to_map(any()) :: any()
   defp struct_to_map(%{__struct__: struct_type} = struct) do
     converted_map =
       struct
