@@ -8,8 +8,9 @@
       {assigns[:page_title] || "Aprs"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
-    </script>
+    <link phx-track-static rel="stylesheet" href={~p"/assets/vendor/leaflet/leaflet.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/vendor/leaflet/leaflet.js"} data-source-map="false"></script>
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}></script>
   </head>
   <body class={body_class(assigns)}>
     {@inner_content}

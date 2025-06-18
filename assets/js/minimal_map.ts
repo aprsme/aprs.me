@@ -1,38 +1,106 @@
+// Declare Leaflet as a global variable
+declare const L: any;
+
 // Minimal APRS Map Hook - handles only basic map interaction
 // All data logic handled by LiveView
 
+type LiveViewHookContext = {
+  el: HTMLElement & { _leaflet_id?: any };
+  pushEvent: (event: string, payload: any) => void;
+  handleEvent: (event: string, callback: Function) => void;
+  map?: any;
+  markers?: Map<string, any>;
+  markerStates?: Map<string, MarkerState>;
+  markerLayer?: any;
+  boundsTimer?: ReturnType<typeof setTimeout>;
+  resizeHandler?: () => void;
+  errors?: string[];
+  initializationAttempts?: number;
+  maxInitializationAttempts?: number;
+  lastZoom?: number;
+  [key: string]: any;
+};
+
+interface MarkerData {
+  id: string;
+  lat: number;
+  lng: number;
+  callsign?: string;
+  comment?: string;
+  symbol_table_id?: string;
+  symbol_code?: string;
+  symbol_description?: string;
+  popup?: string;
+  historical?: boolean;
+  color?: string;
+}
+
+interface BoundsData {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+interface CenterData {
+  lat: number;
+  lng: number;
+}
+
+interface MarkerState {
+  lat: number;
+  lng: number;
+  symbol_table: string;
+  symbol_code: string;
+  popup?: string;
+  historical?: boolean;
+}
+
+interface MapEventData {
+  bounds?: BoundsData;
+  center?: CenterData;
+  zoom?: number;
+  id?: string;
+  callsign?: string;
+  lat?: number;
+  lng?: number;
+  markers?: MarkerData[];
+}
+
 let MinimalAPRSMap = {
   mounted() {
+    const self = this as unknown as LiveViewHookContext;
     // Initialize error tracking
-    this.errors = [];
-    this.initializationAttempts = 0;
-    this.maxInitializationAttempts = 3;
+    self.errors = [];
+    self.initializationAttempts = 0;
+    self.maxInitializationAttempts = 3;
 
-    this.attemptInitialization();
+    self.attemptInitialization();
   },
 
   attemptInitialization() {
-    this.initializationAttempts++;
+    const self = this as unknown as LiveViewHookContext;
+    self.initializationAttempts!++;
 
     // Check if Leaflet is available
     if (typeof L === "undefined") {
       console.error("Leaflet library not loaded!");
-      this.errors.push("Leaflet library not available");
+      self.errors!.push("Leaflet library not available");
 
-      if (this.initializationAttempts < this.maxInitializationAttempts) {
-        setTimeout(() => this.attemptInitialization(), 1000);
+      if (self.initializationAttempts! < self.maxInitializationAttempts!) {
+        setTimeout(() => self.attemptInitialization(), 1000);
         return;
       } else {
-        this.handleFatalError("Leaflet library failed to load after multiple attempts");
+        self.handleFatalError("Leaflet library failed to load after multiple attempts");
         return;
       }
     }
 
     // Get initial center and zoom from server-provided data attributes
-    let initialCenter, initialZoom;
+    let initialCenter: CenterData, initialZoom: number;
     try {
-      const centerData = this.el.dataset.center;
-      const zoomData = this.el.dataset.zoom;
+      const centerData = self.el.dataset.center;
+      const zoomData = self.el.dataset.zoom;
 
       if (!centerData || !zoomData) {
         throw new Error("Missing map data attributes");
@@ -61,39 +129,40 @@ let MinimalAPRSMap = {
       initialZoom = 5;
     }
 
-    this.initializeMap(initialCenter, initialZoom);
+    self.initializeMap(initialCenter, initialZoom);
   },
 
-  initializeMap(initialCenter, initialZoom) {
+  initializeMap(initialCenter: CenterData, initialZoom: number) {
+    const self = this as unknown as LiveViewHookContext;
     // Ensure the element and its parent exist
-    if (!this.el || !this.el.parentNode) {
+    if (!self.el || !self.el.parentNode) {
       console.warn("Map element or parent not found, retrying...");
-      if (this.initializationAttempts < this.maxInitializationAttempts) {
-        setTimeout(() => this.attemptInitialization(), 500);
+      if (self.initializationAttempts! < self.maxInitializationAttempts!) {
+        setTimeout(() => self.attemptInitialization(), 500);
         return;
       } else {
-        this.handleFatalError("Map element structure invalid");
+        self.handleFatalError("Map element structure invalid");
         return;
       }
     }
 
     // Check element dimensions
-    const rect = this.el.getBoundingClientRect();
+    const rect = self.el.getBoundingClientRect();
 
     // Validate element has dimensions
     if (rect.width === 0 || rect.height === 0) {
       console.warn("Map element has no dimensions, retrying...");
-      this.errors.push("Map element has zero dimensions");
+      self.errors!.push("Map element has zero dimensions");
 
       // Try to force dimensions
-      this.el.style.width = "100%";
-      this.el.style.height = "100vh";
+      self.el.style.width = "100%";
+      self.el.style.height = "100vh";
 
-      if (this.initializationAttempts < this.maxInitializationAttempts) {
-        setTimeout(() => this.attemptInitialization(), 500);
+      if (self.initializationAttempts! < self.maxInitializationAttempts!) {
+        setTimeout(() => self.attemptInitialization(), 500);
         return;
       } else {
-        this.handleFatalError("Map element never gained proper dimensions");
+        self.handleFatalError("Map element never gained proper dimensions");
         return;
       }
     }
@@ -101,36 +170,36 @@ let MinimalAPRSMap = {
     // Initialize basic map
     try {
       // Check if map is already initialized
-      if (this.map) {
+      if (self.map) {
         console.warn("Map already exists, reinitializing...");
-        this.map.remove();
-        this.map = null;
+        self.map.remove();
+        self.map = null;
       }
 
       // Ensure element ID is unique and not already initialized
-      if (this.el._leaflet_id) {
+      if (self.el._leaflet_id) {
         console.warn("Map element already has Leaflet ID, cleaning up...");
-        // Remove any existing Leaflet instance
-        if (L.DomUtil.get(this.el.id)) {
-          L.DomUtil.remove(L.DomUtil.get(this.el.id));
+        const el = L.DomUtil.get(self.el.id) as HTMLElement | null;
+        if (el !== null) {
+          L.DomUtil.remove(el);
         }
-        delete this.el._leaflet_id;
+        delete self.el._leaflet_id;
       }
 
-      this.map = L.map(this.el, {
+      self.map = L.map(self.el, {
         zoomControl: true,
         attributionControl: true,
         closePopupOnClick: true,
       }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
     } catch (error) {
       console.error("Error initializing map:", error);
-      this.errors.push("Map initialization failed: " + error.message);
+      self.errors!.push("Map initialization failed: " + (error instanceof Error ? error.message : error));
 
-      if (this.initializationAttempts < this.maxInitializationAttempts) {
-        setTimeout(() => this.attemptInitialization(), 1000);
+      if (self.initializationAttempts! < self.maxInitializationAttempts!) {
+        setTimeout(() => self.attemptInitialization(), 1000);
         return;
       } else {
-        this.handleFatalError("Map initialization failed after multiple attempts");
+        self.handleFatalError("Map initialization failed after multiple attempts");
         return;
       }
     }
@@ -142,80 +211,80 @@ let MinimalAPRSMap = {
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
         maxZoom: 19,
       });
-      tileLayer.addTo(this.map);
+      tileLayer.addTo(self.map);
     } catch (error) {
-      this.errors.push("Tile layer failed: " + error.message);
+      self.errors!.push("Tile layer failed: " + (error instanceof Error ? error.message : error));
     }
 
     // Store markers for management
-    this.markers = new Map();
-    this.markerLayer = L.layerGroup().addTo(this.map);
+    self.markers = new Map<string, any>();
+    self.markerLayer = L.layerGroup().addTo(self.map);
 
     // Track marker states to prevent unnecessary operations
-    this.markerStates = new Map();
+    self.markerStates = new Map<string, MarkerState>();
 
     // Force initial size calculation
     try {
-      this.map.invalidateSize();
+      self.map.invalidateSize();
     } catch (error) {
       console.error("Error invalidating map size:", error);
     }
 
     // Track when map is ready
-    this.map.whenReady(() => {
+    self.map!.whenReady(() => {
       try {
-        this.lastZoom = this.map.getZoom();
-        this.pushEvent("map_ready", {});
-        this.sendBoundsToServer();
+        self.lastZoom = self.map!.getZoom();
+        self.pushEvent("map_ready", {});
+        self.sendBoundsToServer();
       } catch (error) {
         console.error("Error in map ready callback:", error);
       }
     });
 
     // Send bounds to LiveView when map moves
-    this.map.on("moveend", () => {
-      if (this.boundsTimer) clearTimeout(this.boundsTimer);
-      this.boundsTimer = setTimeout(() => {
-        this.sendBoundsToServer();
+    self.map!.on("moveend", () => {
+      if (self.boundsTimer) clearTimeout(self.boundsTimer);
+      self.boundsTimer = setTimeout(() => {
+        self.sendBoundsToServer();
       }, 300);
     });
 
     // Handle zoom changes with optimization for large zoom differences
-    this.map.on("zoomend", () => {
-      if (this.boundsTimer) clearTimeout(this.boundsTimer);
-      this.boundsTimer = setTimeout(() => {
-        const currentZoom = this.map.getZoom();
-        const zoomDifference = this.lastZoom ? Math.abs(currentZoom - this.lastZoom) : 0;
+    self.map!.on("zoomend", () => {
+      if (self.boundsTimer) clearTimeout(self.boundsTimer);
+      self.boundsTimer = setTimeout(() => {
+        const currentZoom = self.map!.getZoom();
+        const zoomDifference = self.lastZoom ? Math.abs(currentZoom - self.lastZoom) : 0;
 
         // If zoom changed significantly (more than 2 levels), clear and reload
         if (zoomDifference > 2) {
-          this.pushEvent("clear_and_reload_markers", {});
+          self.pushEvent("clear_and_reload_markers", {});
         }
 
-        this.sendBoundsToServer();
-        this.lastZoom = currentZoom;
+        self.sendBoundsToServer();
+        self.lastZoom = currentZoom;
       }, 300);
     });
 
     // Handle resize
-    this.resizeHandler = () => {
+    self.resizeHandler = () => {
       try {
-        if (this.map) {
-          this.map.invalidateSize();
+        if (self.map) {
+          self.map.invalidateSize();
         }
       } catch (error) {
         console.error("Error invalidating map size on resize:", error);
       }
     };
-    window.addEventListener("resize", this.resizeHandler);
+    window.addEventListener("resize", self.resizeHandler);
 
     // Add a delayed size check
     setTimeout(() => {
-      if (this.el && this.el.parentNode) {
-        const rect = this.el.getBoundingClientRect();
-        if (this.map && rect.width > 0 && rect.height > 0) {
+      if (self.el && self.el.parentNode) {
+        const rect = self.el.getBoundingClientRect();
+        if (self.map && rect.width > 0 && rect.height > 0) {
           try {
-            this.map.invalidateSize();
+            self.map.invalidateSize();
           } catch (error) {
             console.error("Error re-invalidating map size:", error);
           }
@@ -224,16 +293,17 @@ let MinimalAPRSMap = {
     }, 1000);
 
     // LiveView event handlers
-    this.setupLiveViewHandlers();
+    self.setupLiveViewHandlers();
   },
 
-  handleFatalError(message) {
+  handleFatalError(message: string) {
+    const self = this as unknown as LiveViewHookContext;
     console.error("Fatal map error:", message);
-    console.error("All errors:", this.errors);
+    console.error("All errors:", self.errors);
 
     // Display error message to user
-    if (this.el) {
-      this.el.innerHTML = `
+    if (self.el) {
+      self.el.innerHTML = `
         <div style="
           display: flex;
           justify-content: center;
@@ -258,44 +328,45 @@ let MinimalAPRSMap = {
   },
 
   setupLiveViewHandlers() {
+    const self = this as unknown as LiveViewHookContext;
     // Add single marker
-    this.handleEvent("add_marker", (data) => {
-      this.addMarker(data);
+    self.handleEvent("add_marker", (data: MarkerData) => {
+      self.addMarker(data);
     });
 
     // Add multiple markers at once
-    this.handleEvent("add_markers", (data) => {
+    self.handleEvent("add_markers", (data: { markers: MarkerData[] }) => {
       if (data.markers && Array.isArray(data.markers)) {
-        data.markers.forEach((marker) => this.addMarker(marker));
+        data.markers.forEach((marker) => self.addMarker(marker));
       }
     });
 
     // Remove marker
-    this.handleEvent("remove_marker", (data) => {
-      this.removeMarker(data.id);
+    self.handleEvent("remove_marker", (data: { id: string }) => {
+      self.removeMarker(data.id);
     });
 
     // Clear all markers
-    this.handleEvent("clear_markers", () => {
-      this.clearAllMarkers();
+    self.handleEvent("clear_markers", () => {
+      self.clearAllMarkers();
     });
 
     // Update marker
-    this.handleEvent("update_marker", (data) => {
-      this.updateMarker(data);
+    self.handleEvent("update_marker", (data: MarkerData) => {
+      self.updateMarker(data);
     });
 
     // Zoom to location
-    this.handleEvent("zoom_to_location", (data) => {
-      if (!this.map) {
+    self.handleEvent("zoom_to_location", (data: { lat: number; lng: number; zoom?: number }) => {
+      if (!self.map) {
         console.error("Map not initialized, cannot zoom");
         return;
       }
 
       if (data.lat && data.lng) {
-        const lat = parseFloat(data.lat);
-        const lng = parseFloat(data.lng);
-        const zoom = parseInt(data.zoom || 12);
+        const lat = parseFloat(data.lat.toString());
+        const lng = parseFloat(data.lng.toString());
+        const zoom = parseInt(data.zoom?.toString() || "12");
 
         // Validate coordinates
         if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
@@ -310,29 +381,29 @@ let MinimalAPRSMap = {
 
         try {
           // Check element dimensions before zoom
-          const beforeRect = this.el.getBoundingClientRect();
+          const beforeRect = self.el.getBoundingClientRect();
 
           // Force map size recalculation before zoom
-          this.map.invalidateSize();
+          self.map.invalidateSize();
 
           // Use a slight delay to ensure map is ready
           setTimeout(() => {
-            if (this.map) {
-              this.map.setView([lat, lng], zoom, {
+            if (self.map) {
+              self.map.setView([lat, lng], zoom, {
                 animate: true,
                 duration: 1,
               });
 
               // Check element dimensions after zoom
               setTimeout(() => {
-                const afterRect = this.el.getBoundingClientRect();
+                const afterRect = self.el.getBoundingClientRect();
 
                 if (afterRect.width === 0 || afterRect.height === 0) {
                   console.error("Map element lost dimensions after zoom!");
                   // Try to restore dimensions
-                  this.el.style.width = "100vw";
-                  this.el.style.height = "100vh";
-                  this.map.invalidateSize();
+                  self.el.style.width = "100vw";
+                  self.el.style.height = "100vh";
+                  self.map.invalidateSize();
                 }
               }, 1000);
             }
@@ -346,92 +417,93 @@ let MinimalAPRSMap = {
     });
 
     // Handle geolocation requests
-    this.handleEvent("request_geolocation", () => {
+    self.handleEvent("request_geolocation", () => {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const { latitude, longitude } = position.coords;
-            this.pushEvent("set_location", { lat: latitude, lng: longitude });
+            self.pushEvent("set_location", { lat: latitude, lng: longitude });
           },
           (error) => {
             console.warn("Geolocation error:", error.message);
-            this.pushEvent("geolocation_error", { error: error.message });
+            self.pushEvent("geolocation_error", { error: error.message });
           },
         );
       } else {
         console.warn("Geolocation not available");
-        this.pushEvent("geolocation_error", { error: "Geolocation not supported" });
+        self.pushEvent("geolocation_error", { error: "Geolocation not supported" });
       }
     });
 
     // Handle new packets from LiveView
-    this.handleEvent("new_packet", (data) => {
-      this.addMarker({
+    self.handleEvent("new_packet", (data: MarkerData) => {
+      self.addMarker({
         ...data,
         historical: false,
-        popup: this.buildPopupContent(data),
+        popup: self.buildPopupContent(data),
       });
     });
 
     // Handle historical packets during replay
-    this.handleEvent("historical_packet", (data) => {
-      this.addMarker({
+    self.handleEvent("historical_packet", (data: MarkerData) => {
+      self.addMarker({
         ...data,
         historical: true,
-        popup: this.buildPopupContent(data),
+        popup: self.buildPopupContent(data),
       });
     });
 
     // Handle refresh markers event
-    this.handleEvent("refresh_markers", () => {
+    self.handleEvent("refresh_markers", () => {
       // Remove markers that are outside current bounds
-      if (this.map) {
-        const bounds = this.map.getBounds();
-        this.removeMarkersOutsideBounds(bounds);
+      if (self.map) {
+        const bounds = self.map.getBounds();
+        self.removeMarkersOutsideBounds(bounds);
       }
     });
 
     // Handle clearing historical packets
-    this.handleEvent("clear_historical_packets", () => {
+    self.handleEvent("clear_historical_packets", () => {
       // Remove all historical markers
-      const markersToRemove = [];
-      this.markers.forEach((marker, id) => {
-        if (marker._isHistorical) {
+      const markersToRemove: string[] = [];
+      self.markers!.forEach((marker: any, id: any) => {
+        if ((marker as any)._isHistorical) {
           markersToRemove.push(id);
         }
       });
-      markersToRemove.forEach((id) => this.removeMarker(id));
+      markersToRemove.forEach((id) => self.removeMarker(id));
     });
 
     // Handle bounds-based marker filtering
-    this.handleEvent("filter_markers_by_bounds", (data) => {
+    self.handleEvent("filter_markers_by_bounds", (data: { bounds: BoundsData }) => {
       if (data.bounds) {
         // Create Leaflet bounds object from server data
         const bounds = L.latLngBounds(
           [data.bounds.south, data.bounds.west],
           [data.bounds.north, data.bounds.east],
         );
-        this.removeMarkersOutsideBounds(bounds);
+        self.removeMarkersOutsideBounds(bounds);
       }
     });
 
     // Handle clearing all markers and reloading visible ones
-    this.handleEvent("clear_and_reload_markers", () => {
+    self.handleEvent("clear_and_reload_markers", () => {
       // This event is just a trigger - the server will handle clearing and adding markers
     });
   },
 
   sendBoundsToServer() {
-    if (!this.map) return;
+    const self = this as unknown as LiveViewHookContext;
+    if (!self.map) return;
 
-    const bounds = this.map.getBounds();
-    const center = this.map.getCenter();
-    const zoom = this.map.getZoom();
+    const bounds = self.map!.getBounds();
+    const center = self.map!.getCenter();
+    const zoom = self.map!.getZoom();
 
     // Remove markers that are now outside the visible bounds
-    this.removeMarkersOutsideBounds(bounds);
+    self.removeMarkersOutsideBounds(bounds);
 
-    this.pushEvent("bounds_changed", {
+    self.pushEvent("bounds_changed", {
       bounds: {
         north: bounds.getNorth(),
         south: bounds.getSouth(),
@@ -446,14 +518,15 @@ let MinimalAPRSMap = {
     });
   },
 
-  addMarker(data) {
+  addMarker(data: MarkerData) {
+    const self = this as unknown as LiveViewHookContext;
     if (!data.id || !data.lat || !data.lng) {
       console.warn("Invalid marker data:", data);
       return;
     }
 
-    const lat = parseFloat(data.lat);
-    const lng = parseFloat(data.lng);
+    const lat = parseFloat(data.lat.toString());
+    const lng = parseFloat(data.lng.toString());
 
     // Validate coordinates
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
@@ -462,8 +535,8 @@ let MinimalAPRSMap = {
     }
 
     // Check if marker already exists with same position and data
-    const existingMarker = this.markers.get(data.id);
-    const existingState = this.markerStates.get(data.id);
+    const existingMarker = self.markers!.get(data.id);
+    const existingState = self.markerStates!.get(data.id);
 
     if (existingMarker && existingState) {
       // Check if marker needs updating
@@ -471,7 +544,7 @@ let MinimalAPRSMap = {
       const positionChanged =
         Math.abs(currentPos.lat - lat) > 0.0001 || Math.abs(currentPos.lng - lng) > 0.0001;
       const dataChanged =
-        existingState.symbol_table !== data.symbol_table ||
+        existingState.symbol_table !== data.symbol_table_id ||
         existingState.symbol_code !== data.symbol_code ||
         existingState.popup !== data.popup;
 
@@ -482,10 +555,10 @@ let MinimalAPRSMap = {
     }
 
     // Remove existing marker if it exists
-    this.removeMarker(data.id);
+    self.removeMarker(data.id);
 
     // Create marker icon
-    const icon = this.createMarkerIcon(data);
+    const icon = self.createMarkerIcon(data);
 
     // Create marker
     const marker = L.marker([lat, lng], { icon: icon });
@@ -497,7 +570,7 @@ let MinimalAPRSMap = {
 
     // Handle marker click
     marker.on("click", () => {
-      this.pushEvent("marker_clicked", {
+      self.pushEvent("marker_clicked", {
         id: data.id,
         callsign: data.callsign,
         lat: lat,
@@ -507,42 +580,44 @@ let MinimalAPRSMap = {
 
     // Mark historical markers for identification
     if (data.historical) {
-      marker._isHistorical = true;
+      (marker as any)._isHistorical = true;
     }
 
     // Add to map and store reference
-    marker.addTo(this.markerLayer);
-    this.markers.set(data.id, marker);
+    marker.addTo(self.markerLayer!);
+    self.markers!.set(data.id, marker);
 
     // Store marker state for optimization
-    this.markerStates.set(data.id, {
+    self.markerStates!.set(data.id, {
       lat: lat,
       lng: lng,
-      symbol_table: data.symbol_table,
-      symbol_code: data.symbol_code,
+      symbol_table: data.symbol_table_id || "/",
+      symbol_code: data.symbol_code || ">",
       popup: data.popup,
       historical: data.historical,
     });
   },
 
-  removeMarker(id) {
-    const marker = this.markers.get(id);
+  removeMarker(id: string) {
+    const self = this as unknown as LiveViewHookContext;
+    const marker = self.markers!.get(id);
     if (marker) {
-      this.markerLayer.removeLayer(marker);
-      this.markers.delete(id);
-      this.markerStates.delete(id);
+      self.markerLayer!.removeLayer(marker);
+      self.markers!.delete(id);
+      self.markerStates!.delete(id);
     }
   },
 
-  updateMarker(data) {
+  updateMarker(data: MarkerData) {
+    const self = this as unknown as LiveViewHookContext;
     if (!data.id) return;
 
-    const existingMarker = this.markers.get(data.id);
+    const existingMarker = self.markers!.get(data.id);
     if (existingMarker) {
       // Update position if provided
       if (data.lat && data.lng) {
-        const lat = parseFloat(data.lat);
-        const lng = parseFloat(data.lng);
+        const lat = parseFloat(data.lat.toString());
+        const lng = parseFloat(data.lng.toString());
         if (!isNaN(lat) && !isNaN(lng)) {
           existingMarker.setLatLng([lat, lng]);
         }
@@ -554,28 +629,30 @@ let MinimalAPRSMap = {
       }
 
       // Update icon if data changed
-      if (data.symbol_table || data.symbol_code || data.color) {
-        const newIcon = this.createMarkerIcon(data);
+      if (data.symbol_table_id || data.symbol_code || data.color) {
+        const newIcon = self.createMarkerIcon(data);
         existingMarker.setIcon(newIcon);
       }
     } else {
       // Marker doesn't exist, create it
-      this.addMarker(data);
+      self.addMarker(data);
     }
   },
 
   clearAllMarkers() {
-    this.markerLayer.clearLayers();
-    this.markers.clear();
-    this.markerStates.clear();
+    const self = this as unknown as LiveViewHookContext;
+    self.markerLayer!.clearLayers();
+    self.markers!.clear();
+    self.markerStates!.clear();
   },
 
-  removeMarkersOutsideBounds(bounds) {
-    if (!bounds || !this.markers) return;
+  removeMarkersOutsideBounds(bounds: L.LatLngBounds) {
+    const self = this as unknown as LiveViewHookContext;
+    if (!bounds || !self.markers) return;
 
-    const markersToRemove = [];
+    const markersToRemove: string[] = [];
 
-    this.markers.forEach((marker, id) => {
+    self.markers!.forEach((marker: L.Marker, id: string) => {
       const position = marker.getLatLng();
       const lat = position.lat;
       const lng = position.lng;
@@ -584,7 +661,7 @@ let MinimalAPRSMap = {
       const latOutOfBounds = lat < bounds.getSouth() || lat > bounds.getNorth();
 
       // Check longitude bounds (handle potential wrapping)
-      let lngOutOfBounds;
+      let lngOutOfBounds: boolean;
       if (bounds.getWest() <= bounds.getEast()) {
         // Normal case: bounds don't cross antimeridian
         lngOutOfBounds = lng < bounds.getWest() || lng > bounds.getEast();
@@ -600,16 +677,16 @@ let MinimalAPRSMap = {
     });
 
     // Remove out-of-bounds markers
-    markersToRemove.forEach((id) => this.removeMarker(id));
+    markersToRemove.forEach((id) => self.removeMarker(id));
   },
 
-  createMarkerIcon(data) {
+  createMarkerIcon(data: MarkerData): L.DivIcon {
     const symbolTableId = data.symbol_table_id || "/";
     const symbolCode = data.symbol_code || ">";
-    
+
     // Get the correct sprite sheet based on symbol table
     // Use high-DPI versions (@2x) for better quality
-    const spriteFile = symbolTableId === "/" 
+    const spriteFile = symbolTableId === "/"
       ? "/aprs-symbols/aprs-symbols-24-0@2x.png"
       : "/aprs-symbols/aprs-symbols-24-1@2x.png";
 
@@ -617,7 +694,7 @@ let MinimalAPRSMap = {
     // The sprite sheet is organized as a 16x8 grid (128 symbols total)
     // ASCII codes 32-127 map to positions 0-95
     const charCode = symbolCode.charCodeAt(0);
-    
+
     // Convert ASCII to sprite sheet position
     // The sprite sheet is organized in a specific way:
     // - First row (0): ASCII 32-47
@@ -630,7 +707,7 @@ let MinimalAPRSMap = {
     const position = charCode - 32;
     const row = Math.floor(position / 16);
     const column = position % 16;
-    
+
     // Each symbol is 48x48 pixels in @2x version (24x24 * 2)
     const x = -column * 48;
     const y = -row * 48;
@@ -667,7 +744,7 @@ let MinimalAPRSMap = {
     });
   },
 
-  buildPopupContent(data) {
+  buildPopupContent(data: MarkerData): string {
     const callsign = data.callsign || data.id || "Unknown";
     const comment = data.comment || "";
     const symbolTableId = data.symbol_table_id || "/";
@@ -693,33 +770,25 @@ let MinimalAPRSMap = {
   },
 
   destroyed() {
-    // Clean up timers
-    if (this.boundsTimer) {
-      clearTimeout(this.boundsTimer);
+    const self = this as unknown as LiveViewHookContext;
+    if (self.boundsTimer !== undefined) {
+      clearTimeout(self.boundsTimer);
     }
-
-    // Clean up event listeners
-    if (this.resizeHandler) {
-      window.removeEventListener("resize", this.resizeHandler);
+    if (self.resizeHandler !== undefined) {
+      window.removeEventListener("resize", self.resizeHandler);
     }
-
-    // Clean up markers
-    if (this.markerLayer) {
-      this.markerLayer.clearLayers();
+    if (self.markerLayer !== undefined) {
+      self.markerLayer!.clearLayers();
     }
-
-    if (this.markers) {
-      this.markers.clear();
+    if (self.markers !== undefined) {
+      self.markers!.clear();
     }
-
-    if (this.markerStates) {
-      this.markerStates.clear();
+    if (self.markerStates !== undefined) {
+      self.markerStates!.clear();
     }
-
-    // Clean up map
-    if (this.map) {
-      this.map.remove();
-      this.map = null;
+    if (self.map !== undefined) {
+      self.map!.remove();
+      self.map = undefined;
     }
   },
 };

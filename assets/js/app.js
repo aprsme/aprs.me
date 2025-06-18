@@ -25,7 +25,7 @@ import topbar from "../vendor/topbar";
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
 // Import minimal APRS map hook
-import MinimalAPRSMap from "./minimal_map.js";
+import MinimalAPRSMap from "./minimal_map";
 
 // APRS Map Hook
 let Hooks = {};

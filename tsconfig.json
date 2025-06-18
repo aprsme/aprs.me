@@ -1,0 +1,41 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "ES2020",
+        "moduleResolution": "node",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "lib": [
+            "ES2020",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "allowJs": true,
+        "checkJs": false,
+        "noEmit": true,
+        "isolatedModules": true,
+        "resolveJsonModule": true,
+        "baseUrl": ".",
+        "paths": {
+            "*": [
+                "assets/*"
+            ]
+        },
+        "typeRoots": [
+            "./assets/js/types"
+        ]
+    },
+    "include": [
+        "assets/js/**/*.ts",
+        "assets/js/**/*.js",
+        "assets/js/types/**/*.d.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "deps",
+        "_build",
+        "assets/node_modules"
+    ]
+}
