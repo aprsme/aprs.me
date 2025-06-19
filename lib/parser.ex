@@ -61,6 +61,8 @@ defmodule Parser do
       {:error, :invalid_packet}
   end
 
+  def parse(_), do: {:error, :invalid_packet}
+
   defp do_parse(message) do
     with {:ok, [sender, path, data]} <- split_packet(message),
          {:ok, [base_callsign, ssid]} <- parse_callsign(sender),
@@ -103,7 +105,7 @@ defmodule Parser do
   end
 
   # Validate callsign for AX.25 compliance
-  defp validate_callsign(callsign, :src) do
+  def validate_callsign(callsign, :src) do
     if is_binary(callsign) and String.match?(callsign, ~r/^[A-Z0-9\-]+$/) and
          not String.contains?(callsign, "*") do
       :ok
@@ -112,7 +114,7 @@ defmodule Parser do
     end
   end
 
-  defp validate_callsign(callsign, :dst) do
+  def validate_callsign(callsign, :dst) do
     cond do
       callsign == "" -> {:error, "Missing destination callsign"}
       not String.match?(callsign, ~r/^[A-Z0-9\-]+$/) -> {:error, "Invalid destination callsign"}
@@ -121,8 +123,8 @@ defmodule Parser do
   end
 
   # Validate path for too many components
-  defp validate_path(path) do
-    if path != "" and length(String.split(path, ",")) > 2 do
+  def validate_path(path) do
+    if path != "" and length(String.split(path, ",")) > 8 do
       {:error, "Too many path components"}
     else
       :ok
@@ -294,10 +296,10 @@ defmodule Parser do
 
   def parse_data(:phg_data, _destination, <<"PHG", p, h, g, d, rest::binary>>) when byte_size(rest) >= 0 do
     %{
-      power: parse_phg_power(p),
-      height: parse_phg_height(h),
-      gain: parse_phg_gain(g),
-      directivity: parse_phg_directivity(d),
+      power: Parser.Helpers.parse_phg_power(p),
+      height: Parser.Helpers.parse_phg_height(h),
+      gain: Parser.Helpers.parse_phg_gain(g),
+      directivity: Parser.Helpers.parse_phg_directivity(d),
       comment: rest,
       data_type: :phg_data
     }
@@ -305,10 +307,10 @@ defmodule Parser do
 
   def parse_data(:phg_data, _destination, <<"DFS", s, h, g, d, rest::binary>>) when byte_size(rest) >= 0 do
     %{
-      df_strength: parse_df_strength(s),
-      height: parse_phg_height(h),
-      gain: parse_phg_gain(g),
-      directivity: parse_phg_directivity(d),
+      df_strength: Parser.Helpers.parse_df_strength(s),
+      height: Parser.Helpers.parse_phg_height(h),
+      gain: Parser.Helpers.parse_phg_gain(g),
+      directivity: Parser.Helpers.parse_phg_directivity(d),
       comment: rest,
       data_type: :df_report
     }
@@ -321,28 +323,26 @@ defmodule Parser do
     }
   end
 
-  def parse_data(:peet_logging, _destination, data), do: parse_peet_logging(data)
-  def parse_data(:invalid_test_data, _destination, data), do: parse_invalid_test_data(data)
+  def parse_data(:peet_logging, _destination, data), do: Parser.Helpers.parse_peet_logging(data)
+
+  def parse_data(:invalid_test_data, _destination, data), do: Parser.Helpers.parse_invalid_test_data(data)
 
   def parse_data(:raw_gps_ultimeter, _destination, data) do
-    case parse_nmea_sentence(data) do
-      {:ok, parsed_data} ->
-        Map.put(parsed_data, :data_type, :raw_gps_ultimeter)
-
-      {:error, %{error: error, nmea_type: nmea_type}} ->
+    case Parser.Helpers.parse_nmea_sentence(data) do
+      {:error, error} when is_binary(error) ->
         %{
           data_type: :raw_gps_ultimeter,
           error: error,
-          nmea_type: nmea_type,
+          nmea_type: nil,
           raw_data: data,
           latitude: nil,
           longitude: nil
         }
 
-      {:error, error} when is_binary(error) ->
+      _ ->
         %{
           data_type: :raw_gps_ultimeter,
-          error: error,
+          error: "Invalid NMEA sentence",
           nmea_type: nil,
           raw_data: data,
           latitude: nil,
@@ -357,10 +357,10 @@ defmodule Parser do
       <<"DFS", s, h, g, d, rest::binary>> = data
 
       %{
-        df_strength: parse_df_strength(s),
-        height: parse_phg_height(h),
-        gain: parse_phg_gain(g),
-        directivity: parse_phg_directivity(d),
+        df_strength: Parser.Helpers.parse_df_strength(s),
+        height: Parser.Helpers.parse_phg_height(h),
+        gain: Parser.Helpers.parse_phg_gain(g),
+        directivity: Parser.Helpers.parse_phg_directivity(d),
         comment: rest,
         data_type: :df_report
       }
@@ -413,8 +413,8 @@ defmodule Parser do
         <<"/", latitude::binary-size(4), longitude::binary-size(4), symbol_code::binary-size(1), _cs::binary-size(2),
           _compression_type::binary-size(2), _rest::binary>>
       ) do
-    lat = convert_to_base91(latitude)
-    lon = convert_to_base91(longitude)
+    lat = Parser.Helpers.convert_to_base91(latitude)
+    lon = Parser.Helpers.convert_to_base91(longitude)
 
     %{
       latitude: lat,
@@ -436,7 +436,7 @@ defmodule Parser do
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
         comment::binary>> ->
         %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-        ambiguity = calculate_position_ambiguity(latitude, longitude)
+        ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
         dao_data = parse_dao_extension(comment)
 
         %{
@@ -455,7 +455,7 @@ defmodule Parser do
 
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
         %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-        ambiguity = calculate_position_ambiguity(latitude, longitude)
+        ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
 
         %{
           latitude: lat,
@@ -473,10 +473,10 @@ defmodule Parser do
       <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
         cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
         try do
-          converted_lat = convert_compressed_lat(latitude_compressed)
-          converted_lon = convert_compressed_lon(longitude_compressed)
-          compressed_cs = convert_compressed_cs(cs)
-          ambiguity = calculate_compressed_ambiguity(compression_type)
+          converted_lat = Parser.Helpers.convert_compressed_lat(latitude_compressed)
+          converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
+          compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
+          ambiguity = Parser.Helpers.calculate_compressed_ambiguity(compression_type)
 
           base_data = %{
             latitude: converted_lat,
@@ -506,7 +506,7 @@ defmodule Parser do
               compression_type: compression_type,
               data_type: :position,
               compressed?: true,
-              position_ambiguity: calculate_compressed_ambiguity(compression_type),
+              position_ambiguity: Parser.Helpers.calculate_compressed_ambiguity(compression_type),
               dao: nil,
               aprs_messaging?: false
             }
@@ -535,45 +535,6 @@ defmodule Parser do
     Map.put(result, :aprs_messaging?, true)
   end
 
-  @ambiguity_levels %{
-    {0, 0} => 0,
-    {1, 1} => 1,
-    {2, 2} => 2,
-    {3, 3} => 3,
-    {4, 4} => 4
-  }
-
-  @spec calculate_position_ambiguity(String.t(), String.t()) :: position_ambiguity()
-  defp calculate_position_ambiguity(latitude, longitude) do
-    lat_spaces = count_spaces(latitude)
-    lon_spaces = count_spaces(longitude)
-    Map.get(@ambiguity_levels, {lat_spaces, lon_spaces}, 0)
-  end
-
-  @spec calculate_compressed_ambiguity(binary()) :: position_ambiguity()
-  defp calculate_compressed_ambiguity(compression_type) do
-    case compression_type do
-      # No ambiguity
-      " " -> 0
-      # 1/60th of a degree
-      "!" -> 1
-      # 1/10th of a degree
-      "\"" -> 2
-      # 1 degree
-      "#" -> 3
-      # 10 degrees
-      "$" -> 4
-      _ -> 0
-    end
-  end
-
-  @spec count_spaces(String.t()) :: non_neg_integer()
-  defp count_spaces(str) do
-    str
-    |> String.graphemes()
-    |> Enum.count(fn c -> c == " " end)
-  end
-
   # Add DAO (Datum) extension support
   @spec parse_dao_extension(String.t()) :: map() | nil
   defp parse_dao_extension(comment) do
@@ -597,7 +558,7 @@ defmodule Parser do
           symbol_code::binary-size(1), comment::binary>>,
         _data_type
       ) do
-    case validate_position_data(latitude, longitude) do
+    case Parser.Helpers.validate_position_data(latitude, longitude) do
       {:ok, {lat, lon}} ->
         position = parse_aprs_position(latitude, longitude)
 
@@ -605,7 +566,7 @@ defmodule Parser do
           latitude: lat,
           longitude: lon,
           position: position,
-          time: validate_timestamp(time),
+          time: Parser.Helpers.validate_timestamp(time),
           symbol_table_id: sym_table_id,
           symbol_code: symbol_code,
           comment: comment,
@@ -613,32 +574,7 @@ defmodule Parser do
           aprs_messaging?: aprs_messaging?,
           compressed?: false
         }
-
-      {:error, reason} ->
-        Logger.warning("Invalid timestamped position data: #{reason}")
-
-        %{
-          latitude: nil,
-          longitude: nil,
-          time: time,
-          symbol_table_id: sym_table_id,
-          symbol_code: symbol_code,
-          comment: comment,
-          data_type: :timestamped_position_error,
-          aprs_messaging?: aprs_messaging?,
-          error: reason
-        }
     end
-  rescue
-    e ->
-      Logger.error(Exception.format(:error, e, __STACKTRACE__))
-
-      %{
-        latitude: nil,
-        longitude: nil,
-        data_type: :timestamped_position_error,
-        error: "Timestamped position parsing failed"
-      }
   end
 
   @spec parse_position_with_timestamp(boolean(), binary()) :: map()
@@ -836,7 +772,7 @@ defmodule Parser do
     # ]\"55}146.820 MHz T103 -0600= <- Kenwood DM-710
 
     regex = ~r/^(?<first>.?)(?<msg>.*)(?<secondtolast>.)(?<last>.)$/i
-    result = find_matches(regex, message)
+    result = Parser.Helpers.find_matches(regex, message)
 
     symbol1 =
       if result["first"] == "" do
@@ -845,7 +781,8 @@ defmodule Parser do
         result["first"]
       end
 
-    manufacturer = parse_manufacturer(symbol1 <> result["secondtolast"] <> result["last"])
+    manufacturer =
+      Parser.Helpers.parse_manufacturer(symbol1 <> result["secondtolast"] <> result["last"])
 
     %{
       dti: dti,
@@ -864,21 +801,6 @@ defmodule Parser do
   @spec parse_manufacturer(binary()) :: String.t()
   def parse_manufacturer(symbols) do
     Aprs.DeviceIdentification.identify_device(symbols)
-  end
-
-  @spec find_matches(Regex.t(), String.t()) :: [String.t()]
-  defp find_matches(regex, text) do
-    case Regex.names(regex) do
-      [] ->
-        matches = Regex.run(regex, text)
-
-        Enum.reduce(Enum.with_index(matches), %{}, fn {match, index}, acc ->
-          Map.put(acc, index, match)
-        end)
-
-      _ ->
-        Regex.named_captures(regex, text)
-    end
   end
 
   @spec convert_compressed_lat(binary()) :: float()
@@ -959,11 +881,11 @@ defmodule Parser do
         <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
           cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
           try do
-            converted_lat = convert_compressed_lat(latitude_compressed)
-            converted_lon = convert_compressed_lon(longitude_compressed)
+            converted_lat = Parser.Helpers.convert_compressed_lat(latitude_compressed)
+            converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
 
             if is_number(converted_lat) and is_number(converted_lon) do
-              compressed_cs = convert_compressed_cs(cs)
+              compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
 
               base_data = %{
                 latitude: converted_lat,
@@ -1059,9 +981,9 @@ defmodule Parser do
       # Compressed position format
       <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
         cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
-        converted_lat = convert_compressed_lat(latitude_compressed)
-        converted_lon = convert_compressed_lon(longitude_compressed)
-        compressed_cs = convert_compressed_cs(cs)
+        converted_lat = Parser.Helpers.convert_compressed_lat(latitude_compressed)
+        converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
+        compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
 
         base_data = %{
           latitude: converted_lat,
@@ -1111,22 +1033,22 @@ defmodule Parser do
   # Comprehensive weather data parsing
   defp parse_weather_data(weather_data) do
     # Extract timestamp if present
-    timestamp = extract_timestamp(weather_data)
-    weather_data = remove_timestamp(weather_data)
+    timestamp = Parser.Helpers.extract_timestamp(weather_data)
+    weather_data = Parser.Helpers.remove_timestamp(weather_data)
 
     # Parse each weather component
     weather_values = %{
-      wind_direction: parse_wind_direction(weather_data),
-      wind_speed: parse_wind_speed(weather_data),
-      wind_gust: parse_wind_gust(weather_data),
-      temperature: parse_temperature(weather_data),
-      rain_1h: parse_rainfall_1h(weather_data),
-      rain_24h: parse_rainfall_24h(weather_data),
-      rain_since_midnight: parse_rainfall_since_midnight(weather_data),
-      humidity: parse_humidity(weather_data),
-      pressure: parse_pressure(weather_data),
-      luminosity: parse_luminosity(weather_data),
-      snow: parse_snow(weather_data)
+      wind_direction: Parser.Helpers.parse_wind_direction(weather_data),
+      wind_speed: Parser.Helpers.parse_wind_speed(weather_data),
+      wind_gust: Parser.Helpers.parse_wind_gust(weather_data),
+      temperature: Parser.Helpers.parse_temperature(weather_data),
+      rain_1h: Parser.Helpers.parse_rainfall_1h(weather_data),
+      rain_24h: Parser.Helpers.parse_rainfall_24h(weather_data),
+      rain_since_midnight: Parser.Helpers.parse_rainfall_since_midnight(weather_data),
+      humidity: Parser.Helpers.parse_humidity(weather_data),
+      pressure: Parser.Helpers.parse_pressure(weather_data),
+      luminosity: Parser.Helpers.parse_luminosity(weather_data),
+      snow: Parser.Helpers.parse_snow(weather_data)
     }
 
     # Build base result map
@@ -1142,87 +1064,6 @@ defmodule Parser do
     end)
   end
 
-  defp parse_temperature(weather_data) do
-    case Regex.run(~r/t(-?\d{3})/, weather_data) do
-      [_, temp] -> String.to_integer(temp)
-      nil -> nil
-    end
-  end
-
-  defp parse_wind_direction(weather_data) do
-    case Regex.run(~r/(\d{3})\//, weather_data) do
-      [_, direction] -> String.to_integer(direction)
-      nil -> nil
-    end
-  end
-
-  defp parse_wind_speed(weather_data) do
-    case Regex.run(~r/\/(\d{3})/, weather_data) do
-      [_, speed] -> String.to_integer(speed)
-      nil -> nil
-    end
-  end
-
-  defp parse_wind_gust(weather_data) do
-    case Regex.run(~r/g(\d{3})/, weather_data) do
-      [_, gust] -> String.to_integer(gust)
-      nil -> nil
-    end
-  end
-
-  defp parse_rainfall_1h(weather_data) do
-    case Regex.run(~r/r(\d{3})/, weather_data) do
-      [_, rain] -> String.to_integer(rain)
-      nil -> nil
-    end
-  end
-
-  defp parse_rainfall_24h(weather_data) do
-    case Regex.run(~r/p(\d{3})/, weather_data) do
-      [_, rain] -> String.to_integer(rain)
-      nil -> nil
-    end
-  end
-
-  defp parse_rainfall_since_midnight(weather_data) do
-    case Regex.run(~r/P(\d{3})/, weather_data) do
-      [_, rain] -> String.to_integer(rain)
-      nil -> nil
-    end
-  end
-
-  defp parse_humidity(weather_data) do
-    case Regex.run(~r/h(\d{2})/, weather_data) do
-      [_, humidity] ->
-        val = String.to_integer(humidity)
-        if val == 0, do: 100, else: val
-
-      nil ->
-        nil
-    end
-  end
-
-  defp parse_pressure(weather_data) do
-    case Regex.run(~r/b(\d{5})/, weather_data) do
-      [_, pressure] -> String.to_integer(pressure) / 10.0
-      nil -> nil
-    end
-  end
-
-  defp parse_luminosity(weather_data) do
-    case Regex.run(~r/[lL](\d{3})/, weather_data) do
-      [_, luminosity] -> String.to_integer(luminosity)
-      nil -> nil
-    end
-  end
-
-  defp parse_snow(weather_data) do
-    case Regex.run(~r/s(\d{3})/, weather_data) do
-      [_, snow] -> String.to_integer(snow)
-      nil -> nil
-    end
-  end
-
   # Telemetry parsing
   def parse_telemetry(<<"T#", rest::binary>>) do
     case String.split(rest, ",") do
@@ -1231,9 +1072,9 @@ defmodule Parser do
         digital_values = values |> Enum.drop(5) |> Enum.take(8)
 
         %{
-          sequence_number: parse_telemetry_sequence(seq),
-          analog_values: parse_analog_values(analog_values),
-          digital_values: parse_digital_values(digital_values),
+          sequence_number: Parser.Helpers.parse_telemetry_sequence(seq),
+          analog_values: Parser.Helpers.parse_analog_values(analog_values),
+          digital_values: Parser.Helpers.parse_digital_values(digital_values),
           data_type: :telemetry,
           raw_data: rest
         }
@@ -1263,9 +1104,9 @@ defmodule Parser do
       |> Enum.chunk_every(3)
       |> Enum.map(fn [a, b, c] ->
         %{
-          a: parse_coefficient(a),
-          b: parse_coefficient(b),
-          c: parse_coefficient(c)
+          a: Parser.Helpers.parse_coefficient(a),
+          b: Parser.Helpers.parse_coefficient(b),
+          c: Parser.Helpers.parse_coefficient(c)
         }
       end)
 
@@ -1312,70 +1153,6 @@ defmodule Parser do
       raw_data: data,
       data_type: :telemetry
     }
-  end
-
-  # Parse telemetry sequence number
-  @spec parse_telemetry_sequence(String.t()) :: integer() | nil
-  defp parse_telemetry_sequence(seq) do
-    case Integer.parse(seq) do
-      {num, _} -> num
-      :error -> nil
-    end
-  end
-
-  # Parse digital values (convert to integers where possible)
-  @spec parse_digital_values([String.t()]) :: [boolean() | nil]
-  defp parse_digital_values(values) do
-    values
-    |> Enum.map(fn value ->
-      cond do
-        value == "1" ->
-          true
-
-        is_binary(value) ->
-          # Handle binary string format (e.g., "00000000")
-          value
-          |> String.graphemes()
-          |> Enum.map(fn
-            "1" -> true
-            "0" -> false
-            _ -> nil
-          end)
-      end
-    end)
-    |> List.flatten()
-  end
-
-  # Parse analog values (convert to floats where possible)
-  @spec parse_analog_values([String.t()]) :: [float() | nil]
-  defp parse_analog_values(values) do
-    Enum.map(values, fn value ->
-      case value do
-        "" ->
-          nil
-
-        value ->
-          case Float.parse(value) do
-            {float_val, _} -> float_val
-            :error -> nil
-          end
-      end
-    end)
-  end
-
-  # Parse equation coefficient
-  @spec parse_coefficient(String.t()) :: float() | integer() | String.t()
-  defp parse_coefficient(coeff) do
-    case Float.parse(coeff) do
-      {float_val, _} ->
-        float_val
-
-      :error ->
-        case Integer.parse(coeff) do
-          {int_val, _} -> int_val
-          :error -> coeff
-        end
-    end
   end
 
   # Station Capabilities parsing
@@ -1456,7 +1233,7 @@ defmodule Parser do
 
   # Third Party Traffic parsing
   def parse_third_party_traffic(packet) do
-    if count_leading_braces(packet) + 1 > 3 do
+    if Parser.Helpers.count_leading_braces(packet) + 1 > 3 do
       %{
         error: "Maximum tunnel depth exceeded"
       }
@@ -1580,20 +1357,6 @@ defmodule Parser do
     end
   end
 
-  # Helper function to count leading } characters
-  @spec count_leading_braces(String.t()) :: non_neg_integer()
-  defp count_leading_braces(packet) do
-    count_leading_braces(packet, 0)
-  end
-
-  defp count_leading_braces(<<"}", rest::binary>>, count) do
-    count_leading_braces(rest, count + 1)
-  end
-
-  defp count_leading_braces(_packet, count) do
-    count
-  end
-
   # Add support for multiple levels of tunneling
   defp parse_nested_tunnel(packet, depth \\ 0) do
     cond do
@@ -1627,455 +1390,12 @@ defmodule Parser do
   # PHG Data parsing (Power, Height, Gain, Directivity)
   def parse_phg_data(<<"PHG", p, h, g, d, rest::binary>>) do
     %{
-      power: parse_phg_power(p),
-      height: parse_phg_height(h),
-      gain: parse_phg_gain(g),
-      directivity: parse_phg_directivity(d),
+      power: Parser.Helpers.parse_phg_power(p),
+      height: Parser.Helpers.parse_phg_height(h),
+      gain: Parser.Helpers.parse_phg_gain(g),
+      directivity: Parser.Helpers.parse_phg_directivity(d),
       comment: rest,
       data_type: :phg_data
     }
   end
-
-  def parse_phg_data(<<"DFS", s, h, g, d, rest::binary>>) do
-    %{
-      df_strength: parse_df_strength(s),
-      height: parse_phg_height(h),
-      gain: parse_phg_gain(g),
-      directivity: parse_phg_directivity(d),
-      comment: rest,
-      data_type: :df_report
-    }
-  end
-
-  def parse_phg_data(phg_data) when is_binary(phg_data) do
-    %{
-      phg_data: phg_data,
-      data_type: :phg_data
-    }
-  end
-
-  # PHG Power conversion (0-9)
-  defp parse_phg_power(?0), do: {0, "0 watts"}
-  defp parse_phg_power(?1), do: {1, "1 watt"}
-  defp parse_phg_power(?2), do: {4, "4 watts"}
-  defp parse_phg_power(?3), do: {9, "9 watts"}
-  defp parse_phg_power(?4), do: {16, "16 watts"}
-  defp parse_phg_power(?5), do: {25, "25 watts"}
-  defp parse_phg_power(?6), do: {36, "36 watts"}
-  defp parse_phg_power(?7), do: {49, "49 watts"}
-  defp parse_phg_power(?8), do: {64, "64 watts"}
-  defp parse_phg_power(?9), do: {81, "81 watts"}
-  defp parse_phg_power(p), do: {nil, "Unknown power: #{<<p>>}"}
-
-  # PHG Height conversion (0-9)
-  defp parse_phg_height(?0), do: {10, "10 feet"}
-  defp parse_phg_height(?1), do: {20, "20 feet"}
-  defp parse_phg_height(?2), do: {40, "40 feet"}
-  defp parse_phg_height(?3), do: {80, "80 feet"}
-  defp parse_phg_height(?4), do: {160, "160 feet"}
-  defp parse_phg_height(?5), do: {320, "320 feet"}
-  defp parse_phg_height(?6), do: {640, "640 feet"}
-  defp parse_phg_height(?7), do: {1280, "1280 feet"}
-  defp parse_phg_height(?8), do: {2560, "2560 feet"}
-  defp parse_phg_height(?9), do: {5120, "5120 feet"}
-  defp parse_phg_height(h), do: {nil, "Unknown height: #{<<h>>}"}
-
-  # PHG Gain conversion (0-9)
-  defp parse_phg_gain(?0), do: {0, "0 dB"}
-  defp parse_phg_gain(?1), do: {1, "1 dB"}
-  defp parse_phg_gain(?2), do: {2, "2 dB"}
-  defp parse_phg_gain(?3), do: {3, "3 dB"}
-  defp parse_phg_gain(?4), do: {4, "4 dB"}
-  defp parse_phg_gain(?5), do: {5, "5 dB"}
-  defp parse_phg_gain(?6), do: {6, "6 dB"}
-  defp parse_phg_gain(?7), do: {7, "7 dB"}
-  defp parse_phg_gain(?8), do: {8, "8 dB"}
-  defp parse_phg_gain(?9), do: {9, "9 dB"}
-  defp parse_phg_gain(g), do: {nil, "Unknown gain: #{<<g>>}"}
-
-  # PHG Directivity conversion (0-9)
-  defp parse_phg_directivity(?0), do: {360, "Omni"}
-  defp parse_phg_directivity(?1), do: {45, "45° NE"}
-  defp parse_phg_directivity(?2), do: {90, "90° E"}
-  defp parse_phg_directivity(?3), do: {135, "135° SE"}
-  defp parse_phg_directivity(?4), do: {180, "180° S"}
-  defp parse_phg_directivity(?5), do: {225, "225° SW"}
-  defp parse_phg_directivity(?6), do: {270, "270° W"}
-  defp parse_phg_directivity(?7), do: {315, "315° NW"}
-  defp parse_phg_directivity(?8), do: {360, "360° N"}
-  defp parse_phg_directivity(?9), do: {nil, "Undefined"}
-  defp parse_phg_directivity(d), do: {nil, "Unknown directivity: #{<<d>>}"}
-
-  # DF Strength conversion (0-9)
-  defp parse_df_strength(?0), do: {0, "0 dB"}
-  defp parse_df_strength(?1), do: {1, "3 dB above S0"}
-  defp parse_df_strength(?2), do: {2, "6 dB above S0"}
-  defp parse_df_strength(?3), do: {3, "9 dB above S0"}
-  defp parse_df_strength(?4), do: {4, "12 dB above S0"}
-  defp parse_df_strength(?5), do: {5, "15 dB above S0"}
-  defp parse_df_strength(?6), do: {6, "18 dB above S0"}
-  defp parse_df_strength(?7), do: {7, "21 dB above S0"}
-  defp parse_df_strength(?8), do: {8, "24 dB above S0"}
-  defp parse_df_strength(?9), do: {9, "27 dB above S0"}
-  defp parse_df_strength(s), do: {nil, "Unknown strength: #{<<s>>}"}
-
-  # KISS to TNC2 conversion
-  @spec kiss_to_tnc2(binary()) :: String.t() | map()
-  def kiss_to_tnc2(<<0xC0, 0x00, rest::binary>>) do
-    # Remove KISS framing and control byte
-    tnc2 =
-      rest
-      |> String.trim_trailing(<<0xC0>>)
-      |> String.replace(<<0xDB, 0xDC>>, <<0xC0>>)
-      |> String.replace(<<0xDB, 0xDD>>, <<0xDB>>)
-
-    tnc2
-  end
-
-  def kiss_to_tnc2(_), do: %{error_code: :packet_invalid, error_message: "Unknown error"}
-
-  # TNC2 to KISS conversion
-  @spec tnc2_to_kiss(String.t()) :: binary()
-  def tnc2_to_kiss(tnc2) do
-    # Add KISS framing and escape special bytes
-    escaped =
-      tnc2
-      |> String.replace(<<0xDB>>, <<0xDB, 0xDD>>)
-      |> String.replace(<<0xC0>>, <<0xDB, 0xDC>>)
-
-    <<0xC0, 0x00>> <> escaped <> <<0xC0>>
-  end
-
-  # PEET Logging parsing
-  def parse_peet_logging(<<"*", peet_data::binary>>) do
-    %{
-      peet_data: peet_data,
-      data_type: :peet_logging
-    }
-  end
-
-  @spec parse_peet_logging(String.t()) :: map()
-  def parse_peet_logging(data) do
-    %{
-      peet_data: data,
-      data_type: :peet_logging
-    }
-  end
-
-  # Invalid/Test Data parsing
-  def parse_invalid_test_data(<<",", test_data::binary>>) do
-    %{
-      test_data: test_data,
-      data_type: :invalid_test_data
-    }
-  end
-
-  @spec parse_invalid_test_data(String.t()) :: map()
-  def parse_invalid_test_data(data) do
-    %{
-      test_data: data,
-      data_type: :invalid_test_data
-    }
-  end
-
-  # Validation functions
-
-  # Validate position data
-  defp validate_position_data(latitude, longitude) do
-    %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-
-    cond do
-      not is_number(lat) or not is_number(lon) ->
-        {:error, "Invalid coordinate format"}
-
-      lat < -90 or lat > 90 ->
-        {:error, "Latitude out of range"}
-
-      lon < -180 or lon > 180 ->
-        {:error, "Longitude out of range"}
-
-      true ->
-        {:ok, {lat, lon}}
-    end
-  rescue
-    _ ->
-      {:error, "Position parsing failed"}
-  end
-
-  # Validate timestamp format
-  @spec validate_timestamp(String.t()) :: String.t() | nil
-  defp validate_timestamp(time) when byte_size(time) == 7 do
-    if Regex.match?(~r/^\d{6}[hz\/]$/, time) do
-      time
-    else
-      "INVALID"
-    end
-  end
-
-  @spec validate_timestamp(any()) :: nil
-  defp validate_timestamp(_), do: nil
-
-  @spec extract_timestamp(String.t()) :: String.t() | nil
-  defp extract_timestamp(weather_data) do
-    case Regex.run(~r/^(\d{6}[hz\/])/, weather_data) do
-      [_, timestamp] -> timestamp
-      nil -> nil
-    end
-  end
-
-  @spec remove_timestamp(String.t()) :: String.t()
-  defp remove_timestamp(weather_data) do
-    case Regex.run(~r/^\d{6}[hz\/]/, weather_data) do
-      [timestamp] -> String.replace(weather_data, timestamp, "")
-      nil -> weather_data
-    end
-  end
-
-  @spec parse_nmea_sentence(String.t()) ::
-          {:ok, map()}
-          | {:error, String.t()}
-          | {:error, %{error: String.t(), nmea_type: String.t() | nil}}
-  defp parse_nmea_sentence(sentence) do
-    # Validate NMEA sentence format
-    with {:ok, sentence_type} <- validate_nmea_sentence(sentence),
-         {:ok, fields} <- split_nmea_fields(sentence) do
-      case validate_nmea_checksum(sentence) do
-        {:ok, _checksum} ->
-          parse_nmea_by_type(sentence_type, fields)
-
-        {:error, _reason} ->
-          # Return format error instead of checksum error for incomplete sentences
-          if length(fields) < 10 do
-            {:error, %{error: "Invalid NMEA sentence format", nmea_type: sentence_type}}
-          else
-            {:error, %{error: "Invalid NMEA checksum", nmea_type: sentence_type}}
-          end
-      end
-    else
-      {:error, "Invalid NMEA sentence format"} ->
-        {:error, %{error: "Invalid NMEA sentence format", nmea_type: nil}}
-
-      {:error, reason} ->
-        {:error, %{error: reason, nmea_type: nil}}
-    end
-  end
-
-  @spec validate_nmea_sentence(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  defp validate_nmea_sentence(sentence) do
-    case Regex.run(~r/^\$?([A-Z]{5}),/, sentence) do
-      [_, sentence_type] -> {:ok, sentence_type}
-      nil -> {:error, "Invalid NMEA sentence format"}
-    end
-  end
-
-  @spec split_nmea_fields(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
-  defp split_nmea_fields(sentence) do
-    # Remove $ and checksum, then split by comma
-    case String.split(sentence, ["$", "*"], parts: 2) do
-      [_, fields] ->
-        {:ok, String.split(fields, ",")}
-
-      _ ->
-        {:error, "Invalid NMEA sentence format"}
-    end
-  end
-
-  @spec validate_nmea_checksum(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  defp validate_nmea_checksum(sentence) do
-    case Regex.run(~r/\*([0-9A-F]{2})$/, sentence) do
-      [_, checksum] ->
-        calculated = calculate_nmea_checksum(sentence)
-
-        if calculated == checksum do
-          {:ok, checksum}
-        else
-          {:error, "Invalid NMEA checksum"}
-        end
-
-      nil ->
-        {:error, "Missing NMEA checksum"}
-    end
-  end
-
-  @spec calculate_nmea_checksum(String.t()) :: String.t()
-  defp calculate_nmea_checksum(sentence) do
-    # Remove $ and everything after *
-    sentence
-    |> String.split("*")
-    |> List.first()
-    |> String.slice(1..-1//1)
-    |> String.to_charlist()
-    |> Enum.reduce(0, &Bitwise.bxor/2)
-    |> Integer.to_string(16)
-    |> String.pad_leading(2, "0")
-    |> String.upcase()
-  end
-
-  @spec parse_nmea_by_type(String.t(), [String.t()]) :: {:ok, map()} | {:error, String.t()}
-  defp parse_nmea_by_type("GPGGA", fields) do
-    with {:ok, time} <- parse_nmea_time(Enum.at(fields, 1)),
-         {:ok, lat} <- parse_nmea_coordinate(Enum.at(fields, 2), Enum.at(fields, 3)),
-         {:ok, lon} <- parse_nmea_coordinate(Enum.at(fields, 4), Enum.at(fields, 5)),
-         {:ok, quality} <- parse_nmea_quality(Enum.at(fields, 6)),
-         {:ok, satellites} <- parse_nmea_satellites(Enum.at(fields, 7)),
-         {:ok, hdop} <- parse_nmea_hdop(Enum.at(fields, 8)),
-         {:ok, altitude} <- parse_nmea_altitude(Enum.at(fields, 9), Enum.at(fields, 10)) do
-      {:ok,
-       %{
-         time: time,
-         latitude: lat,
-         longitude: lon,
-         quality: quality,
-         satellites: satellites,
-         hdop: hdop,
-         altitude: altitude,
-         nmea_type: "GPGGA"
-       }}
-    end
-  end
-
-  defp parse_nmea_by_type("GPRMC", fields) do
-    with {:ok, time} <- parse_nmea_time(Enum.at(fields, 1)),
-         {:ok, status} <- parse_nmea_status(Enum.at(fields, 2)),
-         {:ok, lat} <- parse_nmea_coordinate(Enum.at(fields, 3), Enum.at(fields, 4)),
-         {:ok, lon} <- parse_nmea_coordinate(Enum.at(fields, 5), Enum.at(fields, 6)),
-         {:ok, speed} <- parse_nmea_speed(Enum.at(fields, 7)),
-         {:ok, course} <- parse_nmea_course(Enum.at(fields, 8)),
-         {:ok, date} <- parse_nmea_date(Enum.at(fields, 9)) do
-      {:ok,
-       %{
-         time: time,
-         status: status,
-         latitude: lat,
-         longitude: lon,
-         speed: speed,
-         course: course,
-         date: date,
-         nmea_type: "GPRMC"
-       }}
-    end
-  end
-
-  defp parse_nmea_by_type("GPGLL", fields) do
-    with {:ok, lat} <- parse_nmea_coordinate(Enum.at(fields, 1), Enum.at(fields, 2)),
-         {:ok, lon} <- parse_nmea_coordinate(Enum.at(fields, 3), Enum.at(fields, 4)),
-         {:ok, time} <- parse_nmea_time(Enum.at(fields, 5)),
-         {:ok, status} <- parse_nmea_status(Enum.at(fields, 6)) do
-      {:ok,
-       %{
-         latitude: lat,
-         longitude: lon,
-         time: time,
-         status: status,
-         nmea_type: "GPGLL"
-       }}
-    end
-  end
-
-  defp parse_nmea_by_type(type, _fields) do
-    {:error, "Unsupported NMEA sentence type: #{type}"}
-  end
-
-  @spec parse_nmea_time(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  defp parse_nmea_time(time) when is_binary(time) and byte_size(time) == 6 do
-    {:ok, time}
-  end
-
-  defp parse_nmea_time(_), do: {:error, "Invalid NMEA time format"}
-
-  @spec parse_nmea_coordinate(String.t(), String.t()) :: {:ok, float()} | {:error, String.t()}
-  defp parse_nmea_coordinate(value, direction) when is_binary(value) and is_binary(direction) do
-    case Float.parse(value) do
-      {coord, _} ->
-        coord = coord / 100.0
-
-        coord =
-          case direction do
-            "N" -> coord
-            "S" -> -coord
-            "E" -> coord
-            "W" -> -coord
-            _ -> {:error, "Invalid coordinate direction"}
-          end
-
-        {:ok, coord}
-
-      :error ->
-        {:error, "Invalid coordinate value"}
-    end
-  end
-
-  defp parse_nmea_coordinate(_, _), do: {:error, "Invalid coordinate format"}
-
-  @spec parse_nmea_quality(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  defp parse_nmea_quality("0"), do: {:ok, "Invalid"}
-  defp parse_nmea_quality("1"), do: {:ok, "GPS fix"}
-  defp parse_nmea_quality("2"), do: {:ok, "DGPS fix"}
-  defp parse_nmea_quality("4"), do: {:ok, "RTK fix"}
-  defp parse_nmea_quality("5"), do: {:ok, "RTK float"}
-  defp parse_nmea_quality(_), do: {:error, "Invalid quality indicator"}
-
-  @spec parse_nmea_satellites(String.t()) :: {:ok, integer()} | {:error, String.t()}
-  defp parse_nmea_satellites(satellites) do
-    case Integer.parse(satellites) do
-      {num, _} -> {:ok, num}
-      :error -> {:error, "Invalid satellite count"}
-    end
-  end
-
-  @spec parse_nmea_hdop(String.t()) :: {:ok, float()} | {:error, String.t()}
-  defp parse_nmea_hdop(hdop) do
-    case Float.parse(hdop) do
-      {num, _} -> {:ok, num}
-      :error -> {:error, "Invalid HDOP value"}
-    end
-  end
-
-  @spec parse_nmea_altitude(String.t(), String.t()) :: {:ok, float()} | {:error, String.t()}
-  defp parse_nmea_altitude(altitude, unit) do
-    case Float.parse(altitude) do
-      {num, _} ->
-        num =
-          case unit do
-            "M" -> num
-            # Convert feet to meters
-            "F" -> num * 0.3048
-            _ -> {:error, "Invalid altitude unit"}
-          end
-
-        {:ok, num}
-
-      :error ->
-        {:error, "Invalid altitude value"}
-    end
-  end
-
-  @spec parse_nmea_status(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  defp parse_nmea_status("A"), do: {:ok, "Valid"}
-  defp parse_nmea_status("V"), do: {:ok, "Invalid"}
-  defp parse_nmea_status(_), do: {:error, "Invalid status"}
-
-  @spec parse_nmea_speed(String.t()) :: {:ok, float()} | {:error, String.t()}
-  defp parse_nmea_speed(speed) do
-    case Float.parse(speed) do
-      # Convert knots to km/h
-      {num, _} -> {:ok, num * 1.852}
-      :error -> {:error, "Invalid speed value"}
-    end
-  end
-
-  @spec parse_nmea_course(String.t()) :: {:ok, float()} | {:error, String.t()}
-  defp parse_nmea_course(course) do
-    case Float.parse(course) do
-      {num, _} -> {:ok, num}
-      :error -> {:error, "Invalid course value"}
-    end
-  end
-
-  @spec parse_nmea_date(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  defp parse_nmea_date(date) when is_binary(date) and byte_size(date) == 6 do
-    {:ok, date}
-  end
-
-  defp parse_nmea_date(_), do: {:error, "Invalid NMEA date format"}
 end

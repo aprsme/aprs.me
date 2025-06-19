@@ -40,11 +40,7 @@ defmodule Parser.Position do
   def parse_aprs_position(lat_str, lon_str) do
     # Parse latitude: DDMM.MM format
     lat =
-      case Regex.run(
-             ~r/^(
-        \d{2})(\d{2}\.\d+)([NS])$/,
-             lat_str
-           ) do
+      case Regex.run(~r/^(\d{2})(\d{2}\.\d+)([NS])$/, lat_str) do
         [_, degrees, minutes, direction] ->
           lat_val = String.to_integer(degrees) + String.to_float(minutes) / 60
           if direction == "S", do: -lat_val, else: lat_val
@@ -101,6 +97,4 @@ defmodule Parser.Position do
         nil
     end
   end
-
-  # Move parse_aprs_position/2 and ambiguity/DAO helpers here from the main parser when refactoring further.
 end

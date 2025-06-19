@@ -5,7 +5,6 @@ defmodule AprsWeb.MapLive.Index do
   use AprsWeb, :live_view
 
   alias AprsWeb.Endpoint
-  alias AprsWeb.Helpers.AprsSymbols
   alias Phoenix.LiveView.Socket
 
   @default_center %{lat: 39.8283, lng: -98.5795}
@@ -21,6 +20,7 @@ defmodule AprsWeb.MapLive.Index do
 
     socket = assign_defaults(socket, one_hour_ago)
     socket = assign(socket, packet_buffer: [], buffer_timer: nil)
+    socket = assign(socket, all_packets: %{})
 
     if connected?(socket) do
       Endpoint.subscribe("aprs_messages")
@@ -310,6 +310,31 @@ defmodule AprsWeb.MapLive.Index do
         push_event(acc, "remove_marker", %{id: k})
       end)
 
+    # Fetch the latest 100 packets within the new bounds and push to client
+    bounds_list = [map_bounds.west, map_bounds.south, map_bounds.east, map_bounds.north]
+    now = DateTime.utc_now()
+    one_hour_ago = DateTime.add(now, -3600, :second)
+
+    packets =
+      Aprs.Packets.get_packets_for_replay(%{
+        bounds: bounds_list,
+        start_time: one_hour_ago,
+        end_time: now,
+        limit: 100
+      })
+
+    marker_data =
+      packets
+      |> Enum.map(&build_packet_data/1)
+      |> Enum.filter(& &1)
+
+    socket =
+      if Enum.any?(marker_data) do
+        push_event(socket, "add_markers", %{markers: marker_data})
+      else
+        socket
+      end
+
     assign(socket, map_bounds: map_bounds, visible_packets: new_visible_packets)
   end
 
@@ -382,6 +407,15 @@ defmodule AprsWeb.MapLive.Index do
   defp handle_info_postgres_packet(packet, socket) do
     {lat, lon, _data_extended} = get_coordinates(packet)
 
+    # Always store the packet in all_packets
+    callsign_key =
+      if Map.has_key?(packet, "id"),
+        do: to_string(packet["id"]),
+        else: System.unique_integer([:positive])
+
+    all_packets = Map.put(socket.assigns.all_packets, callsign_key, packet)
+    socket = assign(socket, all_packets: all_packets)
+
     if is_nil(lat) or is_nil(lon),
       do: {:noreply, socket},
       else: handle_valid_postgres_packet(packet, lat, lon, socket)
@@ -409,40 +443,58 @@ defmodule AprsWeb.MapLive.Index do
   defp handle_info_flush_packet_buffer(socket) do
     packets = Enum.reverse(socket.assigns.packet_buffer)
     visible_packets = socket.assigns.visible_packets
+    all_packets = socket.assigns.all_packets
 
-    {new_visible_packets, events} = process_packet_buffer(packets, visible_packets)
+    {new_visible_packets, events, new_all_packets} =
+      process_packet_buffer_with_all(packets, visible_packets, all_packets)
 
     socket =
       Enum.reduce(events, socket, fn {:new_packet, data}, acc ->
         push_event(acc, "new_packet", data)
       end)
 
+    # Highlight the latest packet (open its popup)
+    if packets != [] do
+      latest_packet = List.last(packets)
+
+      callsign_key =
+        if Map.has_key?(latest_packet, "id"),
+          do: to_string(latest_packet["id"]),
+          else: System.unique_integer([:positive])
+
+      push_event(socket, "highlight_packet", %{id: callsign_key})
+    end
+
     socket =
       assign(socket,
         visible_packets: new_visible_packets,
         packet_buffer: [],
-        buffer_timer: nil
+        buffer_timer: nil,
+        all_packets: new_all_packets
       )
 
     {:noreply, socket}
   end
 
-  defp process_packet_buffer([], visible_packets), do: {visible_packets, []}
+  # New helper to process buffer and update all_packets
+  defp process_packet_buffer_with_all([], visible_packets, all_packets), do: {visible_packets, [], all_packets}
 
-  defp process_packet_buffer([packet | rest], visible_packets) do
-    {vis, evs} = process_packet_buffer(rest, visible_packets)
+  defp process_packet_buffer_with_all([packet | rest], visible_packets, all_packets) do
+    {vis, evs, allp} = process_packet_buffer_with_all(rest, visible_packets, all_packets)
+
+    callsign_key =
+      if Map.has_key?(packet, "id"),
+        do: to_string(packet["id"]),
+        else: System.unique_integer([:positive])
+
+    allp = Map.put(allp, callsign_key, packet)
 
     case build_packet_data(packet) do
       nil ->
-        {vis, evs}
+        {vis, evs, allp}
 
       packet_data ->
-        callsign_key =
-          if Map.has_key?(packet, "id"),
-            do: to_string(packet["id"]),
-            else: System.unique_integer([:positive])
-
-        {Map.put(vis, callsign_key, packet), [{:new_packet, packet_data} | evs]}
+        {Map.put(vis, callsign_key, packet), [{:new_packet, packet_data} | evs], allp}
     end
   end
 
@@ -588,12 +640,6 @@ defmodule AprsWeb.MapLive.Index do
         margin-bottom: 4px;
       }
 
-      .aprs-symbol-info {
-        color: #6b7280;
-        font-style: italic;
-        margin-bottom: 4px;
-      }
-
       .aprs-comment {
         color: #374151;
         margin-bottom: 4px;
@@ -604,24 +650,6 @@ defmodule AprsWeb.MapLive.Index do
         color: #6b7280;
         font-size: 11px;
         font-family: monospace;
-      }
-
-      /* High-DPI support for APRS symbols */
-      @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-        .aprs-marker div[style*="aprs-symbols-24-0.png"] {
-          background-image: url('/aprs-symbols/aprs-symbols-24-0@2x.png') !important;
-          background-size: 384px 144px !important;
-        }
-
-        .aprs-marker div[style*="aprs-symbols-24-1.png"] {
-          background-image: url('/aprs-symbols/aprs-symbols-24-1@2x.png') !important;
-          background-size: 384px 144px !important;
-        }
-
-        .aprs-marker div[style*="aprs-symbols-24-2.png"] {
-          background-image: url('/aprs-symbols/aprs-symbols-24-2@2x.png') !important;
-          background-size: 384px 144px !important;
-        }
       }
 
       /* Leaflet popup improvements for APRS data */
@@ -853,8 +881,36 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec build_packet_map(map() | struct(), number(), number(), map() | nil) :: map()
   defp build_packet_map(packet, lat, lon, data_extended) do
-    {final_table_id, final_symbol_code} = get_validated_symbol(packet, data_extended)
     callsign = generate_callsign(packet)
+    symbol_table_id = get_in(data_extended, ["symbol_table_id"]) || "/"
+    symbol_code = get_in(data_extended, ["symbol_code"]) || ">"
+
+    symbol_description =
+      get_in(data_extended, ["symbol_description"]) || "Symbol: #{symbol_table_id}#{symbol_code}"
+
+    timestamp =
+      cond do
+        Map.has_key?(packet, :received_at) && packet.received_at ->
+          DateTime.to_iso8601(packet.received_at)
+
+        Map.has_key?(packet, "received_at") && packet["received_at"] ->
+          DateTime.to_iso8601(packet["received_at"])
+
+        true ->
+          ""
+      end
+
+    comment = get_in(data_extended, ["comment"]) || ""
+
+    popup = """
+    <div class=\"aprs-popup\">
+      <div class=\"aprs-callsign\"><strong><a href=\"/#{callsign}\">#{callsign}</a></strong></div>
+      <div class=\"aprs-symbol-info\">#{symbol_description}</div>
+      #{if comment == "", do: "", else: "<div class=\\\"aprs-comment\\\">#{comment}</div>"}
+      <div class=\"aprs-coords\">#{Float.round(lat, 4)}, #{Float.round(lon, 4)}</div>
+      <div class=\"aprs-time\">#{timestamp}</div>
+    </div>
+    """
 
     %{
       "id" => callsign,
@@ -863,36 +919,16 @@ defmodule AprsWeb.MapLive.Index do
       "ssid" => packet.ssid || "",
       "lat" => lat,
       "lng" => lon,
-      "symbol_table_id" => final_table_id,
-      "symbol_code" => final_symbol_code,
-      "symbol_description" => AprsSymbols.symbol_description(final_table_id, final_symbol_code),
       "data_type" => to_string(packet.data_type || "unknown"),
       "path" => packet.path || "",
-      "comment" => get_in(data_extended, ["comment"]) || "",
-      "data_extended" => data_extended || %{}
+      "comment" => comment,
+      "data_extended" => data_extended || %{},
+      "symbol_table_id" => symbol_table_id,
+      "symbol_code" => symbol_code,
+      "symbol_description" => symbol_description,
+      "timestamp" => timestamp,
+      "popup" => popup
     }
-  end
-
-  @spec get_validated_symbol(map() | struct(), map() | nil) :: {String.t(), String.t()}
-  defp get_validated_symbol(packet, data_extended) do
-    symbol_table_id = get_symbol_table_id(packet, data_extended)
-    symbol_code = get_symbol_code(packet, data_extended)
-
-    if AprsSymbols.valid_symbol?(symbol_table_id, symbol_code) do
-      {symbol_table_id, symbol_code}
-    else
-      AprsSymbols.default_symbol()
-    end
-  end
-
-  @spec get_symbol_table_id(map() | struct(), map() | nil) :: String.t()
-  defp get_symbol_table_id(packet, data_extended) do
-    get_in(data_extended, ["symbol_table_id"]) || packet.symbol_table_id || "/"
-  end
-
-  @spec get_symbol_code(map() | struct(), map() | nil) :: String.t()
-  defp get_symbol_code(packet, data_extended) do
-    get_in(data_extended, ["symbol_code"]) || packet.symbol_code || ">"
   end
 
   @spec generate_callsign(map() | struct()) :: String.t()

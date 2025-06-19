@@ -2,8 +2,6 @@ defmodule Aprs.Is do
   @moduledoc false
   use GenServer
 
-  alias Parser.Types.MicE
-
   require Logger
 
   @aprs_timeout 60 * 1000
@@ -387,39 +385,34 @@ defmodule Aprs.Is do
           require Logger
 
           try do
-            # Store the packet if it has position data
-            if has_position_data?(parsed_message) do
-              # Always set received_at timestamp to ensure consistency
-              current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
-              packet_data = Map.put(parsed_message, :received_at, current_time)
+            # Always set received_at timestamp to ensure consistency
+            current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
+            packet_data = Map.put(parsed_message, :received_at, current_time)
 
-              # Convert to map before storing to avoid struct conversion issues
-              attrs = struct_to_map(packet_data)
+            # Convert to map before storing to avoid struct conversion issues
+            attrs = struct_to_map(packet_data)
 
-              # Extract additional data from the parsed packet including raw packet
-              attrs = Aprs.Packet.extract_additional_data(attrs, message)
+            # Extract additional data from the parsed packet including raw packet
+            attrs = Aprs.Packet.extract_additional_data(attrs, message)
 
-              # Normalize data_type to string if it's an atom
-              attrs = normalize_data_type(attrs)
+            # Normalize data_type to string if it's an atom
+            attrs = normalize_data_type(attrs)
 
-              # Store in database through the Packets context
-              case Aprs.Packets.store_packet(attrs) do
-                {:ok, _packet} ->
-                  # Packet stored successfully
-                  :ok
+            # Store in database through the Packets context
+            case Aprs.Packets.store_packet(attrs) do
+              {:ok, _packet} ->
+                # Packet stored successfully
+                :ok
 
-                {:error, :storage_exception} ->
-                  Logger.error("Storage exception while storing packet from #{inspect(parsed_message.sender)}")
+              {:error, :storage_exception} ->
+                Logger.error("Storage exception while storing packet from #{inspect(parsed_message.sender)}")
 
-                  Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
+                Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
 
-                {:error, :validation_error} ->
-                  Logger.error("Validation error while storing packet from #{inspect(parsed_message.sender)}")
+              {:error, :validation_error} ->
+                Logger.error("Validation error while storing packet from #{inspect(parsed_message.sender)}")
 
-                  Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
-              end
-            else
-              Logger.debug("Skipping packet without position data: #{inspect(parsed_message.sender)}")
+                Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
             end
           rescue
             error ->
@@ -447,93 +440,6 @@ defmodule Aprs.Is do
     end
   end
 
-  # Helper to check if a packet has position data worth storing
-  @spec has_position_data?(map()) :: boolean()
-  defp has_position_data?(%{data_extended: nil} = packet), do: log_and_return_nil_data_extended(packet)
-
-  defp has_position_data?(%{data_extended: %{latitude: lat, longitude: lon}} = _packet)
-       when not is_nil(lat) and not is_nil(lon),
-       do: check_lat_lon_coords(lat, lon)
-
-  defp has_position_data?(%{data_extended: %MicE{} = mic_e}), do: check_mic_e_coords(mic_e)
-  defp has_position_data?(packet), do: log_and_return_unrecognized(packet)
-
-  defp log_and_return_nil_data_extended(packet) do
-    require Logger
-
-    Logger.debug("Packet has nil data_extended: #{inspect(packet.sender)}")
-    false
-  end
-
-  defp check_lat_lon_coords(lat, lon) do
-    valid = are_valid_coords?(lat, lon)
-
-    if !valid do
-      require Logger
-
-      Logger.debug("Invalid coordinates: lat=#{inspect(lat)}, lon=#{inspect(lon)}")
-    end
-
-    valid
-  end
-
-  defp check_mic_e_coords(mic_e) do
-    is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
-      is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes)
-  end
-
-  defp log_and_return_unrecognized(packet) do
-    require Logger
-
-    Logger.debug("Unrecognized packet format: #{inspect(Map.keys(packet))}")
-    false
-  end
-
-  # Helper to validate coordinate values
-  @spec are_valid_coords?(any(), any()) :: boolean()
-  defp are_valid_coords?(lat, lon) do
-    require Logger
-
-    # Convert to float if possible
-    lat_float = to_float(lat)
-    lon_float = to_float(lon)
-
-    # Log coordinate conversion
-    if !is_number(lat_float) do
-      Logger.debug("Could not convert latitude to float: #{inspect(lat)}")
-    end
-
-    if !is_number(lon_float) do
-      Logger.debug("Could not convert longitude to float: #{inspect(lon)}")
-    end
-
-    # Check if conversion succeeded and values are in valid ranges
-    result =
-      is_number(lat_float) and is_number(lon_float) and
-        lat_float >= -90 and lat_float <= 90 and lon_float >= -180 and lon_float <= 180
-
-    if !result do
-      Logger.debug("Invalid coordinates: lat=#{inspect(lat_float)}, lon=#{inspect(lon_float)}")
-    end
-
-    result
-  end
-
-  # Helper to convert various types to float
-  @spec to_float(any()) :: float() | nil
-  defp to_float(value) when is_float(value), do: value
-  defp to_float(value) when is_integer(value), do: value * 1.0
-  defp to_float(%Decimal{} = value), do: Decimal.to_float(value)
-
-  defp to_float(value) when is_binary(value) do
-    case Float.parse(value) do
-      {float, _} -> float
-      :error -> nil
-    end
-  end
-
-  defp to_float(_), do: nil
-
   # Normalize data_type to ensure proper storage
   @spec normalize_data_type(map()) :: map()
   defp normalize_data_type(%{data_type: data_type} = attrs) when is_atom(data_type) do
@@ -541,10 +447,6 @@ defmodule Aprs.Is do
   end
 
   defp normalize_data_type(attrs), do: attrs
-
-  #   total_spec = [{{:"$1", :_, :"$2"}, [{:andalso, callsign_guard, timestamp_guard}], [true]}]
-  #   :ets.select_count(:aprs_messages, total_spec)
-  # end
 
   @spec update_packet_stats(map(), integer()) :: map()
   defp update_packet_stats(stats, current_time) do

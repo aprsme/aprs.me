@@ -1,8 +1,14 @@
 // Declare Leaflet as a global variable
 declare const L: any;
 
-// Minimal APRS Map Hook - handles only basic map interaction
+// APRS Map Hook - handles only basic map interaction
 // All data logic handled by LiveView
+
+declare global {
+  interface Window {
+    __aprs_map_mounted?: boolean;
+  }
+}
 
 type LiveViewHookContext = {
   el: HTMLElement & { _leaflet_id?: any };
@@ -18,6 +24,7 @@ type LiveViewHookContext = {
   initializationAttempts?: number;
   maxInitializationAttempts?: number;
   lastZoom?: number;
+  currentPopupMarkerId?: string | null;
   [key: string]: any;
 };
 
@@ -67,8 +74,13 @@ interface MapEventData {
   markers?: MarkerData[];
 }
 
-let MinimalAPRSMap = {
+let MapAPRSMap = {
   mounted() {
+    if (window.__aprs_map_mounted) {
+      console.warn("APRS Map already mounted, skipping duplicate mount.");
+      return;
+    }
+    window.__aprs_map_mounted = true;
     const self = this as unknown as LiveViewHookContext;
     // Initialize error tracking
     self.errors = [];
@@ -442,6 +454,34 @@ let MinimalAPRSMap = {
         historical: false,
         popup: self.buildPopupContent(data),
       });
+      // Send marker_clicked for the latest packet only
+      self.pushEvent("marker_clicked", {
+        id: data.id,
+        callsign: data.callsign,
+        lat: data.lat,
+        lng: data.lng,
+      });
+    });
+
+    // Handle highlighting the latest packet (open its popup)
+    self.currentPopupMarkerId = null;
+    self.handleEvent("highlight_packet", (data: { id: string }) => {
+      if (!data.id) return;
+      // Close previous popup if open
+      if (self.currentPopupMarkerId && self.markers!.has(self.currentPopupMarkerId)) {
+        const prevMarker = self.markers!.get(self.currentPopupMarkerId);
+        if (prevMarker && prevMarker.closePopup) prevMarker.closePopup();
+      }
+      // Re-add marker with openPopup flag (will open after add)
+      const markerData = self.markerStates!.get(data.id);
+      if (markerData) {
+        self.addMarker({ ...markerData, id: data.id, openPopup: true });
+      } else {
+        // fallback: try to open popup directly if marker exists
+        const marker = self.markers!.get(data.id);
+        if (marker && marker.openPopup) marker.openPopup();
+      }
+      self.currentPopupMarkerId = data.id;
     });
 
     // Handle historical packets during replay
@@ -518,7 +558,7 @@ let MinimalAPRSMap = {
     });
   },
 
-  addMarker(data: MarkerData) {
+  addMarker(data: MarkerData & { openPopup?: boolean }) {
     const self = this as unknown as LiveViewHookContext;
     if (!data.id || !data.lat || !data.lng) {
       console.warn("Invalid marker data:", data);
@@ -550,6 +590,10 @@ let MinimalAPRSMap = {
 
       if (!positionChanged && !dataChanged) {
         // No changes needed, skip update
+        // But if openPopup is requested, open it
+        if (data.openPopup && existingMarker.openPopup) {
+          existingMarker.openPopup();
+        }
         return;
       }
     }
@@ -557,11 +601,14 @@ let MinimalAPRSMap = {
     // Remove existing marker if it exists
     self.removeMarker(data.id);
 
-    // Create marker icon
-    const icon = self.createMarkerIcon(data);
-
-    // Create marker
-    const marker = L.marker([lat, lng], { icon: icon });
+    // Create marker (small blue circle)
+    const marker = L.circleMarker([lat, lng], {
+      radius: 6,
+      color: "#007bff",
+      fillColor: "#007bff",
+      fillOpacity: 1,
+      weight: 1
+    });
 
     // Add popup if content provided
     if (data.popup) {
@@ -570,6 +617,7 @@ let MinimalAPRSMap = {
 
     // Handle marker click
     marker.on("click", () => {
+      if (marker.openPopup) marker.openPopup();
       self.pushEvent("marker_clicked", {
         id: data.id,
         callsign: data.callsign,
@@ -596,6 +644,11 @@ let MinimalAPRSMap = {
       popup: data.popup,
       historical: data.historical,
     });
+
+    // Open popup if requested
+    if (data.openPopup && marker.openPopup) {
+      marker.openPopup();
+    }
   },
 
   removeMarker(id: string) {
@@ -629,10 +682,11 @@ let MinimalAPRSMap = {
       }
 
       // Update icon if data changed
-      if (data.symbol_table_id || data.symbol_code || data.color) {
-        const newIcon = self.createMarkerIcon(data);
-        existingMarker.setIcon(newIcon);
-      }
+      // (No longer updating icon, always use default marker)
+      // if (data.symbol_table_id || data.symbol_code || data.color) {
+      //   const newIcon = self.createMarkerIcon(data);
+      //   existingMarker.setIcon(newIcon);
+      // }
     } else {
       // Marker doesn't exist, create it
       self.addMarker(data);
@@ -684,57 +738,40 @@ let MinimalAPRSMap = {
     const symbolTableId = data.symbol_table_id || "/";
     const symbolCode = data.symbol_code || ">";
 
-    // Get the correct sprite sheet based on symbol table
-    // Use high-DPI versions (@2x) for better quality
-    const spriteFile = symbolTableId === "/"
-      ? "/aprs-symbols/aprs-symbols-24-0@2x.png"
-      : "/aprs-symbols/aprs-symbols-24-1@2x.png";
+    // Map symbol table identifier to correct table index per hessu/aprs-symbols
+    const tableMap: Record<string, string> = {
+      "/": "0",
+      "\\": "1",
+      "]": "2"
+    };
+    const tableId = tableMap[symbolTableId] || "0";
+    const spriteFile = `/aprs-symbols/aprs-symbols-24-${tableId}@2x.png`;
 
-    // Calculate sprite position
-    // The sprite sheet is organized as a 16x8 grid (128 symbols total)
-    // ASCII codes 32-127 map to positions 0-95
+    // Calculate sprite position per hessu/aprs-symbols
     const charCode = symbolCode.charCodeAt(0);
-
-    // Convert ASCII to sprite sheet position
-    // The sprite sheet is organized in a specific way:
-    // - First row (0): ASCII 32-47
-    // - Second row (1): ASCII 48-63
-    // - Third row (2): ASCII 64-79
-    // - Fourth row (3): ASCII 80-95
-    // - Fifth row (4): ASCII 96-111
-    // - Sixth row (5): ASCII 112-127
-    // - Rows 6-7: Reserved for future use
-    const position = charCode - 32;
-    const row = Math.floor(position / 16);
-    const column = position % 16;
+    const index = charCode - 32;
+    // Clamp to valid range (0-127)
+    const safeIndex = Math.max(0, Math.min(index, 127));
+    const row = Math.floor(safeIndex / 16);
+    const column = safeIndex % 16;
 
     // Each symbol is 48x48 pixels in @2x version (24x24 * 2)
     const x = -column * 48;
     const y = -row * 48;
 
-    // Debug info
-    console.log('Symbol debug:', {
-      symbolTableId,
-      symbolCode,
-      charCode,
-      position,
-      row,
-      column,
-      x,
-      y,
-      spriteFile
-    });
-
-    // Create icon element
+    // Create icon element (48x48, scaled down to 24x24)
     const icon = document.createElement('div');
-    icon.style.width = '24px';
-    icon.style.height = '24px';
+    icon.style.width = '48px';
+    icon.style.height = '48px';
     icon.style.backgroundImage = `url(${spriteFile})`;
     icon.style.backgroundPosition = `${x}px ${y}px`;
     icon.style.backgroundSize = '768px 384px'; // 16x8 grid of 48x48 symbols (@2x)
     icon.style.backgroundRepeat = 'no-repeat';
-    icon.style.imageRendering = 'pixelated'; // Ensure crisp pixel rendering
+    icon.style.imageRendering = 'pixelated';
     icon.style.opacity = data.historical ? '0.7' : '1.0';
+    icon.style.transform = 'scale(0.5)';
+    icon.style.transformOrigin = 'top left';
+    icon.style.overflow = 'hidden';
 
     return L.divIcon({
       html: icon,
@@ -793,4 +830,4 @@ let MinimalAPRSMap = {
   },
 };
 
-export default MinimalAPRSMap;
+export default MapAPRSMap;

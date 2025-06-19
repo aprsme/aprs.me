@@ -25,11 +25,11 @@ import topbar from "../vendor/topbar";
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
 // Import minimal APRS map hook
-import MinimalAPRSMap from "./minimal_map";
+import MapAPRSMap from "./map";
 
 // APRS Map Hook
 let Hooks = {};
-Hooks.APRSMap = MinimalAPRSMap;
+Hooks.APRSMap = MapAPRSMap;
 
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
