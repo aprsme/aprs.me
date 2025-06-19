@@ -31,7 +31,9 @@ defmodule Aprs.Application do
       {Cluster.Supervisor, [topologies, [name: Aprs.ClusterSupervisor]]},
       # Start Oban for background jobs
       {Oban, :aprs |> Application.get_env(Oban, []) |> Keyword.put(:queues, default: 10, maintenance: 2)},
-      Aprs.Presence
+      Aprs.Presence,
+      Aprs.AprsIsConnection,
+      Aprs.PostgresNotifier
     ]
 
     children =

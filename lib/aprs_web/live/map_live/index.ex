@@ -4,7 +4,6 @@ defmodule AprsWeb.MapLive.Index do
   """
   use AprsWeb, :live_view
 
-  alias Aprs.EncodingUtils
   alias AprsWeb.Endpoint
   alias AprsWeb.Helpers.AprsSymbols
   alias Parser.Types.MicE
@@ -15,15 +14,18 @@ defmodule AprsWeb.MapLive.Index do
   @ip_api_url "https://ip-api.com/json/"
   @finch_name Aprs.Finch
   @default_replay_speed 1000
+  @debounce_interval 200
 
   @impl true
   def mount(_params, _session, socket) do
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
 
     socket = assign_defaults(socket, one_hour_ago)
+    socket = assign(socket, packet_buffer: [], buffer_timer: nil)
 
     if connected?(socket) do
       Endpoint.subscribe("aprs_messages")
+      Phoenix.PubSub.subscribe(Aprs.PubSub, "postgres:aprs_packets")
       maybe_start_geolocation(socket)
       schedule_timers()
     end
@@ -278,61 +280,23 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec process_bounds_update(map(), Socket.t()) :: Socket.t()
   defp process_bounds_update(map_bounds, socket) do
-    # Filter visible packets to only include those within the new bounds and time threshold
+    # Remove out-of-bounds packets and markers immediately
     new_visible_packets =
       socket.assigns.visible_packets
-      |> Enum.filter(fn {_callsign, packet} ->
-        within_bounds?(packet, map_bounds) &&
-          packet_within_time_threshold?(packet, socket.assigns.packet_age_threshold)
-      end)
+      |> Enum.filter(fn {_k, packet} -> within_bounds?(packet, map_bounds) end)
       |> Map.new()
 
-    # Get packets that are no longer visible (to remove from map)
     packets_to_remove =
       socket.assigns.visible_packets
-      |> Enum.reject(fn {_callsign, packet} ->
-        within_bounds?(packet, map_bounds)
+      |> Enum.reject(fn {_k, packet} -> within_bounds?(packet, map_bounds) end)
+      |> Enum.map(fn {k, _} -> k end)
+
+    socket =
+      Enum.reduce(packets_to_remove, socket, fn k, acc ->
+        push_event(acc, "remove_marker", %{id: k})
       end)
-      |> Enum.map(fn {callsign, _packet} -> callsign end)
 
-    # Clear markers that are outside the new bounds
-    socket =
-      if Enum.any?(packets_to_remove) do
-        # Remove markers that are outside bounds
-        socket =
-          Enum.reduce(packets_to_remove, socket, fn callsign, acc_socket ->
-            push_event(acc_socket, "remove_marker", %{id: callsign})
-          end)
-
-        # Also send a general filter event to clean up any remaining out-of-bounds markers
-        push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
-      else
-        socket
-      end
-
-    # If replay is not active, update the replay packets based on the new bounds
-    socket =
-      if socket.assigns.replay_active do
-        socket
-      else
-        # Clear any existing replay data when bounds change significantly
-        socket =
-          assign(socket,
-            replay_packets: [],
-            replay_index: 0,
-            historical_packets: %{},
-            map_ready: true
-          )
-
-        socket
-      end
-
-    assign(socket,
-      map_bounds: map_bounds,
-      visible_packets: new_visible_packets,
-      bounds_update_timer: nil,
-      pending_bounds: nil
-    )
+    assign(socket, map_bounds: map_bounds, visible_packets: new_visible_packets)
   end
 
   @impl true
@@ -392,46 +356,60 @@ defmodule AprsWeb.MapLive.Index do
         # Clean up packets older than 1 hour from the map display
         handle_cleanup_old_packets(socket)
 
-      %{event: "packet", payload: payload} ->
-        # Sanitize the packet to prevent encoding errors
-        sanitized_packet = EncodingUtils.sanitize_packet(payload)
-
-        # Add received timestamp if not present
-        sanitized_packet = Map.put_new(sanitized_packet, :received_at, DateTime.utc_now())
-
+      {:postgres_packet, packet} ->
         # Only process packets with position data that are within current map bounds
-        # AND are not older than 1 hour
-        if has_position_data?(sanitized_packet) &&
-             within_bounds?(sanitized_packet, socket.assigns.map_bounds) &&
-             packet_within_time_threshold?(sanitized_packet, socket.assigns.packet_age_threshold) do
-          # Convert to a simple map structure for JSON encoding
-          packet_data = build_packet_data(sanitized_packet)
-
-          # Only push if we have valid packet data
-          if packet_data do
-            # Generate a unique key for this packet
-            callsign_key =
-              "#{sanitized_packet.base_callsign}#{if sanitized_packet.ssid, do: "-#{sanitized_packet.ssid}", else: ""}"
-
-            # Update visible packets tracking
-            visible_packets =
-              Map.put(socket.assigns.visible_packets, callsign_key, sanitized_packet)
-
-            # Push the packet to the client-side JavaScript
-            socket =
+        if within_bounds?(packet, socket.assigns.map_bounds) do
+          # Add to buffer for debounced batch update
+          buffer = [packet | socket.assigns.packet_buffer]
+          socket = assign(socket, packet_buffer: buffer)
+          # If no timer, start one
+          socket =
+            if socket.assigns.buffer_timer == nil do
+              timer = Process.send_after(self(), :flush_packet_buffer, @debounce_interval)
+              assign(socket, buffer_timer: timer)
+            else
               socket
-              |> push_event("new_packet", packet_data)
-              |> assign(visible_packets: visible_packets)
+            end
 
-            {:noreply, socket}
-          else
-            # Invalid packet data, skip it
-            {:noreply, socket}
-          end
+          {:noreply, socket}
         else
-          # Ignore packets without position data, outside bounds, or too old
           {:noreply, socket}
         end
+
+      :flush_packet_buffer ->
+        packets = Enum.reverse(socket.assigns.packet_buffer)
+        visible_packets = socket.assigns.visible_packets
+
+        {new_visible_packets, events} =
+          Enum.reduce(packets, {visible_packets, []}, fn packet, {vis, evs} ->
+            packet_data = build_packet_data(packet)
+
+            if packet_data do
+              callsign_key =
+                if Map.has_key?(packet, "id"),
+                  do: to_string(packet["id"]),
+                  else: System.unique_integer([:positive])
+
+              {Map.put(vis, callsign_key, packet), [{:new_packet, packet_data} | evs]}
+            else
+              {vis, evs}
+            end
+          end)
+
+        # Push all new packets in one event (or as a batch)
+        socket =
+          Enum.reduce(events, socket, fn {:new_packet, data}, acc ->
+            push_event(acc, "new_packet", data)
+          end)
+
+        socket =
+          assign(socket,
+            visible_packets: new_visible_packets,
+            packet_buffer: [],
+            buffer_timer: nil
+          )
+
+        {:noreply, socket}
     end
   end
 
@@ -800,23 +778,6 @@ defmodule AprsWeb.MapLive.Index do
     Enum.sort_by(packets, fn packet -> packet.received_at end)
   end
 
-  @spec has_position_data?(map() | struct()) :: boolean()
-  defp has_position_data?(packet) do
-    case packet.data_extended do
-      %MicE{} = mic_e ->
-        # MicE packets have lat/lon in separate components
-        is_number(mic_e.lat_degrees) && is_number(mic_e.lat_minutes) &&
-          is_number(mic_e.lon_degrees) && is_number(mic_e.lon_minutes)
-
-      %{latitude: lat, longitude: lon} ->
-        # Regular position packets have decimal lat/lon
-        is_number(lat) && is_number(lon)
-
-      _ ->
-        false
-    end
-  end
-
   @spec within_bounds?(map() | struct(), map()) :: boolean()
   defp within_bounds?(packet, bounds) do
     {lat, lng} = get_coordinates(packet)
@@ -1040,6 +1001,7 @@ defmodule AprsWeb.MapLive.Index do
 
   @impl true
   def terminate(_reason, socket) do
+    if socket.assigns.buffer_timer, do: Process.cancel_timer(socket.assigns.buffer_timer)
     # Clean up any pending bounds update timer
     if socket.assigns[:bounds_update_timer] do
       Process.cancel_timer(socket.assigns.bounds_update_timer)
