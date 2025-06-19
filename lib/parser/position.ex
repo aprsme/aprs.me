@@ -8,7 +8,7 @@ defmodule Parser.Position do
   @doc """
   Parse an uncompressed APRS position string. Returns a Position struct or nil.
   """
-  @spec parse(String.t()) :: Position.t() | nil
+  @spec parse(String.t()) :: Position | nil
   def parse(position_str) do
     # Example: "4903.50N/07201.75W>comment"
     case position_str do

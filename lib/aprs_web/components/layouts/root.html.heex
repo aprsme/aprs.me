@@ -8,12 +8,17 @@
       {assigns[:page_title] || "Aprs"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <link phx-track-static rel="stylesheet" href={~p"/assets/vendor/leaflet/leaflet.css"} />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
     <script
       defer
       phx-track-static
       type="text/javascript"
-      src={~p"/assets/vendor/leaflet/leaflet.js"}
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       data-source-map="false"
     >
     </script>

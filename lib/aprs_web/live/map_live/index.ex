@@ -6,7 +6,6 @@ defmodule AprsWeb.MapLive.Index do
 
   alias AprsWeb.Endpoint
   alias AprsWeb.Helpers.AprsSymbols
-  alias Parser.Types.MicE
   alias Phoenix.LiveView.Socket
 
   @default_center %{lat: 39.8283, lng: -98.5795}
@@ -357,23 +356,28 @@ defmodule AprsWeb.MapLive.Index do
         handle_cleanup_old_packets(socket)
 
       {:postgres_packet, packet} ->
-        # Only process packets with position data that are within current map bounds
-        if within_bounds?(packet, socket.assigns.map_bounds) do
-          # Add to buffer for debounced batch update
-          buffer = [packet | socket.assigns.packet_buffer]
-          socket = assign(socket, packet_buffer: buffer)
-          # If no timer, start one
-          socket =
-            if socket.assigns.buffer_timer == nil do
-              timer = Process.send_after(self(), :flush_packet_buffer, @debounce_interval)
-              assign(socket, buffer_timer: timer)
-            else
-              socket
-            end
+        {lat, lon, _data_extended} = get_coordinates(packet)
 
+        if is_nil(lat) or is_nil(lon) do
           {:noreply, socket}
         else
-          {:noreply, socket}
+          if within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
+            # Add to buffer for debounced batch update
+            buffer = [packet | socket.assigns.packet_buffer]
+            socket = assign(socket, packet_buffer: buffer)
+            # If no timer, start one
+            socket =
+              if socket.assigns.buffer_timer == nil do
+                timer = Process.send_after(self(), :flush_packet_buffer, @debounce_interval)
+                assign(socket, buffer_timer: timer)
+              else
+                socket
+              end
+
+            {:noreply, socket}
+          else
+            {:noreply, socket}
+          end
         end
 
       :flush_packet_buffer ->
@@ -410,6 +414,9 @@ defmodule AprsWeb.MapLive.Index do
           )
 
         {:noreply, socket}
+
+      %Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet} ->
+        handle_info({:postgres_packet, packet}, socket)
     end
   end
 
@@ -780,10 +787,10 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec within_bounds?(map() | struct(), map()) :: boolean()
   defp within_bounds?(packet, bounds) do
-    {lat, lng} = get_coordinates(packet)
+    {lat, lon, _data_extended} = get_coordinates(packet)
 
     # Basic validation
-    if is_nil(lat) or is_nil(lng) do
+    if is_nil(lat) or is_nil(lon) do
       false
     else
       # Check latitude bounds (straightforward)
@@ -793,10 +800,10 @@ defmodule AprsWeb.MapLive.Index do
       lng_in_bounds =
         if bounds.west <= bounds.east do
           # Normal case: bounds don't cross antimeridian
-          lng >= bounds.west && lng <= bounds.east
+          lon >= bounds.west && lon <= bounds.east
         else
           # Bounds cross antimeridian (e.g., west=170, east=-170)
-          lng >= bounds.west || lng <= bounds.east
+          lon >= bounds.west || lon <= bounds.east
         end
 
       lat_in_bounds && lng_in_bounds
@@ -805,43 +812,24 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec get_coordinates(map() | struct()) :: {number() | nil, number() | nil}
   defp get_coordinates(packet) do
-    case packet.data_extended do
-      %MicE{} = mic_e ->
-        # Convert MicE components to decimal degrees
-        lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0 + mic_e.lat_fractional / 6000.0
-        lat = if mic_e.lat_direction == :south, do: -lat, else: lat
-
-        lng = mic_e.lon_degrees + mic_e.lon_minutes / 60.0 + mic_e.lon_fractional / 6000.0
-        lng = if mic_e.lon_direction == :west, do: -lng, else: lng
-
-        # Validate coordinates are within valid ranges
-        if lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 do
-          {lat, lng}
-        else
-          {nil, nil}
-        end
-
-      %{latitude: lat, longitude: lon} ->
-        {lat, lon}
-
-      _ ->
-        {nil, nil}
-    end
+    # Safely get data_extended for both atom and string keys
+    data_extended = Map.get(packet, :data_extended) || Map.get(packet, "data_extended")
+    lat = Map.get(packet, :lat) || Map.get(packet, "lat")
+    lon = Map.get(packet, :lon) || Map.get(packet, "lon")
+    {lat, lon, data_extended}
   end
 
   @spec build_packet_data(map() | struct()) :: map() | nil
   defp build_packet_data(packet) do
-    data_extended = build_data_extended(packet.data_extended)
-    {lat, lng} = get_coordinates(packet)
-
+    {lat, lon, data_extended} = get_coordinates(packet)
     # Only include packets with valid position data
-    if lat && lng do
-      build_packet_map(packet, lat, lng, data_extended)
+    if lat && lon do
+      build_packet_map(packet, lat, lon, data_extended)
     end
   end
 
   @spec build_packet_map(map() | struct(), number(), number(), map() | nil) :: map()
-  defp build_packet_map(packet, lat, lng, data_extended) do
+  defp build_packet_map(packet, lat, lon, data_extended) do
     {final_table_id, final_symbol_code} = get_validated_symbol(packet, data_extended)
     callsign = generate_callsign(packet)
 
@@ -851,7 +839,7 @@ defmodule AprsWeb.MapLive.Index do
       "base_callsign" => packet.base_callsign || "",
       "ssid" => packet.ssid || "",
       "lat" => lat,
-      "lng" => lng,
+      "lng" => lon,
       "symbol_table_id" => final_table_id,
       "symbol_code" => final_symbol_code,
       "symbol_description" => AprsSymbols.symbol_description(final_table_id, final_symbol_code),
@@ -946,44 +934,6 @@ defmodule AprsWeb.MapLive.Index do
       {:error, _error} ->
         send(self(), {:ip_location, @default_center})
     end
-  end
-
-  @spec build_data_extended(nil | MicE.t() | map()) :: nil | map()
-  defp build_data_extended(nil), do: nil
-
-  defp build_data_extended(%MicE{} = mic_e), do: build_mice_data_extended(mic_e)
-  defp build_data_extended(data_extended), do: build_map_data_extended(data_extended)
-
-  @spec build_mice_data_extended(MicE.t()) :: map()
-  defp build_mice_data_extended(mic_e) do
-    lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0 + mic_e.lat_fractional / 6000.0
-    lat = if mic_e.lat_direction == :south, do: -lat, else: lat
-
-    lng = mic_e.lon_degrees + mic_e.lon_minutes / 60.0 + mic_e.lon_fractional / 6000.0
-    lng = if mic_e.lon_direction == :west, do: -lng, else: lng
-
-    if lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 do
-      %{
-        "latitude" => lat,
-        "longitude" => lng,
-        "comment" => mic_e.message || "",
-        "symbol_table_id" => "/",
-        "symbol_code" => ">",
-        "aprs_messaging" => false
-      }
-    end
-  end
-
-  @spec build_map_data_extended(map()) :: map()
-  defp build_map_data_extended(data_extended) do
-    %{
-      "latitude" => data_extended[:latitude],
-      "longitude" => data_extended[:longitude],
-      "comment" => data_extended[:comment] || "",
-      "symbol_table_id" => data_extended[:symbol_table_id] || "/",
-      "symbol_code" => data_extended[:symbol_code] || ">",
-      "aprs_messaging" => data_extended[:aprs_messaging] || false
-    }
   end
 
   # Helper function to convert string or float to float
