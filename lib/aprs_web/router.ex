@@ -36,6 +36,7 @@ defmodule AprsWeb.Router do
     live "/packets/:callsign", PacketsLive.CallsignView, :index
     live "/badpackets", BadPacketsLive.Index, :index
     live "/:callsign", MapLive.CallsignView, :index
+    live_dashboard "/dashboard", metrics: AprsWeb.Telemetry
   end
 
   # Other scopes may use custom stacks.
