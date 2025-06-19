@@ -205,7 +205,9 @@ let MapAPRSMap = {
       }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
     } catch (error) {
       console.error("Error initializing map:", error);
-      self.errors!.push("Map initialization failed: " + (error instanceof Error ? error.message : error));
+      self.errors!.push(
+        "Map initialization failed: " + (error instanceof Error ? error.message : error),
+      );
 
       if (self.initializationAttempts! < self.maxInitializationAttempts!) {
         setTimeout(() => self.attemptInitialization(), 1000);
@@ -453,6 +455,7 @@ let MapAPRSMap = {
         ...data,
         historical: false,
         popup: self.buildPopupContent(data),
+        openPopup: true,
       });
       // Send marker_clicked for the latest packet only
       self.pushEvent("marker_clicked", {
@@ -601,13 +604,9 @@ let MapAPRSMap = {
     // Remove existing marker if it exists
     self.removeMarker(data.id);
 
-    // Create marker (small blue circle)
-    const marker = L.circleMarker([lat, lng], {
-      radius: 6,
-      color: "#007bff",
-      fillColor: "#007bff",
-      fillOpacity: 1,
-      weight: 1
+    // Create marker using APRS symbol icon
+    const marker = L.marker([lat, lng], {
+      icon: self.createMarkerIcon(data),
     });
 
     // Add popup if content provided
@@ -680,13 +679,6 @@ let MapAPRSMap = {
       if (data.popup) {
         existingMarker.setPopupContent(data.popup);
       }
-
-      // Update icon if data changed
-      // (No longer updating icon, always use default marker)
-      // if (data.symbol_table_id || data.symbol_code || data.color) {
-      //   const newIcon = self.createMarkerIcon(data);
-      //   existingMarker.setIcon(newIcon);
-      // }
     } else {
       // Marker doesn't exist, create it
       self.addMarker(data);
@@ -736,48 +728,78 @@ let MapAPRSMap = {
 
   createMarkerIcon(data: MarkerData): L.DivIcon {
     const symbolTableId = data.symbol_table_id || "/";
-    const symbolCode = data.symbol_code || ">";
+    const symbolCode = getValidSymbolCode(data.symbol_code, symbolTableId);
 
     // Map symbol table identifier to correct table index per hessu/aprs-symbols
     const tableMap: Record<string, string> = {
       "/": "0",
       "\\": "1",
-      "]": "2"
+      "]": "2",
     };
     const tableId = tableMap[symbolTableId] || "0";
-    const spriteFile = `/aprs-symbols/aprs-symbols-24-${tableId}@2x.png`;
+    const spriteFile = `/aprs-symbols/aprs-symbols-128-${tableId}@2x.png`;
 
     // Calculate sprite position per hessu/aprs-symbols
     const charCode = symbolCode.charCodeAt(0);
-    const index = charCode - 32;
-    // Clamp to valid range (0-127)
-    const safeIndex = Math.max(0, Math.min(index, 127));
-    const row = Math.floor(safeIndex / 16);
+    const index = charCode - 33; // ASCII printable characters start at 33 (!)
+    // Clamp to valid range (0-93 for printable ASCII 33-126)
+    const safeIndex = Math.max(0, Math.min(index, 93));
     const column = safeIndex % 16;
+    const row = Math.floor(safeIndex / 16);
+    const x = -column * 128;
+    const y = -row * 128;
 
-    // Each symbol is 48x48 pixels in @2x version (24x24 * 2)
-    const x = -column * 48;
-    const y = -row * 48;
+    // Debug log for symbol mapping
+    console.log("APRS Symbol Icon:", {
+      symbolTableId,
+      symbolCode,
+      symbolCodeChar: symbolCode.charCodeAt(0),
+      tableId,
+      index,
+      row,
+      column,
+      x,
+      y,
+      spriteFile,
+      expected: `Row ${row}, Col ${column} should show symbol '${symbolCode}'`,
+    });
 
-    // Create icon element (48x48, scaled down to 24x24)
-    const icon = document.createElement('div');
-    icon.style.width = '48px';
-    icon.style.height = '48px';
-    icon.style.backgroundImage = `url(${spriteFile})`;
-    icon.style.backgroundPosition = `${x}px ${y}px`;
-    icon.style.backgroundSize = '768px 384px'; // 16x8 grid of 48x48 symbols (@2x)
-    icon.style.backgroundRepeat = 'no-repeat';
-    icon.style.imageRendering = 'pixelated';
-    icon.style.opacity = data.historical ? '0.7' : '1.0';
-    icon.style.transform = 'scale(0.5)';
-    icon.style.transformOrigin = 'top left';
-    icon.style.overflow = 'hidden';
+    // Test if sprite image is accessible
+    const testImg = new Image();
+    testImg.onerror = () => {
+      console.error(`Failed to load sprite: ${spriteFile}`);
+    };
+    testImg.onload = () => {
+      console.log(`Sprite loaded successfully: ${spriteFile}`);
+    };
+    testImg.src = spriteFile;
+
+    // Try adjusting the position to see if we can find the correct icon
+    // The car symbol ">" should be at position 30 (row 1, col 14)
+    // But the sprite might have a different arrangement
+
+    // Add diagnostic controls via data attributes
+    const diagnosticX = x;
+    const diagnosticY = y;
+
+    // Create the HTML string directly to ensure proper style application
+    const iconHtml = `<div style="
+      width: 32px;
+      height: 32px;
+      background-image: url(${spriteFile});
+      background-position: ${diagnosticX / 4}px ${diagnosticY / 4}px;
+      background-size: 512px 192px;
+      background-repeat: no-repeat;
+      image-rendering: pixelated;
+      opacity: ${data.historical ? "0.7" : "1.0"};
+      overflow: hidden;
+    " data-symbol-table="${symbolTableId}" data-symbol-code="${symbolCode}" data-sprite-position="${x},${y}" data-expected-index="${index}" title="Symbol: ${symbolCode} (${charCode}) at row ${row}, col ${column}"></div>`;
 
     return L.divIcon({
-      html: icon,
-      className: 'aprs-symbol',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      html: iconHtml,
+      className: "", // Remove class to avoid CSS conflicts
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
     });
   },
 
@@ -829,5 +851,20 @@ let MapAPRSMap = {
     }
   },
 };
+
+// Helper to validate and fallback symbol code per aprs.fi logic
+function getValidSymbolCode(
+  symbolCode: string | undefined,
+  symbolTableId: string | undefined,
+): string {
+  if (!symbolCode || symbolCode.length !== 1) {
+    return symbolTableId === "\\" ? "O" : ">";
+  }
+  const code = symbolCode.charCodeAt(0);
+  if (code < 33 || code > 126) {
+    return symbolTableId === "\\" ? "O" : ">";
+  }
+  return symbolCode;
+}
 
 export default MapAPRSMap;
