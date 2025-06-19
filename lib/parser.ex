@@ -210,6 +210,13 @@ defmodule Parser do
   def parse_data(:mic_e_old, destination, data), do: parse_mic_e(destination, data)
 
   def parse_data(:position, _destination, data) do
+    # Strip leading ! if present
+    data =
+      case data do
+        <<"!", rest::binary>> -> rest
+        _ -> data
+      end
+
     case data do
       <<"/", _::binary>> ->
         result = parse_position_without_timestamp(data)

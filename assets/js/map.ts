@@ -799,12 +799,16 @@ let MapAPRSMap = {
     const symbolCode = getValidSymbolCode(data.symbol_code, symbolTableId);
 
     // Map symbol table identifier to correct table index per hessu/aprs-symbols
+    // Primary table: / (0)
+    // Alternate table: \ (1)
+    // Overlay table: ] (2)
+    // Any other character is treated as alternate table (1)
     const tableMap: Record<string, string> = {
-      "/": "0",
-      "\\": "1",
-      "]": "2",
+      "/": "0", // Primary table
+      "\\": "1", // Alternate table
+      "]": "2", // Overlay table
     };
-    const tableId = tableMap[symbolTableId] || "0";
+    const tableId = symbolTableId === "/" ? "0" : symbolTableId === "]" ? "2" : "1";
     const spriteFile = `/aprs-symbols/aprs-symbols-128-${tableId}@2x.png`;
 
     // Calculate sprite position per hessu/aprs-symbols
@@ -832,20 +836,12 @@ let MapAPRSMap = {
       expected: `Row ${row}, Col ${column} should show symbol '${symbolCode}'`,
     });
 
-    // Try adjusting the position to see if we can find the correct icon
-    // The car symbol ">" should be at position 30 (row 1, col 14)
-    // But the sprite might have a different arrangement
-
-    // Add diagnostic controls via data attributes
-    const diagnosticX = x;
-    const diagnosticY = y;
-
     // Create the HTML string directly to ensure proper style application
     const iconHtml = `<div style="
       width: 32px;
       height: 32px;
       background-image: url(${spriteFile});
-      background-position: ${diagnosticX / 4}px ${diagnosticY / 4}px;
+      background-position: ${x / 4}px ${y / 4}px;
       background-size: 512px 192px;
       background-repeat: no-repeat;
       image-rendering: pixelated;
