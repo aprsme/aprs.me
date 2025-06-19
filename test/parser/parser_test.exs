@@ -577,4 +577,231 @@ defmodule Parser.ParserTest do
              }
     end
   end
+
+  describe "NMEA sentence parsing" do
+    test "parses GPRMC sentences" do
+      packet = "W5ISP>APRS:$GPRMC,123456,A,4903.50,N,07201.75,W,0.0,0.0,010101,0.0,E*6A"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :raw_gps_ultimeter
+      assert result.data_extended.nmea_type == "GPRMC"
+      assert result.data_extended.latitude == 49.058333333333334
+      assert result.data_extended.longitude == -72.02916666666667
+      assert result.data_extended.time == "123456"
+      assert result.data_extended.status == "Valid"
+    end
+
+    test "parses GPGGA sentences" do
+      packet = "W5ISP>APRS:$GPGGA,123456,4903.50,N,07201.75,W,1,8,1.0,0.0,M,0.0,M,,*4E"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :raw_gps_ultimeter
+      assert result.data_extended.nmea_type == "GPGGA"
+      assert result.data_extended.latitude == 49.058333333333334
+      assert result.data_extended.longitude == -72.02916666666667
+      assert result.data_extended.quality == "GPS fix"
+      assert result.data_extended.satellites == 8
+    end
+
+    test "handles invalid NMEA sentences" do
+      # Invalid format
+      packet = "W5ISP>APRS:INVALID"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :unknown_datatype
+
+      # Missing fields
+      packet = "W5ISP>APRS:$GPRMC,123456,A,4903.50,N,07201.75,W*6A"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :raw_gps_ultimeter
+      assert result.data_extended.error == "Invalid NMEA sentence format"
+    end
+  end
+
+  describe "KISS/TNC2 conversion" do
+    test "converts KISS to TNC2" do
+      kiss = <<0xC0, 0x00, "W5ISP>APRS:>Test", 0xC0>>
+      tnc2 = Parser.kiss_to_tnc2(kiss)
+      assert tnc2 == "W5ISP>APRS:>Test"
+    end
+
+    test "converts TNC2 to KISS" do
+      tnc2 = "W5ISP>APRS:>Test"
+      kiss = Parser.tnc2_to_kiss(tnc2)
+      assert byte_size(kiss) > 0
+      assert binary_part(kiss, 0, 2) == <<0xC0, 0x00>>
+      assert binary_part(kiss, byte_size(kiss) - 1, 1) == <<0xC0>>
+    end
+
+    test "handles invalid KISS frames" do
+      assert Parser.kiss_to_tnc2(<<0xC0>>) == %{
+               error_code: :packet_invalid,
+               error_message: "Unknown error"
+             }
+    end
+  end
+
+  describe "position ambiguity" do
+    test "handles position ambiguity in uncompressed positions" do
+      # No ambiguity
+      packet = "W5ISP>APRS:!4903.50N/07201.75W>"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 0
+
+      # 1/60th degree ambiguity
+      packet = "W5ISP>APRS:!4903.5 N/07201.7 W>"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 1
+
+      # 1/10th degree ambiguity
+      packet = "W5ISP>APRS:!4903.  N/07201.  W>"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 2
+
+      # 1 degree ambiguity
+      packet = "W5ISP>APRS:!490 .  N/0720 .  W>"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 3
+
+      # 10 degree ambiguity
+      packet = "W5ISP>APRS:!49  .  N/072  .  W>"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 4
+    end
+
+    test "handles position ambiguity in compressed positions" do
+      # No ambiguity
+      packet = "W5ISP>APRS:/5L!!<*e7>7P "
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 0
+
+      # 1/60th degree ambiguity
+      packet = "W5ISP>APRS:/5L!!<*e7>7P!"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 1
+
+      # 1/10th degree ambiguity
+      packet = "W5ISP>APRS:/5L!!<*e7>7P\""
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 2
+
+      # 1 degree ambiguity
+      packet = "W5ISP>APRS:/5L!!<*e7>7P#"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 3
+
+      # 10 degree ambiguity
+      packet = "W5ISP>APRS:/5L!!<*e7>7P$"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.position_ambiguity == 4
+    end
+  end
+
+  describe "DAO extension parsing" do
+    test "parses DAO extension in position" do
+      packet = "W5ISP>APRS:!4903.50N/07201.75W>!WX!Comment"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.dao.lat_dao == "W"
+      assert result.data_extended.dao.lon_dao == "X"
+      assert result.data_extended.dao.datum == "WGS84"
+    end
+
+    test "handles missing DAO extension" do
+      packet = "W5ISP>APRS:!4903.50N/07201.75W>No DAO here"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.dao == nil
+    end
+  end
+
+  describe "network tunneling and third-party traffic" do
+    test "parses nested tunnels" do
+      packet = "W5ISP>APRS:}W5ISP>APRS:>Nested"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :third_party_traffic
+      assert result.data_extended.third_party_packet != nil
+    end
+
+    test "handles maximum tunnel depth" do
+      packet = "W5ISP>APRS:}}}}W5ISP>APRS:>Too deep"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :third_party_traffic
+      assert result.data_extended.error != nil
+    end
+
+    test "parses third-party traffic with invalid packet" do
+      packet = "W5ISP>APRS:}INVALID"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :third_party_traffic
+      assert result.data_extended.error != nil
+    end
+  end
+
+  describe "PHG data parsing" do
+    test "parses PHG data" do
+      packet = "W5ISP>APRS:#PHG2360"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :phg_data
+      assert result.data_extended.power == {4, "4 watts"}
+      assert result.data_extended.height == {80, "80 feet"}
+      assert result.data_extended.gain == {3, "3 dB"}
+      assert result.data_extended.directivity == {90, "90° E"}
+    end
+
+    test "parses DFS data" do
+      packet = "W5ISP>APRS:#DFS2360"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :df_report
+      assert result.data_extended.df_strength == {2, "6 dB above S0"}
+      assert result.data_extended.height == {80, "80 feet"}
+      assert result.data_extended.gain == {3, "3 dB"}
+      assert result.data_extended.directivity == {90, "90° E"}
+    end
+
+    test "handles invalid PHG data" do
+      packet = "W5ISP>APRS:#PHGXXXX"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_type == :phg_data
+      assert result.data_extended.power == {nil, "Unknown power: X"}
+      assert result.data_extended.height == {nil, "Unknown height: X"}
+      assert result.data_extended.gain == {nil, "Unknown gain: X"}
+      assert result.data_extended.directivity == {nil, "Unknown directivity: X"}
+    end
+  end
+
+  describe "compressed position parsing" do
+    test "parses compressed position with course/speed" do
+      packet = "W5ISP>APRS:/5L!!<*e7>7P["
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.compressed? == true
+      assert result.data_extended.course == 28
+      assert result.data_extended.speed == 7
+    end
+
+    test "parses compressed position with range" do
+      packet = "W5ISP>APRS:/5L!!<*e7>Z["
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.compressed? == true
+      assert result.data_extended.range == 2 * 1.08 ** 91
+    end
+
+    test "handles invalid compressed position" do
+      packet = "W5ISP>APRS:/INVALID"
+      assert {:ok, result} = Parser.parse(packet)
+      assert result.data_extended.data_type == :malformed_position
+      assert result.data_extended.compressed? == false
+    end
+  end
+
+  describe "error handling" do
+    test "handles invalid AX.25 callsigns" do
+      assert {:error, %{error_code: :srccall_badchars}} = Parser.parse("INVALID*>APRS:>Test")
+      assert {:error, %{error_code: :dstcall_noax25}} = Parser.parse("W5ISP>INVALID:>Test")
+    end
+
+    test "handles invalid path components" do
+      assert {:error, %{error_code: :dstpath_toomany}} =
+               Parser.parse("W5ISP>APRS,TOO,MANY,DIGIS:>Test")
+    end
+
+    test "handles missing destination" do
+      assert {:error, %{error_code: :dstcall_none}} = Parser.parse("W5ISP>:>Test")
+    end
+  end
 end
