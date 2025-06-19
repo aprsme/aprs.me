@@ -27,13 +27,18 @@ defmodule AprsWeb.PacketsLive.CallsignView do
 
       # Get stored packets for this callsign (up to 100)
       stored_packets = get_stored_packets(normalized_callsign, 100)
+      all_packets = stored_packets
+      latest_packet = List.first(all_packets)
+      {symbol_table_id, symbol_code} = extract_symbol_info(latest_packet)
 
       socket =
         socket
         |> assign(:callsign, normalized_callsign)
         |> assign(:packets, stored_packets)
         |> assign(:live_packets, [])
-        |> assign(:all_packets, stored_packets)
+        |> assign(:all_packets, all_packets)
+        |> assign(:latest_symbol_table_id, symbol_table_id)
+        |> assign(:latest_symbol_code, symbol_code)
         |> assign(:error, nil)
 
       {:ok, socket}
@@ -44,6 +49,8 @@ defmodule AprsWeb.PacketsLive.CallsignView do
         |> assign(:packets, [])
         |> assign(:live_packets, [])
         |> assign(:all_packets, [])
+        |> assign(:latest_symbol_table_id, "/")
+        |> assign(:latest_symbol_code, ">")
         |> assign(:error, "Invalid callsign format")
 
       {:ok, socket}
@@ -62,12 +69,16 @@ defmodule AprsWeb.PacketsLive.CallsignView do
         update_packet_lists(current_stored, current_live, sanitized_payload)
 
       all_packets = get_all_packets_list(updated_stored, updated_live)
+      latest_packet = List.first(all_packets)
+      {symbol_table_id, symbol_code} = extract_symbol_info(latest_packet)
 
       socket =
         socket
         |> assign(:packets, updated_stored)
         |> assign(:live_packets, updated_live)
         |> assign(:all_packets, all_packets)
+        |> assign(:latest_symbol_table_id, symbol_table_id)
+        |> assign(:latest_symbol_code, symbol_code)
 
       {:noreply, socket}
     else
@@ -189,5 +200,15 @@ defmodule AprsWeb.PacketsLive.CallsignView do
       cs when byte_size(cs) < 3 or byte_size(cs) > 15 -> false
       cs -> Regex.match?(~r/^[A-Z0-9]+(-[A-Z0-9]{1,2})?$/i, cs)
     end
+  end
+
+  # Helper to extract symbol table and code from a packet
+  defp extract_symbol_info(nil), do: {"/", ">"}
+
+  defp extract_symbol_info(packet) do
+    data = Map.get(packet, :data_extended) || %{}
+    table = Map.get(data, :symbol_table_id) || Map.get(data, "symbol_table_id") || "/"
+    code = Map.get(data, :symbol_code) || Map.get(data, "symbol_code") || ">"
+    {table, code}
   end
 end

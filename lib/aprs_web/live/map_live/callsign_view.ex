@@ -57,7 +57,10 @@ defmodule AprsWeb.MapLive.CallsignView do
         # Last known position for auto-zoom
         last_known_position: nil,
         # Flag to track if packets have been loaded
-        packets_loaded: false
+        packets_loaded: false,
+        # Latest symbol table ID and code
+        latest_symbol_table_id: "/",
+        latest_symbol_code: ">"
       )
 
     if connected?(socket) do
@@ -451,6 +454,12 @@ defmodule AprsWeb.MapLive.CallsignView do
         margin-bottom: 4px;
       }
 
+      .aprs-symbol-info {
+        font-size: 11px;
+        color: #666;
+        margin-bottom: 2px;
+      }
+
       .nav-links {
         display: flex;
         gap: 12px;
@@ -559,12 +568,6 @@ defmodule AprsWeb.MapLive.CallsignView do
         color: #333;
       }
 
-      .aprs-symbol-info {
-        font-size: 11px;
-        color: #666;
-        margin-bottom: 2px;
-      }
-
       .aprs-comment {
         font-size: 11px;
         color: #444;
@@ -618,6 +621,10 @@ defmodule AprsWeb.MapLive.CallsignView do
     <div style="position: relative; width: 100vw; height: 100vh;">
       <div class="callsign-header">
         <div class="callsign-title">📡 {@callsign}</div>
+        <div class="aprs-symbol-info">
+          <span>Symbol Table: <code>{@latest_symbol_table_id}</code></span>
+          <span style="margin-left:8px;">Symbol Code: <code>{@latest_symbol_code}</code></span>
+        </div>
         <div class="nav-links">
           <a href="/" class="nav-link">← Back to Map</a>
           <a href="/packets" class="nav-link">All Packets</a>
@@ -784,11 +791,47 @@ defmodule AprsWeb.MapLive.CallsignView do
     end
   end
 
-  defp get_symbol_table_id(%{symbol_table_id: id}), do: id
-  defp get_symbol_table_id(_), do: "/"
+  defp get_symbol_table_id(data) do
+    cond do
+      is_map(data) && Map.has_key?(data, :symbol_table_id) && data.symbol_table_id ->
+        data.symbol_table_id
 
-  defp get_symbol_code(%{symbol_code: code}), do: code
-  defp get_symbol_code(_), do: ">"
+      is_map(data) && Map.has_key?(data, "symbol_table_id") && data["symbol_table_id"] ->
+        data["symbol_table_id"]
+
+      is_map(data) && Map.has_key?(data, :packet) && Map.has_key?(data.packet, :symbol_table_id) &&
+          data.packet.symbol_table_id ->
+        data.packet.symbol_table_id
+
+      is_map(data) && Map.has_key?(data, "packet") &&
+        Map.has_key?(data["packet"], "symbol_table_id") && data["packet"]["symbol_table_id"] ->
+        data["packet"]["symbol_table_id"]
+
+      true ->
+        "/"
+    end
+  end
+
+  defp get_symbol_code(data) do
+    cond do
+      is_map(data) && Map.has_key?(data, :symbol_code) && data.symbol_code ->
+        data.symbol_code
+
+      is_map(data) && Map.has_key?(data, "symbol_code") && data["symbol_code"] ->
+        data["symbol_code"]
+
+      is_map(data) && Map.has_key?(data, :packet) && Map.has_key?(data.packet, :symbol_code) &&
+          data.packet.symbol_code ->
+        data.packet.symbol_code
+
+      is_map(data) && Map.has_key?(data, "packet") && Map.has_key?(data["packet"], "symbol_code") &&
+          data["packet"]["symbol_code"] ->
+        data["packet"]["symbol_code"]
+
+      true ->
+        ">"
+    end
+  end
 
   defp get_comment(%{comment: comment}) when is_binary(comment), do: comment
   defp get_comment(_), do: ""
@@ -865,23 +908,33 @@ defmodule AprsWeb.MapLive.CallsignView do
     # Load recent packets (last hour) for this specific callsign
     recent_packets = Packets.get_recent_packets(%{callsign: callsign})
 
-    # Find the most recent packet with position data for auto-zoom
-    last_known_position =
+    # Find the most recent packet with position data for auto-zoom and symbol info
+    latest_packet =
       recent_packets
       |> Enum.filter(&has_position_data?/1)
       |> Enum.sort_by(& &1.received_at, {:desc, DateTime})
       |> List.first()
-      |> case do
+
+    last_known_position =
+      case latest_packet do
         nil ->
           nil
 
         packet ->
           {lat, lng} = get_coordinates(packet)
+          if lat && lng, do: %{lat: lat, lng: lng}
+      end
 
-          if lat && lng do
-            position = %{lat: lat, lng: lng}
-            position
-          end
+    latest_symbol_table_id =
+      case latest_packet do
+        %{data_extended: %{symbol_table_id: id}} when is_binary(id) -> id
+        _ -> "/"
+      end
+
+    latest_symbol_code =
+      case latest_packet do
+        %{data_extended: %{symbol_code: code}} when is_binary(code) -> code
+        _ -> ">"
       end
 
     # Convert packets to client-friendly format and send to map
@@ -909,7 +962,12 @@ defmodule AprsWeb.MapLive.CallsignView do
         socket
       end
 
-    assign(socket, last_known_position: last_known_position, visible_packets: visible_packets)
+    assign(socket,
+      last_known_position: last_known_position,
+      visible_packets: visible_packets,
+      latest_symbol_table_id: latest_symbol_table_id,
+      latest_symbol_code: latest_symbol_code
+    )
   end
 
   defp map_empty?(socket) do

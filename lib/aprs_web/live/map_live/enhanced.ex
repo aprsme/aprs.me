@@ -45,7 +45,10 @@ defmodule AprsWeb.MapLive.Enhanced do
         replay_paused: false,
         replay_timer: nil,
         replay_packets: [],
-        replay_index: 0
+        replay_index: 0,
+
+        # Trail visualization
+        show_trails: true
       )
 
     {:ok, socket}
@@ -139,6 +142,13 @@ defmodule AprsWeb.MapLive.Enhanced do
   def handle_event("adjust_replay_speed", %{"speed" => speed}, socket) do
     speed_ms = String.to_integer(speed)
     {:noreply, assign(socket, :replay_speed, speed_ms)}
+  end
+
+  def handle_event("toggle_trails", _params, socket) do
+    show_trails = !Map.get(socket.assigns, :show_trails, true)
+    socket = assign(socket, :show_trails, show_trails)
+    socket = push_event(socket, "toggle_trails", %{show: show_trails})
+    {:noreply, socket}
   end
 
   def handle_info(:cleanup_old_markers, socket) do
@@ -268,6 +278,8 @@ defmodule AprsWeb.MapLive.Enhanced do
       phx-update="ignore"
       data-center={Jason.encode!(@map_center)}
       data-zoom={@map_zoom}
+      data-lat={@map_center.lat}
+      data-lng={@map_center.lng}
     >
     </div>
 
@@ -295,6 +307,28 @@ defmodule AprsWeb.MapLive.Enhanced do
           Stop Replay
         <% else %>
           Start Replay
+        <% end %>
+      </button>
+
+      <button class="control-button" phx-click="toggle_trails" title="Toggle position trails">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M3 12h18m-18 0l3-3m-3 3l3 3" />
+          <circle cx="6" cy="12" r="1" fill="currentColor" />
+          <circle cx="12" cy="12" r="1" fill="currentColor" />
+          <circle cx="18" cy="12" r="1" fill="currentColor" />
+        </svg>
+        <%= if assigns[:show_trails] != false do %>
+          Hide Trails
+        <% else %>
+          Show Trails
         <% end %>
       </button>
 
@@ -416,7 +450,8 @@ defmodule AprsWeb.MapLive.Enhanced do
       symbol_table: data_extended["symbol_table_id"] || "/",
       symbol_code: data_extended["symbol_code"] || ">",
       historical: false,
-      popup: build_popup_content(packet, callsign, false)
+      popup: build_popup_content(packet, callsign, false),
+      timestamp: DateTime.to_unix(packet.created_at, :millisecond)
     }
   end
 

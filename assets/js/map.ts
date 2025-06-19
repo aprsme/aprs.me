@@ -1,14 +1,11 @@
 // Declare Leaflet as a global variable
 declare const L: any;
 
+// Import trail management functionality
+import { TrailManager } from "./features/trail_manager";
+
 // APRS Map Hook - handles only basic map interaction
 // All data logic handled by LiveView
-
-declare global {
-  interface Window {
-    __aprs_map_mounted?: boolean;
-  }
-}
 
 type LiveViewHookContext = {
   el: HTMLElement & { _leaflet_id?: any };
@@ -18,6 +15,7 @@ type LiveViewHookContext = {
   markers?: Map<string, any>;
   markerStates?: Map<string, MarkerState>;
   markerLayer?: any;
+  trailManager?: TrailManager;
   boundsTimer?: ReturnType<typeof setTimeout>;
   resizeHandler?: () => void;
   errors?: string[];
@@ -40,6 +38,7 @@ interface MarkerData {
   popup?: string;
   historical?: boolean;
   color?: string;
+  timestamp?: number;
 }
 
 interface BoundsData {
@@ -76,11 +75,6 @@ interface MapEventData {
 
 let MapAPRSMap = {
   mounted() {
-    if (window.__aprs_map_mounted) {
-      console.warn("APRS Map already mounted, skipping duplicate mount.");
-      return;
-    }
-    window.__aprs_map_mounted = true;
     const self = this as unknown as LiveViewHookContext;
     // Initialize error tracking
     self.errors = [];
@@ -108,37 +102,47 @@ let MapAPRSMap = {
       }
     }
 
-    // Get initial center and zoom from server-provided data attributes
+    // Try to restore from localStorage
     let initialCenter: CenterData, initialZoom: number;
     try {
-      const centerData = self.el.dataset.center;
-      const zoomData = self.el.dataset.zoom;
-
-      if (!centerData || !zoomData) {
-        throw new Error("Missing map data attributes");
+      const saved = localStorage.getItem("aprs_map_state");
+      if (saved) {
+        const { lat, lng, zoom } = JSON.parse(saved);
+        if (
+          typeof lat === "number" &&
+          typeof lng === "number" &&
+          typeof zoom === "number" &&
+          lat >= -90 && lat <= 90 &&
+          lng >= -180 && lng <= 180 &&
+          zoom >= 1 && zoom <= 20
+        ) {
+          initialCenter = { lat, lng };
+          initialZoom = zoom;
+        } else {
+          throw new Error("Invalid saved map state");
+        }
+      } else {
+        throw new Error("No saved map state");
       }
-
-      initialCenter = JSON.parse(centerData);
-      initialZoom = parseInt(zoomData);
-
-      // Validate parsed data
-      if (
-        !initialCenter ||
-        typeof initialCenter.lat !== "number" ||
-        typeof initialCenter.lng !== "number"
-      ) {
-        throw new Error("Invalid center data");
+    } catch (e) {
+      // Fallback to server-provided data attributes
+      try {
+        const centerData = self.el.dataset.center;
+        const zoomData = self.el.dataset.zoom;
+        if (!centerData || !zoomData) throw new Error("Missing map data attributes");
+        initialCenter = JSON.parse(centerData);
+        initialZoom = parseInt(zoomData);
+        if (
+          !initialCenter ||
+          typeof initialCenter.lat !== "number" ||
+          typeof initialCenter.lng !== "number"
+        ) throw new Error("Invalid center data");
+        if (isNaN(initialZoom) || initialZoom < 1 || initialZoom > 20) throw new Error("Invalid zoom data");
+      } catch (error) {
+        console.error("Error parsing map data attributes:", error);
+        initialCenter = { lat: 39.8283, lng: -98.5795 };
+        initialZoom = 5;
       }
-
-      if (isNaN(initialZoom) || initialZoom < 1 || initialZoom > 20) {
-        throw new Error("Invalid zoom data");
-      }
-    } catch (error) {
-      console.error("Error parsing map data attributes:", error);
-
-      // Fallback values
-      initialCenter = { lat: 39.8283, lng: -98.5795 };
-      initialZoom = 5;
     }
 
     self.initializeMap(initialCenter, initialZoom);
@@ -234,6 +238,10 @@ let MapAPRSMap = {
     self.markers = new Map<string, any>();
     self.markerLayer = L.layerGroup().addTo(self.map);
 
+    // Create trail layer and manager
+    const trailLayer = L.layerGroup().addTo(self.map);
+    self.trailManager = new TrailManager(trailLayer);
+
     // Track marker states to prevent unnecessary operations
     self.markerStates = new Map<string, MarkerState>();
 
@@ -250,6 +258,16 @@ let MapAPRSMap = {
         self.lastZoom = self.map!.getZoom();
         self.pushEvent("map_ready", {});
         self.sendBoundsToServer();
+
+        // Start periodic cleanup of old trail positions (every 5 minutes)
+        setInterval(
+          () => {
+            if (self.trailManager) {
+              self.trailManager.cleanupOldPositions();
+            }
+          },
+          5 * 60 * 1000,
+        );
       } catch (error) {
         console.error("Error in map ready callback:", error);
       }
@@ -260,6 +278,13 @@ let MapAPRSMap = {
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
         self.sendBoundsToServer();
+        // Save map state
+        const center = self.map.getCenter();
+        const zoom = self.map.getZoom();
+        localStorage.setItem(
+          "aprs_map_state",
+          JSON.stringify({ lat: center.lat, lng: center.lng, zoom })
+        );
       }, 300);
     });
 
@@ -277,6 +302,13 @@ let MapAPRSMap = {
 
         self.sendBoundsToServer();
         self.lastZoom = currentZoom;
+        // Save map state
+        const center = self.map.getCenter();
+        const zoom = self.map.getZoom();
+        localStorage.setItem(
+          "aprs_map_state",
+          JSON.stringify({ lat: center.lat, lng: center.lng, zoom })
+        );
       }, 300);
     });
 
@@ -449,6 +481,13 @@ let MapAPRSMap = {
       }
     });
 
+    // Toggle trails visibility
+    self.handleEvent("toggle_trails", (data: { show: boolean }) => {
+      if (self.trailManager) {
+        self.trailManager.setShowTrails(data.show);
+      }
+    });
+
     // Handle new packets from LiveView
     self.handleEvent("new_packet", (data: MarkerData) => {
       self.addMarker({
@@ -591,6 +630,11 @@ let MapAPRSMap = {
         existingState.symbol_code !== data.symbol_code ||
         existingState.popup !== data.popup;
 
+      if (positionChanged && self.trailManager) {
+        // Position changed, update trail
+        self.trailManager.addPosition(data.id, lat, lng, data.timestamp || Date.now());
+      }
+
       if (!positionChanged && !dataChanged) {
         // No changes needed, skip update
         // But if openPopup is requested, open it
@@ -644,6 +688,11 @@ let MapAPRSMap = {
       historical: data.historical,
     });
 
+    // Initialize trail for new marker
+    if (self.trailManager) {
+      self.trailManager.addPosition(data.id, lat, lng, data.timestamp || Date.now());
+    }
+
     // Open popup if requested
     if (data.openPopup && marker.openPopup) {
       marker.openPopup();
@@ -658,6 +707,11 @@ let MapAPRSMap = {
       self.markers!.delete(id);
       self.markerStates!.delete(id);
     }
+
+    // Remove trail
+    if (self.trailManager) {
+      self.trailManager.removeTrail(id);
+    }
   },
 
   updateMarker(data: MarkerData) {
@@ -671,7 +725,16 @@ let MapAPRSMap = {
         const lat = parseFloat(data.lat.toString());
         const lng = parseFloat(data.lng.toString());
         if (!isNaN(lat) && !isNaN(lng)) {
-          existingMarker.setLatLng([lat, lng]);
+          const currentPos = existingMarker.getLatLng();
+          const positionChanged =
+            Math.abs(currentPos.lat - lat) > 0.0001 || Math.abs(currentPos.lng - lng) > 0.0001;
+
+          if (positionChanged) {
+            existingMarker.setLatLng([lat, lng]);
+            if (self.trailManager) {
+              self.trailManager.addPosition(data.id, lat, lng, data.timestamp || Date.now());
+            }
+          }
         }
       }
 
@@ -690,6 +753,11 @@ let MapAPRSMap = {
     self.markerLayer!.clearLayers();
     self.markers!.clear();
     self.markerStates!.clear();
+
+    // Clear all trails
+    if (self.trailManager) {
+      self.trailManager.clearAllTrails();
+    }
   },
 
   removeMarkersOutsideBounds(bounds: L.LatLngBounds) {
@@ -763,16 +831,6 @@ let MapAPRSMap = {
       spriteFile,
       expected: `Row ${row}, Col ${column} should show symbol '${symbolCode}'`,
     });
-
-    // Test if sprite image is accessible
-    const testImg = new Image();
-    testImg.onerror = () => {
-      console.error(`Failed to load sprite: ${spriteFile}`);
-    };
-    testImg.onload = () => {
-      console.log(`Sprite loaded successfully: ${spriteFile}`);
-    };
-    testImg.src = spriteFile;
 
     // Try adjusting the position to see if we can find the correct icon
     // The car symbol ">" should be at position 30 (row 1, col 14)

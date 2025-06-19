@@ -668,8 +668,6 @@ defmodule AprsWeb.MapLive.Index do
       phx-update="ignore"
       data-center={Jason.encode!(@map_center)}
       data-zoom={@map_zoom}
-      data-lat={@map_center.lat}
-      data-lng={@map_center.lng}
     >
     </div>
 

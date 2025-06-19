@@ -61,7 +61,7 @@ body.home-page main {
     height: 100vh;
 }
 
-body.home-page main>div {
+body.home-page main > div {
     max-width: none;
     height: 100%;
 }
@@ -151,20 +151,62 @@ body.home-page main>div {
 }
 
 /* High-DPI support for APRS symbols */
-@media (-webkit-min-device-pixel-ratio: 2),
-(min-resolution: 192dpi) {
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
     .aprs-marker div[style*="aprs-symbols-24-0.png"] {
-        background-image: url('/aprs-symbols/aprs-symbols-24-0@2x.png') !important;
+        background-image: url("/aprs-symbols/aprs-symbols-24-0@2x.png") !important;
         background-size: 384px 144px !important;
     }
 
     .aprs-marker div[style*="aprs-symbols-24-1.png"] {
-        background-image: url('/aprs-symbols/aprs-symbols-24-1@2x.png') !important;
+        background-image: url("/aprs-symbols/aprs-symbols-24-1@2x.png") !important;
         background-size: 384px 144px !important;
     }
 
     .aprs-marker div[style*="aprs-symbols-24-2.png"] {
-        background-image: url('/aprs-symbols/aprs-symbols-24-2@2x.png') !important;
+        background-image: url("/aprs-symbols/aprs-symbols-24-2@2x.png") !important;
         background-size: 384px 144px !important;
     }
+}
+
+/* Trail visualization styles */
+.trail-tooltip {
+    background-color: rgba(0, 0, 0, 0.8);
+    border: 1px solid #1e90ff;
+    color: white;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+/* Trail polyline hover effect */
+.leaflet-interactive:hover {
+    stroke-width: 4;
+    stroke-opacity: 0.8;
+}
+
+/* Position dot hover effect */
+.leaflet-marker-icon.leaflet-interactive:hover {
+    transform: scale(1.5);
+    transition: transform 0.2s ease-out;
+}
+
+/* Trail controls styling */
+.trail-toggle-control {
+    background-color: white;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.trail-toggle-control:hover {
+    background-color: #f0f0f0;
+}
+
+.trail-toggle-control.active {
+    background-color: #1e90ff;
+    color: white;
 }
