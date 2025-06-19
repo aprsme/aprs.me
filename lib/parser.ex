@@ -80,14 +80,14 @@ defmodule Parser do
          received_at: DateTime.truncate(DateTime.utc_now(), :microsecond)
        }}
     else
-      {:error, %{error_code: _} = err} ->
-        {:error, err}
-
-      {:error, reason} ->
+      {:error, reason} when is_binary(reason) ->
         case reason do
           "Invalid packet format" -> {:error, "Invalid packet format"}
-          _ -> {:error, %{error_code: reason}}
+          _ -> {:error, reason}
         end
+
+      {:error, %{error_code: code}} ->
+        {:error, to_string(code)}
 
       _ ->
         {:error, "PARSE ERROR"}
@@ -104,14 +104,14 @@ defmodule Parser do
          not String.contains?(callsign, "*") do
       :ok
     else
-      {:error, %{error_code: :srccall_badchars}}
+      {:error, "Invalid source callsign"}
     end
   end
 
   defp validate_callsign(callsign, :dst) do
     cond do
-      is_nil(callsign) or callsign == "" -> {:error, %{error_code: :dstcall_none}}
-      not String.match?(callsign, ~r/^[A-Z0-9\-]+$/) -> {:error, %{error_code: :dstcall_noax25}}
+      is_nil(callsign) or callsign == "" -> {:error, "Missing destination callsign"}
+      not String.match?(callsign, ~r/^[A-Z0-9\-]+$/) -> {:error, "Invalid destination callsign"}
       true -> :ok
     end
   end
@@ -119,7 +119,7 @@ defmodule Parser do
   # Validate path for too many components
   defp validate_path(path) do
     if path != "" and length(String.split(path, ",")) > 2 do
-      {:error, %{error_code: :dstpath_toomany}}
+      {:error, "Too many path components"}
     else
       :ok
     end
@@ -161,21 +161,9 @@ defmodule Parser do
 
   @spec parse_callsign(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
   def parse_callsign(callsign) do
-    cond do
-      not is_binary(callsign) ->
-        {:error, "Invalid callsign format"}
-
-      byte_size(callsign) == 0 ->
-        {:error, "Empty callsign"}
-
-      String.contains?(callsign, "-") ->
-        case String.split(callsign, "-") do
-          [base, ssid] -> {:ok, [base, ssid]}
-          _ -> {:ok, [callsign, "0"]}
-        end
-
-      true ->
-        {:ok, [callsign, "0"]}
+    case Parser.AX25.parse_callsign(callsign) do
+      {:ok, {base, ssid}} -> {:ok, [base, ssid]}
+      {:error, reason} -> {:error, reason}
     end
   end
 
