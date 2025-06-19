@@ -27,7 +27,7 @@ defmodule Aprs.MixProject do
   def application do
     [
       mod: {Aprs.Application, []},
-      extra_applications: [:hackney, :logger, :runtime_tools]
+      extra_applications: [:hackney, :logger, :runtime_tools, :os_mon]
     ]
   end
 
@@ -42,6 +42,7 @@ defmodule Aprs.MixProject do
     [
       {:bcrypt_elixir, "~> 3.0"},
       {:certifi, "~> 2.9"},
+      {:ecto_psql_extras, "~> 0.8.8"},
       {:ecto_sql, "~> 3.11"},
       {:finch, "~> 0.13"},
       {:geo, "~> 4.0.1"},

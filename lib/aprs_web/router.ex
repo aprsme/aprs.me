@@ -2,6 +2,7 @@ defmodule AprsWeb.Router do
   use AprsWeb, :router
 
   import AprsWeb.UserAuth
+  import Phoenix.LiveDashboard.Router
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -27,6 +28,7 @@ defmodule AprsWeb.Router do
   scope "/", AprsWeb do
     pipe_through :browser
 
+    live_dashboard "/dashboard", metrics: AprsWeb.Telemetry
     live "/", MapLive.Index, :index
     live "/enhanced", MapLive.Enhanced, :index
     get "/old", PageController, :map
@@ -36,7 +38,6 @@ defmodule AprsWeb.Router do
     live "/packets/:callsign", PacketsLive.CallsignView, :index
     live "/badpackets", BadPacketsLive.Index, :index
     live "/:callsign", MapLive.CallsignView, :index
-    live_dashboard "/dashboard", metrics: AprsWeb.Telemetry
   end
 
   # Other scopes may use custom stacks.
@@ -51,12 +52,11 @@ defmodule AprsWeb.Router do
     # If your application does not have an admins-only section yet,
     # you can use Plug.BasicAuth to set up some basic authentication
     # as long as you are also using SSL (which you should anyway).
-    import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
       pipe_through :browser
 
-      live_dashboard "/dashboard", metrics: AprsWeb.Telemetry
+      # live_dashboard "/dashboard", metrics: AprsWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
