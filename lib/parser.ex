@@ -4,6 +4,7 @@ defmodule Parser do
   """
   # import Bitwise
   alias Aprs.Convert
+  alias Parser.Types.MicE
 
   require Logger
 
@@ -52,7 +53,15 @@ defmodule Parser do
   @type position_ambiguity :: 0..4
 
   @spec parse(String.t()) :: parse_result()
-  def parse(message) do
+  def parse(message) when is_binary(message) do
+    do_parse(message)
+  rescue
+    error ->
+      Logger.debug("PARSE ERROR: #{inspect(error)} for message: #{message}")
+      {:error, :invalid_packet}
+  end
+
+  defp do_parse(message) do
     with {:ok, [sender, path, data]} <- split_packet(message),
          {:ok, [base_callsign, ssid]} <- parse_callsign(sender),
          {:ok, data_type} <- parse_datatype_safe(data),
@@ -61,7 +70,6 @@ defmodule Parser do
          :ok <- validate_callsign(destination, :dst),
          :ok <- validate_path(path) do
       data_trimmed = String.trim(data)
-      # Strip the first character (datatype indicator) from the data
       data_without_type = String.slice(data_trimmed, 1..-1//1)
       data_extended = parse_data(data_type, destination, data_without_type)
 
@@ -76,7 +84,6 @@ defmodule Parser do
          base_callsign: base_callsign,
          ssid: ssid,
          data_extended: data_extended,
-         # Set received_at when creating packet
          received_at: DateTime.truncate(DateTime.utc_now(), :microsecond)
        }}
     else
@@ -85,9 +92,6 @@ defmodule Parser do
           "Invalid packet format" -> {:error, "Invalid packet format"}
           _ -> {:error, reason}
         end
-
-      {:error, %{error_code: code}} ->
-        {:error, to_string(code)}
 
       _ ->
         {:error, "PARSE ERROR"}
@@ -110,7 +114,7 @@ defmodule Parser do
 
   defp validate_callsign(callsign, :dst) do
     cond do
-      is_nil(callsign) or callsign == "" -> {:error, "Missing destination callsign"}
+      callsign == "" -> {:error, "Missing destination callsign"}
       not String.match?(callsign, ~r/^[A-Z0-9\-]+$/) -> {:error, "Invalid destination callsign"}
       true -> :ok
     end
@@ -206,7 +210,7 @@ defmodule Parser do
   def parse_data(:position, _destination, data) do
     case data do
       <<"/", _::binary>> ->
-        result = parse_position_without_timestamp(false, data)
+        result = parse_position_without_timestamp(data)
 
         if result.data_type == :malformed_position do
           result
@@ -215,7 +219,7 @@ defmodule Parser do
         end
 
       _ ->
-        result = parse_position_without_timestamp(false, data)
+        result = parse_position_without_timestamp(data)
 
         if result.data_type == :malformed_position do
           result
@@ -226,7 +230,7 @@ defmodule Parser do
   end
 
   def parse_data(:position_with_message, _destination, data) do
-    result = parse_position_without_timestamp(true, data)
+    result = parse_position_with_message_without_timestamp(data)
     %{result | data_type: :position}
   end
 
@@ -288,38 +292,33 @@ defmodule Parser do
   def parse_data(:user_defined, _destination, data), do: parse_user_defined(data)
   def parse_data(:third_party_traffic, _destination, data), do: parse_third_party_traffic(data)
 
+  def parse_data(:phg_data, _destination, <<"PHG", p, h, g, d, rest::binary>>) when byte_size(rest) >= 0 do
+    %{
+      power: parse_phg_power(p),
+      height: parse_phg_height(h),
+      gain: parse_phg_gain(g),
+      directivity: parse_phg_directivity(d),
+      comment: rest,
+      data_type: :phg_data
+    }
+  end
+
+  def parse_data(:phg_data, _destination, <<"DFS", s, h, g, d, rest::binary>>) when byte_size(rest) >= 0 do
+    %{
+      df_strength: parse_df_strength(s),
+      height: parse_phg_height(h),
+      gain: parse_phg_gain(g),
+      directivity: parse_phg_directivity(d),
+      comment: rest,
+      data_type: :df_report
+    }
+  end
+
   def parse_data(:phg_data, _destination, data) do
-    cond do
-      String.starts_with?(data, "PHG") and byte_size(data) >= 7 ->
-        <<"PHG", p, h, g, d, rest::binary>> = data
-
-        %{
-          power: parse_phg_power(p),
-          height: parse_phg_height(h),
-          gain: parse_phg_gain(g),
-          directivity: parse_phg_directivity(d),
-          comment: rest,
-          data_type: :phg_data
-        }
-
-      String.starts_with?(data, "DFS") and byte_size(data) >= 7 ->
-        <<"DFS", s, h, g, d, rest::binary>> = data
-
-        %{
-          df_strength: parse_df_strength(s),
-          height: parse_phg_height(h),
-          gain: parse_phg_gain(g),
-          directivity: parse_phg_directivity(d),
-          comment: rest,
-          data_type: :df_report
-        }
-
-      true ->
-        %{
-          phg_data: data,
-          data_type: :phg_data
-        }
-    end
+    %{
+      phg_data: data,
+      data_type: :phg_data
+    }
   end
 
   def parse_data(:peet_logging, _destination, data), do: parse_peet_logging(data)
@@ -380,7 +379,6 @@ defmodule Parser do
     case date_time_position_data do
       <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
         %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-
         weather_data = parse_weather_data(weather_report)
 
         %{
@@ -431,8 +429,9 @@ defmodule Parser do
     (v1 - 33) * 91 * 91 * 91 + (v2 - 33) * 91 * 91 + (v3 - 33) * 91 + v4
   end
 
-  @spec parse_position_without_timestamp(boolean(), String.t()) :: map()
-  def parse_position_without_timestamp(aprs_messaging?, position_data) do
+  # For packets without APRS messaging
+  @spec parse_position_without_timestamp(String.t()) :: map()
+  def parse_position_without_timestamp(position_data) do
     case position_data do
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
         comment::binary>> ->
@@ -448,7 +447,7 @@ defmodule Parser do
           symbol_code: symbol_code,
           comment: comment,
           data_type: :position,
-          aprs_messaging?: aprs_messaging?,
+          aprs_messaging?: false,
           compressed?: false,
           position_ambiguity: ambiguity,
           dao: dao_data
@@ -465,7 +464,7 @@ defmodule Parser do
           symbol_table_id: sym_table_id,
           symbol_code: "_",
           data_type: :position,
-          aprs_messaging?: aprs_messaging?,
+          aprs_messaging?: false,
           compressed?: false,
           position_ambiguity: ambiguity,
           dao: nil
@@ -490,13 +489,13 @@ defmodule Parser do
             data_type: :position,
             compressed?: true,
             position_ambiguity: ambiguity,
-            dao: nil
+            dao: nil,
+            aprs_messaging?: false
           }
 
           Map.merge(base_data, compressed_cs)
         rescue
           _e ->
-            # Instead of returning malformed_position, relax: return nil lat/lon but still :position
             %{
               latitude: nil,
               longitude: nil,
@@ -508,7 +507,8 @@ defmodule Parser do
               data_type: :position,
               compressed?: true,
               position_ambiguity: calculate_compressed_ambiguity(compression_type),
-              dao: nil
+              dao: nil,
+              aprs_messaging?: false
             }
         end
 
@@ -520,7 +520,7 @@ defmodule Parser do
           symbol_table_id: nil,
           symbol_code: nil,
           data_type: :malformed_position,
-          aprs_messaging?: aprs_messaging?,
+          aprs_messaging?: false,
           compressed?: false,
           comment: String.trim(position_data),
           dao: nil
@@ -528,26 +528,26 @@ defmodule Parser do
     end
   end
 
+  # For packets with APRS messaging
+  @spec parse_position_with_message_without_timestamp(String.t()) :: map()
+  def parse_position_with_message_without_timestamp(position_data) do
+    result = parse_position_without_timestamp(position_data)
+    Map.put(result, :aprs_messaging?, true)
+  end
+
+  @ambiguity_levels %{
+    {0, 0} => 0,
+    {1, 1} => 1,
+    {2, 2} => 2,
+    {3, 3} => 3,
+    {4, 4} => 4
+  }
+
   @spec calculate_position_ambiguity(String.t(), String.t()) :: position_ambiguity()
   defp calculate_position_ambiguity(latitude, longitude) do
-    # Count spaces in latitude and longitude
     lat_spaces = count_spaces(latitude)
     lon_spaces = count_spaces(longitude)
-
-    # Position ambiguity is determined by the number of spaces
-    # 0 = no ambiguity
-    # 1 = 1/60th of a degree
-    # 2 = 1/10th of a degree
-    # 3 = 1 degree
-    # 4 = 10 degrees
-    cond do
-      lat_spaces == 0 and lon_spaces == 0 -> 0
-      lat_spaces == 1 and lon_spaces == 1 -> 1
-      lat_spaces == 2 and lon_spaces == 2 -> 2
-      lat_spaces == 3 and lon_spaces == 3 -> 3
-      lat_spaces == 4 and lon_spaces == 4 -> 4
-      true -> 0
-    end
+    Map.get(@ambiguity_levels, {lat_spaces, lon_spaces}, 0)
   end
 
   @spec calculate_compressed_ambiguity(binary()) :: position_ambiguity()
@@ -664,7 +664,7 @@ defmodule Parser do
     information_data =
       parse_mic_e_information(information_field, destination_data.longitude_offset)
 
-    struct(Parser.Types.MicE, %{
+    struct(MicE, %{
       lat_degrees: destination_data.lat_degrees,
       lat_minutes: destination_data.lat_minutes,
       lat_fractional: destination_data.lat_fractional,
@@ -1138,7 +1138,7 @@ defmodule Parser do
 
     # Add non-nil weather values to result
     Enum.reduce(weather_values, result, fn {key, value}, acc ->
-      if value == nil, do: acc, else: Map.put(acc, key, value)
+      if is_nil(value), do: acc, else: Map.put(acc, key, value)
     end)
   end
 
@@ -1328,25 +1328,19 @@ defmodule Parser do
   defp parse_digital_values(values) do
     values
     |> Enum.map(fn value ->
-      case value do
-        "0" ->
-          false
-
-        "1" ->
+      cond do
+        value == "1" ->
           true
 
-        binary when is_binary(binary) ->
+        is_binary(value) ->
           # Handle binary string format (e.g., "00000000")
-          binary
+          value
           |> String.graphemes()
           |> Enum.map(fn
-            "0" -> false
             "1" -> true
+            "0" -> false
             _ -> nil
           end)
-
-        _ ->
-          nil
       end
     end)
     |> List.flatten()
@@ -1461,37 +1455,15 @@ defmodule Parser do
   end
 
   # Third Party Traffic parsing
-  @spec parse_third_party_traffic(String.t()) :: map()
-  def parse_third_party_traffic(third_party_packet) do
-    # Count the total depth including this level and the one already stripped by parse()
-    # The } character has already been stripped by parse_data
-    depth = count_leading_braces(third_party_packet) + 1
-
-    # Check if depth exceeds maximum (3 levels)
-    if depth > 3 do
+  def parse_third_party_traffic(packet) do
+    if count_leading_braces(packet) + 1 > 3 do
       %{
         error: "Maximum tunnel depth exceeded"
       }
     else
-      # Third party traffic contains a complete APRS packet
-      case parse_tunneled_packet(third_party_packet) do
+      case parse_tunneled_packet(packet) do
         {:ok, parsed_packet} ->
-          # Check for nested tunnels
-          case parse_nested_tunnel(third_party_packet) do
-            {:ok, nested_packet} ->
-              %{
-                third_party_packet: nested_packet,
-                data_type: :third_party_traffic,
-                raw_data: third_party_packet
-              }
-
-            {:error, _} ->
-              %{
-                third_party_packet: parsed_packet,
-                data_type: :third_party_traffic,
-                raw_data: third_party_packet
-              }
-          end
+          build_third_party_traffic_result(packet, parsed_packet)
 
         {:error, reason} ->
           %{
@@ -1501,37 +1473,60 @@ defmodule Parser do
     end
   end
 
+  defp build_third_party_traffic_result(packet, parsed_packet) do
+    case parse_nested_tunnel(packet) do
+      {:ok, nested_packet} ->
+        %{
+          third_party_packet: nested_packet,
+          data_type: :third_party_traffic,
+          raw_data: packet
+        }
+
+      {:error, _} ->
+        %{
+          third_party_packet: parsed_packet,
+          data_type: :third_party_traffic,
+          raw_data: packet
+        }
+    end
+  end
+
   @spec parse_tunneled_packet(String.t()) :: {:ok, map()} | {:error, String.t()}
   defp parse_tunneled_packet(packet) do
-    # Split the packet into header and information field
     case String.split(packet, ":", parts: 2) do
       [header, information] ->
-        # Parse the header (source>destination,digipeaters)
-        case parse_tunneled_header(header) do
-          {:ok, header_data} ->
-            # Parse the information field based on its type
-            case parse_datatype_safe(information) do
-              {:ok, data_type} ->
-                data_without_type = String.slice(information, 1..-1//1)
-                data_extended = parse_data(data_type, header_data.destination, data_without_type)
-
-                {:ok,
-                 Map.merge(header_data, %{
-                   information_field: information,
-                   data_type: data_type,
-                   data_extended: data_extended
-                 })}
-
-              {:error, reason} ->
-                {:error, "Invalid data type: #{reason}"}
-            end
-
-          {:error, reason} ->
-            {:error, "Invalid header: #{reason}"}
-        end
+        parse_tunneled_packet_with_header(header, information)
 
       _ ->
         {:error, "Invalid tunneled packet format"}
+    end
+  end
+
+  defp parse_tunneled_packet_with_header(header, information) do
+    case parse_tunneled_header(header) do
+      {:ok, header_data} ->
+        parse_tunneled_packet_with_information(header_data, information)
+
+      {:error, reason} ->
+        {:error, "Invalid header: #{reason}"}
+    end
+  end
+
+  defp parse_tunneled_packet_with_information(header_data, information) do
+    case parse_datatype_safe(information) do
+      {:ok, data_type} ->
+        data_without_type = String.slice(information, 1..-1//1)
+        data_extended = parse_data(data_type, header_data.destination, data_without_type)
+
+        {:ok,
+         Map.merge(header_data, %{
+           information_field: information,
+           data_type: data_type,
+           data_extended: data_extended
+         })}
+
+      {:error, reason} ->
+        {:error, "Invalid data type: #{reason}"}
     end
   end
 
@@ -1600,7 +1595,6 @@ defmodule Parser do
   end
 
   # Add support for multiple levels of tunneling
-  @spec parse_nested_tunnel(String.t(), non_neg_integer()) :: {:ok, map()} | {:error, String.t()}
   defp parse_nested_tunnel(packet, depth \\ 0) do
     cond do
       depth > 3 ->
@@ -1608,28 +1602,25 @@ defmodule Parser do
 
       String.starts_with?(packet, "}") ->
         case parse_network_tunnel(packet) do
-          {:ok, parsed_packet} ->
-            # Recursively parse any nested tunnels
-            case Map.get(parsed_packet, :data_extended) do
-              %{raw_data: nested_data} when is_binary(nested_data) ->
-                case parse_nested_tunnel(nested_data, depth + 1) do
-                  {:ok, nested_packet} ->
-                    {:ok, Map.put(parsed_packet, :nested_packet, nested_packet)}
-
-                  {:error, _} ->
-                    {:ok, parsed_packet}
-                end
-
-              _ ->
-                {:ok, parsed_packet}
-            end
-
-          {:error, reason} ->
-            {:error, reason}
+          {:ok, parsed_packet} -> handle_parsed_network_tunnel(parsed_packet, depth)
+          {:error, reason} -> {:error, reason}
         end
 
       true ->
         {:error, "Not a tunneled packet"}
+    end
+  end
+
+  defp handle_parsed_network_tunnel(parsed_packet, depth) do
+    case Map.get(parsed_packet, :data_extended) do
+      %{raw_data: nested_data} when is_binary(nested_data) ->
+        case parse_nested_tunnel(nested_data, depth + 1) do
+          {:ok, nested_packet} -> {:ok, Map.put(parsed_packet, :nested_packet, nested_packet)}
+          {:error, _} -> {:ok, parsed_packet}
+        end
+
+      _ ->
+        {:ok, parsed_packet}
     end
   end
 
@@ -1840,7 +1831,10 @@ defmodule Parser do
     end
   end
 
-  @spec parse_nmea_sentence(String.t()) :: {:ok, map()} | {:error, String.t()}
+  @spec parse_nmea_sentence(String.t()) ::
+          {:ok, map()}
+          | {:error, String.t()}
+          | {:error, %{error: String.t(), nmea_type: String.t() | nil}}
   defp parse_nmea_sentence(sentence) do
     # Validate NMEA sentence format
     with {:ok, sentence_type} <- validate_nmea_sentence(sentence),

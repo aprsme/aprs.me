@@ -14,8 +14,10 @@ defmodule Aprs.BadPacket do
     timestamps(type: :utc_datetime_usec)
   end
 
+  @type t :: %__MODULE__{}
+
   @doc false
-  @spec changeset(%Aprs.BadPacket{}, map()) :: Ecto.Changeset.t()
+  @spec changeset(Aprs.BadPacket.t(), map()) :: Ecto.Changeset.t()
   def changeset(bad_packet, attrs) do
     bad_packet
     |> cast(attrs, [:raw_packet, :error_message, :error_type, :attempted_at])

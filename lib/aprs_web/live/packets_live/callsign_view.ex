@@ -53,39 +53,14 @@ defmodule AprsWeb.PacketsLive.CallsignView do
   @impl true
   def handle_info(%{event: "packet", payload: payload}, socket) do
     # Handle incoming live packets - only process if they match our callsign
-    # Only process packets for this specific callsign
     if packet_matches_callsign?(payload, socket.assigns.callsign) do
-      # Sanitize the packet to prevent JSON encoding errors
       sanitized_payload = EncodingUtils.sanitize_packet(payload)
-
-      # Add to live packets and maintain combined limit of 100
       current_live = socket.assigns.live_packets
       current_stored = socket.assigns.packets
 
-      # Calculate how many total packets we have
-      total_count = length(current_live) + length(current_stored)
-
-      # If we're at or over the limit, remove the oldest stored packet
       {updated_stored, updated_live} =
-        if total_count >= 100 do
-          # Remove the oldest stored packet if we have any, otherwise remove oldest live
-          case current_stored do
-            [] ->
-              # No stored packets, remove oldest live packet
-              live_without_oldest = Enum.drop(current_live, -1)
-              {current_stored, [sanitized_payload | live_without_oldest]}
+        update_packet_lists(current_stored, current_live, sanitized_payload)
 
-            _ ->
-              # Remove oldest stored packet
-              stored_without_oldest = Enum.drop(current_stored, -1)
-              {stored_without_oldest, [sanitized_payload | current_live]}
-          end
-        else
-          # Under limit, just add the new packet
-          {current_stored, [sanitized_payload | current_live]}
-        end
-
-      # Calculate combined packets for display
       all_packets = get_all_packets_list(updated_stored, updated_live)
 
       socket =
@@ -101,9 +76,7 @@ defmodule AprsWeb.PacketsLive.CallsignView do
   end
 
   @impl true
-  def handle_info(_message, socket) do
-    {:noreply, socket}
-  end
+  def handle_info(_message, socket), do: {:noreply, socket}
 
   # Private helper functions
 
@@ -187,6 +160,24 @@ defmodule AprsWeb.PacketsLive.CallsignView do
     )
     # Ensure we never exceed 100 total
     |> Enum.take(100)
+  end
+
+  # Helper to update stored and live packet lists, keeping total <= 100
+  defp update_packet_lists(current_stored, current_live, sanitized_payload) do
+    total_count = length(current_live) + length(current_stored)
+
+    cond do
+      total_count >= 100 and current_stored == [] ->
+        live_without_oldest = Enum.drop(current_live, -1)
+        {current_stored, [sanitized_payload | live_without_oldest]}
+
+      total_count >= 100 ->
+        stored_without_oldest = Enum.drop(current_stored, -1)
+        {stored_without_oldest, [sanitized_payload | current_live]}
+
+      true ->
+        {current_stored, [sanitized_payload | current_live]}
+    end
   end
 
   # Validates if the callsign format is reasonable

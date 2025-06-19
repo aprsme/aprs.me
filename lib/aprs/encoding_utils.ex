@@ -115,21 +115,20 @@ defmodule Aprs.EncodingUtils do
   # Ensure the final result is valid UTF-8
   @spec ensure_valid_utf8(binary()) :: binary()
   defp ensure_valid_utf8(binary) do
-    if String.valid?(binary) do
-      binary
-    else
-      # If still invalid, try to convert to valid UTF-8
-      case :unicode.characters_to_binary(binary, :latin1, :utf8) do
-        result when is_binary(result) ->
-          result
+    if String.valid?(binary), do: binary, else: try_convert_utf8(binary)
+  end
 
-        _ ->
-          # Last resort: keep only ASCII
-          binary
-          |> :binary.bin_to_list()
-          |> Enum.filter(fn byte -> byte >= 32 and byte <= 126 end)
-          |> :binary.list_to_bin()
-      end
+  defp try_convert_utf8(binary) do
+    case :unicode.characters_to_binary(binary, :latin1, :utf8) do
+      result when is_binary(result) ->
+        result
+
+      _ ->
+        # Last resort: keep only ASCII
+        binary
+        |> :binary.bin_to_list()
+        |> Enum.filter(fn byte -> byte >= 32 and byte <= 126 end)
+        |> :binary.list_to_bin()
     end
   end
 

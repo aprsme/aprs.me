@@ -11,6 +11,182 @@ defmodule AprsWeb.Helpers.AprsSymbols do
   Symbol positioning is based on ASCII code of the symbol_code.
   """
 
+  @symbol_descriptions %{
+    {"/", "!"} => "Police/Sheriff",
+    {"/", "\""} => "Reserved",
+    {"/", "#"} => "Digipeater",
+    {"/", "$"} => "Phone",
+    {"/", "%"} => "DX Cluster",
+    {"/", "&"} => "HF Gateway",
+    {"/", "'"} => "Small Aircraft",
+    {"/", "("} => "Mobile Satellite Station",
+    {"/", ")"} => "Wheelchair",
+    {"/", "*"} => "Snowmobile",
+    {"/", "+"} => "Red Cross",
+    {"/", ","} => "Boy Scout",
+    {"/", "-"} => "House",
+    {"/", "."} => "X",
+    {"/", "/"} => "Position",
+    {"/", "0"} => "Circle",
+    {"/", "1"} => "Circle",
+    {"/", "2"} => "Circle",
+    {"/", "3"} => "Circle",
+    {"/", "4"} => "Circle",
+    {"/", "5"} => "Circle",
+    {"/", "6"} => "Circle",
+    {"/", "7"} => "Circle",
+    {"/", "8"} => "Circle",
+    {"/", "9"} => "Circle",
+    {"/", ":"} => "Fire Department",
+    {"/", ";"} => "Campground",
+    {"/", "<"} => "Motorcycle",
+    {"/", "="} => "Rail Engine",
+    {"/", ">"} => "Car",
+    {"/", "?"} => "File Server",
+    {"/", "@"} => "HC Future",
+    {"/", "A"} => "Aid Station",
+    {"/", "B"} => "BBS",
+    {"/", "C"} => "Canoe",
+    {"/", "D"} => "Reserved",
+    {"/", "E"} => "Eyeball",
+    {"/", "F"} => "Tractor",
+    {"/", "G"} => "Grid Square",
+    {"/", "H"} => "Hotel",
+    {"/", "I"} => "TCP/IP",
+    {"/", "J"} => "Phone",
+    {"/", "K"} => "School",
+    {"/", "L"} => "PC User",
+    {"/", "M"} => "MacAPRS",
+    {"/", "N"} => "NTS Station",
+    {"/", "O"} => "Balloon",
+    {"/", "P"} => "Police",
+    {"/", "Q"} => "TBD",
+    {"/", "R"} => "Recreational Vehicle",
+    {"/", "S"} => "Shuttle",
+    {"/", "T"} => "SSTV",
+    {"/", "U"} => "Bus",
+    {"/", "V"} => "ATV",
+    {"/", "W"} => "National Weather Service",
+    {"/", "X"} => "Helo",
+    {"/", "Y"} => "Yacht",
+    {"/", "Z"} => "WinAPRS",
+    {"/", "["} => "Jogger",
+    {"/", "\\"} => "Triangle",
+    {"/", "]"} => "PBBS",
+    {"/", "^"} => "Aircraft",
+    {"/", "_"} => "Weather Station",
+    {"/", "`"} => "Dish Antenna",
+    {"/", "a"} => "Ambulance",
+    {"/", "b"} => "Bike",
+    {"/", "c"} => "Incident Command Post",
+    {"/", "d"} => "Fire Depts",
+    {"/", "e"} => "Horse",
+    {"/", "f"} => "Fire Truck",
+    {"/", "g"} => "Glider",
+    {"/", "h"} => "Hospital",
+    {"/", "i"} => "IOTA",
+    {"/", "j"} => "Jeep",
+    {"/", "k"} => "Truck",
+    {"/", "l"} => "Laptop",
+    {"/", "m"} => "Mic-E",
+    {"/", "n"} => "Node",
+    {"/", "o"} => "EOC",
+    {"/", "p"} => "Dog",
+    {"/", "q"} => "Grid",
+    {"/", "r"} => "Repeater",
+    {"/", "s"} => "Ship",
+    {"/", "t"} => "Truck Stop",
+    {"/", "u"} => "Truck",
+    {"/", "v"} => "Van",
+    {"/", "w"} => "Water Station",
+    {"/", "x"} => "X-APRS",
+    {"/", "y"} => "Yagi",
+    {"/", "z"} => "Shelter",
+    {"\\", "!"} => "Emergency",
+    {"\\", "\""} => "Reserved",
+    {"\\", "#"} => "Digipeater",
+    {"\\", "$"} => "Bank",
+    {"\\", "%"} => "Reserved",
+    {"\\", "&"} => "Reserved",
+    {"\\", "'"} => "Reserved",
+    {"\\", "("} => "Reserved",
+    {"\\", ")"} => "Reserved",
+    {"\\", "*"} => "Reserved",
+    {"\\", "+"} => "Reserved",
+    {"\\", ","} => "Reserved",
+    {"\\", "-"} => "Reserved",
+    {"\\", "."} => "Reserved",
+    {"\\", "/"} => "Triangle",
+    {"\\", "0"} => "Reserved",
+    {"\\", "1"} => "Reserved",
+    {"\\", "2"} => "Reserved",
+    {"\\", "3"} => "Reserved",
+    {"\\", "4"} => "Reserved",
+    {"\\", "5"} => "Reserved",
+    {"\\", "6"} => "Reserved",
+    {"\\", "7"} => "Reserved",
+    {"\\", "8"} => "Reserved",
+    {"\\", "9"} => "Reserved",
+    {"\\", ":"} => "Reserved",
+    {"\\", ";"} => "Reserved",
+    {"\\", "<"} => "Reserved",
+    {"\\", "="} => "Reserved",
+    {"\\", ">"} => "Car (alternate)",
+    {"\\", "?"} => "Reserved",
+    {"\\", "@"} => "Reserved",
+    {"\\", "A"} => "Reserved",
+    {"\\", "B"} => "Reserved",
+    {"\\", "C"} => "Reserved",
+    {"\\", "D"} => "Reserved",
+    {"\\", "E"} => "Reserved",
+    {"\\", "F"} => "Reserved",
+    {"\\", "G"} => "Reserved",
+    {"\\", "H"} => "Reserved",
+    {"\\", "I"} => "Reserved",
+    {"\\", "J"} => "Reserved",
+    {"\\", "K"} => "Reserved",
+    {"\\", "L"} => "Reserved",
+    {"\\", "M"} => "Reserved",
+    {"\\", "N"} => "Reserved",
+    {"\\", "O"} => "Reserved",
+    {"\\", "P"} => "Reserved",
+    {"\\", "Q"} => "Reserved",
+    {"\\", "R"} => "Reserved",
+    {"\\", "S"} => "Reserved",
+    {"\\", "T"} => "Reserved",
+    {"\\", "U"} => "Reserved",
+    {"\\", "V"} => "Reserved",
+    {"\\", "W"} => "Reserved",
+    {"\\", "X"} => "Reserved",
+    {"\\", "Y"} => "Reserved",
+    {"\\", "Z"} => "Reserved",
+    {"\\", "["} => "Reserved",
+    {"\\", "\\"} => "Reserved",
+    {"\\", "]"} => "Reserved",
+    {"\\", "^"} => "Reserved",
+    {"\\", "_"} => "Reserved",
+    {"\\", "`"} => "Reserved",
+    {"\\", "a"} => "Reserved",
+    {"\\", "b"} => "Reserved",
+    {"\\", "c"} => "Reserved",
+    {"\\", "d"} => "Reserved",
+    {"\\", "e"} => "Reserved",
+    {"\\", "f"} => "Reserved",
+    {"\\", "g"} => "Reserved",
+    {"\\", "h"} => "Reserved",
+    {"\\", "i"} => "Reserved",
+    {"\\", "j"} => "Reserved",
+    {"\\", "k"} => "Reserved",
+    {"\\", "l"} => "Reserved",
+    {"\\", "m"} => "Reserved",
+    {"\\", "n"} => "Reserved",
+    {"\\", "o"} => "Reserved",
+    {"\\", "p"} => "Reserved",
+    {"\\", "q"} => "Reserved",
+    {"\\", "r"} => "Reserved",
+    {"\\", "s"} => "Reserved"
+  }
+
   @doc """
   Get the sprite sheet filename for a given symbol table ID.
 
@@ -171,191 +347,6 @@ defmodule AprsWeb.Helpers.AprsSymbols do
   """
   @spec symbol_description(String.t(), String.t()) :: String.t()
   def symbol_description(symbol_table_id, symbol_code) do
-    case {symbol_table_id, symbol_code} do
-      # Primary Table (/)
-      {"/", "!"} -> "Police/Sheriff"
-      {"/", "\""} -> "Reserved"
-      {"/", "#"} -> "Digipeater"
-      {"/", "$"} -> "Phone"
-      {"/", "%"} -> "DX Cluster"
-      {"/", "&"} -> "HF Gateway"
-      {"/", "'"} -> "Small Aircraft"
-      {"/", "("} -> "Mobile Satellite Station"
-      {"/", ")"} -> "Wheelchair"
-      {"/", "*"} -> "Snowmobile"
-      {"/", "+"} -> "Red Cross"
-      {"/", ","} -> "Boy Scout"
-      {"/", "-"} -> "House"
-      {"/", "."} -> "X"
-      {"/", "/"} -> "Position"
-      {"/", "0"} -> "Circle"
-      {"/", "1"} -> "Circle"
-      {"/", "2"} -> "Circle"
-      {"/", "3"} -> "Circle"
-      {"/", "4"} -> "Circle"
-      {"/", "5"} -> "Circle"
-      {"/", "6"} -> "Circle"
-      {"/", "7"} -> "Circle"
-      {"/", "8"} -> "Circle"
-      {"/", "9"} -> "Circle"
-      {"/", ":"} -> "Fire Department"
-      {"/", ";"} -> "Campground"
-      {"/", "<"} -> "Motorcycle"
-      {"/", "="} -> "Rail Engine"
-      {"/", ">"} -> "Car"
-      {"/", "?"} -> "File Server"
-      {"/", "@"} -> "HC Future"
-      {"/", "A"} -> "Aid Station"
-      {"/", "B"} -> "BBS"
-      {"/", "C"} -> "Canoe"
-      {"/", "D"} -> "Reserved"
-      {"/", "E"} -> "Eyeball"
-      {"/", "F"} -> "Tractor"
-      {"/", "G"} -> "Grid Square"
-      {"/", "H"} -> "Hotel"
-      {"/", "I"} -> "TCP/IP"
-      {"/", "J"} -> "Phone"
-      {"/", "K"} -> "School"
-      {"/", "L"} -> "PC User"
-      {"/", "M"} -> "MacAPRS"
-      {"/", "N"} -> "NTS Station"
-      {"/", "O"} -> "Balloon"
-      {"/", "P"} -> "Police"
-      {"/", "Q"} -> "TBD"
-      {"/", "R"} -> "Recreational Vehicle"
-      {"/", "S"} -> "Shuttle"
-      {"/", "T"} -> "SSTV"
-      {"/", "U"} -> "Bus"
-      {"/", "V"} -> "ATV"
-      {"/", "W"} -> "National Weather Service"
-      {"/", "X"} -> "Helo"
-      {"/", "Y"} -> "Yacht"
-      {"/", "Z"} -> "WinAPRS"
-      {"/", "["} -> "Jogger"
-      {"/", "\\"} -> "Triangle"
-      {"/", "]"} -> "PBBS"
-      {"/", "^"} -> "Aircraft"
-      {"/", "_"} -> "Weather Station"
-      {"/", "`"} -> "Dish Antenna"
-      {"/", "a"} -> "Ambulance"
-      {"/", "b"} -> "Bike"
-      {"/", "c"} -> "Incident Command Post"
-      {"/", "d"} -> "Fire Depts"
-      {"/", "e"} -> "Horse"
-      {"/", "f"} -> "Fire Truck"
-      {"/", "g"} -> "Glider"
-      {"/", "h"} -> "Hospital"
-      {"/", "i"} -> "IOTA"
-      {"/", "j"} -> "Jeep"
-      {"/", "k"} -> "Truck"
-      {"/", "l"} -> "Laptop"
-      {"/", "m"} -> "Mic-E"
-      {"/", "n"} -> "Node"
-      {"/", "o"} -> "EOC"
-      {"/", "p"} -> "Dog"
-      {"/", "q"} -> "Grid"
-      {"/", "r"} -> "Repeater"
-      {"/", "s"} -> "Ship"
-      {"/", "t"} -> "Truck Stop"
-      {"/", "u"} -> "Truck"
-      {"/", "v"} -> "Van"
-      {"/", "w"} -> "Water Station"
-      {"/", "x"} -> "X-APRS"
-      {"/", "y"} -> "Yagi"
-      {"/", "z"} -> "Shelter"
-      # Secondary Table (\)
-      {"\\", "!"} -> "Emergency"
-      {"\\", "\""} -> "Reserved"
-      {"\\", "#"} -> "Digipeater"
-      {"\\", "$"} -> "Bank"
-      {"\\", "%"} -> "Reserved"
-      {"\\", "&"} -> "Reserved"
-      {"\\", "'"} -> "Reserved"
-      {"\\", "("} -> "Reserved"
-      {"\\", ")"} -> "Reserved"
-      {"\\", "*"} -> "Reserved"
-      {"\\", "+"} -> "Reserved"
-      {"\\", ","} -> "Reserved"
-      {"\\", "-"} -> "Reserved"
-      {"\\", "."} -> "Reserved"
-      {"\\", "/"} -> "Triangle"
-      {"\\", "0"} -> "Reserved"
-      {"\\", "1"} -> "Reserved"
-      {"\\", "2"} -> "Reserved"
-      {"\\", "3"} -> "Reserved"
-      {"\\", "4"} -> "Reserved"
-      {"\\", "5"} -> "Reserved"
-      {"\\", "6"} -> "Reserved"
-      {"\\", "7"} -> "Reserved"
-      {"\\", "8"} -> "Reserved"
-      {"\\", "9"} -> "Reserved"
-      {"\\", ":"} -> "Reserved"
-      {"\\", ";"} -> "Reserved"
-      {"\\", "<"} -> "Reserved"
-      {"\\", "="} -> "Reserved"
-      {"\\", ">"} -> "Car (alternate)"
-      {"\\", "?"} -> "Reserved"
-      {"\\", "@"} -> "Reserved"
-      {"\\", "A"} -> "Reserved"
-      {"\\", "B"} -> "Reserved"
-      {"\\", "C"} -> "Reserved"
-      {"\\", "D"} -> "Reserved"
-      {"\\", "E"} -> "Reserved"
-      {"\\", "F"} -> "Reserved"
-      {"\\", "G"} -> "Reserved"
-      {"\\", "H"} -> "Reserved"
-      {"\\", "I"} -> "Reserved"
-      {"\\", "J"} -> "Reserved"
-      {"\\", "K"} -> "Reserved"
-      {"\\", "L"} -> "Reserved"
-      {"\\", "M"} -> "Reserved"
-      {"\\", "N"} -> "Reserved"
-      {"\\", "O"} -> "Reserved"
-      {"\\", "P"} -> "Reserved"
-      {"\\", "Q"} -> "Reserved"
-      {"\\", "R"} -> "Reserved"
-      {"\\", "S"} -> "Reserved"
-      {"\\", "T"} -> "Reserved"
-      {"\\", "U"} -> "Reserved"
-      {"\\", "V"} -> "Reserved"
-      {"\\", "W"} -> "Reserved"
-      {"\\", "X"} -> "Reserved"
-      {"\\", "Y"} -> "Reserved"
-      {"\\", "Z"} -> "Reserved"
-      {"\\", "["} -> "Reserved"
-      {"\\", "\\"} -> "Reserved"
-      {"\\", "]"} -> "Reserved"
-      {"\\", "^"} -> "Reserved"
-      {"\\", "_"} -> "Reserved"
-      {"\\", "`"} -> "Reserved"
-      {"\\", "a"} -> "Reserved"
-      {"\\", "b"} -> "Reserved"
-      {"\\", "c"} -> "Reserved"
-      {"\\", "d"} -> "Reserved"
-      {"\\", "e"} -> "Reserved"
-      {"\\", "f"} -> "Reserved"
-      {"\\", "g"} -> "Reserved"
-      {"\\", "h"} -> "Reserved"
-      {"\\", "i"} -> "Reserved"
-      {"\\", "j"} -> "Reserved"
-      {"\\", "k"} -> "Reserved"
-      {"\\", "l"} -> "Reserved"
-      {"\\", "m"} -> "Reserved"
-      {"\\", "n"} -> "Reserved"
-      {"\\", "o"} -> "Reserved"
-      {"\\", "p"} -> "Reserved"
-      {"\\", "q"} -> "Reserved"
-      {"\\", "r"} -> "Reserved"
-      {"\\", "s"} -> "Reserved"
-      {"\\", "t"} -> "Reserved"
-      {"\\", "u"} -> "Reserved"
-      {"\\", "v"} -> "Reserved"
-      {"\\", "w"} -> "Reserved"
-      {"\\", "x"} -> "Reserved"
-      {"\\", "y"} -> "Reserved"
-      {"\\", "z"} -> "Reserved"
-      # Unknown symbol
-      _ -> "Unknown symbol"
-    end
+    Map.get(@symbol_descriptions, {symbol_table_id, symbol_code}, "Unknown symbol")
   end
 end

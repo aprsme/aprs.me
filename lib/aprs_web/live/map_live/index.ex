@@ -66,27 +66,42 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec maybe_start_geolocation(Socket.t()) :: Socket.t()
   defp maybe_start_geolocation(socket) do
-    if Application.get_env(:aprs, :disable_aprs_connection, false) != true do
-      ip =
-        case socket.private[:connect_info][:peer_data][:address] do
-          {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
-          {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
-          _ -> nil
-        end
+    if geolocation_enabled?() do
+      ip = extract_ip(socket)
 
-      if ip && !String.starts_with?(ip, "127.") && !String.starts_with?(ip, "::1") do
-        Task.start(fn ->
-          try do
-            get_ip_location(ip)
-          rescue
-            _error ->
-              send(self(), {:ip_location, @default_center})
-          end
-        end)
+      if valid_ip_for_geolocation?(ip) do
+        start_geolocation_task(ip)
       end
     end
 
     socket
+  end
+
+  defp geolocation_enabled? do
+    Application.get_env(:aprs, :disable_aprs_connection, false) != true
+  end
+
+  defp extract_ip(socket) do
+    case socket.private[:connect_info][:peer_data][:address] do
+      {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
+      {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
+      _ -> nil
+    end
+  end
+
+  defp valid_ip_for_geolocation?(ip) do
+    ip && !String.starts_with?(ip, "127.") && !String.starts_with?(ip, "::1")
+  end
+
+  defp start_geolocation_task(ip) do
+    Task.start(fn ->
+      try do
+        get_ip_location(ip)
+      rescue
+        _error ->
+          send(self(), {:ip_location, @default_center})
+      end
+    end)
   end
 
   defp schedule_timers do
@@ -299,124 +314,135 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   @impl true
-  def handle_info(msg, socket) do
-    case msg do
-      {:process_bounds_update, map_bounds} ->
-        # Process the debounced bounds update
-        socket = process_bounds_update(map_bounds, socket)
-        {:noreply, socket}
+  def handle_info({:process_bounds_update, map_bounds}, socket), do: handle_info_process_bounds_update(map_bounds, socket)
 
-      {:delayed_zoom, %{lat: lat, lng: lng}} ->
-        socket = push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
-        {:noreply, socket}
+  def handle_info({:delayed_zoom, %{lat: lat, lng: lng}}, socket), do: handle_info_delayed_zoom(lat, lng, socket)
 
-      {:ip_location, %{lat: lat, lng: lng}} ->
-        # Ensure we're using numeric values for coordinates
-        lat_float =
-          cond do
-            is_binary(lat) -> String.to_float(lat)
-            is_integer(lat) -> lat / 1.0
-            true -> lat
-          end
+  def handle_info({:ip_location, %{lat: lat, lng: lng}}, socket), do: handle_info_ip_location(lat, lng, socket)
 
-        lng_float =
-          cond do
-            is_binary(lng) -> String.to_float(lng)
-            is_integer(lng) -> lng / 1.0
-            true -> lng
-          end
+  def handle_info(:initialize_replay, socket), do: handle_info_initialize_replay(socket)
+  def handle_info(:replay_next_packet, socket), do: handle_replay_next_packet(socket)
+  def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
 
-        # Update map center first
-        socket = assign(socket, map_center: %{lat: lat_float, lng: lng_float}, map_zoom: 12)
+  def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
 
-        # If map is ready, zoom to location immediately, otherwise store for later
-        socket =
-          if socket.assigns.map_ready do
-            push_event(socket, "zoom_to_location", %{lat: lat_float, lng: lng_float, zoom: 12})
-          else
-            assign(socket, pending_geolocation: %{lat: lat_float, lng: lng_float})
-          end
+  def handle_info(:flush_packet_buffer, socket), do: handle_info_flush_packet_buffer(socket)
 
-        {:noreply, socket}
+  def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket),
+    do: handle_info({:postgres_packet, packet}, socket)
 
-      :initialize_replay ->
-        # Only start replay if it hasn't been started yet
-        if not socket.assigns.replay_started and socket.assigns.map_ready do
-          socket = start_historical_replay(socket)
-          {:noreply, assign(socket, replay_started: true)}
+  # Private handler functions for each message type
+
+  defp handle_info_process_bounds_update(map_bounds, socket) do
+    socket = process_bounds_update(map_bounds, socket)
+    {:noreply, socket}
+  end
+
+  defp handle_info_delayed_zoom(lat, lng, socket) do
+    socket = push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
+    {:noreply, socket}
+  end
+
+  defp handle_info_ip_location(lat, lng, socket) do
+    lat_float =
+      cond do
+        is_binary(lat) -> String.to_float(lat)
+        is_integer(lat) -> lat / 1.0
+        true -> lat
+      end
+
+    lng_float =
+      cond do
+        is_binary(lng) -> String.to_float(lng)
+        is_integer(lng) -> lng / 1.0
+        true -> lng
+      end
+
+    socket = assign(socket, map_center: %{lat: lat_float, lng: lng_float}, map_zoom: 12)
+
+    socket =
+      if socket.assigns.map_ready do
+        push_event(socket, "zoom_to_location", %{lat: lat_float, lng: lng_float, zoom: 12})
+      else
+        assign(socket, pending_geolocation: %{lat: lat_float, lng: lng_float})
+      end
+
+    {:noreply, socket}
+  end
+
+  defp handle_info_initialize_replay(socket) do
+    if not socket.assigns.replay_started and socket.assigns.map_ready do
+      socket = start_historical_replay(socket)
+      {:noreply, assign(socket, replay_started: true)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp handle_info_postgres_packet(packet, socket) do
+    {lat, lon, _data_extended} = get_coordinates(packet)
+
+    if is_nil(lat) or is_nil(lon),
+      do: {:noreply, socket},
+      else: handle_valid_postgres_packet(packet, lat, lon, socket)
+  end
+
+  defp handle_valid_postgres_packet(packet, lat, lon, socket) do
+    if within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
+      buffer = [packet | socket.assigns.packet_buffer]
+      socket = assign(socket, packet_buffer: buffer)
+
+      socket =
+        if socket.assigns.buffer_timer == nil do
+          timer = Process.send_after(self(), :flush_packet_buffer, @debounce_interval)
+          assign(socket, buffer_timer: timer)
         else
-          {:noreply, socket}
+          socket
         end
 
-      :replay_next_packet ->
-        handle_replay_next_packet(socket)
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
 
-      :cleanup_old_packets ->
-        # Clean up packets older than 1 hour from the map display
-        handle_cleanup_old_packets(socket)
+  defp handle_info_flush_packet_buffer(socket) do
+    packets = Enum.reverse(socket.assigns.packet_buffer)
+    visible_packets = socket.assigns.visible_packets
 
-      {:postgres_packet, packet} ->
-        {lat, lon, _data_extended} = get_coordinates(packet)
+    {new_visible_packets, events} = process_packet_buffer(packets, visible_packets)
 
-        if is_nil(lat) or is_nil(lon) do
-          {:noreply, socket}
-        else
-          if within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
-            # Add to buffer for debounced batch update
-            buffer = [packet | socket.assigns.packet_buffer]
-            socket = assign(socket, packet_buffer: buffer)
-            # If no timer, start one
-            socket =
-              if socket.assigns.buffer_timer == nil do
-                timer = Process.send_after(self(), :flush_packet_buffer, @debounce_interval)
-                assign(socket, buffer_timer: timer)
-              else
-                socket
-              end
+    socket =
+      Enum.reduce(events, socket, fn {:new_packet, data}, acc ->
+        push_event(acc, "new_packet", data)
+      end)
 
-            {:noreply, socket}
-          else
-            {:noreply, socket}
-          end
-        end
+    socket =
+      assign(socket,
+        visible_packets: new_visible_packets,
+        packet_buffer: [],
+        buffer_timer: nil
+      )
 
-      :flush_packet_buffer ->
-        packets = Enum.reverse(socket.assigns.packet_buffer)
-        visible_packets = socket.assigns.visible_packets
+    {:noreply, socket}
+  end
 
-        {new_visible_packets, events} =
-          Enum.reduce(packets, {visible_packets, []}, fn packet, {vis, evs} ->
-            packet_data = build_packet_data(packet)
+  defp process_packet_buffer([], visible_packets), do: {visible_packets, []}
 
-            if packet_data do
-              callsign_key =
-                if Map.has_key?(packet, "id"),
-                  do: to_string(packet["id"]),
-                  else: System.unique_integer([:positive])
+  defp process_packet_buffer([packet | rest], visible_packets) do
+    {vis, evs} = process_packet_buffer(rest, visible_packets)
 
-              {Map.put(vis, callsign_key, packet), [{:new_packet, packet_data} | evs]}
-            else
-              {vis, evs}
-            end
-          end)
+    case build_packet_data(packet) do
+      nil ->
+        {vis, evs}
 
-        # Push all new packets in one event (or as a batch)
-        socket =
-          Enum.reduce(events, socket, fn {:new_packet, data}, acc ->
-            push_event(acc, "new_packet", data)
-          end)
+      packet_data ->
+        callsign_key =
+          if Map.has_key?(packet, "id"),
+            do: to_string(packet["id"]),
+            else: System.unique_integer([:positive])
 
-        socket =
-          assign(socket,
-            visible_packets: new_visible_packets,
-            packet_buffer: [],
-            buffer_timer: nil
-          )
-
-        {:noreply, socket}
-
-      %Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet} ->
-        handle_info({:postgres_packet, packet}, socket)
+        {Map.put(vis, callsign_key, packet), [{:new_packet, packet_data} | evs]}
     end
   end
 
@@ -430,65 +456,59 @@ defmodule AprsWeb.MapLive.Index do
     } = socket.assigns
 
     if index < length(packets) do
-      # Get the next packet and advance the index
-      packet = Enum.at(packets, index)
-      next_index = index + 1
-
-      # Convert to a simple map structure for JSON encoding
-      packet_data = build_packet_data(packet)
-
-      # Only process packets with valid position data
-      socket =
-        if packet_data do
-          # Add is_historical flag and timestamp
-          packet_data =
-            Map.merge(packet_data, %{
-              "is_historical" => true,
-              "timestamp" =>
-                if(Map.has_key?(packet, :received_at),
-                  do: DateTime.to_iso8601(packet.received_at)
-                )
-            })
-
-          # Generate a unique key for this packet
-          packet_id =
-            "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}"
-
-          # Update historical packets tracking
-          new_historical_packets = Map.put(historical_packets, packet_id, packet)
-
-          # Send packet data to client
-          socket
-          |> push_event("historical_packet", packet_data)
-          |> assign(
-            replay_index: next_index,
-            historical_packets: new_historical_packets
-          )
-        else
-          # Skip packets without position data, just advance the index
-          assign(socket, replay_index: next_index)
-        end
-
-      # Calculate delay for next packet (faster based on replay speed)
-      delay_ms = trunc(1000 / speed)
-
-      # Schedule the next packet
-      timer_ref = Process.send_after(self(), :replay_next_packet, delay_ms)
-      {:noreply, assign(socket, replay_timer_ref: timer_ref)}
+      handle_next_replay_packet(socket, packets, index, speed, historical_packets)
     else
-      # All packets replayed, start over with a short delay
-      Process.send_after(self(), :initialize_replay, 10_000)
-
-      # Set active to false but don't clear packets - will auto-restart
-      socket =
-        assign(socket,
-          replay_active: false,
-          replay_timer_ref: nil,
-          replay_started: false
-        )
-
-      {:noreply, socket}
+      handle_replay_end(socket)
     end
+  end
+
+  defp handle_next_replay_packet(socket, packets, index, speed, historical_packets) do
+    packet = Enum.at(packets, index)
+    next_index = index + 1
+    packet_data = build_packet_data(packet)
+
+    socket =
+      if packet_data do
+        packet_data =
+          Map.merge(packet_data, %{
+            "is_historical" => true,
+            "timestamp" =>
+              if(Map.has_key?(packet, :received_at),
+                do: DateTime.to_iso8601(packet.received_at)
+              )
+          })
+
+        packet_id =
+          "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}"
+
+        new_historical_packets = Map.put(historical_packets, packet_id, packet)
+
+        socket
+        |> push_event("historical_packet", packet_data)
+        |> assign(
+          replay_index: next_index,
+          historical_packets: new_historical_packets
+        )
+      else
+        assign(socket, replay_index: next_index)
+      end
+
+    delay_ms = trunc(1000 / speed)
+    timer_ref = Process.send_after(self(), :replay_next_packet, delay_ms)
+    {:noreply, assign(socket, replay_timer_ref: timer_ref)}
+  end
+
+  defp handle_replay_end(socket) do
+    Process.send_after(self(), :initialize_replay, 10_000)
+
+    socket =
+      assign(socket,
+        replay_active: false,
+        replay_timer_ref: nil,
+        replay_started: false
+      )
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -647,57 +667,60 @@ defmodule AprsWeb.MapLive.Index do
 
   # Handle cleanup of old packets
   defp handle_cleanup_old_packets(socket) do
-    # Update the packet age threshold to current time minus one hour
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+    packets_to_remove = get_packets_to_remove(socket, one_hour_ago)
+    visible_packets = get_visible_packets(socket, one_hour_ago)
 
-    # Get packets that need to be removed (old or outside bounds)
-    packets_to_remove =
-      socket.assigns.visible_packets
-      |> Enum.reject(fn {_key, packet} ->
-        packet_within_time_threshold?(packet, one_hour_ago) &&
-          within_bounds?(packet, socket.assigns.map_bounds)
-      end)
-      |> Enum.map(fn {callsign, _packet} -> callsign end)
-
-    # Filter out packets older than one hour and outside bounds
-    visible_packets =
-      socket.assigns.visible_packets
-      |> Enum.filter(fn {_key, packet} ->
-        packet_within_time_threshold?(packet, one_hour_ago) &&
-          within_bounds?(packet, socket.assigns.map_bounds)
-      end)
-      |> Map.new()
-
-    # Only update if there are actual changes to prevent unnecessary events
     socket =
       if map_size(visible_packets) == map_size(socket.assigns.visible_packets) do
-        # Just update the threshold without map changes
         assign(socket, packet_age_threshold: one_hour_ago)
-        # Remove old and out-of-bounds markers from the map
-
-        # Explicitly remove markers for packets that are no longer valid
       else
-        socket =
-          socket
-          |> push_event("refresh_markers", %{})
-          |> assign(
-            visible_packets: visible_packets,
-            packet_age_threshold: one_hour_ago
-          )
-
-        if Enum.any?(packets_to_remove) do
-          Enum.reduce(packets_to_remove, socket, fn callsign, acc_socket ->
-            push_event(acc_socket, "remove_marker", %{id: callsign})
-          end)
-        else
-          socket
-        end
+        update_socket_for_removed_packets(
+          socket,
+          visible_packets,
+          one_hour_ago,
+          packets_to_remove
+        )
       end
 
-    # Schedule the next cleanup in 1 minute
     if connected?(socket), do: Process.send_after(self(), :cleanup_old_packets, 60_000)
-
     {:noreply, socket}
+  end
+
+  defp get_packets_to_remove(socket, one_hour_ago) do
+    socket.assigns.visible_packets
+    |> Enum.reject(fn {_key, packet} ->
+      packet_within_time_threshold?(packet, one_hour_ago) &&
+        within_bounds?(packet, socket.assigns.map_bounds)
+    end)
+    |> Enum.map(fn {callsign, _packet} -> callsign end)
+  end
+
+  defp get_visible_packets(socket, one_hour_ago) do
+    socket.assigns.visible_packets
+    |> Enum.filter(fn {_key, packet} ->
+      packet_within_time_threshold?(packet, one_hour_ago) &&
+        within_bounds?(packet, socket.assigns.map_bounds)
+    end)
+    |> Map.new()
+  end
+
+  defp update_socket_for_removed_packets(socket, visible_packets, one_hour_ago, packets_to_remove) do
+    socket =
+      socket
+      |> push_event("refresh_markers", %{})
+      |> assign(
+        visible_packets: visible_packets,
+        packet_age_threshold: one_hour_ago
+      )
+
+    if Enum.any?(packets_to_remove) do
+      Enum.reduce(packets_to_remove, socket, fn callsign, acc_socket ->
+        push_event(acc_socket, "remove_marker", %{id: callsign})
+      end)
+    else
+      socket
+    end
   end
 
   # Check if a packet is within the time threshold (not too old)
@@ -810,7 +833,7 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
-  @spec get_coordinates(map() | struct()) :: {number() | nil, number() | nil}
+  @spec get_coordinates(map() | struct()) :: {number() | nil, number() | nil, map() | nil}
   defp get_coordinates(packet) do
     # Safely get data_extended for both atom and string keys
     data_extended = Map.get(packet, :data_extended) || Map.get(packet, "data_extended")
@@ -887,54 +910,46 @@ defmodule AprsWeb.MapLive.Index do
   @spec get_ip_location(String.t() | nil) :: {float(), float()} | nil
   defp get_ip_location(nil), do: nil
 
-  @spec get_ip_location(String.t()) :: {float(), float()} | nil
   defp get_ip_location(ip) do
     url = "#{@ip_api_url}#{ip}"
 
-    # Add headers to make the request more likely to succeed
     request =
       Finch.build(:get, url, [
         {"User-Agent", "APRS.me/1.0"},
         {"Accept", "application/json"}
       ])
 
-    # Add a small delay to ensure the client is connected
     Process.sleep(2000)
 
     case Finch.request(request, @finch_name, receive_timeout: 10_000) do
-      {:ok, %{status: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, %{"status" => "success", "lat" => lat, "lon" => lng}}
-          when is_number(lat) and is_number(lng) ->
-            if lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180 do
-              # Force numeric values
-              lat_float = lat / 1.0
-              lng_float = lng / 1.0
-              send(self(), {:ip_location, %{lat: lat_float, lng: lng_float}})
-            else
-              send(self(), {:ip_location, @default_center})
-            end
-
-          {:ok, %{"status" => _status}} ->
-            send(self(), {:ip_location, @default_center})
-
-          {:ok, _data} ->
-            send(self(), {:ip_location, @default_center})
-
-          {:error, _decode_error} ->
-            send(self(), {:ip_location, @default_center})
-        end
-
-      {:ok, _response} ->
-        send(self(), {:ip_location, @default_center})
-
-      {:error, %{reason: :timeout}} ->
-        send(self(), {:ip_location, @default_center})
-
-      {:error, _error} ->
-        send(self(), {:ip_location, @default_center})
+      {:ok, %{status: 200, body: body}} -> handle_ip_api_response(body)
+      {:ok, _response} -> send_default_ip_location()
+      {:error, %{reason: :timeout}} -> send_default_ip_location()
+      {:error, _error} -> send_default_ip_location()
     end
   end
+
+  defp handle_ip_api_response(body) do
+    case Jason.decode(body) do
+      {:ok, %{"status" => "success", "lat" => lat, "lon" => lng}}
+      when is_number(lat) and is_number(lng) ->
+        if lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180 do
+          lat_float = lat / 1.0
+          lng_float = lng / 1.0
+          send(self(), {:ip_location, %{lat: lat_float, lng: lng_float}})
+        else
+          send_default_ip_location()
+        end
+
+      {:ok, _} ->
+        send_default_ip_location()
+
+      {:error, _decode_error} ->
+        send_default_ip_location()
+    end
+  end
+
+  defp send_default_ip_location, do: send(self(), {:ip_location, @default_center})
 
   # Helper function to convert string or float to float
   @spec to_float(number() | String.t()) :: float()

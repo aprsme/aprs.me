@@ -155,7 +155,8 @@ defmodule Aprs.Is do
 
   # Server methods
 
-  @spec connect_to_aprs_is(String.t() | charlist(), pos_integer()) :: {:ok, :ssl.sslsocket()} | {:error, any()}
+  @spec connect_to_aprs_is(String.t() | charlist(), pos_integer()) ::
+          {:ok, :ssl.sslsocket()} | {:error, any()}
   defp connect_to_aprs_is(server, port) do
     # Additional safeguard: prevent connections in test environment
     if Application.get_env(:aprs, :env) == :test or
@@ -169,7 +170,8 @@ defmodule Aprs.Is do
     end
   end
 
-  @spec send_login_string(:ssl.sslsocket(), String.t(), String.t(), String.t()) :: :ok | {:error, any()}
+  @spec send_login_string(:ssl.sslsocket(), String.t(), String.t(), String.t()) ::
+          :ok | {:error, any()}
   defp send_login_string(socket, aprs_user_id, aprs_passcode, filter) do
     login_string =
       "user #{aprs_user_id} pass #{aprs_passcode} vers aprs.me 0.1 filter #{filter}\r\n"
@@ -447,40 +449,44 @@ defmodule Aprs.Is do
 
   # Helper to check if a packet has position data worth storing
   @spec has_position_data?(map()) :: boolean()
-  defp has_position_data?(packet) do
+  defp has_position_data?(%{data_extended: nil} = packet), do: log_and_return_nil_data_extended(packet)
+
+  defp has_position_data?(%{data_extended: %{latitude: lat, longitude: lon}} = _packet)
+       when not is_nil(lat) and not is_nil(lon),
+       do: check_lat_lon_coords(lat, lon)
+
+  defp has_position_data?(%{data_extended: %MicE{} = mic_e}), do: check_mic_e_coords(mic_e)
+  defp has_position_data?(packet), do: log_and_return_unrecognized(packet)
+
+  defp log_and_return_nil_data_extended(packet) do
     require Logger
 
-    result =
-      case packet do
-        %{data_extended: nil} ->
-          Logger.debug("Packet has nil data_extended: #{inspect(packet.sender)}")
-          false
+    Logger.debug("Packet has nil data_extended: #{inspect(packet.sender)}")
+    false
+  end
 
-        %{data_extended: %{latitude: lat, longitude: lon}}
-        when not is_nil(lat) and not is_nil(lon) ->
-          # Check if coordinates are valid numbers
-          valid = are_valid_coords?(lat, lon)
+  defp check_lat_lon_coords(lat, lon) do
+    valid = are_valid_coords?(lat, lon)
 
-          if !valid do
-            Logger.debug("Invalid coordinates: lat=#{inspect(lat)}, lon=#{inspect(lon)}")
-          end
+    if !valid do
+      require Logger
 
-          valid
+      Logger.debug("Invalid coordinates: lat=#{inspect(lat)}, lon=#{inspect(lon)}")
+    end
 
-        %{data_extended: %MicE{} = mic_e} ->
-          # MicE packets have lat/lon in separate components
-          valid =
-            is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
-              is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes)
+    valid
+  end
 
-          valid
+  defp check_mic_e_coords(mic_e) do
+    is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
+      is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes)
+  end
 
-        _other ->
-          Logger.debug("Unrecognized packet format: #{inspect(Map.keys(packet))}")
-          false
-      end
+  defp log_and_return_unrecognized(packet) do
+    require Logger
 
-    result
+    Logger.debug("Unrecognized packet format: #{inspect(Map.keys(packet))}")
+    false
   end
 
   # Helper to validate coordinate values

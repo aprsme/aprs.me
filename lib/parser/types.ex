@@ -3,8 +3,13 @@ defmodule Parser.Types do
   Core types and structs for APRS parser.
   """
 
+  alias Parser.Types.MicE
+
+  @type mice :: MicE.t()
+
   defmodule Packet do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [
       :id,
       :sender,
@@ -21,6 +26,7 @@ defmodule Parser.Types do
 
   defmodule Position do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [
       :latitude,
       :longitude,
@@ -73,6 +79,7 @@ defmodule Parser.Types do
 
   defmodule ParseError do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [
       :error_code,
       :error_message,

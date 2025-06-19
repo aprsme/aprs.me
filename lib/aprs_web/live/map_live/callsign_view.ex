@@ -259,17 +259,23 @@ defmodule AprsWeb.MapLive.CallsignView do
               "#{sanitized_packet.base_callsign}#{if sanitized_packet.ssid, do: "-#{sanitized_packet.ssid}", else: ""}"
 
             # Update visible packets tracking
-            visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, sanitized_packet)
+            visible_packets =
+              Map.put(socket.assigns.visible_packets, callsign_key, sanitized_packet)
 
             # Update last known position
             {lat, lng} = get_coordinates(sanitized_packet)
-            last_known_position = if lat && lng, do: %{lat: lat, lng: lng}, else: socket.assigns.last_known_position
+
+            last_known_position =
+              if lat && lng, do: %{lat: lat, lng: lng}, else: socket.assigns.last_known_position
 
             # Push the packet to the client-side JavaScript
             socket =
               socket
               |> push_event("new_packet", packet_data)
-              |> assign(visible_packets: visible_packets, last_known_position: last_known_position)
+              |> assign(
+                visible_packets: visible_packets,
+                last_known_position: last_known_position
+              )
 
             # If this is the first packet and map is ready, zoom to it
             # Or if this is a new position that's significantly different, update zoom
@@ -282,7 +288,8 @@ defmodule AprsWeb.MapLive.CallsignView do
                     zoom: 12
                   })
 
-                should_update_zoom?(socket.assigns.last_known_position, last_known_position) and socket.assigns.map_ready ->
+                should_update_zoom?(socket.assigns.last_known_position, last_known_position) and
+                    socket.assigns.map_ready ->
                   push_event(socket, "zoom_to_location", %{
                     lat: last_known_position.lat,
                     lng: last_known_position.lng,
@@ -306,59 +313,65 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   defp handle_replay_next_packet(socket) do
-    if socket.assigns.replay_active and not socket.assigns.replay_paused and
-         socket.assigns.replay_index < length(socket.assigns.replay_packets) do
+    if should_continue_replay?(socket) do
       packet = Enum.at(socket.assigns.replay_packets, socket.assigns.replay_index)
-
-      if packet do
-        packet_data = build_packet_data(packet)
-
-        if packet_data do
-          # Add to historical packets map
-          historical_packets = Map.put(socket.assigns.historical_packets, packet_data.id, packet)
-
-          # Push as historical packet
-          socket = push_event(socket, "historical_packet", Map.put(packet_data, :historical, true))
-
-          # Schedule next packet
-          delay = trunc(1000 / socket.assigns.replay_speed)
-          timer_ref = Process.send_after(self(), :replay_next_packet, delay)
-
-          socket =
-            assign(socket,
-              replay_index: socket.assigns.replay_index + 1,
-              replay_timer_ref: timer_ref,
-              historical_packets: historical_packets
-            )
-
-          {:noreply, socket}
-        else
-          # Skip invalid packet
-          timer_ref = Process.send_after(self(), :replay_next_packet, 10)
-
-          socket =
-            assign(socket,
-              replay_index: socket.assigns.replay_index + 1,
-              replay_timer_ref: timer_ref
-            )
-
-          {:noreply, socket}
-        end
-      else
-        # End of replay
-        socket =
-          assign(socket,
-            replay_active: false,
-            replay_paused: false,
-            replay_timer_ref: nil,
-            replay_index: 0
-          )
-
-        {:noreply, socket}
-      end
+      handle_replay_packet(packet, socket)
     else
       {:noreply, socket}
     end
+  end
+
+  defp should_continue_replay?(socket) do
+    socket.assigns.replay_active and
+      not socket.assigns.replay_paused and
+      socket.assigns.replay_index < length(socket.assigns.replay_packets)
+  end
+
+  defp handle_replay_packet(nil, socket) do
+    socket =
+      assign(socket,
+        replay_active: false,
+        replay_paused: false,
+        replay_timer_ref: nil,
+        replay_index: 0
+      )
+
+    {:noreply, socket}
+  end
+
+  defp handle_replay_packet(packet, socket) do
+    case build_packet_data(packet) do
+      nil -> handle_invalid_replay_packet(socket)
+      packet_data -> handle_valid_replay_packet(packet, packet_data, socket)
+    end
+  end
+
+  defp handle_invalid_replay_packet(socket) do
+    timer_ref = Process.send_after(self(), :replay_next_packet, 10)
+
+    socket =
+      assign(socket,
+        replay_index: socket.assigns.replay_index + 1,
+        replay_timer_ref: timer_ref
+      )
+
+    {:noreply, socket}
+  end
+
+  defp handle_valid_replay_packet(packet, packet_data, socket) do
+    historical_packets = Map.put(socket.assigns.historical_packets, packet_data.id, packet)
+    socket = push_event(socket, "historical_packet", Map.put(packet_data, :historical, true))
+    delay = trunc(1000 / socket.assigns.replay_speed)
+    timer_ref = Process.send_after(self(), :replay_next_packet, delay)
+
+    socket =
+      assign(socket,
+        replay_index: socket.assigns.replay_index + 1,
+        replay_timer_ref: timer_ref,
+        historical_packets: historical_packets
+      )
+
+    {:noreply, socket}
   end
 
   def render(assigns) do
@@ -735,29 +748,16 @@ defmodule AprsWeb.MapLive.CallsignView do
     end
   end
 
-  defp get_coordinates(packet) do
-    case packet.data_extended do
-      %MicE{} = mic_e ->
-        # Convert MicE components to decimal degrees
-        lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0 + mic_e.lat_fractional / 6000.0
-        lat = if mic_e.lat_direction == :south, do: -lat, else: lat
+  defp get_coordinates(%{data_extended: %MicE{} = mic_e}), do: get_coordinates_from_mic_e(mic_e)
+  defp get_coordinates(%{data_extended: %{latitude: lat, longitude: lon}}), do: {lat, lon}
+  defp get_coordinates(_), do: {nil, nil}
 
-        lng = mic_e.lon_degrees + mic_e.lon_minutes / 60.0 + mic_e.lon_fractional / 6000.0
-        lng = if mic_e.lon_direction == :west, do: -lng, else: lng
-
-        # Validate coordinates are within valid ranges
-        if lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 do
-          {lat, lng}
-        else
-          {nil, nil}
-        end
-
-      %{latitude: lat, longitude: lon} ->
-        {lat, lon}
-
-      _ ->
-        {nil, nil}
-    end
+  defp get_coordinates_from_mic_e(mic_e) do
+    lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0 + mic_e.lat_fractional / 6000.0
+    lat = if mic_e.lat_direction == :south, do: -lat, else: lat
+    lng = mic_e.lon_degrees + mic_e.lon_minutes / 60.0 + mic_e.lon_fractional / 6000.0
+    lng = if mic_e.lon_direction == :west, do: -lng, else: lng
+    if lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180, do: {lat, lng}, else: {nil, nil}
   end
 
   defp build_packet_data(packet) do
@@ -766,23 +766,9 @@ defmodule AprsWeb.MapLive.CallsignView do
     if lat && lng do
       callsign = "#{packet.base_callsign}#{if packet.ssid, do: "-#{packet.ssid}", else: ""}"
 
-      symbol_table_id =
-        case packet.data_extended do
-          %{symbol_table_id: id} -> id
-          _ -> "/"
-        end
-
-      symbol_code =
-        case packet.data_extended do
-          %{symbol_code: code} -> code
-          _ -> ">"
-        end
-
-      comment =
-        case packet.data_extended do
-          %{comment: comment} when is_binary(comment) -> comment
-          _ -> ""
-        end
+      symbol_table_id = get_symbol_table_id(packet.data_extended)
+      symbol_code = get_symbol_code(packet.data_extended)
+      comment = get_comment(packet.data_extended)
 
       %{
         id: "#{callsign}_#{:os.system_time(:millisecond)}",
@@ -797,6 +783,15 @@ defmodule AprsWeb.MapLive.CallsignView do
       }
     end
   end
+
+  defp get_symbol_table_id(%{symbol_table_id: id}), do: id
+  defp get_symbol_table_id(_), do: "/"
+
+  defp get_symbol_code(%{symbol_code: code}), do: code
+  defp get_symbol_code(_), do: ">"
+
+  defp get_comment(%{comment: comment}) when is_binary(comment), do: comment
+  defp get_comment(_), do: ""
 
   defp build_data_extended(nil), do: nil
 
@@ -824,12 +819,16 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   defp packet_matches_callsign?(packet, target_callsign) do
-    # Handle both struct and map formats
+    normalized_packet = normalize_packet_callsign(packet)
+    normalized_target = normalize_target_callsign(target_callsign)
+    exact_or_base_match?(normalized_packet, normalized_target, packet)
+  end
+
+  defp normalize_packet_callsign(packet) do
     base_callsign = packet[:base_callsign] || packet.base_callsign || ""
     ssid = packet[:ssid] || packet.ssid
 
-    # Build the full callsign
-    packet_callsign =
+    case_result =
       case ssid do
         nil -> base_callsign
         "" -> base_callsign
@@ -837,20 +836,28 @@ defmodule AprsWeb.MapLive.CallsignView do
         _ -> "#{base_callsign}-#{ssid}"
       end
 
-    # Normalize both callsigns for comparison
-    normalized_packet = String.upcase(String.trim(packet_callsign))
-    normalized_target = String.upcase(String.trim(target_callsign))
+    case_result
+    |> String.upcase()
+    |> String.trim()
+  end
 
-    # Try exact match first
-    if normalized_packet == normalized_target do
-      true
-    else
-      # If target has no SSID, match against base callsign only
-      if String.contains?(normalized_target, "-") do
-        false
-      else
+  defp normalize_target_callsign(target_callsign) do
+    target_callsign
+    |> String.upcase()
+    |> String.trim()
+  end
+
+  defp exact_or_base_match?(normalized_packet, normalized_target, packet) do
+    cond do
+      normalized_packet == normalized_target ->
+        true
+
+      not String.contains?(normalized_target, "-") ->
+        base_callsign = packet[:base_callsign] || packet.base_callsign || ""
         String.upcase(String.trim(base_callsign)) == normalized_target
-      end
+
+      true ->
+        false
     end
   end
 

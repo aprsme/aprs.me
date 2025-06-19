@@ -16,8 +16,10 @@ defmodule Aprs.DataExtended do
     field :symbol_table_id, :string
   end
 
+  @type t :: %__MODULE__{}
+
   @doc false
-  @spec changeset(%Aprs.DataExtended{}, map()) :: Ecto.Changeset.t()
+  @spec changeset(Aprs.DataExtended.t(), map()) :: Ecto.Changeset.t()
   def changeset(%DataExtended{} = data_extended, attrs) do
     data_extended
     |> cast(attrs, [

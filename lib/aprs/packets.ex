@@ -115,7 +115,8 @@ defmodule Aprs.Packets do
     * `packet_data` - The original packet data that failed to parse
     * `error` - The error that occurred during parsing
   """
-  @spec store_bad_packet(map() | String.t(), any()) :: {:ok, struct()} | {:error, Ecto.Changeset.t()}
+  @spec store_bad_packet(map() | String.t(), any()) ::
+          {:ok, struct()} | {:error, Ecto.Changeset.t()}
   def store_bad_packet(packet_data, error) do
     error_type =
       case error do
@@ -143,47 +144,44 @@ defmodule Aprs.Packets do
 
   # Extracts position data from packet, checking various possible locations
   defp extract_position(packet_data) do
-    cond do
-      # Check for lat/lon at top level
-      not is_nil(packet_data[:lat]) and not is_nil(packet_data[:lon]) ->
-        {to_float(packet_data.lat), to_float(packet_data.lon)}
-
-      # Check data_extended struct or map
-      not is_nil(packet_data[:data_extended]) ->
-        data_extended = packet_data.data_extended
-
-        cond do
-          # Standard position format
-          is_map(data_extended) and not is_nil(data_extended[:latitude]) and
-              not is_nil(data_extended[:longitude]) ->
-            {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
-
-          # MicE packet format with components
-          is_map(data_extended) and data_extended.__struct__ == Parser.Types.MicE ->
-            mic_e = data_extended
-
-            if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
-                 is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes) do
-              # Convert MicE components to decimal degrees
-              lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
-              lat = if mic_e.lat_direction == :south, do: -lat, else: lat
-
-              lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
-              lon = if mic_e.lon_direction == :west, do: -lon, else: lon
-
-              {lat, lon}
-            else
-              {nil, nil}
-            end
-
-          true ->
-            {nil, nil}
-        end
-
-      true ->
-        {nil, nil}
+    # Check for lat/lon at top level
+    if not is_nil(packet_data[:lat]) and not is_nil(packet_data[:lon]) do
+      {to_float(packet_data.lat), to_float(packet_data.lon)}
+    else
+      extract_position_from_data_extended(packet_data[:data_extended])
     end
   end
+
+  defp extract_position_from_data_extended(nil), do: {nil, nil}
+
+  defp extract_position_from_data_extended(data_extended) when is_map(data_extended) do
+    # Standard position format
+    if not is_nil(data_extended[:latitude]) and not is_nil(data_extended[:longitude]) do
+      {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
+      # MicE packet format with components
+    else
+      extract_position_from_mic_e(data_extended)
+    end
+  end
+
+  defp extract_position_from_data_extended(_), do: {nil, nil}
+
+  defp extract_position_from_mic_e(%{__struct__: Parser.Types.MicE} = mic_e) do
+    if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
+         is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes) do
+      lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
+      lat = if mic_e.lat_direction == :south, do: -lat, else: lat
+
+      lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
+      lon = if mic_e.lon_direction == :west, do: -lon, else: lon
+
+      {lat, lon}
+    else
+      {nil, nil}
+    end
+  end
+
+  defp extract_position_from_mic_e(_), do: {nil, nil}
 
   @doc """
   Gets packets for replay.

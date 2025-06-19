@@ -3,44 +3,42 @@ defmodule Aprs.DeviceIdentification do
   Handles APRS device identification based on the APRS device identification database.
   """
 
+  @device_patterns [
+    {~r/^ \x00\x00$/, "Original MIC-E"},
+    {~r/^>\x00\^$/, "Kenwood TH-D74"},
+    {~r/^>\x00\x00$/, "Kenwood TH-D74A"},
+    {~r/^]\x00=$/, "Kenwood DM-710"},
+    {~r/^]\x00\x00$/, "Kenwood DM-700"},
+    {~r/^`_ $/, "Yaesu VX-8"},
+    {~r/^`_\"$/, "Yaesu FTM-350"},
+    {~r/^`_#$/, "Yaesu VX-8G"},
+    {~r/^`_\$$/, "Yaesu FT1D"},
+    {~r/^`_%$/, "Yaesu FTM-400DR"},
+    {~r/^`_\)$/, "Yaesu FTM-100D"},
+    {~r/^`_\($/, "Yaesu FT2D"},
+    {~r/^` X$/, "AP510"},
+    {~r/^`\x00\x00$/, "Mic-Emsg"},
+    {~r/^'\|3$/, "Byonics TinyTrack3"},
+    {~r/^'\|4$/, "Byonics TinyTrack4"},
+    {~r/^':4$/, "SCS GmbH & Co. P4dragon DR-7400 modems"},
+    {~r/^':8$/, "SCS GmbH & Co. P4dragon DR-7800 modems"},
+    {~r/^'\x00\x00$/, "McTrackr"},
+    {~r/^\x00\"\x00$/, "Hamhud"},
+    {~r/^\x00\/\x00$/, "Argent"},
+    {~r/^\x00\^\x00$/, "HinzTec anyfrog"},
+    {~r/^\x00\*\x00$/, "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"},
+    {~r/^\x00~\x00$/, "Other"}
+  ]
+
   @doc """
   Identifies the manufacturer and model of an APRS device based on its symbol pattern.
   Returns a tuple of {manufacturer, model} or "Unknown" if the device cannot be identified.
   """
   @spec identify_device(String.t()) :: String.t()
   def identify_device(symbols) do
-    case symbols do
-      # Original MIC-E devices
-      " " <> <<0, 0>> -> "Original MIC-E"
-      # Kenwood devices
-      ">" <> <<0>> <> "^" -> "Kenwood TH-D74"
-      ">" <> <<0, 0>> -> "Kenwood TH-D74A"
-      "]" <> <<0>> <> "=" -> "Kenwood DM-710"
-      "]" <> <<0, 0>> -> "Kenwood DM-700"
-      # Yaesu devices
-      "`_" <> " " -> "Yaesu VX-8"
-      "`_" <> "\"" -> "Yaesu FTM-350"
-      "`_" <> "#" -> "Yaesu VX-8G"
-      "`_" <> "$" -> "Yaesu FT1D"
-      "`_" <> "%" -> "Yaesu FTM-400DR"
-      "`_" <> ")" -> "Yaesu FTM-100D"
-      "`_" <> "(" -> "Yaesu FT2D"
-      # Other devices
-      "` X" -> "AP510"
-      "`" <> <<0, 0>> -> "Mic-Emsg"
-      "'|3" -> "Byonics TinyTrack3"
-      "'|4" -> "Byonics TinyTrack4"
-      "':4" -> "SCS GmbH & Co. P4dragon DR-7400 modems"
-      "':8" -> "SCS GmbH & Co. P4dragon DR-7800 modems"
-      "'" <> <<0, 0>> -> "McTrackr"
-      <<0>> <> "\"" <> <<0>> -> "Hamhud"
-      <<0>> <> "/" <> <<0>> -> "Argent"
-      <<0>> <> "^" <> <<0>> -> "HinzTec anyfrog"
-      <<0>> <> "*" <> <<0>> -> "APOZxx www.KissOZ.dk Tracker. OZ1EKD and OZ7HVO"
-      <<0>> <> "~" <> <<0>> -> "Other"
-      # Unknown devices
-      _ -> "Unknown"
-    end
+    Enum.find_value(@device_patterns, "Unknown", fn {regex, name} ->
+      if Regex.match?(regex, symbols), do: name
+    end)
   end
 
   @doc """

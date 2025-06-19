@@ -8,7 +8,7 @@ defmodule Parser.Position do
   @doc """
   Parse an uncompressed APRS position string. Returns a Position struct or nil.
   """
-  @spec parse(String.t()) :: Position | nil
+  @spec parse(String.t()) :: Position.t() | nil
   def parse(position_str) do
     # Example: "4903.50N/07201.75W>comment"
     case position_str do
@@ -67,19 +67,19 @@ defmodule Parser.Position do
     %{latitude: lat, longitude: lon}
   end
 
+  @ambiguity_levels %{
+    {0, 0} => 0,
+    {1, 1} => 1,
+    {2, 2} => 2,
+    {3, 3} => 3,
+    {4, 4} => 4
+  }
+
   @doc false
   def calculate_position_ambiguity(latitude, longitude) do
     lat_spaces = count_spaces(latitude)
     lon_spaces = count_spaces(longitude)
-
-    cond do
-      lat_spaces == 0 and lon_spaces == 0 -> 0
-      lat_spaces == 1 and lon_spaces == 1 -> 1
-      lat_spaces == 2 and lon_spaces == 2 -> 2
-      lat_spaces == 3 and lon_spaces == 3 -> 3
-      lat_spaces == 4 and lon_spaces == 4 -> 4
-      true -> 0
-    end
+    Map.get(@ambiguity_levels, {lat_spaces, lon_spaces}, 0)
   end
 
   @doc false

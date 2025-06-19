@@ -60,8 +60,10 @@ defmodule Aprs.Packet do
     timestamps()
   end
 
+  @type t :: %__MODULE__{}
+
   @doc false
-  @spec changeset(%Aprs.Packet{}, map()) :: Ecto.Changeset.t()
+  @spec changeset(Aprs.Packet.t(), map()) :: Ecto.Changeset.t()
   def changeset(packet, attrs) do
     # Convert atom data_type to string
     attrs = normalize_data_type(attrs)
@@ -143,7 +145,7 @@ defmodule Aprs.Packet do
           coords
       end
 
-    if is_valid_coordinates?(lat, lon) do
+    if valid_coordinates?(lat, lon) do
       try do
         location = create_point(lat, lon)
 
@@ -174,7 +176,7 @@ defmodule Aprs.Packet do
       lat = get_field(changeset, :lat) || get_change(changeset, :lat)
       lon = get_field(changeset, :lon) || get_change(changeset, :lon)
 
-      if is_valid_coordinates?(lat, lon) do
+      if valid_coordinates?(lat, lon) do
         put_change(changeset, :has_position, true)
       else
         changeset
@@ -182,7 +184,7 @@ defmodule Aprs.Packet do
     end
   end
 
-  defp is_valid_coordinates?(lat, lon) do
+  defp valid_coordinates?(lat, lon) do
     is_number(lat) && is_number(lon) &&
       lat >= -90 && lat <= 90 &&
       lon >= -180 && lon <= 180
@@ -241,6 +243,15 @@ defmodule Aprs.Packet do
   # Extract data from standard map-based data_extended
   defp extract_from_map(data_extended) do
     %{}
+    |> put_symbol_fields(data_extended)
+    |> put_weather_fields(data_extended)
+    |> put_equipment_fields(data_extended)
+    |> put_message_fields(data_extended)
+    |> extract_weather_data(data_extended)
+  end
+
+  defp put_symbol_fields(map, data_extended) do
+    map
     |> maybe_put(:symbol_code, data_extended[:symbol_code] || data_extended["symbol_code"])
     |> maybe_put(
       :symbol_table_id,
@@ -252,21 +263,29 @@ defmodule Aprs.Packet do
       :aprs_messaging,
       data_extended[:aprs_messaging?] || data_extended["aprs_messaging?"]
     )
-    |> maybe_put(:temperature, data_extended[:temperature] || data_extended["temperature"])
-    |> maybe_put(:humidity, data_extended[:humidity] || data_extended["humidity"])
-    |> maybe_put(:wind_speed, data_extended[:wind_speed] || data_extended["wind_speed"])
-    |> maybe_put(
+  end
+
+  defp put_weather_fields(map, data_extended) do
+    weather_fields = [
+      :temperature,
+      :humidity,
+      :wind_speed,
       :wind_direction,
-      data_extended[:wind_direction] || data_extended["wind_direction"]
-    )
-    |> maybe_put(:wind_gust, data_extended[:wind_gust] || data_extended["wind_gust"])
-    |> maybe_put(:pressure, data_extended[:pressure] || data_extended["pressure"])
-    |> maybe_put(:rain_1h, data_extended[:rain_1h] || data_extended["rain_1h"])
-    |> maybe_put(:rain_24h, data_extended[:rain_24h] || data_extended["rain_24h"])
-    |> maybe_put(
-      :rain_since_midnight,
-      data_extended[:rain_since_midnight] || data_extended["rain_since_midnight"]
-    )
+      :wind_gust,
+      :pressure,
+      :rain_1h,
+      :rain_24h,
+      :rain_since_midnight
+    ]
+
+    Enum.reduce(weather_fields, map, fn field, acc ->
+      value = data_extended[field] || data_extended[to_string(field)]
+      maybe_put(acc, field, value)
+    end)
+  end
+
+  defp put_equipment_fields(map, data_extended) do
+    map
     |> maybe_put(:manufacturer, data_extended[:manufacturer] || data_extended["manufacturer"])
     |> maybe_put(
       :equipment_type,
@@ -275,13 +294,16 @@ defmodule Aprs.Packet do
     |> maybe_put(:course, data_extended[:course] || data_extended["course"])
     |> maybe_put(:speed, data_extended[:speed] || data_extended["speed"])
     |> maybe_put(:altitude, data_extended[:altitude] || data_extended["altitude"])
+  end
+
+  defp put_message_fields(map, data_extended) do
+    map
     |> maybe_put(:addressee, data_extended[:addressee] || data_extended["addressee"])
     |> maybe_put(:message_text, data_extended[:message_text] || data_extended["message_text"])
     |> maybe_put(
       :message_number,
       data_extended[:message_number] || data_extended["message_number"]
     )
-    |> extract_weather_data(data_extended)
   end
 
   # Extract data from MicE packets
@@ -345,18 +367,22 @@ defmodule Aprs.Packet do
   defp maybe_extract_weather_field(attrs, weather_string, regex, keys) do
     case Regex.run(regex, weather_string) do
       [_full | matches] ->
-        keys
-        |> Enum.zip(matches)
-        |> Enum.reduce(attrs, fn {key, value}, acc ->
-          case Integer.parse(value) do
-            {int_val, _} -> Map.put(acc, key, int_val)
-            :error -> acc
-          end
-        end)
+        update_attrs_with_weather_matches(attrs, keys, matches)
 
       _ ->
         attrs
     end
+  end
+
+  defp update_attrs_with_weather_matches(attrs, keys, matches) do
+    keys
+    |> Enum.zip(matches)
+    |> Enum.reduce(attrs, fn {key, value}, acc ->
+      case Integer.parse(value) do
+        {int_val, _} -> Map.put(acc, key, int_val)
+        :error -> acc
+      end
+    end)
   end
 
   # Helper to put a value only if it's not nil
@@ -451,7 +477,7 @@ defmodule Aprs.Packet do
   """
   @spec create_point(number() | nil, number() | nil) :: Geo.Point.t() | nil
   def create_point(lat, lon) when is_number(lat) and is_number(lon) do
-    if lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 do
+    if valid_coordinates?(lat, lon) do
       %Geo.Point{coordinates: {lon, lat}, srid: 4326}
     end
   end
@@ -468,14 +494,14 @@ defmodule Aprs.Packet do
   @doc """
   Get latitude from a packet's location geometry.
   """
-  @spec lat(%Aprs.Packet{}) :: number() | nil
+  @spec lat(Aprs.Packet.t()) :: number() | nil
   def lat(%__MODULE__{location: %Geo.Point{coordinates: {_lon, lat}}}), do: lat
   def lat(_), do: nil
 
   @doc """
   Get longitude from a packet's location geometry.
   """
-  @spec lon(%Aprs.Packet{}) :: number() | nil
+  @spec lon(Aprs.Packet.t()) :: number() | nil
   def lon(%__MODULE__{location: %Geo.Point{coordinates: {lon, _lat}}}), do: lon
   def lon(_), do: nil
 
