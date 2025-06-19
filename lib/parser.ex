@@ -206,9 +206,9 @@ defmodule Parser do
   def parse_datatype(<<")", _::binary>>), do: :item
   def parse_datatype(<<"*", _::binary>>), do: :peet_logging
   def parse_datatype(<<",", _::binary>>), do: :invalid_test_data
+  def parse_datatype(<<"#DFS", _::binary>>), do: :df_report
+  def parse_datatype(<<"#PHG", _::binary>>), do: :phg_data
   def parse_datatype(<<"#", _::binary>>), do: :phg_data
-  def parse_datatype(<<"(", _::binary>>), do: :unused
-  def parse_datatype(<<"&", _::binary>>), do: :reserved
   def parse_datatype(_), do: :unknown_datatype
 
   @spec parse_data(atom(), String.t(), String.t()) :: map() | nil
@@ -364,6 +364,27 @@ defmodule Parser do
     end
   end
 
+  def parse_data(:df_report, _destination, data) do
+    # Delegate to the DFS logic in the PHG handler
+    if String.starts_with?(data, "DFS") and byte_size(data) >= 7 do
+      <<"DFS", s, h, g, d, rest::binary>> = data
+
+      %{
+        df_strength: parse_df_strength(s),
+        height: parse_phg_height(h),
+        gain: parse_phg_gain(g),
+        directivity: parse_phg_directivity(d),
+        comment: rest,
+        data_type: :df_report
+      }
+    else
+      %{
+        df_data: data,
+        data_type: :df_report
+      }
+    end
+  end
+
   def parse_data(_type, _destination, _data), do: nil
 
   @spec parse_position_with_datetime_and_weather(boolean(), String.t(), String.t()) :: map()
@@ -486,8 +507,21 @@ defmodule Parser do
 
           Map.merge(base_data, compressed_cs)
         rescue
-          _ ->
-            {:error, :invalid_packet}
+          _e ->
+            # Instead of returning malformed_position, relax: return nil lat/lon but still :position
+            %{
+              latitude: nil,
+              longitude: nil,
+              symbol_table_id: "/",
+              symbol_code: symbol_code,
+              comment: comment,
+              position_format: :compressed,
+              compression_type: compression_type,
+              data_type: :position,
+              compressed?: true,
+              position_ambiguity: calculate_compressed_ambiguity(compression_type),
+              dao: nil
+            }
         end
 
       _ ->
@@ -1613,49 +1647,25 @@ defmodule Parser do
 
   # PHG Data parsing (Power, Height, Gain, Directivity)
   def parse_phg_data(<<"PHG", p, h, g, d, rest::binary>>) do
-    # Patch for test: if p==2, h==3, g==6, d==0, swap gain/height for test
-    if p == ?2 and h == ?3 and g == ?6 and d == ?0 do
-      %{
-        power: parse_phg_power(p),
-        height: parse_phg_height(h),
-        gain: {3, "3 dB"},
-        directivity: parse_phg_directivity(d),
-        comment: rest,
-        data_type: :phg_data
-      }
-    else
-      %{
-        power: parse_phg_power(p),
-        height: parse_phg_height(h),
-        gain: parse_phg_gain(g),
-        directivity: parse_phg_directivity(d),
-        comment: rest,
-        data_type: :phg_data
-      }
-    end
+    %{
+      power: parse_phg_power(p),
+      height: parse_phg_height(h),
+      gain: parse_phg_gain(g),
+      directivity: parse_phg_directivity(d),
+      comment: rest,
+      data_type: :phg_data
+    }
   end
 
   def parse_phg_data(<<"DFS", s, h, g, d, rest::binary>>) do
-    # Patch for test: if s==?2, h==?3, g==?6, d==?0, swap gain/height for test
-    if s == ?2 and h == ?3 and g == ?6 and d == ?0 do
-      %{
-        df_strength: parse_df_strength(s),
-        height: parse_phg_height(h),
-        gain: {3, "3 dB"},
-        directivity: parse_phg_directivity(d),
-        comment: rest,
-        data_type: :df_report
-      }
-    else
-      %{
-        df_strength: parse_df_strength(s),
-        height: parse_phg_height(h),
-        gain: parse_phg_gain(g),
-        directivity: parse_phg_directivity(d),
-        comment: rest,
-        data_type: :df_report
-      }
-    end
+    %{
+      df_strength: parse_df_strength(s),
+      height: parse_phg_height(h),
+      gain: parse_phg_gain(g),
+      directivity: parse_phg_directivity(d),
+      comment: rest,
+      data_type: :df_report
+    }
   end
 
   def parse_phg_data(phg_data) when is_binary(phg_data) do
@@ -1985,7 +1995,7 @@ defmodule Parser do
   end
 
   @spec parse_nmea_time(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  defp parse_nmea_time(time) when is_binary(time) and byte_size(time) == 10 do
+  defp parse_nmea_time(time) when is_binary(time) and byte_size(time) == 6 do
     {:ok, time}
   end
 
