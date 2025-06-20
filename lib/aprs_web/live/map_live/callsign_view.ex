@@ -4,7 +4,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   alias Aprs.EncodingUtils
   alias Aprs.Packets
   alias AprsWeb.Endpoint
-  alias Parser.Types.MicE
+  alias AprsWeb.MapLive.MapHelpers
 
   @default_center %{lat: 39.0, lng: -98.0}
   @default_zoom 4
@@ -185,6 +185,10 @@ defmodule AprsWeb.MapLive.CallsignView do
     {:noreply, socket}
   end
 
+  def handle_event("marker_clicked", %{"id" => _id, "callsign" => _callsign, "lat" => _lat, "lng" => _lng}, socket) do
+    {:noreply, socket}
+  end
+
   defp handle_bounds_update(bounds, socket) do
     # Convert string keys to atom keys and parse values
     normalized_bounds = %{
@@ -197,12 +201,12 @@ defmodule AprsWeb.MapLive.CallsignView do
     # Remove out-of-bounds visible packets
     new_visible_packets =
       socket.assigns.visible_packets
-      |> Enum.filter(fn {_k, packet} -> within_bounds?(packet, normalized_bounds) end)
+      |> Enum.filter(fn {_k, packet} -> MapHelpers.within_bounds?(packet, normalized_bounds) end)
       |> Map.new()
 
     markers_to_remove =
       socket.assigns.visible_packets
-      |> Enum.reject(fn {_k, packet} -> within_bounds?(packet, normalized_bounds) end)
+      |> Enum.reject(fn {_k, packet} -> MapHelpers.within_bounds?(packet, normalized_bounds) end)
       |> Enum.map(fn {k, _} -> k end)
 
     socket =
@@ -265,14 +269,14 @@ defmodule AprsWeb.MapLive.CallsignView do
       %Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: payload} ->
         sanitized_packet = EncodingUtils.sanitize_packet(payload)
         sanitized_packet = Map.put_new(sanitized_packet, :received_at, DateTime.utc_now())
-        {lat, lng} = get_coordinates(sanitized_packet)
+        {lat, lng, _} = MapHelpers.get_coordinates(sanitized_packet)
 
         callsign_key =
           "#{sanitized_packet.base_callsign}#{if sanitized_packet.ssid, do: "-#{sanitized_packet.ssid}", else: ""}"
 
-        if has_position_data?(sanitized_packet) and
+        if MapHelpers.has_position_data?(sanitized_packet) and
              packet_matches_callsign?(sanitized_packet, socket.assigns.callsign) and
-             within_bounds?(%{lat: lat, lon: lng}, socket.assigns.map_bounds) and
+             MapHelpers.within_bounds?(%{lat: lat, lon: lng}, socket.assigns.map_bounds) and
              packet_within_time_threshold?(
                sanitized_packet,
                socket.assigns.packet_age_threshold
@@ -365,7 +369,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   defp handle_valid_replay_packet(packet, packet_data, socket) do
-    historical_packets = Map.put(socket.assigns.historical_packets, packet_data.id, packet)
+    historical_packets = Map.put(socket.assigns.historical_packets, packet_data["id"], packet)
     socket = push_event(socket, "historical_packet", Map.put(packet_data, :historical, true))
     delay = trunc(1000 / socket.assigns.replay_speed)
     timer_ref = Process.send_after(self(), :replay_next_packet, delay)
@@ -737,119 +741,98 @@ defmodule AprsWeb.MapLive.CallsignView do
     })
   end
 
-  defp has_position_data?(packet) do
-    case packet.data_extended do
-      %MicE{} ->
-        true
-
-      %{latitude: lat, longitude: lon} when not is_nil(lat) and not is_nil(lon) ->
-        true
-
-      _ ->
-        lat = Map.get(packet, :lat) || Map.get(packet, "lat")
-        lon = Map.get(packet, :lon) || Map.get(packet, "lon")
-        not is_nil(lat) and not is_nil(lon)
-    end
-  end
-
-  defp get_coordinates(%{data_extended: %MicE{} = mic_e}), do: get_coordinates_from_mic_e(mic_e)
-  defp get_coordinates(%{data_extended: %{latitude: lat, longitude: lon}}), do: {lat, lon}
-  defp get_coordinates(_), do: {nil, nil}
-
-  defp get_coordinates_from_mic_e(mic_e) do
-    lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0 + mic_e.lat_fractional / 6000.0
-    lat = if mic_e.lat_direction == :south, do: -lat, else: lat
-    lng = mic_e.lon_degrees + mic_e.lon_minutes / 60.0 + mic_e.lon_fractional / 6000.0
-    lng = if mic_e.lon_direction == :west, do: -lng, else: lng
-    if lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180, do: {lat, lng}, else: {nil, nil}
-  end
-
   defp build_packet_data(packet) do
-    {lat, lng} = get_coordinates(packet)
+    {lat, lng, _} = MapHelpers.get_coordinates(packet)
+    callsign = Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))
 
-    if lat && lng do
-      callsign = "#{packet.base_callsign}#{if packet.ssid, do: "-#{packet.ssid}", else: ""}"
-
-      symbol_table_id = get_symbol_table_id(packet.data_extended)
-      symbol_code = get_symbol_code(packet.data_extended)
-      comment = get_comment(packet.data_extended)
-
-      %{
-        id: "#{callsign}_#{:os.system_time(:millisecond)}",
-        callsign: callsign,
-        lat: lat,
-        lng: lng,
-        symbol_table_id: symbol_table_id,
-        symbol_code: symbol_code,
-        comment: comment,
-        received_at: packet.received_at || DateTime.utc_now(),
-        data_extended: build_data_extended(packet.data_extended)
-      }
+    if lat != nil and lng != nil and callsign != "" and callsign != nil do
+      build_packet_map(packet, lat, lng, packet.data_extended)
     end
   end
 
-  defp get_symbol_table_id(data) do
-    cond do
-      is_map(data) && (Map.get(data, :symbol_table_id) || Map.get(data, "symbol_table_id")) ->
-        Map.get(data, :symbol_table_id) || Map.get(data, "symbol_table_id")
+  defp build_packet_map(packet, lat, lng, data_extended) do
+    data_extended = data_extended || %{}
 
-      is_map(data) && Map.has_key?(data, :packet) &&
-          (Map.get(data.packet, :symbol_table_id) || Map.get(data.packet, "symbol_table_id")) ->
-        Map.get(data.packet, :symbol_table_id) || Map.get(data.packet, "symbol_table_id")
+    callsign =
+      case {Map.get(packet, :base_callsign), Map.get(packet, :ssid)} do
+        {base, ssid} when is_binary(base) and ssid not in [nil, "", "0"] ->
+          "#{base}-#{ssid}"
 
-      is_map(data) && Map.has_key?(data, "packet") &&
-          (Map.get(data["packet"], :symbol_table_id) || Map.get(data["packet"], "symbol_table_id")) ->
-        Map.get(data["packet"], :symbol_table_id) || Map.get(data["packet"], "symbol_table_id")
+        {base, _} ->
+          base || ""
+      end
 
-      true ->
-        "/"
-    end
-  end
+    symbol_table_id =
+      Map.get(data_extended, :symbol_table_id) || Map.get(data_extended, "symbol_table_id") || "/"
 
-  defp get_symbol_code(data) do
-    cond do
-      is_map(data) && (Map.get(data, :symbol_code) || Map.get(data, "symbol_code")) ->
-        Map.get(data, :symbol_code) || Map.get(data, "symbol_code")
+    symbol_code =
+      Map.get(data_extended, :symbol_code) || Map.get(data_extended, "symbol_code") || ">"
 
-      is_map(data) && Map.has_key?(data, :packet) &&
-          (Map.get(data.packet, :symbol_code) || Map.get(data.packet, "symbol_code")) ->
-        Map.get(data.packet, :symbol_code) || Map.get(data.packet, "symbol_code")
+    symbol_description =
+      Map.get(data_extended, :symbol_description) || Map.get(data_extended, "symbol_description") ||
+        "Symbol: #{symbol_table_id}#{symbol_code}"
 
-      is_map(data) && Map.has_key?(data, "packet") &&
-          (Map.get(data["packet"], :symbol_code) || Map.get(data["packet"], "symbol_code")) ->
-        Map.get(data["packet"], :symbol_code) || Map.get(data["packet"], "symbol_code")
+    timestamp =
+      cond do
+        Map.has_key?(packet, :received_at) && packet.received_at ->
+          DateTime.to_iso8601(packet.received_at)
 
-      true ->
-        ">"
-    end
-  end
+        Map.has_key?(packet, "received_at") && packet["received_at"] ->
+          DateTime.to_iso8601(packet["received_at"])
 
-  defp get_comment(%{comment: comment}) when is_binary(comment), do: comment
-  defp get_comment(_), do: ""
+        true ->
+          ""
+      end
 
-  defp build_data_extended(nil), do: nil
+    comment = Map.get(data_extended, :comment) || Map.get(data_extended, "comment") || ""
 
-  defp build_data_extended(data_extended) do
-    case data_extended do
-      %MicE{} = mic_e ->
-        %{
-          type: "MicE",
-          latitude: mic_e.lat_degrees + mic_e.lat_minutes / 60.0 + mic_e.lat_fractional / 6000.0,
-          longitude: mic_e.lon_degrees + mic_e.lon_minutes / 60.0 + mic_e.lon_fractional / 6000.0,
-          symbol_table_id: Map.get(mic_e, :symbol_table_id, "/"),
-          symbol_code: Map.get(mic_e, :symbol_code, ">"),
-          comment: Map.get(mic_e, :comment, "")
-        }
+    to_float = fn
+      %Decimal{} = d ->
+        Decimal.to_float(d)
 
-      %{} = data ->
-        # Convert struct to map if needed, filtering out private fields
-        data
-        |> Map.from_struct()
-        |> Map.delete(:__meta__)
+      n when is_float(n) ->
+        n
+
+      n when is_integer(n) ->
+        n * 1.0
+
+      n when is_binary(n) ->
+        case Float.parse(n) do
+          {f, _} -> f
+          :error -> 0.0
+        end
 
       _ ->
-        nil
+        0.0
     end
+
+    popup = """
+    <div class=\"aprs-popup\">
+      <div class=\"aprs-callsign\"><strong><a href=\"/#{callsign}\">#{callsign}</a></strong></div>
+      <div class=\"aprs-symbol-info\">#{symbol_description}</div>
+      #{if comment == "", do: "", else: "<div class=\\\"aprs-comment\\\">#{comment}</div>"}
+      <div class=\"aprs-coords\">#{Float.round(to_float.(lat), 4)}, #{Float.round(to_float.(lng), 4)}</div>
+      <div class=\"aprs-time\">#{timestamp}</div>
+    </div>
+    """
+
+    %{
+      "id" => callsign,
+      "callsign" => callsign,
+      "base_callsign" => Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", "")),
+      "ssid" => Map.get(packet, :ssid, Map.get(packet, "ssid", 0)),
+      "lat" => to_float.(lat),
+      "lng" => to_float.(lng),
+      "data_type" => to_string(Map.get(packet, :data_type, Map.get(packet, "data_type", "unknown"))),
+      "path" => Map.get(packet, :path, Map.get(packet, "path", "")),
+      "comment" => comment,
+      "data_extended" => data_extended || %{},
+      "symbol_table_id" => symbol_table_id,
+      "symbol_code" => symbol_code,
+      "symbol_description" => symbol_description,
+      "timestamp" => timestamp,
+      "popup" => popup
+    }
   end
 
   defp packet_matches_callsign?(packet, target_callsign) do
@@ -900,7 +883,7 @@ defmodule AprsWeb.MapLive.CallsignView do
     latest_packet =
       %{callsign: callsign}
       |> Packets.get_recent_packets()
-      |> Enum.filter(&has_position_data?/1)
+      |> Enum.filter(&MapHelpers.has_position_data?/1)
       |> Enum.sort_by(& &1.received_at, {:desc, DateTime})
       |> List.first()
 
@@ -910,7 +893,7 @@ defmodule AprsWeb.MapLive.CallsignView do
           nil
 
         packet ->
-          {lat, lng} = get_coordinates(packet)
+          {lat, lng, _} = MapHelpers.get_coordinates(packet)
           if lat && lng, do: %{lat: lat, lng: lng}
       end
 
@@ -959,44 +942,5 @@ defmodule AprsWeb.MapLive.CallsignView do
       latest_symbol_table_id: latest_symbol_table_id,
       latest_symbol_code: latest_symbol_code
     )
-  end
-
-  # Helper to check if a packet or lat/lon is within bounds
-  defp within_bounds?(packet_or_coords, bounds) do
-    {lat, lon} =
-      cond do
-        is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :lat) and
-            Map.has_key?(packet_or_coords, :lon) ->
-          {packet_or_coords.lat, packet_or_coords.lon}
-
-        is_map(packet_or_coords) and Map.has_key?(packet_or_coords, "lat") and
-            Map.has_key?(packet_or_coords, "lon") ->
-          {packet_or_coords["lat"], packet_or_coords["lon"]}
-
-        is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :latitude) and
-            Map.has_key?(packet_or_coords, :longitude) ->
-          {packet_or_coords.latitude, packet_or_coords.longitude}
-
-        is_tuple(packet_or_coords) and tuple_size(packet_or_coords) == 2 ->
-          packet_or_coords
-
-        true ->
-          {nil, nil}
-      end
-
-    if is_nil(lat) or is_nil(lon) do
-      false
-    else
-      lat_in_bounds = lat >= bounds.south && lat <= bounds.north
-
-      lng_in_bounds =
-        if bounds.west <= bounds.east do
-          lon >= bounds.west && lon <= bounds.east
-        else
-          lon >= bounds.west || lon <= bounds.east
-        end
-
-      lat_in_bounds && lng_in_bounds
-    end
   end
 end

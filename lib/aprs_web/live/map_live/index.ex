@@ -5,6 +5,7 @@ defmodule AprsWeb.MapLive.Index do
   use AprsWeb, :live_view
 
   alias AprsWeb.Endpoint
+  alias AprsWeb.MapLive.MapHelpers
   alias Phoenix.LiveView.Socket
 
   require Logger
@@ -391,7 +392,7 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   defp handle_info_postgres_packet(packet, socket) do
-    {lat, lon, _data_extended} = get_coordinates(packet)
+    {lat, lon, _data_extended} = MapHelpers.get_coordinates(packet)
 
     callsign_key =
       if Map.has_key?(packet, "id"),
@@ -399,7 +400,7 @@ defmodule AprsWeb.MapLive.Index do
         else: System.unique_integer([:positive])
 
     Logger.debug(
-      "[MAP] Incoming packet: id=#{inspect(callsign_key)} lat=#{inspect(lat)} lon=#{inspect(lon)} bounds=#{inspect(socket.assigns.map_bounds)} within_bounds?=#{inspect(within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds))}"
+      "[MAP] Incoming packet: id=#{inspect(callsign_key)} lat=#{inspect(lat)} lon=#{inspect(lon)} bounds=#{inspect(socket.assigns.map_bounds)} within_bounds?=#{inspect(MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds))}"
     )
 
     all_packets = Map.put(socket.assigns.all_packets, callsign_key, packet)
@@ -408,7 +409,7 @@ defmodule AprsWeb.MapLive.Index do
     # Remove marker if packet is out of bounds but present
     if !is_nil(lat) and !is_nil(lon) and
          Map.has_key?(socket.assigns.visible_packets, callsign_key) and
-         not within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
+         not MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
       socket = push_event(socket, "remove_marker", %{id: callsign_key})
       new_visible_packets = Map.delete(socket.assigns.visible_packets, callsign_key)
       {:noreply, assign(socket, visible_packets: new_visible_packets)}
@@ -417,7 +418,7 @@ defmodule AprsWeb.MapLive.Index do
       if is_nil(lat) or is_nil(lon) or Map.has_key?(socket.assigns.visible_packets, callsign_key) do
         {:noreply, socket}
       else
-        if within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
+        if MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
           handle_valid_postgres_packet(packet, lat, lon, socket)
         else
           {:noreply, socket}
@@ -755,7 +756,7 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec within_bounds?(map() | struct(), map()) :: boolean()
   defp within_bounds?(packet, bounds) do
-    {lat, lon, _data_extended} = get_coordinates(packet)
+    {lat, lon, _data_extended} = MapHelpers.get_coordinates(packet)
 
     # Basic validation
     if is_nil(lat) or is_nil(lon) do
@@ -778,45 +779,9 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
-  @spec get_coordinates(map() | struct()) :: {number() | nil, number() | nil, map() | nil}
-  defp get_coordinates(packet) do
-    # Safely get data_extended for both atom and string keys
-    data_extended = Map.get(packet, :data_extended) || Map.get(packet, "data_extended")
-
-    lat =
-      Map.get(packet, :lat) ||
-        Map.get(packet, "lat") ||
-        (is_map(data_extended) &&
-           (Map.get(data_extended, :latitude) || Map.get(data_extended, "latitude")))
-
-    lon =
-      Map.get(packet, :lon) ||
-        Map.get(packet, "lon") ||
-        (is_map(data_extended) &&
-           (Map.get(data_extended, :longitude) || Map.get(data_extended, "longitude")))
-
-    lat =
-      cond do
-        is_struct(lat, Decimal) -> Decimal.to_float(lat)
-        is_float(lat) -> lat
-        is_integer(lat) -> lat * 1.0
-        true -> lat
-      end
-
-    lon =
-      cond do
-        is_struct(lon, Decimal) -> Decimal.to_float(lon)
-        is_float(lon) -> lon
-        is_integer(lon) -> lon * 1.0
-        true -> lon
-      end
-
-    {lat, lon, data_extended}
-  end
-
   @spec build_packet_data(map() | struct()) :: map() | nil
   defp build_packet_data(packet) do
-    {lat, lon, data_extended} = get_coordinates(packet)
+    {lat, lon, data_extended} = MapHelpers.get_coordinates(packet)
     callsign = Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))
     # Only include packets with valid position data and a non-empty callsign
     if lat && lon && callsign != "" && callsign != nil do
@@ -853,12 +818,32 @@ defmodule AprsWeb.MapLive.Index do
 
     comment = Map.get(data_extended, :comment) || Map.get(data_extended, "comment") || ""
 
+    to_float = fn
+      %Decimal{} = d ->
+        Decimal.to_float(d)
+
+      n when is_float(n) ->
+        n
+
+      n when is_integer(n) ->
+        n * 1.0
+
+      n when is_binary(n) ->
+        case Float.parse(n) do
+          {f, _} -> f
+          :error -> 0.0
+        end
+
+      _ ->
+        0.0
+    end
+
     popup = """
     <div class=\"aprs-popup\">
       <div class=\"aprs-callsign\"><strong><a href=\"/#{callsign}\">#{callsign}</a></strong></div>
       <div class=\"aprs-symbol-info\">#{symbol_description}</div>
       #{if comment == "", do: "", else: "<div class=\\\"aprs-comment\\\">#{comment}</div>"}
-      <div class=\"aprs-coords\">#{Float.round(lat, 4)}, #{Float.round(lon, 4)}</div>
+      <div class=\"aprs-coords\">#{Float.round(to_float.(lat), 4)}, #{Float.round(to_float.(lon), 4)}</div>
       <div class=\"aprs-time\">#{timestamp}</div>
     </div>
     """
@@ -868,8 +853,8 @@ defmodule AprsWeb.MapLive.Index do
       "callsign" => callsign,
       "base_callsign" => Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", "")),
       "ssid" => Map.get(packet, :ssid, Map.get(packet, "ssid", 0)),
-      "lat" => lat,
-      "lng" => lon,
+      "lat" => to_float.(lat),
+      "lng" => to_float.(lon),
       "data_type" => to_string(Map.get(packet, :data_type, Map.get(packet, "data_type", "unknown"))),
       "path" => Map.get(packet, :path, Map.get(packet, "path", "")),
       "comment" => comment,
