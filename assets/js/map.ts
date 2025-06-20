@@ -821,21 +821,6 @@ let MapAPRSMap = {
     const x = -column * 128;
     const y = -row * 128;
 
-    // Debug log for symbol mapping
-    console.log("APRS Symbol Icon:", {
-      symbolTableId,
-      symbolCode,
-      symbolCodeChar: symbolCode.charCodeAt(0),
-      tableId,
-      index,
-      row,
-      column,
-      x,
-      y,
-      spriteFile,
-      expected: `Row ${row}, Col ${column} should show symbol '${symbolCode}'`,
-    });
-
     // Create the HTML string directly to ensure proper style application
     const iconHtml = `<div style="
       width: 32px;
