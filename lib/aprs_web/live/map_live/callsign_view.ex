@@ -194,7 +194,27 @@ defmodule AprsWeb.MapLive.CallsignView do
       west: to_float(bounds["west"])
     }
 
-    socket = assign(socket, map_bounds: normalized_bounds)
+    # Remove out-of-bounds visible packets
+    new_visible_packets =
+      socket.assigns.visible_packets
+      |> Enum.filter(fn {_k, packet} -> within_bounds?(packet, normalized_bounds) end)
+      |> Map.new()
+
+    markers_to_remove =
+      socket.assigns.visible_packets
+      |> Enum.reject(fn {_k, packet} -> within_bounds?(packet, normalized_bounds) end)
+      |> Enum.map(fn {k, _} -> k end)
+
+    socket =
+      if markers_to_remove == [] do
+        socket
+      else
+        Enum.reduce(markers_to_remove, socket, fn k, acc ->
+          push_event(acc, "remove_marker", %{id: k})
+        end)
+      end
+
+    socket = assign(socket, map_bounds: normalized_bounds, visible_packets: new_visible_packets)
     {:noreply, socket}
   end
 
@@ -241,77 +261,58 @@ defmodule AprsWeb.MapLive.CallsignView do
         # Clean up packets older than 1 hour from the map display
         handle_cleanup_old_packets(socket)
 
-      %{event: "packet", payload: payload} ->
-        # Sanitize the packet to prevent encoding errors
+      # Stream packets from PubSub only if within bounds
+      %Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: payload} ->
         sanitized_packet = EncodingUtils.sanitize_packet(payload)
-
-        # Add received timestamp if not present
         sanitized_packet = Map.put_new(sanitized_packet, :received_at, DateTime.utc_now())
+        {lat, lng} = get_coordinates(sanitized_packet)
 
-        # Check if this packet is from our target callsign
-        if packet_matches_callsign?(sanitized_packet, socket.assigns.callsign) and
-             has_position_data?(sanitized_packet) and
-             packet_within_time_threshold?(sanitized_packet, socket.assigns.packet_age_threshold) do
-          # Convert to a simple map structure for JSON encoding
-          packet_data = build_packet_data(sanitized_packet)
+        callsign_key =
+          "#{sanitized_packet.base_callsign}#{if sanitized_packet.ssid, do: "-#{sanitized_packet.ssid}", else: ""}"
 
-          # Only push if we have valid packet data
-          if packet_data do
-            # Generate a unique key for this packet
-            callsign_key =
-              "#{sanitized_packet.base_callsign}#{if sanitized_packet.ssid, do: "-#{sanitized_packet.ssid}", else: ""}"
+        if has_position_data?(sanitized_packet) and
+             Map.has_key?(socket.assigns.visible_packets, callsign_key) and
+             not within_bounds?(%{lat: lat, lon: lng}, socket.assigns.map_bounds) do
+          socket = push_event(socket, "remove_marker", %{id: callsign_key})
+          new_visible_packets = Map.delete(socket.assigns.visible_packets, callsign_key)
+          {:noreply, assign(socket, visible_packets: new_visible_packets)}
+        else
+          if has_position_data?(sanitized_packet) and
+               within_bounds?(%{lat: lat, lon: lng}, socket.assigns.map_bounds) and
+               packet_matches_callsign?(sanitized_packet, socket.assigns.callsign) and
+               packet_within_time_threshold?(
+                 sanitized_packet,
+                 socket.assigns.packet_age_threshold
+               ) do
+            packet_data = build_packet_data(sanitized_packet)
 
-            # Update visible packets tracking
-            visible_packets =
-              Map.put(socket.assigns.visible_packets, callsign_key, sanitized_packet)
+            if packet_data do
+              visible_packets =
+                Map.put(socket.assigns.visible_packets, callsign_key, sanitized_packet)
 
-            # Update last known position
-            {lat, lng} = get_coordinates(sanitized_packet)
+              last_known_position =
+                if lat && lng, do: %{lat: lat, lng: lng}, else: socket.assigns.last_known_position
 
-            last_known_position =
-              if lat && lng, do: %{lat: lat, lng: lng}, else: socket.assigns.last_known_position
+              socket =
+                socket
+                |> push_event("new_packet", packet_data)
+                |> assign(
+                  visible_packets: visible_packets,
+                  last_known_position: last_known_position
+                )
 
-            # Push the packet to the client-side JavaScript
-            socket =
-              socket
-              |> push_event("new_packet", packet_data)
-              |> assign(
-                visible_packets: visible_packets,
-                last_known_position: last_known_position
-              )
-
-            # If this is the first packet and map is ready, zoom to it
-            # Or if this is a new position that's significantly different, update zoom
-            socket =
-              cond do
-                map_empty?(socket) and socket.assigns.map_ready and last_known_position ->
-                  push_event(socket, "zoom_to_location", %{
-                    lat: last_known_position.lat,
-                    lng: last_known_position.lng,
-                    zoom: 12
-                  })
-
-                should_update_zoom?(socket.assigns.last_known_position, last_known_position) and
-                    socket.assigns.map_ready ->
-                  push_event(socket, "zoom_to_location", %{
-                    lat: last_known_position.lat,
-                    lng: last_known_position.lng,
-                    zoom: 12
-                  })
-
-                true ->
-                  socket
-              end
-
-            {:noreply, socket}
+              {:noreply, socket}
+            else
+              {:noreply, socket}
+            end
           else
-            # Invalid packet data, skip it
             {:noreply, socket}
           end
-        else
-          # Ignore packets that don't match our callsign or don't have position data
-          {:noreply, socket}
         end
+
+      _ ->
+        # Ignore packets that don't match our callsign or don't have position data
+        {:noreply, socket}
     end
   end
 
@@ -687,16 +688,26 @@ defmodule AprsWeb.MapLive.CallsignView do
     socket = assign(socket, packet_age_threshold: one_hour_ago)
 
     # Remove expired packets from visible_packets
-    updated_visible_packets =
+    expired_keys =
       socket.assigns.visible_packets
       |> Enum.filter(fn {_key, packet} ->
-        packet_within_time_threshold?(packet, one_hour_ago)
+        not packet_within_time_threshold?(packet, one_hour_ago)
       end)
-      |> Map.new()
+      |> Enum.map(fn {key, _} -> key end)
 
-    socket = assign(socket, visible_packets: updated_visible_packets)
+    # Only update the client if there are expired markers
+    socket =
+      if expired_keys == [] do
+        socket
+      else
+        Enum.reduce(expired_keys, socket, fn key, acc ->
+          push_event(acc, "remove_marker", %{id: key})
+        end)
+      end
 
-    {:noreply, socket}
+    # Use Map.drop/2 for better performance
+    updated_visible_packets = Map.drop(socket.assigns.visible_packets, expired_keys)
+    assign(socket, visible_packets: updated_visible_packets)
   end
 
   defp packet_within_time_threshold?(packet, threshold) do
@@ -986,5 +997,44 @@ defmodule AprsWeb.MapLive.CallsignView do
 
     # Update zoom if position changed by more than ~5km (approximately 0.05 degrees)
     lat_diff > 0.05 or lng_diff > 0.05
+  end
+
+  # Helper to check if a packet or lat/lon is within bounds
+  defp within_bounds?(packet_or_coords, bounds) do
+    {lat, lon} =
+      cond do
+        is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :lat) and
+            Map.has_key?(packet_or_coords, :lon) ->
+          {packet_or_coords.lat, packet_or_coords.lon}
+
+        is_map(packet_or_coords) and Map.has_key?(packet_or_coords, "lat") and
+            Map.has_key?(packet_or_coords, "lon") ->
+          {packet_or_coords["lat"], packet_or_coords["lon"]}
+
+        is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :latitude) and
+            Map.has_key?(packet_or_coords, :longitude) ->
+          {packet_or_coords.latitude, packet_or_coords.longitude}
+
+        is_tuple(packet_or_coords) and tuple_size(packet_or_coords) == 2 ->
+          packet_or_coords
+
+        true ->
+          {nil, nil}
+      end
+
+    if is_nil(lat) or is_nil(lon) do
+      false
+    else
+      lat_in_bounds = lat >= bounds.south && lat <= bounds.north
+
+      lng_in_bounds =
+        if bounds.west <= bounds.east do
+          lon >= bounds.west && lon <= bounds.east
+        else
+          lon >= bounds.west || lon <= bounds.east
+        end
+
+      lat_in_bounds && lng_in_bounds
+    end
   end
 end

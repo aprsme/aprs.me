@@ -72,11 +72,32 @@ defmodule AprsWeb.MapLive.Enhanced do
       lng: center["lng"]
     }
 
+    # Remove out-of-bounds active markers
+    new_active_markers =
+      socket.assigns.active_markers
+      |> Enum.filter(fn {_k, %{packet: packet}} -> within_bounds?(packet, bounds) end)
+      |> Map.new()
+
+    markers_to_remove =
+      socket.assigns.active_markers
+      |> Enum.reject(fn {_k, %{packet: packet}} -> within_bounds?(packet, bounds) end)
+      |> Enum.map(fn {k, _} -> k end)
+
+    socket =
+      if markers_to_remove == [] do
+        socket
+      else
+        Enum.reduce(markers_to_remove, socket, fn k, acc ->
+          push_event(acc, "remove_marker", %{id: k})
+        end)
+      end
+
     socket =
       socket
       |> assign(:map_bounds, bounds)
       |> assign(:map_center, normalized_center)
       |> assign(:map_zoom, zoom)
+      |> assign(:active_markers, new_active_markers)
       |> load_markers_in_bounds()
 
     {:noreply, socket}
@@ -166,12 +187,21 @@ defmodule AprsWeb.MapLive.Enhanced do
   end
 
   def handle_info({:new_packet, packet}, socket) do
-    # Handle real-time packet updates
-    if has_position_data?(packet) and within_bounds?(packet, socket.assigns.map_bounds) do
-      socket = add_packet_marker(socket, packet, false)
-      {:noreply, socket}
+    id = packet_to_marker_data(packet).id
+
+    if has_position_data?(packet) and Map.has_key?(socket.assigns.active_markers, id) and
+         not within_bounds?(packet, socket.assigns.map_bounds) do
+      socket = push_event(socket, "remove_marker", %{id: id})
+      new_active_markers = Map.delete(socket.assigns.active_markers, id)
+      {:noreply, assign(socket, :active_markers, new_active_markers)}
     else
-      {:noreply, socket}
+      # Only add marker if it is within bounds
+      if has_position_data?(packet) and within_bounds?(packet, socket.assigns.map_bounds) do
+        socket = add_packet_marker(socket, packet, false)
+        {:noreply, socket}
+      else
+        {:noreply, socket}
+      end
     end
   end
 

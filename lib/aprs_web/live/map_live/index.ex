@@ -305,10 +305,15 @@ defmodule AprsWeb.MapLive.Index do
       |> Enum.reject(fn {_k, packet} -> within_bounds?(packet, map_bounds) end)
       |> Enum.map(fn {k, _} -> k end)
 
+    # Remove markers for out-of-bounds packets
     socket =
-      Enum.reduce(packets_to_remove, socket, fn k, acc ->
-        push_event(acc, "remove_marker", %{id: k})
-      end)
+      if packets_to_remove == [] do
+        socket
+      else
+        Enum.reduce(packets_to_remove, socket, fn k, acc ->
+          push_event(acc, "remove_marker", %{id: k})
+        end)
+      end
 
     # Fetch the latest packets within the new bounds and push to client (historical only)
     bounds_list = [map_bounds.west, map_bounds.south, map_bounds.east, map_bounds.north]
@@ -406,7 +411,6 @@ defmodule AprsWeb.MapLive.Index do
   defp handle_info_postgres_packet(packet, socket) do
     {lat, lon, _data_extended} = get_coordinates(packet)
 
-    # Always store the packet in all_packets
     callsign_key =
       if Map.has_key?(packet, "id"),
         do: to_string(packet["id"]),
@@ -415,10 +419,25 @@ defmodule AprsWeb.MapLive.Index do
     all_packets = Map.put(socket.assigns.all_packets, callsign_key, packet)
     socket = assign(socket, all_packets: all_packets)
 
-    # Only add marker if it is within bounds and not already present
-    if is_nil(lat) or is_nil(lon) or Map.has_key?(socket.assigns.visible_packets, callsign_key),
-      do: {:noreply, socket},
-      else: handle_valid_postgres_packet(packet, lat, lon, socket)
+    # Remove marker if packet is out of bounds but present
+    if !is_nil(lat) and !is_nil(lon) and
+         Map.has_key?(socket.assigns.visible_packets, callsign_key) and
+         not within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
+      socket = push_event(socket, "remove_marker", %{id: callsign_key})
+      new_visible_packets = Map.delete(socket.assigns.visible_packets, callsign_key)
+      {:noreply, assign(socket, visible_packets: new_visible_packets)}
+      # Only add marker if it is within bounds and not already present
+    else
+      if is_nil(lat) or is_nil(lon) or Map.has_key?(socket.assigns.visible_packets, callsign_key) do
+        {:noreply, socket}
+      else
+        if within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
+          handle_valid_postgres_packet(packet, lat, lon, socket)
+        else
+          {:noreply, socket}
+        end
+      end
+    end
   end
 
   defp handle_valid_postgres_packet(packet, lat, lon, socket) do
@@ -698,26 +717,25 @@ defmodule AprsWeb.MapLive.Index do
 
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
     # Remove expired packets from visible_packets
-    updated_visible_packets =
-      socket.assigns.visible_packets
-      |> Enum.filter(fn {_key, packet} ->
-        packet_within_time_threshold?(packet, one_hour_ago)
-      end)
-      |> Map.new()
-
-    # Remove expired markers from the client
     expired_keys =
       socket.assigns.visible_packets
-      |> Enum.reject(fn {_key, packet} ->
-        packet_within_time_threshold?(packet, one_hour_ago)
+      |> Enum.filter(fn {_key, packet} ->
+        not packet_within_time_threshold?(packet, one_hour_ago)
       end)
       |> Enum.map(fn {key, _} -> key end)
 
+    # Only update the client if there are expired markers
     socket =
-      Enum.reduce(expired_keys, socket, fn key, acc ->
-        push_event(acc, "remove_marker", %{id: key})
-      end)
+      if expired_keys == [] do
+        socket
+      else
+        Enum.reduce(expired_keys, socket, fn key, acc ->
+          push_event(acc, "remove_marker", %{id: key})
+        end)
+      end
 
+    # Use Map.drop/2 for better performance
+    updated_visible_packets = Map.drop(socket.assigns.visible_packets, expired_keys)
     assign(socket, visible_packets: updated_visible_packets)
   end
 
