@@ -442,13 +442,19 @@ defmodule AprsWeb.MapLive.Enhanced do
     data_extended = packet.data_extended || %{}
     callsign = packet.base_callsign <> if packet.ssid, do: "-#{packet.ssid}", else: ""
 
+    symbol_table_id =
+      Map.get(data_extended, :symbol_table_id) || Map.get(data_extended, "symbol_table_id") || "/"
+
+    symbol_code =
+      Map.get(data_extended, :symbol_code) || Map.get(data_extended, "symbol_code") || ">"
+
     %{
       id: callsign,
       callsign: callsign,
       lat: packet.lat,
       lng: packet.lon,
-      symbol_table: data_extended["symbol_table_id"] || "/",
-      symbol_code: data_extended["symbol_code"] || ">",
+      symbol_table: symbol_table_id,
+      symbol_code: symbol_code,
       historical: false,
       popup: build_popup_content(packet, callsign, false),
       timestamp: DateTime.to_unix(packet.created_at, :millisecond)
@@ -521,18 +527,18 @@ defmodule AprsWeb.MapLive.Enhanced do
       end)
       |> Enum.map(fn {callsign, _} -> callsign end)
 
-    # Remove old markers from client
+    # Only update the client if the marker is present
     socket =
-      Enum.reduce(old_markers, socket, fn callsign, acc_socket ->
-        push_event(acc_socket, "remove_marker", %{id: callsign})
-      end)
+      if old_markers == [] do
+        socket
+      else
+        Enum.reduce(old_markers, socket, fn callsign, acc_socket ->
+          push_event(acc_socket, "remove_marker", %{id: callsign})
+        end)
+      end
 
-    # Update server state
-    active_markers =
-      socket.assigns.active_markers
-      |> Enum.reject(fn {callsign, _} -> callsign in old_markers end)
-      |> Map.new()
-
+    # Use Map.drop/2 for better performance
+    active_markers = Map.drop(socket.assigns.active_markers, old_markers)
     assign(socket, :active_markers, active_markers)
   end
 
@@ -615,9 +621,9 @@ defmodule AprsWeb.MapLive.Enhanced do
   end
 
   defp has_position_data?(packet) do
-    packet.has_position == true and
-      packet.lat != nil and
-      packet.lon != nil
+    lat = Map.get(packet, :lat) || Map.get(packet, "lat")
+    lon = Map.get(packet, :lon) || Map.get(packet, "lon")
+    not is_nil(lat) and not is_nil(lon)
   end
 
   defp within_bounds?(packet, bounds) do

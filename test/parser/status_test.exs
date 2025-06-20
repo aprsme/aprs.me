@@ -5,13 +5,18 @@ defmodule Parser.StatusTest do
   alias Parser.Status
 
   describe "parse/1" do
-    test "returns nil for now" do
-      assert Status.parse(">Test status message") == nil
+    test "returns a status map for valid input" do
+      assert Status.parse(">Test status message") == %{
+               data_type: :status,
+               status_text: "Test status message"
+             }
     end
 
-    property "always returns nil for any string" do
+    property "always returns a map with :data_type == :status for any string" do
       check all s <- StreamData.string(:ascii, min_length: 1, max_length: 30) do
-        assert Status.parse(s) == nil
+        result = Status.parse(s)
+        assert is_map(result)
+        assert result[:data_type] == :status
       end
     end
   end

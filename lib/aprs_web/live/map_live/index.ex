@@ -310,7 +310,7 @@ defmodule AprsWeb.MapLive.Index do
         push_event(acc, "remove_marker", %{id: k})
       end)
 
-    # Fetch the latest 100 packets within the new bounds and push to client
+    # Fetch the latest packets within the new bounds and push to client (historical only)
     bounds_list = [map_bounds.west, map_bounds.south, map_bounds.east, map_bounds.north]
     now = DateTime.utc_now()
     one_hour_ago = DateTime.add(now, -3600, :second)
@@ -335,6 +335,7 @@ defmodule AprsWeb.MapLive.Index do
         socket
       end
 
+    # Only update visible_packets with the historical packets for the new bounds
     assign(socket, map_bounds: map_bounds, visible_packets: new_visible_packets)
   end
 
@@ -350,8 +351,6 @@ defmodule AprsWeb.MapLive.Index do
   def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
 
   def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
-
-  def handle_info(:flush_packet_buffer, socket), do: handle_info_flush_packet_buffer(socket)
 
   def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket),
     do: handle_info({:postgres_packet, packet}, socket)
@@ -416,7 +415,8 @@ defmodule AprsWeb.MapLive.Index do
     all_packets = Map.put(socket.assigns.all_packets, callsign_key, packet)
     socket = assign(socket, all_packets: all_packets)
 
-    if is_nil(lat) or is_nil(lon),
+    # Only add marker if it is within bounds and not already present
+    if is_nil(lat) or is_nil(lon) or Map.has_key?(socket.assigns.visible_packets, callsign_key),
       do: {:noreply, socket},
       else: handle_valid_postgres_packet(packet, lat, lon, socket)
   end
@@ -691,62 +691,34 @@ defmodule AprsWeb.MapLive.Index do
     """
   end
 
-  # Handle cleanup of old packets
+  # Clean up expired markers from visible_packets and client, but do not re-query the DB
   defp handle_cleanup_old_packets(socket) do
+    # Schedule next cleanup
+    Process.send_after(self(), :cleanup_old_packets, 60_000)
+
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
-    packets_to_remove = get_packets_to_remove(socket, one_hour_ago)
-    visible_packets = get_visible_packets(socket, one_hour_ago)
-
-    socket =
-      if map_size(visible_packets) == map_size(socket.assigns.visible_packets) do
-        assign(socket, packet_age_threshold: one_hour_ago)
-      else
-        update_socket_for_removed_packets(
-          socket,
-          visible_packets,
-          one_hour_ago,
-          packets_to_remove
-        )
-      end
-
-    if connected?(socket), do: Process.send_after(self(), :cleanup_old_packets, 60_000)
-    {:noreply, socket}
-  end
-
-  defp get_packets_to_remove(socket, one_hour_ago) do
-    socket.assigns.visible_packets
-    |> Enum.reject(fn {_key, packet} ->
-      packet_within_time_threshold?(packet, one_hour_ago) &&
-        within_bounds?(packet, socket.assigns.map_bounds)
-    end)
-    |> Enum.map(fn {callsign, _packet} -> callsign end)
-  end
-
-  defp get_visible_packets(socket, one_hour_ago) do
-    socket.assigns.visible_packets
-    |> Enum.filter(fn {_key, packet} ->
-      packet_within_time_threshold?(packet, one_hour_ago) &&
-        within_bounds?(packet, socket.assigns.map_bounds)
-    end)
-    |> Map.new()
-  end
-
-  defp update_socket_for_removed_packets(socket, visible_packets, one_hour_ago, packets_to_remove) do
-    socket =
-      socket
-      |> push_event("refresh_markers", %{})
-      |> assign(
-        visible_packets: visible_packets,
-        packet_age_threshold: one_hour_ago
-      )
-
-    if Enum.any?(packets_to_remove) do
-      Enum.reduce(packets_to_remove, socket, fn callsign, acc_socket ->
-        push_event(acc_socket, "remove_marker", %{id: callsign})
+    # Remove expired packets from visible_packets
+    updated_visible_packets =
+      socket.assigns.visible_packets
+      |> Enum.filter(fn {_key, packet} ->
+        packet_within_time_threshold?(packet, one_hour_ago)
       end)
-    else
-      socket
-    end
+      |> Map.new()
+
+    # Remove expired markers from the client
+    expired_keys =
+      socket.assigns.visible_packets
+      |> Enum.reject(fn {_key, packet} ->
+        packet_within_time_threshold?(packet, one_hour_ago)
+      end)
+      |> Enum.map(fn {key, _} -> key end)
+
+    socket =
+      Enum.reduce(expired_keys, socket, fn key, acc ->
+        push_event(acc, "remove_marker", %{id: key})
+      end)
+
+    assign(socket, visible_packets: updated_visible_packets)
   end
 
   # Check if a packet is within the time threshold (not too old)
@@ -879,12 +851,18 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec build_packet_map(map() | struct(), number(), number(), map() | nil) :: map()
   defp build_packet_map(packet, lat, lon, data_extended) do
+    data_extended = data_extended || %{}
     callsign = generate_callsign(packet)
-    symbol_table_id = get_in(data_extended, ["symbol_table_id"]) || "/"
-    symbol_code = get_in(data_extended, ["symbol_code"]) || ">"
+
+    symbol_table_id =
+      Map.get(data_extended, :symbol_table_id) || Map.get(data_extended, "symbol_table_id") || "/"
+
+    symbol_code =
+      Map.get(data_extended, :symbol_code) || Map.get(data_extended, "symbol_code") || ">"
 
     symbol_description =
-      get_in(data_extended, ["symbol_description"]) || "Symbol: #{symbol_table_id}#{symbol_code}"
+      Map.get(data_extended, :symbol_description) || Map.get(data_extended, "symbol_description") ||
+        "Symbol: #{symbol_table_id}#{symbol_code}"
 
     timestamp =
       cond do
@@ -898,7 +876,7 @@ defmodule AprsWeb.MapLive.Index do
           ""
       end
 
-    comment = get_in(data_extended, ["comment"]) || ""
+    comment = Map.get(data_extended, :comment) || Map.get(data_extended, "comment") || ""
 
     popup = """
     <div class=\"aprs-popup\">

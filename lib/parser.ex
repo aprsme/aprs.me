@@ -1,3 +1,5 @@
+# @dialyzer {:nowarn_function, parse_data: 3}
+# @dialyzer {:nowarn_function, parse_object: 1}
 defmodule Parser do
   @moduledoc """
   Main parsing library
@@ -9,31 +11,19 @@ defmodule Parser do
   require Logger
 
   # Simple APRS position parsing to replace parse_aprs_position
-  defp parse_aprs_position(lat_str, lon_str) do
-    # Parse latitude: DDMM.MM format
-    lat =
-      case Regex.run(~r/^(\d{2})(\d{2}\.\d+)([NS])$/, lat_str) do
-        [_, degrees, minutes, direction] ->
-          lat_val = String.to_integer(degrees) + String.to_float(minutes) / 60
-          if direction == "S", do: -lat_val, else: lat_val
-
-        _ ->
-          nil
-      end
-
-    # Parse longitude: DDDMM.MM format
-    lon =
-      case Regex.run(~r/^(\d{3})(\d{2}\.\d+)([EW])$/, lon_str) do
-        [_, degrees, minutes, direction] ->
-          lon_val = String.to_integer(degrees) + String.to_float(minutes) / 60
-          if direction == "W", do: -lon_val, else: lon_val
-
-        _ ->
-          nil
-      end
-
+  defp parse_aprs_position(
+         <<lat_deg::binary-size(2), lat_min::binary-size(5), lat_dir::binary-size(1)>>,
+         <<lon_deg::binary-size(3), lon_min::binary-size(5), lon_dir::binary-size(1)>>
+       )
+       when lat_dir in ["N", "S"] and lon_dir in ["E", "W"] do
+    lat_val = String.to_integer(lat_deg) + String.to_float(lat_min) / 60
+    lon_val = String.to_integer(lon_deg) + String.to_float(lon_min) / 60
+    lat = if lat_dir == "S", do: -lat_val, else: lat_val
+    lon = if lon_dir == "W", do: -lon_val, else: lon_val
     %{latitude: lat, longitude: lon}
   end
+
+  defp parse_aprs_position(_, _), do: %{latitude: nil, longitude: nil}
 
   @type packet :: %{
           id: String.t(),
@@ -94,9 +84,6 @@ defmodule Parser do
           "Invalid packet format" -> {:error, "Invalid packet format"}
           _ -> {:error, reason}
         end
-
-      _ ->
-        {:error, "PARSE ERROR"}
     end
   rescue
     error ->
@@ -105,31 +92,36 @@ defmodule Parser do
   end
 
   # Validate callsign for AX.25 compliance
-  def validate_callsign(callsign, :src) do
-    if is_binary(callsign) and String.match?(callsign, ~r/^[A-Z0-9\-]+$/) and
-         not String.contains?(callsign, "*") do
+  def validate_callsign(callsign, :src) when is_binary(callsign) do
+    if regex_callsign_valid?(callsign) and not String.contains?(callsign, "*") do
       :ok
     else
       {:error, "Invalid source callsign"}
     end
   end
 
-  def validate_callsign(callsign, :dst) do
-    cond do
-      callsign == "" -> {:error, "Missing destination callsign"}
-      not String.match?(callsign, ~r/^[A-Z0-9\-]+$/) -> {:error, "Invalid destination callsign"}
-      true -> :ok
-    end
+  def validate_callsign(_callsign, :src), do: {:error, "Invalid source callsign"}
+
+  def validate_callsign("", :dst), do: {:error, "Missing destination callsign"}
+
+  def validate_callsign(callsign, :dst) when is_binary(callsign) do
+    if regex_callsign_valid?(callsign), do: :ok, else: {:error, "Invalid destination callsign"}
   end
 
+  def validate_callsign(_callsign, :dst), do: {:error, "Invalid destination callsign"}
+
+  defp regex_callsign_valid?(callsign), do: String.match?(callsign, ~r/^[A-Z0-9\-]+$/)
+
   # Validate path for too many components
-  def validate_path(path) do
-    if path != "" and length(String.split(path, ",")) > 8 do
+  def validate_path(path) when is_binary(path) and path != "" do
+    if length(String.split(path, ",")) > 8 do
       {:error, "Too many path components"}
     else
       :ok
     end
   end
+
+  def validate_path(_), do: :ok
 
   # Safely split packet into components
   @spec split_packet(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
@@ -147,18 +139,14 @@ defmodule Parser do
 
   # Safely split path into destination and digipeater path
   @spec split_path(String.t()) :: {:ok, [String.t()]} | {:error, String.t()}
-  def split_path(path) do
-    case String.split(path, ",", parts: 2) do
-      [destination, digi_path] ->
-        {:ok, [destination, digi_path]}
-
-      [destination] ->
-        {:ok, [destination, ""]}
-
-      _ ->
-        {:error, "Invalid path format"}
-    end
+  def split_path(path) when is_binary(path) do
+    split = String.split(path, ",", parts: 2)
+    split_path_parts(split)
   end
+
+  defp split_path_parts([destination, digi_path]), do: {:ok, [destination, digi_path]}
+  defp split_path_parts([destination]), do: {:ok, [destination, ""]}
+  defp split_path_parts(_), do: {:error, "Invalid path format"}
 
   # Safe version of parse_datatype that returns {:ok, type} or {:error, reason}
   @spec parse_datatype_safe(String.t()) :: {:ok, atom()} | {:error, String.t()}
@@ -209,33 +197,18 @@ defmodule Parser do
   def parse_data(:mic_e, destination, data), do: parse_mic_e(destination, data)
   def parse_data(:mic_e_old, destination, data), do: parse_mic_e(destination, data)
 
+  def parse_data(:position, _destination, <<"!", rest::binary>>) do
+    parse_data(:position, _destination, rest)
+  end
+
+  def parse_data(:position, _destination, <<"/", _::binary>> = data) do
+    result = parse_position_without_timestamp(data)
+    if result.data_type == :malformed_position, do: result, else: %{result | data_type: :position}
+  end
+
   def parse_data(:position, _destination, data) do
-    # Strip leading ! if present
-    data =
-      case data do
-        <<"!", rest::binary>> -> rest
-        _ -> data
-      end
-
-    case data do
-      <<"/", _::binary>> ->
-        result = parse_position_without_timestamp(data)
-
-        if result.data_type == :malformed_position do
-          result
-        else
-          %{result | data_type: :position}
-        end
-
-      _ ->
-        result = parse_position_without_timestamp(data)
-
-        if result.data_type == :malformed_position do
-          result
-        else
-          %{result | data_type: :position}
-        end
-    end
+    result = parse_position_without_timestamp(data)
+    if result.data_type == :malformed_position, do: result, else: %{result | data_type: :position}
   end
 
   def parse_data(:position_with_message, _destination, data) do
@@ -243,17 +216,15 @@ defmodule Parser do
     %{result | data_type: :position}
   end
 
-  def parse_data(:timestamped_position, _destination, data) do
-    case data do
-      <<"/", _::binary>> ->
-        %{
-          data_type: :timestamped_position_error,
-          error: "Compressed position not supported in timestamped position"
-        }
+  def parse_data(:timestamped_position, _destination, <<"/", _::binary>>) do
+    %{
+      data_type: :timestamped_position_error,
+      error: "Compressed position not supported in timestamped position"
+    }
+  end
 
-      _ ->
-        parse_position_with_timestamp(false, data, :timestamped_position)
-    end
+  def parse_data(:timestamped_position, _destination, data) do
+    parse_position_with_timestamp(false, data, :timestamped_position)
   end
 
   def parse_data(:timestamped_position_with_message, _destination, data) do
@@ -291,11 +262,11 @@ defmodule Parser do
     end
   end
 
-  def parse_data(:status, _destination, data), do: parse_status(data)
-  def parse_data(:object, _destination, data), do: parse_object(data)
-  def parse_data(:item, _destination, data), do: parse_item(data)
-  def parse_data(:weather, _destination, data), do: parse_weather(data)
-  def parse_data(:telemetry, _destination, data), do: parse_telemetry(data)
+  def parse_data(:status, _destination, data), do: Parser.Status.parse(data)
+  def parse_data(:object, _destination, data), do: Parser.Object.parse(data)
+  def parse_data(:item, _destination, data), do: Parser.Item.parse(data)
+  def parse_data(:weather, _destination, data), do: Parser.Weather.parse(data)
+  def parse_data(:telemetry, _destination, data), do: Parser.Telemetry.parse(data)
   def parse_data(:station_capabilities, _destination, data), do: parse_station_capabilities(data)
   def parse_data(:query, _destination, data), do: parse_query(data)
   def parse_data(:user_defined, _destination, data), do: parse_user_defined(data)
@@ -359,7 +330,6 @@ defmodule Parser do
   end
 
   def parse_data(:df_report, _destination, data) do
-    # Delegate to the DFS logic in the PHG handler
     if String.starts_with?(data, "DFS") and byte_size(data) >= 7 do
       <<"DFS", s, h, g, d, rest::binary>> = data
 
@@ -1218,25 +1188,12 @@ defmodule Parser do
   end
 
   # Parse specific user-defined formats
-  defp parse_user_defined_format(user_id, user_data) do
-    case user_id do
-      "A" ->
-        # Experimental format A
-        %{format: :experimental_a, content: user_data}
+  defp parse_user_defined_format("A", user_data), do: %{format: :experimental_a, content: user_data}
 
-      "B" ->
-        # Experimental format B
-        %{format: :experimental_b, content: user_data}
+  defp parse_user_defined_format("B", user_data), do: %{format: :experimental_b, content: user_data}
 
-      "C" ->
-        # Custom format C
-        %{format: :custom_c, content: user_data}
-
-      _ ->
-        # Unknown user-defined format
-        %{format: :unknown, content: user_data}
-    end
-  end
+  defp parse_user_defined_format("C", user_data), do: %{format: :custom_c, content: user_data}
+  defp parse_user_defined_format(_, user_data), do: %{format: :unknown, content: user_data}
 
   # Third Party Traffic parsing
   def parse_third_party_traffic(packet) do

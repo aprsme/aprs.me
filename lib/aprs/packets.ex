@@ -89,6 +89,16 @@ defmodule Aprs.Packets do
            |> Packet.changeset(packet_attrs)
            |> Repo.insert() do
         {:ok, packet} ->
+          symbol_table =
+            Map.get(packet_attrs, :symbol_table_id) ||
+              get_in(packet_attrs, [:data_extended, :symbol_table_id]) || "/"
+
+          symbol_code =
+            Map.get(packet_attrs, :symbol_code) ||
+              get_in(packet_attrs, [:data_extended, :symbol_code]) || ">"
+
+          Logger.debug("SYMBOL TABLE: #{inspect(symbol_table)}")
+          Logger.debug("SYMBOL CODE: #{inspect(symbol_code)}")
           {:ok, packet}
 
         {:error, changeset} ->

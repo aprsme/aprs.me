@@ -749,9 +749,16 @@ defmodule AprsWeb.MapLive.CallsignView do
 
   defp has_position_data?(packet) do
     case packet.data_extended do
-      %MicE{} -> true
-      %{latitude: lat, longitude: lon} when not is_nil(lat) and not is_nil(lon) -> true
-      _ -> false
+      %MicE{} ->
+        true
+
+      %{latitude: lat, longitude: lon} when not is_nil(lat) and not is_nil(lon) ->
+        true
+
+      _ ->
+        lat = Map.get(packet, :lat) || Map.get(packet, "lat")
+        lon = Map.get(packet, :lon) || Map.get(packet, "lon")
+        not is_nil(lat) and not is_nil(lon)
     end
   end
 
@@ -793,19 +800,16 @@ defmodule AprsWeb.MapLive.CallsignView do
 
   defp get_symbol_table_id(data) do
     cond do
-      is_map(data) && Map.has_key?(data, :symbol_table_id) && data.symbol_table_id ->
-        data.symbol_table_id
+      is_map(data) && (Map.get(data, :symbol_table_id) || Map.get(data, "symbol_table_id")) ->
+        Map.get(data, :symbol_table_id) || Map.get(data, "symbol_table_id")
 
-      is_map(data) && Map.has_key?(data, "symbol_table_id") && data["symbol_table_id"] ->
-        data["symbol_table_id"]
-
-      is_map(data) && Map.has_key?(data, :packet) && Map.has_key?(data.packet, :symbol_table_id) &&
-          data.packet.symbol_table_id ->
-        data.packet.symbol_table_id
+      is_map(data) && Map.has_key?(data, :packet) &&
+          (Map.get(data.packet, :symbol_table_id) || Map.get(data.packet, "symbol_table_id")) ->
+        Map.get(data.packet, :symbol_table_id) || Map.get(data.packet, "symbol_table_id")
 
       is_map(data) && Map.has_key?(data, "packet") &&
-        Map.has_key?(data["packet"], "symbol_table_id") && data["packet"]["symbol_table_id"] ->
-        data["packet"]["symbol_table_id"]
+          (Map.get(data["packet"], :symbol_table_id) || Map.get(data["packet"], "symbol_table_id")) ->
+        Map.get(data["packet"], :symbol_table_id) || Map.get(data["packet"], "symbol_table_id")
 
       true ->
         "/"
@@ -814,19 +818,16 @@ defmodule AprsWeb.MapLive.CallsignView do
 
   defp get_symbol_code(data) do
     cond do
-      is_map(data) && Map.has_key?(data, :symbol_code) && data.symbol_code ->
-        data.symbol_code
+      is_map(data) && (Map.get(data, :symbol_code) || Map.get(data, "symbol_code")) ->
+        Map.get(data, :symbol_code) || Map.get(data, "symbol_code")
 
-      is_map(data) && Map.has_key?(data, "symbol_code") && data["symbol_code"] ->
-        data["symbol_code"]
+      is_map(data) && Map.has_key?(data, :packet) &&
+          (Map.get(data.packet, :symbol_code) || Map.get(data.packet, "symbol_code")) ->
+        Map.get(data.packet, :symbol_code) || Map.get(data.packet, "symbol_code")
 
-      is_map(data) && Map.has_key?(data, :packet) && Map.has_key?(data.packet, :symbol_code) &&
-          data.packet.symbol_code ->
-        data.packet.symbol_code
-
-      is_map(data) && Map.has_key?(data, "packet") && Map.has_key?(data["packet"], "symbol_code") &&
-          data["packet"]["symbol_code"] ->
-        data["packet"]["symbol_code"]
+      is_map(data) && Map.has_key?(data, "packet") &&
+          (Map.get(data["packet"], :symbol_code) || Map.get(data["packet"], "symbol_code")) ->
+        Map.get(data["packet"], :symbol_code) || Map.get(data["packet"], "symbol_code")
 
       true ->
         ">"

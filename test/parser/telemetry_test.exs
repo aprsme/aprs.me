@@ -5,13 +5,17 @@ defmodule Parser.TelemetryTest do
   alias Parser.Telemetry
 
   describe "parse/1" do
-    test "returns nil for now" do
-      assert Telemetry.parse("T#123,456,789,012,345,678,901,234") == nil
+    test "returns a map with :data_type for valid input" do
+      result = Telemetry.parse("T#123,456,789,012,345,678,901,234")
+      assert is_map(result)
+      assert Map.has_key?(result, :data_type)
     end
 
-    property "always returns nil for any string" do
+    property "always returns a map with :data_type for any string" do
       check all s <- StreamData.string(:ascii, min_length: 1, max_length: 30) do
-        assert Telemetry.parse(s) == nil
+        result = Telemetry.parse(s)
+        assert is_map(result)
+        assert Map.has_key?(result, :data_type)
       end
     end
   end

@@ -5,13 +5,17 @@ defmodule Parser.ItemTest do
   alias Parser.Item
 
   describe "parse/1" do
-    test "returns nil for now" do
-      assert Item.parse(")ITEM!4903.50N/07201.75W>Test item") == nil
+    test "returns a map with :data_type => :item for valid input" do
+      result = Item.parse(")ITEM!4903.50N/07201.75W>Test item")
+      assert is_map(result)
+      assert result[:data_type] == :item
     end
 
-    property "always returns nil for any string" do
+    property "always returns a map with :data_type == :item for any string" do
       check all s <- StreamData.string(:ascii, min_length: 1, max_length: 30) do
-        assert Item.parse(s) == nil
+        result = Item.parse(s)
+        assert is_map(result)
+        assert result[:data_type] == :item
       end
     end
   end
