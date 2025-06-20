@@ -982,23 +982,6 @@ defmodule AprsWeb.MapLive.CallsignView do
     )
   end
 
-  defp map_empty?(socket) do
-    map_size(socket.assigns.visible_packets) == 0
-  end
-
-  # Check if we should update zoom based on position change
-  defp should_update_zoom?(nil, _new_pos), do: false
-  defp should_update_zoom?(_old_pos, nil), do: false
-
-  defp should_update_zoom?(old_pos, new_pos) do
-    # Calculate distance between positions (rough approximation)
-    lat_diff = abs(old_pos.lat - new_pos.lat)
-    lng_diff = abs(old_pos.lng - new_pos.lng)
-
-    # Update zoom if position changed by more than ~5km (approximately 0.05 degrees)
-    lat_diff > 0.05 or lng_diff > 0.05
-  end
-
   # Helper to check if a packet or lat/lon is within bounds
   defp within_bounds?(packet_or_coords, bounds) do
     {lat, lon} =

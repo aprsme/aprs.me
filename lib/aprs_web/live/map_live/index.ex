@@ -7,6 +7,8 @@ defmodule AprsWeb.MapLive.Index do
   alias AprsWeb.Endpoint
   alias Phoenix.LiveView.Socket
 
+  require Logger
+
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
   @ip_api_url "https://ip-api.com/json/"
@@ -26,7 +28,7 @@ defmodule AprsWeb.MapLive.Index do
       Endpoint.subscribe("aprs_messages")
       Phoenix.PubSub.subscribe(Aprs.PubSub, "postgres:aprs_packets")
       maybe_start_geolocation(socket)
-      schedule_timers()
+      # schedule_timers() # COMMENTED OUT: disables periodic replay
     end
 
     {:ok, socket}
@@ -46,21 +48,22 @@ defmodule AprsWeb.MapLive.Index do
       },
       map_center: @default_center,
       map_zoom: @default_zoom,
-      replay_active: false,
-      replay_speed: @default_replay_speed,
-      replay_paused: false,
-      replay_packets: [],
-      replay_index: 0,
-      replay_timer_ref: nil,
-      replay_start_time: nil,
-      replay_end_time: nil,
-      historical_packets: %{},
+      # replay_active: false, # COMMENTED OUT
+      # replay_speed: @default_replay_speed, # COMMENTED OUT
+      # replay_paused: false, # COMMENTED OUT
+      # replay_packets: [], # COMMENTED OUT
+      # replay_index: 0, # COMMENTED OUT
+      # replay_timer_ref: nil, # COMMENTED OUT
+      # replay_start_time: nil, # COMMENTED OUT
+      # replay_end_time: nil, # COMMENTED OUT
+      # historical_packets: %{}, # COMMENTED OUT
       packet_age_threshold: one_hour_ago,
       map_ready: false,
-      replay_started: false,
+      # replay_started: false, # COMMENTED OUT
       pending_geolocation: nil,
       bounds_update_timer: nil,
-      pending_bounds: nil
+      pending_bounds: nil,
+      initial_bounds_loaded: false
     )
   end
 
@@ -111,11 +114,15 @@ defmodule AprsWeb.MapLive.Index do
 
   @impl true
   def handle_event("bounds_changed", %{"bounds" => bounds}, socket) do
+    Logger.debug("handle_event bounds_changed: #{inspect(bounds)} vs current #{inspect(socket.assigns.map_bounds)}")
+
     handle_bounds_update(bounds, socket)
   end
 
   @impl true
   def handle_event("update_bounds", %{"bounds" => bounds}, socket) do
+    Logger.debug("handle_event update_bounds: #{inspect(bounds)} vs current #{inspect(socket.assigns.map_bounds)}")
+
     handle_bounds_update(bounds, socket)
   end
 
@@ -209,10 +216,7 @@ defmodule AprsWeb.MapLive.Index do
 
   @impl true
   def handle_event("clear_and_reload_markers", _params, socket) do
-    # Clear all markers on the client first
-    socket = push_event(socket, "clear_markers", %{})
-
-    # Filter visible packets to only include those within current bounds
+    # Only filter the current visible_packets, do not re-query the database
     filtered_packets =
       socket.assigns.visible_packets
       |> Enum.filter(fn {_callsign, packet} ->
@@ -221,17 +225,13 @@ defmodule AprsWeb.MapLive.Index do
       end)
       |> Map.new()
 
-    # Convert filtered packets to packet data for the map
     visible_packets_list =
       filtered_packets
       |> Enum.map(fn {_callsign, packet} -> build_packet_data(packet) end)
-      # Remove any nil packet data
       |> Enum.filter(& &1)
 
-    # Update the state to only include the filtered packets
     socket = assign(socket, visible_packets: filtered_packets)
 
-    # Add the visible markers back to the map
     socket =
       if Enum.any?(visible_packets_list) do
         push_event(socket, "add_markers", %{markers: visible_packets_list})
@@ -273,27 +273,35 @@ defmodule AprsWeb.MapLive.Index do
       west: bounds["west"]
     }
 
+    Logger.debug("handle_bounds_update: new #{inspect(map_bounds)} vs current #{inspect(socket.assigns.map_bounds)}")
+
     # Validate bounds to prevent invalid coordinates
     if map_bounds.north > 90 or map_bounds.south < -90 or
          map_bounds.north <= map_bounds.south do
       # Invalid bounds, skip update
       {:noreply, socket}
     else
-      # Cancel any pending bounds update timer
-      if socket.assigns[:bounds_update_timer] do
-        Process.cancel_timer(socket.assigns.bounds_update_timer)
+      # Only schedule a bounds update if the bounds have actually changed (with rounding)
+      if compare_bounds(map_bounds, socket.assigns.map_bounds) do
+        {:noreply, socket}
+        # Cancel any pending bounds update timer
+
+        # Set a debounced update timer to prevent excessive processing
+      else
+        if socket.assigns[:bounds_update_timer] do
+          Process.cancel_timer(socket.assigns.bounds_update_timer)
+        end
+
+        timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, 250)
+        socket = assign(socket, bounds_update_timer: timer_ref, pending_bounds: map_bounds)
+        {:noreply, socket}
       end
-
-      # Set a debounced update timer to prevent excessive processing
-      timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, 250)
-
-      socket = assign(socket, bounds_update_timer: timer_ref, pending_bounds: map_bounds)
-      {:noreply, socket}
     end
   end
 
   @spec process_bounds_update(map(), Socket.t()) :: Socket.t()
   defp process_bounds_update(map_bounds, socket) do
+    Logger.debug("process_bounds_update: (no DB query) for bounds #{inspect(map_bounds)}")
     # Remove out-of-bounds packets and markers immediately
     new_visible_packets =
       socket.assigns.visible_packets
@@ -315,32 +323,7 @@ defmodule AprsWeb.MapLive.Index do
         end)
       end
 
-    # Fetch the latest packets within the new bounds and push to client (historical only)
-    bounds_list = [map_bounds.west, map_bounds.south, map_bounds.east, map_bounds.north]
-    now = DateTime.utc_now()
-    one_hour_ago = DateTime.add(now, -3600, :second)
-
-    packets =
-      Aprs.Packets.get_packets_for_replay(%{
-        bounds: bounds_list,
-        start_time: one_hour_ago,
-        end_time: now,
-        limit: 100
-      })
-
-    marker_data =
-      packets
-      |> Enum.map(&build_packet_data/1)
-      |> Enum.filter(& &1)
-
-    socket =
-      if Enum.any?(marker_data) do
-        push_event(socket, "add_markers", %{markers: marker_data})
-      else
-        socket
-      end
-
-    # Only update visible_packets with the historical packets for the new bounds
+    # Only update visible_packets with the packets still in bounds
     assign(socket, map_bounds: map_bounds, visible_packets: new_visible_packets)
   end
 
@@ -351,7 +334,9 @@ defmodule AprsWeb.MapLive.Index do
 
   def handle_info({:ip_location, %{lat: lat, lng: lng}}, socket), do: handle_info_ip_location(lat, lng, socket)
 
+  # COMMENTED OUT
   def handle_info(:initialize_replay, socket), do: handle_info_initialize_replay(socket)
+  # COMMENTED OUT
   def handle_info(:replay_next_packet, socket), do: handle_replay_next_packet(socket)
   def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
 
@@ -363,8 +348,18 @@ defmodule AprsWeb.MapLive.Index do
   # Private handler functions for each message type
 
   defp handle_info_process_bounds_update(map_bounds, socket) do
-    socket = process_bounds_update(map_bounds, socket)
-    {:noreply, socket}
+    Logger.debug(
+      "handle_info_process_bounds_update: #{inspect(map_bounds)} vs current #{inspect(socket.assigns.map_bounds)}"
+    )
+
+    if !socket.assigns.initial_bounds_loaded or
+         not compare_bounds(map_bounds, socket.assigns.map_bounds) do
+      socket = process_bounds_update(map_bounds, socket)
+      socket = assign(socket, initial_bounds_loaded: true)
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   defp handle_info_delayed_zoom(lat, lng, socket) do
@@ -441,80 +436,23 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   defp handle_valid_postgres_packet(packet, lat, lon, socket) do
-    if within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
-      buffer = [packet | socket.assigns.packet_buffer]
-      socket = assign(socket, packet_buffer: buffer)
-
-      socket =
-        if socket.assigns.buffer_timer == nil do
-          timer = Process.send_after(self(), :flush_packet_buffer, @debounce_interval)
-          assign(socket, buffer_timer: timer)
-        else
-          socket
-        end
-
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  defp handle_info_flush_packet_buffer(socket) do
-    packets = Enum.reverse(socket.assigns.packet_buffer)
-    visible_packets = socket.assigns.visible_packets
-    all_packets = socket.assigns.all_packets
-
-    {new_visible_packets, events, new_all_packets} =
-      process_packet_buffer_with_all(packets, visible_packets, all_packets)
-
-    socket =
-      Enum.reduce(events, socket, fn {:new_packet, data}, acc ->
-        push_event(acc, "new_packet", data)
-      end)
-
-    # Highlight the latest packet (open its popup)
-    if packets != [] do
-      latest_packet = List.last(packets)
-
-      callsign_key =
-        if Map.has_key?(latest_packet, "id"),
-          do: to_string(latest_packet["id"]),
-          else: System.unique_integer([:positive])
-
-      push_event(socket, "highlight_packet", %{id: callsign_key})
-    end
-
-    socket =
-      assign(socket,
-        visible_packets: new_visible_packets,
-        packet_buffer: [],
-        buffer_timer: nil,
-        all_packets: new_all_packets
-      )
-
-    {:noreply, socket}
-  end
-
-  # New helper to process buffer and update all_packets
-  defp process_packet_buffer_with_all([], visible_packets, all_packets), do: {visible_packets, [], all_packets}
-
-  defp process_packet_buffer_with_all([packet | rest], visible_packets, all_packets) do
-    {vis, evs, allp} = process_packet_buffer_with_all(rest, visible_packets, all_packets)
-
+    # Add the packet to visible_packets and push a marker immediately
     callsign_key =
       if Map.has_key?(packet, "id"),
         do: to_string(packet["id"]),
         else: System.unique_integer([:positive])
 
-    allp = Map.put(allp, callsign_key, packet)
+    new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
+    marker_data = build_packet_data(packet)
 
-    case build_packet_data(packet) do
-      nil ->
-        {vis, evs, allp}
+    socket =
+      if marker_data do
+        push_event(socket, "add_markers", %{markers: [marker_data]})
+      else
+        socket
+      end
 
-      packet_data ->
-        {Map.put(vis, callsign_key, packet), [{:new_packet, packet_data} | evs], allp}
-    end
+    {:noreply, assign(socket, visible_packets: new_visible_packets)}
   end
 
   # Handle replaying the next historical packet
@@ -736,7 +674,7 @@ defmodule AprsWeb.MapLive.Index do
 
     # Use Map.drop/2 for better performance
     updated_visible_packets = Map.drop(socket.assigns.visible_packets, expired_keys)
-    assign(socket, visible_packets: updated_visible_packets)
+    {:noreply, assign(socket, visible_packets: updated_visible_packets)}
   end
 
   # Check if a packet is within the time threshold (not too old)
@@ -853,8 +791,19 @@ defmodule AprsWeb.MapLive.Index do
   defp get_coordinates(packet) do
     # Safely get data_extended for both atom and string keys
     data_extended = Map.get(packet, :data_extended) || Map.get(packet, "data_extended")
-    lat = Map.get(packet, :lat) || Map.get(packet, "lat")
-    lon = Map.get(packet, :lon) || Map.get(packet, "lon")
+
+    lat =
+      Map.get(packet, :lat) ||
+        Map.get(packet, "lat") ||
+        (is_map(data_extended) &&
+           (Map.get(data_extended, :latitude) || Map.get(data_extended, "latitude")))
+
+    lon =
+      Map.get(packet, :lon) ||
+        Map.get(packet, "lon") ||
+        (is_map(data_extended) &&
+           (Map.get(data_extended, :longitude) || Map.get(data_extended, "longitude")))
+
     {lat, lon, data_extended}
   end
 
@@ -1008,5 +957,21 @@ defmodule AprsWeb.MapLive.Index do
     end
 
     :ok
+  end
+
+  # Add a helper for robust bounds comparison
+
+  defp compare_bounds(b1, b2) do
+    round4 = fn x ->
+      case x do
+        n when is_float(n) -> Float.round(n, 4)
+        n when is_integer(n) -> n * 1.0
+        _ -> x
+      end
+    end
+
+    Enum.all?([:north, :south, :east, :west], fn key ->
+      round4.(Map.get(b1, key)) == round4.(Map.get(b2, key))
+    end)
   end
 end

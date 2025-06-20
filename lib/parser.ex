@@ -194,11 +194,11 @@ defmodule Parser do
   def parse_datatype(_), do: :unknown_datatype
 
   @spec parse_data(atom(), String.t(), String.t()) :: map() | nil
-  def parse_data(:mic_e, destination, data), do: parse_mic_e(destination, data)
-  def parse_data(:mic_e_old, destination, data), do: parse_mic_e(destination, data)
+  def parse_data(:mic_e, _destination, data), do: parse_mic_e(data)
+  def parse_data(:mic_e_old, _destination, data), do: parse_mic_e(data)
 
-  def parse_data(:position, _destination, <<"!", rest::binary>>) do
-    parse_data(:position, _destination, rest)
+  def parse_data(:position, destination, <<"!", rest::binary>>) do
+    parse_data(:position, destination, rest)
   end
 
   def parse_data(:position, _destination, <<"/", _::binary>> = data) do
@@ -272,35 +272,6 @@ defmodule Parser do
   def parse_data(:user_defined, _destination, data), do: parse_user_defined(data)
   def parse_data(:third_party_traffic, _destination, data), do: parse_third_party_traffic(data)
 
-  def parse_data(:phg_data, _destination, <<"PHG", p, h, g, d, rest::binary>>) when byte_size(rest) >= 0 do
-    %{
-      power: Parser.Helpers.parse_phg_power(p),
-      height: Parser.Helpers.parse_phg_height(h),
-      gain: Parser.Helpers.parse_phg_gain(g),
-      directivity: Parser.Helpers.parse_phg_directivity(d),
-      comment: rest,
-      data_type: :phg_data
-    }
-  end
-
-  def parse_data(:phg_data, _destination, <<"DFS", s, h, g, d, rest::binary>>) when byte_size(rest) >= 0 do
-    %{
-      df_strength: Parser.Helpers.parse_df_strength(s),
-      height: Parser.Helpers.parse_phg_height(h),
-      gain: Parser.Helpers.parse_phg_gain(g),
-      directivity: Parser.Helpers.parse_phg_directivity(d),
-      comment: rest,
-      data_type: :df_report
-    }
-  end
-
-  def parse_data(:phg_data, _destination, data) do
-    %{
-      phg_data: data,
-      data_type: :phg_data
-    }
-  end
-
   def parse_data(:peet_logging, _destination, data), do: Parser.Helpers.parse_peet_logging(data)
 
   def parse_data(:invalid_test_data, _destination, data), do: Parser.Helpers.parse_invalid_test_data(data)
@@ -348,6 +319,8 @@ defmodule Parser do
       }
     end
   end
+
+  def parse_data(:phg_data, _destination, data), do: parse_phg_data(data)
 
   def parse_data(_type, _destination, _data), do: nil
 
@@ -406,7 +379,17 @@ defmodule Parser do
     (v1 - 33) * 91 * 91 * 91 + (v2 - 33) * 91 * 91 + (v3 - 33) * 91 + v4
   end
 
-  # For packets without APRS messaging
+  # Helper to extract course and speed from comment field (e.g., "/123/045" or "123/045")
+  @spec extract_course_and_speed(String.t()) :: {integer() | nil, float() | nil}
+  defp extract_course_and_speed(comment) do
+    # Match "/123/045" or "123/045" at the start of the comment
+    case Regex.run(~r"/?(\d{3})/(\d{3})", comment) do
+      [_, course, speed] -> {String.to_integer(course), String.to_integer(speed) * 1.0}
+      _ -> {nil, nil}
+    end
+  end
+
+  # Patch parse_position_without_timestamp to include course/speed
   @spec parse_position_without_timestamp(String.t()) :: map()
   def parse_position_without_timestamp(position_data) do
     case position_data do
@@ -415,6 +398,7 @@ defmodule Parser do
         %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
         ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
         dao_data = parse_dao_extension(comment)
+        {course, speed} = extract_course_and_speed(comment)
 
         %{
           latitude: lat,
@@ -427,7 +411,9 @@ defmodule Parser do
           aprs_messaging?: false,
           compressed?: false,
           position_ambiguity: ambiguity,
-          dao: dao_data
+          dao: dao_data,
+          course: course,
+          speed: speed
         }
 
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
@@ -444,7 +430,9 @@ defmodule Parser do
           aprs_messaging?: false,
           compressed?: false,
           position_ambiguity: ambiguity,
-          dao: nil
+          dao: nil,
+          course: nil,
+          speed: nil
         }
 
       <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
@@ -466,10 +454,10 @@ defmodule Parser do
             data_type: :position,
             compressed?: true,
             position_ambiguity: ambiguity,
-            dao: nil,
-            aprs_messaging?: false
+            dao: nil
           }
 
+          # Merge in course/speed from compressed_cs
           Map.merge(base_data, compressed_cs)
         rescue
           _e ->
@@ -485,7 +473,8 @@ defmodule Parser do
               compressed?: true,
               position_ambiguity: Parser.Helpers.calculate_compressed_ambiguity(compression_type),
               dao: nil,
-              aprs_messaging?: false
+              course: nil,
+              speed: nil
             }
         end
 
@@ -500,34 +489,21 @@ defmodule Parser do
           aprs_messaging?: false,
           compressed?: false,
           comment: String.trim(position_data),
-          dao: nil
+          dao: nil,
+          course: nil,
+          speed: nil
         }
     end
   end
 
-  # For packets with APRS messaging
+  # Patch parse_position_with_message_without_timestamp to propagate course/speed
   @spec parse_position_with_message_without_timestamp(String.t()) :: map()
   def parse_position_with_message_without_timestamp(position_data) do
     result = parse_position_without_timestamp(position_data)
     Map.put(result, :aprs_messaging?, true)
   end
 
-  # Add DAO (Datum) extension support
-  @spec parse_dao_extension(String.t()) :: map() | nil
-  defp parse_dao_extension(comment) do
-    case Regex.run(~r/!([A-Za-z])([A-Za-z])([A-Za-z])!/, comment) do
-      [_, lat_dao, lon_dao, _] ->
-        %{
-          lat_dao: lat_dao,
-          lon_dao: lon_dao,
-          datum: "WGS84"
-        }
-
-      _ ->
-        nil
-    end
-  end
-
+  # Patch parse_position_with_timestamp to extract course/speed from comment
   @spec parse_position_with_timestamp(boolean(), binary(), atom()) :: map()
   def parse_position_with_timestamp(
         aprs_messaging?,
@@ -538,6 +514,7 @@ defmodule Parser do
     case Parser.Helpers.validate_position_data(latitude, longitude) do
       {:ok, {lat, lon}} ->
         position = parse_aprs_position(latitude, longitude)
+        {course, speed} = extract_course_and_speed(comment)
 
         %{
           latitude: lat,
@@ -549,7 +526,9 @@ defmodule Parser do
           comment: comment,
           data_type: :position,
           aprs_messaging?: aprs_messaging?,
-          compressed?: false
+          compressed?: false,
+          course: course,
+          speed: speed
         }
     end
   end
@@ -568,35 +547,6 @@ defmodule Parser do
       error: "Invalid timestamped position format",
       raw_data: data
     }
-  end
-
-  @spec parse_mic_e(String.t(), String.t()) :: MicE.t() | map()
-  def parse_mic_e(destination_field, information_field) do
-    destination_data = parse_mic_e_destination(destination_field)
-
-    information_data =
-      parse_mic_e_information(information_field, destination_data.longitude_offset)
-
-    struct(MicE, %{
-      lat_degrees: destination_data.lat_degrees,
-      lat_minutes: destination_data.lat_minutes,
-      lat_fractional: destination_data.lat_fractional,
-      lat_direction: destination_data.lat_direction,
-      lon_direction: destination_data.lon_direction,
-      longitude_offset: destination_data.longitude_offset,
-      message_code: destination_data.message_code,
-      message_description: destination_data.message_description,
-      dti: information_data.dti,
-      heading: information_data.heading,
-      lon_degrees: information_data.lon_degrees,
-      lon_minutes: information_data.lon_minutes,
-      lon_fractional: information_data.lon_fractional,
-      speed: information_data.speed,
-      manufacturer: information_data.manufacturer,
-      message: information_data.message,
-      symbol_table_id: "/",
-      symbol_code: ">"
-    })
   end
 
   @spec parse_mic_e(binary()) :: map()
@@ -1352,6 +1302,10 @@ defmodule Parser do
   end
 
   # PHG Data parsing (Power, Height, Gain, Directivity)
+  def parse_phg_data(<<"#", rest::binary>>) do
+    parse_phg_data(rest)
+  end
+
   def parse_phg_data(<<"PHG", p, h, g, d, rest::binary>>) do
     %{
       power: Parser.Helpers.parse_phg_power(p),
@@ -1361,5 +1315,25 @@ defmodule Parser do
       comment: rest,
       data_type: :phg_data
     }
+  end
+
+  def parse_phg_data(data) do
+    %{raw_data: data, data_type: :phg_data}
+  end
+
+  # Add DAO (Datum) extension support
+  @spec parse_dao_extension(String.t()) :: map() | nil
+  defp parse_dao_extension(comment) do
+    case Regex.run(~r/!([A-Za-z])([A-Za-z])([A-Za-z])!/, comment) do
+      [_, lat_dao, lon_dao, _] ->
+        %{
+          lat_dao: lat_dao,
+          lon_dao: lon_dao,
+          datum: "WGS84"
+        }
+
+      _ ->
+        nil
+    end
   end
 end
