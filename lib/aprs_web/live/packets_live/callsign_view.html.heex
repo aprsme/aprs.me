@@ -71,15 +71,6 @@
             {packet.data_type}
           </span>
         </:col>
-        <:col :let={packet} label="Symbol">
-          <span class="text-xs text-gray-700 font-mono">
-            <% data = Map.get(packet, :data_extended) || %{}
-            raw_table = Map.get(data, :symbol_table_id) || Map.get(data, "symbol_table_id") || "/"
-            table = if raw_table in ["/", "\\", "]"], do: raw_table, else: "/"
-            code = Map.get(data, :symbol_code) || Map.get(data, "symbol_code") || ">" %>
-            {table}{code}
-          </span>
-        </:col>
         <:col :let={packet} label="Destination">
           <span class="text-sm text-gray-900">{packet.destination}</span>
         </:col>

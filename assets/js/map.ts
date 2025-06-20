@@ -845,13 +845,14 @@ let MapAPRSMap = {
   buildPopupContent(data: MarkerData): string {
     const callsign = data.callsign || data.id || "Unknown";
     const comment = data.comment || "";
-    const symbolTableId = data.symbol_table_id || "/";
-    const symbolCode = data.symbol_code || ">";
-    const symbolDesc = data.symbol_description || `Symbol: ${symbolTableId}${symbolCode}`;
+    // const symbolTableId = data.symbol_table_id || "/";
+    // const symbolCode = data.symbol_code || ">";
+    // const symbolDesc = data.symbol_description || `Symbol: ${symbolTableId}${symbolCode}`;
 
     let content = `<div class="aprs-popup">
-      <div class="aprs-callsign"><strong><a href="/${callsign}">${callsign}</a></strong></div>
-      <div class="aprs-symbol-info">${symbolDesc}</div>`;
+      <div class="aprs-callsign"><strong><a href="/${callsign}">${callsign}</a></strong></div>`;
+    // Removed symbol info from popup
+    // content += `<div class="aprs-symbol-info">${symbolDesc}</div>`;
 
     if (comment) {
       content += `<div class="aprs-comment">${comment}</div>`;
