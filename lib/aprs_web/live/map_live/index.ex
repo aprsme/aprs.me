@@ -795,10 +795,18 @@ defmodule AprsWeb.MapLive.Index do
     callsign = generate_callsign(packet)
 
     symbol_table_id =
-      Map.get(data_extended, :symbol_table_id) || Map.get(data_extended, "symbol_table_id") || "/"
+      Map.get(data_extended, :symbol_table_id) ||
+        Map.get(data_extended, "symbol_table_id") ||
+        Map.get(packet, :symbol_table_id) ||
+        Map.get(packet, "symbol_table_id") ||
+        "/"
 
     symbol_code =
-      Map.get(data_extended, :symbol_code) || Map.get(data_extended, "symbol_code") || ">"
+      Map.get(data_extended, :symbol_code) ||
+        Map.get(data_extended, "symbol_code") ||
+        Map.get(packet, :symbol_code) ||
+        Map.get(packet, "symbol_code") ||
+        ">"
 
     symbol_description =
       Map.get(data_extended, :symbol_description) || Map.get(data_extended, "symbol_description") ||
