@@ -17,8 +17,8 @@ defmodule Aprs.Packet do
     field(:ssid, :string)
     field(:received_at, :utc_datetime_usec)
     field(:region, :string)
-    field(:lat, :float, virtual: true)
-    field(:lon, :float, virtual: true)
+    field(:lat, :decimal)
+    field(:lon, :decimal)
     field(:location, Geo.PostGIS.Geometry)
     field(:has_position, :boolean, default: false)
 
@@ -185,6 +185,9 @@ defmodule Aprs.Packet do
   end
 
   defp valid_coordinates?(lat, lon) do
+    lat = if is_struct(lat, Decimal), do: Decimal.to_float(lat), else: lat
+    lon = if is_struct(lon, Decimal), do: Decimal.to_float(lon), else: lon
+
     is_number(lat) && is_number(lon) &&
       lat >= -90 && lat <= 90 &&
       lon >= -180 && lon <= 180
@@ -309,6 +312,8 @@ defmodule Aprs.Packet do
   # Extract data from MicE packets
   defp extract_from_mic_e(mic_e) do
     %{}
+    |> maybe_put(:lat, mic_e[:latitude])
+    |> maybe_put(:lon, mic_e[:longitude])
     |> maybe_put(:comment, mic_e.message)
     |> maybe_put(:manufacturer, mic_e.manufacturer)
     |> maybe_put(:course, mic_e.heading)
@@ -320,6 +325,8 @@ defmodule Aprs.Packet do
   # Extract data from converted MicE map (from struct_to_map conversion)
   defp extract_from_mic_e_map(mic_e_map) do
     %{}
+    |> maybe_put(:lat, mic_e_map[:latitude])
+    |> maybe_put(:lon, mic_e_map[:longitude])
     |> maybe_put(:comment, mic_e_map[:message])
     |> maybe_put(:manufacturer, mic_e_map[:manufacturer])
     |> maybe_put(:course, mic_e_map[:heading])
@@ -476,7 +483,11 @@ defmodule Aprs.Packet do
   Create a geometry point from lat/lon coordinates.
   """
   @spec create_point(number() | nil, number() | nil) :: Geo.Point.t() | nil
-  def create_point(lat, lon) when is_number(lat) and is_number(lon) do
+  def create_point(lat, lon)
+      when (is_number(lat) or is_struct(lat, Decimal)) and (is_number(lon) or is_struct(lon, Decimal)) do
+    lat = if is_struct(lat, Decimal), do: Decimal.to_float(lat), else: lat
+    lon = if is_struct(lon, Decimal), do: Decimal.to_float(lon), else: lon
+
     if valid_coordinates?(lat, lon) do
       %Geo.Point{coordinates: {lon, lat}, srid: 4326}
     end

@@ -22,26 +22,32 @@
     <.table id="packets" rows={@packets}>
       <:col :let={packet} label="Sender">
         <.link
-          navigate={~p"/packets/#{packet.base_callsign}"}
+          navigate={
+            ~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"
+          }
           class="text-blue-600 hover:text-blue-800 font-medium"
         >
-          {packet.sender}
+          {Map.get(packet, :sender, Map.get(packet, "sender", ""))}
         </.link>
       </:col>
       <:col :let={packet} label="SSID">
-        <span class="text-sm text-gray-900">{packet.ssid}</span>
+        <span class="text-sm text-gray-900">
+          {Map.get(packet, :ssid, Map.get(packet, "ssid", ""))}
+        </span>
       </:col>
       <:col :let={packet} label="Base Callsign">
         <.link
-          navigate={~p"/packets/#{packet.base_callsign}"}
+          navigate={
+            ~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"
+          }
           class="text-blue-600 hover:text-blue-800 font-medium"
         >
-          {packet.base_callsign}
+          {Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}
         </.link>
       </:col>
       <:col :let={packet} label="Data Type">
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          {packet.data_type}
+          {Map.get(packet, :data_type, Map.get(packet, "data_type", ""))}
         </span>
       </:col>
       <:col :let={packet} label="Symbol">
@@ -53,14 +59,52 @@
           {table}{code}
         </span>
       </:col>
-      <:col :let={packet} label="Destination">
-        <span class="text-sm text-gray-900">{packet.destination}</span>
-      </:col>
-      <:col :let={packet} label="Information">
-        <span class="text-sm text-gray-900 font-mono">{packet.information_field}</span>
-      </:col>
       <:col :let={packet} label="Path">
-        <span class="text-xs text-gray-500 font-mono">{packet.path}</span>
+        <span class="text-xs text-gray-500 font-mono">
+          {Map.get(packet, :path, Map.get(packet, "path", ""))}
+        </span>
+      </:col>
+      <:col :let={packet} label="Latitude">
+        <span class="text-xs text-gray-700 font-mono">
+          <% lat =
+            Map.get(packet, :lat) ||
+              if(
+                Map.has_key?(packet, :location) and not is_nil(packet.location) and
+                  function_exported?(Aprs.Packet, :lat, 1),
+                do: Aprs.Packet.lat(packet),
+                else: nil
+              ) ||
+              case Map.get(packet, :data_extended) do
+                %{} = data_ext -> Map.get(data_ext, :latitude) || Map.get(data_ext, "latitude")
+                _ -> nil
+              end %>
+          {if lat,
+            do:
+              (is_float(lat) and :io_lib.format("~.6f", [lat]) |> List.to_string()) or
+                (is_binary(lat) and Regex.replace(~r/(\d+\.\d{1,6})\d*/, lat, "\\1")) or lat,
+            else: ""}
+        </span>
+      </:col>
+      <:col :let={packet} label="Longitude">
+        <span class="text-xs text-gray-700 font-mono">
+          <% lon =
+            Map.get(packet, :lon) ||
+              if(
+                Map.has_key?(packet, :location) and not is_nil(packet.location) and
+                  function_exported?(Aprs.Packet, :lon, 1),
+                do: Aprs.Packet.lon(packet),
+                else: nil
+              ) ||
+              case Map.get(packet, :data_extended) do
+                %{} = data_ext -> Map.get(data_ext, :longitude) || Map.get(data_ext, "longitude")
+                _ -> nil
+              end %>
+          {if lon,
+            do:
+              (is_float(lon) and :io_lib.format("~.6f", [lon]) |> List.to_string()) or
+                (is_binary(lon) and Regex.replace(~r/(\d+\.\d{1,6})\d*/, lon, "\\1")) or lon,
+            else: ""}
+        </span>
       </:col>
     </.table>
   </div>

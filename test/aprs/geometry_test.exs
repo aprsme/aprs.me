@@ -86,7 +86,6 @@ defmodule Aprs.GeometryTest do
       }
 
       changeset = Packet.changeset(%Packet{}, attrs)
-
       # Should still be valid, just without location
       assert changeset.valid?
       assert get_change(changeset, :location) == nil
@@ -115,7 +114,8 @@ defmodule Aprs.GeometryTest do
       assert packet.has_position == true
       assert packet.location != nil
       assert %Geo.Point{} = packet.location
-      assert packet.location.coordinates == {-96.7970, 32.2743}
+      assert_in_delta elem(packet.location.coordinates, 1), 32.2743, 0.0001
+      assert_in_delta elem(packet.location.coordinates, 0), -96.7970, 0.0001
     end
 
     test "store_packet/1 handles packet without position data" do

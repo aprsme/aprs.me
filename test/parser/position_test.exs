@@ -38,8 +38,8 @@ defmodule Parser.PositionTest do
         flunk("parse_aprs_position/2 returned nil for latitude or longitude")
       end
 
-      assert_in_delta result.latitude, 49.05833333333333, 1.0e-10
-      assert_in_delta result.longitude, -72.02916666666667, 1.0e-10
+      assert Decimal.equal?(Decimal.round(result.latitude, 6), Decimal.new("49.058333"))
+      assert Decimal.equal?(Decimal.round(result.longitude, 6), Decimal.new("-72.029167"))
     end
 
     test "returns nils for invalid strings" do

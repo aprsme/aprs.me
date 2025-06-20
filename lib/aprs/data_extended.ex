@@ -35,10 +35,18 @@ defmodule Aprs.DataExtended do
       :aprs_messaging,
       :comment,
       :data_type,
-      :latitude,
-      :longitude,
       :symbol_code,
       :symbol_table_id
     ])
+    |> validate_required_if_present(:latitude)
+    |> validate_required_if_present(:longitude)
+  end
+
+  defp validate_required_if_present(changeset, field) do
+    if Map.has_key?(changeset.changes, field) do
+      validate_required(changeset, [field])
+    else
+      changeset
+    end
   end
 end

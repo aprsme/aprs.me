@@ -38,23 +38,23 @@ defmodule Parser.Position do
 
   @doc false
   def parse_aprs_position(lat_str, lon_str) do
-    # Parse latitude: DDMM.MM format
+    import Decimal, only: [new: 1, add: 2, negate: 1]
+
     lat =
       case Regex.run(~r/^(\d{2})(\d{2}\.\d+)([NS])$/, lat_str) do
         [_, degrees, minutes, direction] ->
-          lat_val = String.to_integer(degrees) + String.to_float(minutes) / 60
-          if direction == "S", do: -lat_val, else: lat_val
+          lat_val = add(new(degrees), Decimal.div(new(minutes), new("60")))
+          if direction == "S", do: negate(lat_val), else: lat_val
 
         _ ->
           nil
       end
 
-    # Parse longitude: DDDMM.MM format
     lon =
       case Regex.run(~r/^(\d{3})(\d{2}\.\d+)([EW])$/, lon_str) do
         [_, degrees, minutes, direction] ->
-          lon_val = String.to_integer(degrees) + String.to_float(minutes) / 60
-          if direction == "W", do: -lon_val, else: lon_val
+          lon_val = add(new(degrees), Decimal.div(new(minutes), new("60")))
+          if direction == "W", do: negate(lon_val), else: lon_val
 
         _ ->
           nil
@@ -96,5 +96,11 @@ defmodule Parser.Position do
       _ ->
         nil
     end
+  end
+
+  def from_aprs(lat_str, lon_str), do: parse_aprs_position(lat_str, lon_str)
+
+  def from_decimal(lat, lon) do
+    %{latitude: Decimal.new(lat), longitude: Decimal.new(lon)}
   end
 end

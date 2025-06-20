@@ -29,7 +29,19 @@ defmodule Parser.Item do
     end
   end
 
-  def parse(data), do: %{raw_data: data, data_type: :item}
+  def parse(data) do
+    # Try to extract position from raw_data if present
+    base = %{raw_data: data, data_type: :item}
+
+    case Regex.run(~r/(\d{4,5}\.\d+[NS]).*([\/]?)(\d{5,6}\.\d+[EW])/, data) do
+      [_, lat_str, _, lon_str] ->
+        %{latitude: lat, longitude: lon} = Parser.Position.parse_aprs_position(lat_str, lon_str)
+        Map.merge(base, %{latitude: lat, longitude: lon})
+
+      _ ->
+        base
+    end
+  end
 
   defp parse_item_position(position_data) do
     case position_data do

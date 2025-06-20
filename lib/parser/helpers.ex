@@ -430,6 +430,35 @@ defmodule Parser.Helpers do
     end
   end
 
-  def validate_position_data(_latitude, _longitude), do: {:ok, {nil, nil}}
+  def validate_position_data(latitude, longitude) do
+    import Decimal, only: [new: 1, add: 2, negate: 1]
+
+    lat =
+      case Regex.run(~r/^(\d{2})(\d{2}\.\d+)([NS])$/, latitude) do
+        [_, degrees, minutes, direction] ->
+          lat_val = add(new(degrees), Decimal.div(new(minutes), new("60")))
+          if direction == "S", do: negate(lat_val), else: lat_val
+
+        _ ->
+          nil
+      end
+
+    lon =
+      case Regex.run(~r/^(\d{3})(\d{2}\.\d+)([EW])$/, longitude) do
+        [_, degrees, minutes, direction] ->
+          lon_val = add(new(degrees), Decimal.div(new(minutes), new("60")))
+          if direction == "W", do: negate(lon_val), else: lon_val
+
+        _ ->
+          nil
+      end
+
+    if is_struct(lat, Decimal) and is_struct(lon, Decimal) do
+      {:ok, {lat, lon}}
+    else
+      {:error, :invalid_position}
+    end
+  end
+
   def validate_timestamp(_time), do: nil
 end

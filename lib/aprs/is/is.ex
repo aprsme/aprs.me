@@ -369,6 +369,11 @@ defmodule Aprs.Is do
     :normal
   end
 
+  @impl true
+  def code_change(_old_vsn, state, _extra) do
+    {:ok, state}
+  end
+
   @spec dispatch(binary) :: nil | :ok
   def dispatch("#" <> comment_text) do
     Logger.debug("COMMENT: " <> String.trim(comment_text))

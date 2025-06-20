@@ -120,4 +120,9 @@ defmodule Aprs.AprsIsConnection do
         error
     end
   end
+
+  @impl true
+  def code_change(_old_vsn, state, _extra) do
+    {:ok, state}
+  end
 end

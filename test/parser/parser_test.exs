@@ -113,7 +113,7 @@ defmodule ParserTest do
       assert Parser.parse_datatype("=posmsg") == :position_with_message
       assert Parser.parse_datatype("@tsmsg") == :timestamped_position_with_message
       assert Parser.parse_datatype(";object") == :object
-      assert Parser.parse_datatype("`mic_e") == :mic_e
+      assert Parser.parse_datatype("`mic_e") == :mic_e_old
       assert Parser.parse_datatype("'mic_e_old") == :mic_e_old
       assert Parser.parse_datatype("_weather") == :weather
       assert Parser.parse_datatype("Ttele") == :telemetry
@@ -214,12 +214,66 @@ defmodule ParserTest do
       assert is_map(result)
       assert result[:data_type] == :phg_data
     end
+
+    test "extracts coordinates from timestamped position with weather packet" do
+      # This is a typical APRS timestamped position with weather
+      packet = "/201739z3316.04N/09631.96W_247/002g015t090h60b10161jDvs /A=000660"
+      destination = "APRS"
+      # The data type indicator is the first character
+      data_type = Parser.parse_datatype(packet)
+      # Remove the type indicator for parse_data
+      data_without_type = String.slice(packet, 1..-1//1)
+      result = Parser.parse_data(data_type, destination, data_without_type)
+      assert is_map(result)
+      assert is_struct(result[:latitude], Decimal)
+      assert is_struct(result[:longitude], Decimal)
+      assert Decimal.equal?(Decimal.round(result[:latitude], 6), Decimal.new("33.267333"))
+      assert Decimal.equal?(Decimal.round(result[:longitude], 6), Decimal.new("-96.532667"))
+    end
+
+    test "extracts coordinates from timestamped position with weather and sets has_position" do
+      packet =
+        "KG5CK-1>APRS,TCPIP*,qAC,T2SPAIN:@201750z3301.64N/09639.10W_c038s003g004t091r000P000h62b10108"
+
+      {:ok, parsed} = Parser.parse(packet)
+      data = parsed.data_extended
+      assert is_map(data)
+      assert data[:data_type] == :position
+    end
+
+    test "extracts lat/lon from @ timestamped position with message packet (issue regression)" do
+      packet =
+        "NM6E>APOSW,TCPIP*,qAC,T2SPAIN:@201807z3311.59N/09639.67Wr/A=000656SharkRF openSPOT2 -Shack"
+
+      {:ok, parsed} = Parser.parse(packet)
+      data = parsed.data_extended
+      assert is_map(data)
+      assert is_struct(data[:latitude], Decimal)
+      assert is_struct(data[:longitude], Decimal)
+      refute is_nil(data[:latitude])
+      refute is_nil(data[:longitude])
+      if Map.has_key?(data, :has_location), do: assert(data[:has_location])
+    end
   end
 
   describe "parse/1" do
     test "returns {:error, _} for obviously invalid input" do
       assert match?({:error, _}, Parser.parse(""))
       assert match?({:error, _}, Parser.parse("notapacket"))
+    end
+
+    test "extracts lat/lon from @ timestamped position with message packet (issue regression)" do
+      packet =
+        "NM6E>APOSW,TCPIP*,qAC,T2SPAIN:@201807z3311.59N/09639.67Wr/A=000656SharkRF openSPOT2 -Shack"
+
+      {:ok, parsed} = Parser.parse(packet)
+      data = parsed.data_extended
+      assert is_map(data)
+      assert is_struct(data[:latitude], Decimal)
+      assert is_struct(data[:longitude], Decimal)
+      refute is_nil(data[:latitude])
+      refute is_nil(data[:longitude])
+      if Map.has_key?(data, :has_location), do: assert(data[:has_location])
     end
   end
 end

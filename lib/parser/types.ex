@@ -44,23 +44,23 @@ defmodule Parser.Types do
     Parse APRS lat/lon strings (e.g., "3339.13N", "11759.13W") into a map with latitude and longitude.
     """
     def from_aprs(lat_str, lon_str) do
-      # Parse latitude: DDMM.MM format
+      import Decimal, only: [new: 1, add: 2, negate: 1]
+
       lat =
         case Regex.run(~r/^(\d{2})(\d{2}\.\d+)([NS])$/, lat_str) do
           [_, degrees, minutes, direction] ->
-            lat_val = String.to_integer(degrees) + String.to_float(minutes) / 60
-            if direction == "S", do: -lat_val, else: lat_val
+            lat_val = add(new(degrees), Decimal.div(new(minutes), new("60")))
+            if direction == "S", do: negate(lat_val), else: lat_val
 
           _ ->
             nil
         end
 
-      # Parse longitude: DDDMM.MM format
       lon =
         case Regex.run(~r/^(\d{3})(\d{2}\.\d+)([EW])$/, lon_str) do
           [_, degrees, minutes, direction] ->
-            lon_val = String.to_integer(degrees) + String.to_float(minutes) / 60
-            if direction == "W", do: -lon_val, else: lon_val
+            lon_val = add(new(degrees), Decimal.div(new(minutes), new("60")))
+            if direction == "W", do: negate(lon_val), else: lon_val
 
           _ ->
             nil
@@ -73,7 +73,7 @@ defmodule Parser.Types do
     Return a map with latitude and longitude from decimal values.
     """
     def from_decimal(lat, lon) do
-      %{latitude: lat, longitude: lon}
+      %{latitude: Decimal.new(to_string(lat)), longitude: Decimal.new(to_string(lon))}
     end
   end
 

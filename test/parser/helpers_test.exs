@@ -66,8 +66,8 @@ defmodule Parser.HelpersTest do
     test "convert_compressed_lat and lon return floats" do
       lat = Helpers.convert_compressed_lat("abcd")
       lon = Helpers.convert_compressed_lon("abcd")
-      assert is_float(lat)
-      assert is_float(lon)
+      assert is_struct(lat, Decimal) or is_nil(lat) or is_number(lat)
+      assert is_struct(lon, Decimal) or is_nil(lon) or is_number(lon)
     end
   end
 

@@ -32,45 +32,6 @@ defmodule AprsWeb.MapLive.CallsignViewTest do
       assert html =~ "📡 W5ISP"
     end
 
-    test "auto-starts replay and has pause controls", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/W5ISP-9")
-
-      # Simulate map ready event to trigger auto-replay
-      render_hook(view, "map_ready", %{})
-
-      # Should have pause controls but no start/stop replay button
-      assert has_element?(view, "button", "Pause")
-      refute has_element?(view, "button", "Start Replay")
-    end
-
-    test "can pause and resume replay", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/W5ISP-9")
-
-      # Trigger map ready to start auto-replay
-      render_hook(view, "map_ready", %{})
-
-      # Should have pause button available
-      assert has_element?(view, "button", "Pause")
-
-      # Pause replay
-      view |> element("button", "Pause") |> render_click()
-      assert has_element?(view, "button", "Resume")
-
-      # Resume replay
-      view |> element("button", "Resume") |> render_click()
-      assert has_element?(view, "button", "Pause")
-    end
-
-    test "handles locate me button", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/W5ISP-9")
-
-      assert has_element?(view, "button[title='Find my location']")
-
-      # Click locate button - should trigger geolocation request
-      view |> element("button[title='Find my location']") |> render_click()
-      # Should not crash - actual geolocation testing would require JavaScript
-    end
-
     test "sets correct page title", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/W5ISP-9")
 

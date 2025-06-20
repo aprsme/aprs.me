@@ -9,6 +9,7 @@ defmodule Aprs.Packets do
   alias Aprs.EncodingUtils
   alias Aprs.Packet
   alias Aprs.Repo
+  alias Parser.Types.MicE
 
   @doc """
   Stores a packet in the database.
@@ -50,38 +51,80 @@ defmodule Aprs.Packets do
       current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
       packet_attrs = Map.put(packet_attrs, :received_at, current_time)
 
+      # Patch: If data_extended has latitude/longitude, set them as lat/lon as Decimal
+      packet_attrs =
+        case packet_attrs[:data_extended] do
+          %{} = ext ->
+            # Convert struct to map if needed
+            ext_map = if Map.has_key?(ext, :__struct__), do: Map.from_struct(ext), else: ext
+
+            lat =
+              ext_map[:latitude] || ext_map["latitude"] ||
+                (Map.has_key?(ext_map, :position) &&
+                   (ext_map[:position][:latitude] || ext_map[:position]["latitude"])) ||
+                (Map.has_key?(ext_map, "position") &&
+                   (ext_map["position"][:latitude] || ext_map["position"]["latitude"]))
+
+            lon =
+              ext_map[:longitude] || ext_map["longitude"] ||
+                (Map.has_key?(ext_map, :position) &&
+                   (ext_map[:position][:longitude] || ext_map[:position]["longitude"])) ||
+                (Map.has_key?(ext_map, "position") &&
+                   (ext_map["position"][:longitude] || ext_map["position"]["longitude"]))
+
+            latd = to_decimal(lat)
+            lond = to_decimal(lon)
+
+            if not is_nil(latd) and not is_nil(lond) do
+              packet_attrs
+              |> Map.put(:lat, latd)
+              |> Map.put(:lon, lond)
+            else
+              packet_attrs
+            end
+
+          _ ->
+            packet_attrs
+        end
+
       # Extract position data with error handling
       {lat, lon} = extract_position(packet_attrs)
 
-      # Set position fields if found
-      packet_attrs =
-        if lat && lon do
-          # Validate coordinates before creating geometry
-          if are_valid_coordinates?(lat, lon) do
-            packet_attrs
-            |> Map.put(:lat, lat)
-            |> Map.put(:lon, lon)
-            |> Map.put(:has_position, true)
-            |> Map.put(:region, "#{Float.round(lat, 1)},#{Float.round(lon, 1)}")
-          else
-            Logger.debug("Invalid coordinates for packet from #{packet_attrs[:sender]}: lat=#{lat}, lon=#{lon}")
+      # Helper to round to 6 decimal places
+      round6 = fn
+        nil ->
+          nil
 
-            # Set region based on callsign if coordinates are invalid
-            sender_region =
-              if packet_attrs[:sender],
-                do: String.slice(packet_attrs.sender || "", 0, 3),
-                else: "unknown"
+        %Decimal{} = d ->
+          Decimal.round(d, 6)
 
-            Map.put(packet_attrs, :region, "call:#{sender_region}")
+        n when is_float(n) ->
+          Float.round(n, 6)
+
+        n when is_integer(n) ->
+          n * 1.0
+
+        n when is_binary(n) ->
+          case Float.parse(n) do
+            {f, _} -> Float.round(f, 6)
+            :error -> nil
           end
-        else
-          # Set region based on callsign if no position
-          sender_region =
-            if packet_attrs[:sender],
-              do: String.slice(packet_attrs.sender || "", 0, 3),
-              else: "unknown"
 
-          Map.put(packet_attrs, :region, "call:#{sender_region}")
+        _ ->
+          nil
+      end
+
+      # Set position fields if found (this will overwrite above if extract_position finds something different)
+      packet_attrs =
+        packet_attrs
+        |> Map.put(:lat, round6.(lat))
+        |> Map.put(:lon, round6.(lon))
+
+      # Normalize ssid to string if present and not nil
+      packet_attrs =
+        case Map.get(packet_attrs, :ssid) do
+          nil -> packet_attrs
+          ssid -> Map.put(packet_attrs, :ssid, to_string(ssid))
         end
 
       # Insert the packet
@@ -89,16 +132,6 @@ defmodule Aprs.Packets do
            |> Packet.changeset(packet_attrs)
            |> Repo.insert() do
         {:ok, packet} ->
-          symbol_table =
-            Map.get(packet_attrs, :symbol_table_id) ||
-              get_in(packet_attrs, [:data_extended, :symbol_table_id]) || "/"
-
-          symbol_code =
-            Map.get(packet_attrs, :symbol_code) ||
-              get_in(packet_attrs, [:data_extended, :symbol_code]) || ">"
-
-          Logger.debug("SYMBOL TABLE: #{inspect(symbol_table)}")
-          Logger.debug("SYMBOL CODE: #{inspect(symbol_code)}")
           {:ok, packet}
 
         {:error, changeset} ->
@@ -170,13 +203,26 @@ defmodule Aprs.Packets do
       {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
       # MicE packet format with components
     else
-      extract_position_from_mic_e(data_extended)
+      case data_extended do
+        %{__struct__: MicE} = mic_e ->
+          lat = mic_e[:latitude]
+          lon = mic_e[:longitude]
+
+          if is_number(lat) and is_number(lon) do
+            {lat, lon}
+          else
+            {nil, nil}
+          end
+
+        _ ->
+          extract_position_from_mic_e(data_extended)
+      end
     end
   end
 
   defp extract_position_from_data_extended(_), do: {nil, nil}
 
-  defp extract_position_from_mic_e(%{__struct__: Parser.Types.MicE} = mic_e) do
+  defp extract_position_from_mic_e(%{__struct__: MicE} = mic_e) do
     if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
          is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes) do
       lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
@@ -431,11 +477,25 @@ defmodule Aprs.Packets do
 
   defp to_float(_), do: nil
 
-  # Helper to validate coordinate values
-  defp are_valid_coordinates?(lat, lon) do
-    is_number(lat) and is_number(lon) and
-      lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180
+  # Helper to convert various types to Decimal
+  defp to_decimal(%Decimal{} = d), do: d
+  defp to_decimal(f) when is_float(f), do: Decimal.from_float(f)
+  defp to_decimal(i) when is_integer(i), do: Decimal.new(i)
+
+  defp to_decimal(s) when is_binary(s) do
+    case Decimal.parse(s) do
+      {d, _} ->
+        d
+
+      :error ->
+        case Float.parse(s) do
+          {f, _} -> Decimal.from_float(f)
+          :error -> nil
+        end
+    end
   end
+
+  defp to_decimal(_), do: nil
 
   # Helper to sanitize all string fields in packet data before database storage
   defp sanitize_packet_strings(packet_attrs) when is_map(packet_attrs) do

@@ -102,6 +102,14 @@ defmodule Parser.PropertyTest do
       result = Parser.parse(msg)
       assert {:ok, packet} = result
       assert packet.data_extended.data_type == :malformed_position
+
+      if Map.has_key?(packet, :latitude) and not is_nil(packet.latitude) do
+        assert is_struct(packet.latitude, Decimal)
+      end
+
+      if Map.has_key?(packet, :longitude) and not is_nil(packet.longitude) do
+        assert is_struct(packet.longitude, Decimal)
+      end
     end
   end
 

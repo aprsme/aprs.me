@@ -13,8 +13,6 @@ defmodule AprsWeb.MapLive.Index do
   @default_zoom 5
   @ip_api_url "https://ip-api.com/json/"
   @finch_name Aprs.Finch
-  @default_replay_speed 1000
-  @debounce_interval 200
 
   @impl true
   def mount(_params, _session, socket) do
@@ -105,11 +103,6 @@ defmodule AprsWeb.MapLive.Index do
           send(self(), {:ip_location, @default_center})
       end
     end)
-  end
-
-  defp schedule_timers do
-    Process.send_after(self(), :cleanup_old_packets, 60_000)
-    Process.send_after(self(), :initialize_replay, 2000)
   end
 
   @impl true
@@ -285,8 +278,6 @@ defmodule AprsWeb.MapLive.Index do
       if compare_bounds(map_bounds, socket.assigns.map_bounds) do
         {:noreply, socket}
         # Cancel any pending bounds update timer
-
-        # Set a debounced update timer to prevent excessive processing
       else
         if socket.assigns[:bounds_update_timer] do
           Process.cancel_timer(socket.assigns.bounds_update_timer)
@@ -348,10 +339,6 @@ defmodule AprsWeb.MapLive.Index do
   # Private handler functions for each message type
 
   defp handle_info_process_bounds_update(map_bounds, socket) do
-    Logger.debug(
-      "handle_info_process_bounds_update: #{inspect(map_bounds)} vs current #{inspect(socket.assigns.map_bounds)}"
-    )
-
     if !socket.assigns.initial_bounds_loaded or
          not compare_bounds(map_bounds, socket.assigns.map_bounds) do
       socket = process_bounds_update(map_bounds, socket)
@@ -411,6 +398,10 @@ defmodule AprsWeb.MapLive.Index do
         do: to_string(packet["id"]),
         else: System.unique_integer([:positive])
 
+    Logger.debug(
+      "[MAP] Incoming packet: id=#{inspect(callsign_key)} lat=#{inspect(lat)} lon=#{inspect(lon)} bounds=#{inspect(socket.assigns.map_bounds)} within_bounds?=#{inspect(within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds))}"
+    )
+
     all_packets = Map.put(socket.assigns.all_packets, callsign_key, packet)
     socket = assign(socket, all_packets: all_packets)
 
@@ -435,7 +426,7 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
-  defp handle_valid_postgres_packet(packet, lat, lon, socket) do
+  defp handle_valid_postgres_packet(packet, _lat, _lon, socket) do
     # Add the packet to visible_packets and push a marker immediately
     callsign_key =
       if Map.has_key?(packet, "id"),
@@ -804,14 +795,31 @@ defmodule AprsWeb.MapLive.Index do
         (is_map(data_extended) &&
            (Map.get(data_extended, :longitude) || Map.get(data_extended, "longitude")))
 
+    lat =
+      cond do
+        is_struct(lat, Decimal) -> Decimal.to_float(lat)
+        is_float(lat) -> lat
+        is_integer(lat) -> lat * 1.0
+        true -> lat
+      end
+
+    lon =
+      cond do
+        is_struct(lon, Decimal) -> Decimal.to_float(lon)
+        is_float(lon) -> lon
+        is_integer(lon) -> lon * 1.0
+        true -> lon
+      end
+
     {lat, lon, data_extended}
   end
 
   @spec build_packet_data(map() | struct()) :: map() | nil
   defp build_packet_data(packet) do
     {lat, lon, data_extended} = get_coordinates(packet)
-    # Only include packets with valid position data
-    if lat && lon do
+    callsign = Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))
+    # Only include packets with valid position data and a non-empty callsign
+    if lat && lon && callsign != "" && callsign != nil do
       build_packet_map(packet, lat, lon, data_extended)
     end
   end
@@ -858,12 +866,12 @@ defmodule AprsWeb.MapLive.Index do
     %{
       "id" => callsign,
       "callsign" => callsign,
-      "base_callsign" => packet.base_callsign || "",
-      "ssid" => packet.ssid || "",
+      "base_callsign" => Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", "")),
+      "ssid" => Map.get(packet, :ssid, Map.get(packet, "ssid", 0)),
       "lat" => lat,
       "lng" => lon,
-      "data_type" => to_string(packet.data_type || "unknown"),
-      "path" => packet.path || "",
+      "data_type" => to_string(Map.get(packet, :data_type, Map.get(packet, "data_type", "unknown"))),
+      "path" => Map.get(packet, :path, Map.get(packet, "path", "")),
       "comment" => comment,
       "data_extended" => data_extended || %{},
       "symbol_table_id" => symbol_table_id,
@@ -876,10 +884,13 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec generate_callsign(map() | struct()) :: String.t()
   defp generate_callsign(packet) do
-    if packet.ssid && packet.ssid != "" do
-      "#{packet.base_callsign}-#{packet.ssid}"
+    base_callsign = Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))
+    ssid = Map.get(packet, :ssid, Map.get(packet, "ssid", 0))
+
+    if ssid != 0 and ssid != "" and ssid != nil do
+      "#{base_callsign}-#{ssid}"
     else
-      packet.base_callsign || ""
+      base_callsign
     end
   end
 

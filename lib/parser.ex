@@ -6,24 +6,31 @@ defmodule Parser do
   """
   # import Bitwise
   alias Aprs.Convert
-  alias Parser.Types.MicE
 
   require Logger
 
   # Simple APRS position parsing to replace parse_aprs_position
-  defp parse_aprs_position(
-         <<lat_deg::binary-size(2), lat_min::binary-size(5), lat_dir::binary-size(1)>>,
-         <<lon_deg::binary-size(3), lon_min::binary-size(5), lon_dir::binary-size(1)>>
-       )
-       when lat_dir in ["N", "S"] and lon_dir in ["E", "W"] do
-    lat_val = String.to_integer(lat_deg) + String.to_float(lat_min) / 60
-    lon_val = String.to_integer(lon_deg) + String.to_float(lon_min) / 60
-    lat = if lat_dir == "S", do: -lat_val, else: lat_val
-    lon = if lon_dir == "W", do: -lon_val, else: lon_val
-    %{latitude: lat, longitude: lon}
-  end
+  defp parse_aprs_position(lat, lon) do
+    # Regex for latitude: 2 deg, 2+ min, 1 dir (N/S)
+    # Regex for longitude: 3 deg, 2+ min, 1 dir (E/W)
+    lat_re = ~r/^(\d{2})(\d{2}\.\d+)([NS])$/
+    lon_re = ~r/^(\d{3})(\d{2}\.\d+)([EW])$/
 
-  defp parse_aprs_position(_, _), do: %{latitude: nil, longitude: nil}
+    with [_, lat_deg, lat_min, lat_dir] <- Regex.run(lat_re, lat),
+         [_, lon_deg, lon_min, lon_dir] <- Regex.run(lon_re, lon) do
+      lat_val =
+        Decimal.add(Decimal.new(lat_deg), Decimal.div(Decimal.new(lat_min), Decimal.new("60")))
+
+      lon_val =
+        Decimal.add(Decimal.new(lon_deg), Decimal.div(Decimal.new(lon_min), Decimal.new("60")))
+
+      lat = if lat_dir == "S", do: Decimal.negate(lat_val), else: lat_val
+      lon = if lon_dir == "W", do: Decimal.negate(lon_val), else: lon_val
+      %{latitude: lat, longitude: lon}
+    else
+      _ -> %{latitude: nil, longitude: nil}
+    end
+  end
 
   @type packet :: %{
           id: String.t(),
@@ -55,7 +62,7 @@ defmodule Parser do
 
   defp do_parse(message) do
     with {:ok, [sender, path, data]} <- split_packet(message),
-         {:ok, [base_callsign, ssid]} <- parse_callsign(sender),
+         {:ok, callsign_parts} <- parse_callsign(sender),
          {:ok, data_type} <- parse_datatype_safe(data),
          {:ok, [destination, path]} <- split_path(path),
          :ok <- validate_callsign(sender, :src),
@@ -64,6 +71,26 @@ defmodule Parser do
       data_trimmed = String.trim(data)
       data_without_type = String.slice(data_trimmed, 1..-1//1)
       data_extended = parse_data(data_type, destination, data_without_type)
+
+      base_callsign = List.first(callsign_parts)
+
+      ssid =
+        case List.last(callsign_parts) do
+          nil ->
+            0
+
+          s when is_binary(s) ->
+            case Integer.parse(s) do
+              {i, _} -> i
+              :error -> 0
+            end
+
+          i when is_integer(i) ->
+            i
+
+          _ ->
+            0
+        end
 
       {:ok,
        %{
@@ -170,32 +197,32 @@ defmodule Parser do
   @spec parse_datatype(String.t()) :: atom()
   def parse_datatype(<<":", _::binary>>), do: :message
   def parse_datatype(<<">", _::binary>>), do: :status
-  def parse_datatype(<<"!", _::binary>>), do: :position
-  def parse_datatype(<<"/", _::binary>>), do: :timestamped_position
-  def parse_datatype(<<"=", _::binary>>), do: :position_with_message
-  def parse_datatype(<<"@", _::binary>>), do: :timestamped_position_with_message
-  def parse_datatype(<<";", _::binary>>), do: :object
-  def parse_datatype(<<"`", _::binary>>), do: :mic_e
-  def parse_datatype(<<"'", _::binary>>), do: :mic_e_old
-  def parse_datatype(<<"_", _::binary>>), do: :weather
-  def parse_datatype(<<"T", _::binary>>), do: :telemetry
-  def parse_datatype(<<"$", _::binary>>), do: :raw_gps_ultimeter
-  def parse_datatype(<<"<", _::binary>>), do: :station_capabilities
-  def parse_datatype(<<"?", _::binary>>), do: :query
-  def parse_datatype(<<"{", _::binary>>), do: :user_defined
-  def parse_datatype(<<"}", _::binary>>), do: :third_party_traffic
-  def parse_datatype(<<"%", _::binary>>), do: :item
-  def parse_datatype(<<")", _::binary>>), do: :item
-  def parse_datatype(<<"*", _::binary>>), do: :peet_logging
-  def parse_datatype(<<",", _::binary>>), do: :invalid_test_data
-  def parse_datatype(<<"#DFS", _::binary>>), do: :df_report
-  def parse_datatype(<<"#PHG", _::binary>>), do: :phg_data
-  def parse_datatype(<<"#", _::binary>>), do: :phg_data
+  def parse_datatype("!" <> _), do: :position
+  def parse_datatype("/" <> _), do: :timestamped_position
+  def parse_datatype("=" <> _), do: :position_with_message
+  def parse_datatype("@" <> _), do: :timestamped_position_with_message
+  def parse_datatype(";" <> _), do: :object
+  def parse_datatype("`" <> _), do: :mic_e_old
+  def parse_datatype("'" <> _), do: :mic_e_old
+  def parse_datatype("_" <> _), do: :weather
+  def parse_datatype("T" <> _), do: :telemetry
+  def parse_datatype("$" <> _), do: :raw_gps_ultimeter
+  def parse_datatype("<" <> _), do: :station_capabilities
+  def parse_datatype("?" <> _), do: :query
+  def parse_datatype("{" <> _), do: :user_defined
+  def parse_datatype("}" <> _), do: :third_party_traffic
+  def parse_datatype("%" <> _), do: :item
+  def parse_datatype(")" <> _), do: :item
+  def parse_datatype("*" <> _), do: :peet_logging
+  def parse_datatype("," <> _), do: :invalid_test_data
+  def parse_datatype("#DFS" <> _), do: :df_report
+  def parse_datatype("#PHG" <> _), do: :phg_data
+  def parse_datatype("#" <> _), do: :phg_data
   def parse_datatype(_), do: :unknown_datatype
 
   @spec parse_data(atom(), String.t(), String.t()) :: map() | nil
-  def parse_data(:mic_e, _destination, data), do: parse_mic_e(data)
-  def parse_data(:mic_e_old, _destination, data), do: parse_mic_e(data)
+  def parse_data(:mic_e, destination, data), do: parse_mic_e(data, destination)
+  def parse_data(:mic_e_old, destination, data), do: parse_mic_e(data, destination)
 
   def parse_data(:position, destination, <<"!", rest::binary>>) do
     parse_data(:position, destination, rest)
@@ -216,27 +243,55 @@ defmodule Parser do
     %{result | data_type: :position}
   end
 
-  def parse_data(:timestamped_position, _destination, <<"/", _::binary>>) do
-    %{
-      data_type: :timestamped_position_error,
-      error: "Compressed position not supported in timestamped position"
-    }
-  end
-
   def parse_data(:timestamped_position, _destination, data) do
     parse_position_with_timestamp(false, data, :timestamped_position)
   end
 
   def parse_data(:timestamped_position_with_message, _destination, data) do
+    # Correct binary pattern match for APRS position with weather
     case data do
-      <<"/", _::binary>> ->
-        %{
-          data_type: :timestamped_position_error,
-          error: "Compressed position not supported in timestamped position"
-        }
+      <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9),
+        symbol_code::binary-size(1), rest::binary>> ->
+        weather_start = String.starts_with?(rest, "_")
+
+        if weather_start do
+          result =
+            Parser.parse_position_with_datetime_and_weather(
+              true,
+              time,
+              latitude,
+              sym_table_id,
+              longitude,
+              symbol_code,
+              rest
+            )
+
+          Map.put(
+            result,
+            :has_location,
+            (is_number(result[:latitude]) or is_struct(result[:latitude], Decimal)) and
+              (is_number(result[:longitude]) or is_struct(result[:longitude], Decimal))
+          )
+        else
+          result = parse_position_with_timestamp(true, data, :timestamped_position_with_message)
+
+          Map.put(
+            result,
+            :has_location,
+            (is_number(result[:latitude]) or is_struct(result[:latitude], Decimal)) and
+              (is_number(result[:longitude]) or is_struct(result[:longitude], Decimal))
+          )
+        end
 
       _ ->
-        parse_position_with_timestamp(true, data)
+        result = parse_position_with_timestamp(true, data, :timestamped_position_with_message)
+
+        Map.put(
+          result,
+          :has_location,
+          (is_number(result[:latitude]) or is_struct(result[:latitude], Decimal)) and
+            (is_number(result[:longitude]) or is_struct(result[:longitude], Decimal))
+        )
     end
   end
 
@@ -324,38 +379,37 @@ defmodule Parser do
 
   def parse_data(_type, _destination, _data), do: nil
 
-  @spec parse_position_with_datetime_and_weather(boolean(), String.t(), String.t()) :: map()
-  def parse_position_with_datetime_and_weather(aprs_messaging?, date_time_position_data, weather_report) do
-    case date_time_position_data do
-      <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
-        %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-        weather_data = parse_weather_data(weather_report)
+  @spec parse_position_with_datetime_and_weather(
+          boolean(),
+          binary(),
+          binary(),
+          binary(),
+          binary(),
+          binary(),
+          binary()
+        ) :: map()
+  def parse_position_with_datetime_and_weather(
+        aprs_messaging?,
+        time,
+        latitude,
+        sym_table_id,
+        longitude,
+        symbol_code,
+        weather_report
+      ) do
+    pos = parse_aprs_position(latitude, longitude)
+    weather_data = parse_weather_data(weather_report)
 
-        %{
-          latitude: lat,
-          longitude: lon,
-          timestamp: time,
-          symbol_table_id: sym_table_id,
-          symbol_code: "_",
-          weather: weather_data,
-          data_type: :position_with_datetime_and_weather,
-          aprs_messaging?: aprs_messaging?
-        }
-
-      _ ->
-        weather_data = parse_weather_data(weather_report)
-
-        %{
-          latitude: nil,
-          longitude: nil,
-          timestamp: nil,
-          symbol_table_id: nil,
-          symbol_code: nil,
-          weather: weather_data,
-          data_type: :position_with_datetime_and_weather,
-          aprs_messaging?: aprs_messaging?
-        }
-    end
+    %{
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+      timestamp: time,
+      symbol_table_id: sym_table_id,
+      symbol_code: symbol_code,
+      weather: weather_data,
+      data_type: :position_with_datetime_and_weather,
+      aprs_messaging?: aprs_messaging?
+    }
   end
 
   @spec decode_compressed_position(binary()) :: map()
@@ -400,6 +454,10 @@ defmodule Parser do
         dao_data = parse_dao_extension(comment)
         {course, speed} = extract_course_and_speed(comment)
 
+        has_position =
+          (is_number(lat) or is_struct(lat, Decimal)) and
+            (is_number(lon) or is_struct(lon, Decimal))
+
         %{
           latitude: lat,
           longitude: lon,
@@ -413,12 +471,17 @@ defmodule Parser do
           position_ambiguity: ambiguity,
           dao: dao_data,
           course: course,
-          speed: speed
+          speed: speed,
+          has_position: has_position
         }
 
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
         %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
         ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
+
+        has_position =
+          (is_number(lat) or is_struct(lat, Decimal)) and
+            (is_number(lon) or is_struct(lon, Decimal))
 
         %{
           latitude: lat,
@@ -432,7 +495,8 @@ defmodule Parser do
           position_ambiguity: ambiguity,
           dao: nil,
           course: nil,
-          speed: nil
+          speed: nil,
+          has_position: has_position
         }
 
       <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
@@ -442,6 +506,10 @@ defmodule Parser do
           converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
           compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
           ambiguity = Parser.Helpers.calculate_compressed_ambiguity(compression_type)
+
+          has_position =
+            (is_number(converted_lat) or is_struct(converted_lat, Decimal)) and
+              (is_number(converted_lon) or is_struct(converted_lon, Decimal))
 
           base_data = %{
             latitude: converted_lat,
@@ -454,7 +522,8 @@ defmodule Parser do
             data_type: :position,
             compressed?: true,
             position_ambiguity: ambiguity,
-            dao: nil
+            dao: nil,
+            has_position: has_position
           }
 
           # Merge in course/speed from compressed_cs
@@ -474,7 +543,8 @@ defmodule Parser do
               position_ambiguity: Parser.Helpers.calculate_compressed_ambiguity(compression_type),
               dao: nil,
               course: nil,
-              speed: nil
+              speed: nil,
+              has_position: false
             }
         end
 
@@ -491,7 +561,8 @@ defmodule Parser do
           comment: String.trim(position_data),
           dao: nil,
           course: nil,
-          speed: nil
+          speed: nil,
+          has_position: false
         }
     end
   end
@@ -530,35 +601,97 @@ defmodule Parser do
           course: course,
           speed: speed
         }
+
+      _ ->
+        # Fallback: try to extract lat/lon using regex if binary pattern match fails
+        regex =
+          ~r/^(?<time>\w{7})(?<lat>\d{4,5}\.\d+[NS])(?<sym_table>.)(?<lon>\d{5,6}\.\d+[EW])(?<sym_code>.)(?<comment>.*)$/
+
+        case Regex.named_captures(
+               regex,
+               time <> latitude <> sym_table_id <> longitude <> symbol_code <> comment
+             ) do
+          %{
+            "lat" => lat,
+            "lon" => lon,
+            "time" => time,
+            "sym_table" => sym_table,
+            "sym_code" => sym_code,
+            "comment" => comment
+          } ->
+            pos = parse_aprs_position(lat, lon)
+
+            %{
+              latitude: pos.latitude,
+              longitude: pos.longitude,
+              time: time,
+              symbol_table_id: sym_table,
+              symbol_code: sym_code,
+              comment: comment,
+              data_type: :position,
+              aprs_messaging?: aprs_messaging?,
+              compressed?: false
+            }
+
+          _ ->
+            %{
+              data_type: :timestamped_position_error,
+              error: "Invalid timestamped position format",
+              raw_data: time <> latitude <> sym_table_id <> longitude <> symbol_code <> comment
+            }
+        end
     end
   end
 
-  @spec parse_position_with_timestamp(boolean(), binary()) :: map()
-  def parse_position_with_timestamp(_aprs_messaging?, <<"/", _::binary>>) do
-    %{
-      data_type: :timestamped_position_error,
-      error: "Compressed position not supported in timestamped position"
-    }
+  def parse_position_with_timestamp(aprs_messaging?, data, _data_type) do
+    # Fallback: try to extract lat/lon using regex if binary pattern match fails
+    regex =
+      ~r/^(?<time>\w{7})(?<lat>\d{4,5}\.\d+[NS])(?<sym_table>.)(?<lon>\d{5,6}\.\d+[EW])(?<sym_code>.)(?<comment>.*)$/
+
+    case Regex.named_captures(regex, data) do
+      %{
+        "lat" => lat,
+        "lon" => lon,
+        "time" => time,
+        "sym_table" => sym_table,
+        "sym_code" => sym_code,
+        "comment" => comment
+      } ->
+        pos = parse_aprs_position(lat, lon)
+
+        %{
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          time: time,
+          symbol_table_id: sym_table,
+          symbol_code: sym_code,
+          comment: comment,
+          data_type: :position,
+          aprs_messaging?: aprs_messaging?,
+          compressed?: false
+        }
+
+      _ ->
+        %{
+          data_type: :timestamped_position_error,
+          error: "Invalid timestamped position format",
+          raw_data: data
+        }
+    end
   end
 
-  def parse_position_with_timestamp(_aprs_messaging?, data) do
-    %{
-      data_type: :timestamped_position_error,
-      error: "Invalid timestamped position format",
-      raw_data: data
-    }
-  end
-
-  @spec parse_mic_e(binary()) :: map()
-  def parse_mic_e(data) do
+  @spec parse_mic_e(binary(), String.t()) :: map()
+  def parse_mic_e(data, destination \\ nil) do
     case data do
       <<dti::binary-size(1), latitude::binary-size(6), longitude::binary-size(7), symbol_code::binary-size(1),
         speed::binary-size(1), course::binary-size(1), symbol_table_id::binary-size(1), rest::binary>> ->
+        # Try to extract lat/lon from destination if provided
+        dest_pos = if destination, do: parse_mic_e_destination(destination), else: %{}
         %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
 
         %{
-          latitude: lat,
-          longitude: lon,
+          latitude: lat || Map.get(dest_pos, :latitude),
+          longitude: lon || Map.get(dest_pos, :longitude),
           symbol_table_id: symbol_table_id,
           symbol_code: symbol_code,
           speed: speed,
@@ -1226,7 +1359,27 @@ defmodule Parser do
     case String.split(header, ">", parts: 2) do
       [sender, path] ->
         case parse_callsign(sender) do
-          {:ok, [base_callsign, ssid]} ->
+          {:ok, callsign_parts} ->
+            base_callsign = List.first(callsign_parts)
+
+            ssid =
+              case List.last(callsign_parts) do
+                nil ->
+                  0
+
+                s when is_binary(s) ->
+                  case Integer.parse(s) do
+                    {i, _} -> i
+                    :error -> 0
+                  end
+
+                i when is_integer(i) ->
+                  i
+
+                _ ->
+                  0
+              end
+
             case split_path(path) do
               {:ok, [destination, digi_path]} ->
                 {:ok,

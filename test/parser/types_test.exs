@@ -9,11 +9,11 @@ defmodule Parser.TypesTest do
   describe "Position.from_aprs/2" do
     test "parses valid APRS lat/lon strings" do
       result = Position.from_aprs("3339.13N", "11759.13W")
-      assert_in_delta result.latitude, 33.65216666666667, 1.0e-10
-      assert_in_delta result.longitude, -117.9855, 1.0e-10
+      assert Decimal.equal?(Decimal.round(result.latitude, 6), Decimal.new("33.652167"))
+      assert Decimal.equal?(Decimal.round(result.longitude, 6), Decimal.new("-117.9855"))
       result2 = Position.from_aprs("1234.70S", "04540.70E")
-      assert_in_delta result2.latitude, -12.345, 0.3
-      assert_in_delta result2.longitude, 45.678333333333335, 1.0e-10
+      assert Decimal.equal?(Decimal.round(result2.latitude, 6), Decimal.new("-12.578333"))
+      assert Decimal.equal?(Decimal.round(result2.longitude, 6), Decimal.new("45.678333"))
     end
 
     test "returns nils for invalid strings" do
@@ -25,7 +25,8 @@ defmodule Parser.TypesTest do
     property "returns a map with the same lat/lon as input" do
       check all lat <- StreamData.float(), lon <- StreamData.float() do
         result = Position.from_decimal(lat, lon)
-        assert %{latitude: ^lat, longitude: ^lon} = result
+        assert Decimal.equal?(result.latitude, Decimal.new(to_string(lat)))
+        assert Decimal.equal?(result.longitude, Decimal.new(to_string(lon)))
       end
     end
   end
@@ -47,8 +48,8 @@ defmodule Parser.TypesTest do
         )
 
       assert p.id == "1"
-      pos = struct(Position, latitude: 1.0, longitude: 2.0)
-      assert pos.latitude == 1.0
+      pos = struct(Position, latitude: Decimal.new(1), longitude: Decimal.new(2))
+      assert Decimal.equal?(pos.latitude, Decimal.new(1))
       err = struct(ParseError, error_code: :bad, error_message: "fail", raw_data: "oops")
       assert err.error_code == :bad
     end

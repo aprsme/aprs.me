@@ -48,8 +48,8 @@ defmodule Aprs.PacketsMicETest do
       expected_lat = 49.0 + 14.0 / 60.0
       expected_lon = 12.0 + 5.0 / 60.0
 
-      assert_in_delta stored_packet.lat, expected_lat, 0.001
-      assert_in_delta stored_packet.lon, expected_lon, 0.001
+      assert stored_packet.lat |> Decimal.to_float() |> Float.round(3) == Float.round(expected_lat, 3)
+      assert stored_packet.lon |> Decimal.to_float() |> Float.round(3) == Float.round(expected_lon, 3)
     end
 
     test "handles MicE data with south/west coordinates" do
@@ -90,10 +90,10 @@ defmodule Aprs.PacketsMicETest do
       # Verify west longitude is negative
       expected_lon = -(118.0 + 15.0 / 60.0)
 
-      assert_in_delta stored_packet.lat, expected_lat, 0.001
-      assert_in_delta stored_packet.lon, expected_lon, 0.001
-      assert stored_packet.lat < 0
-      assert stored_packet.lon < 0
+      assert stored_packet.lat |> Decimal.to_float() |> Float.round(3) == Float.round(expected_lat, 3)
+      assert stored_packet.lon |> Decimal.to_float() |> Float.round(3) == Float.round(expected_lon, 3)
+      assert Decimal.to_float(stored_packet.lat) < 0
+      assert Decimal.to_float(stored_packet.lon) < 0
     end
 
     test "handles MicE data with missing position components gracefully" do

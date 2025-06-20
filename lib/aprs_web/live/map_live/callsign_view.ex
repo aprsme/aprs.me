@@ -271,40 +271,42 @@ defmodule AprsWeb.MapLive.CallsignView do
           "#{sanitized_packet.base_callsign}#{if sanitized_packet.ssid, do: "-#{sanitized_packet.ssid}", else: ""}"
 
         if has_position_data?(sanitized_packet) and
-             Map.has_key?(socket.assigns.visible_packets, callsign_key) and
-             not within_bounds?(%{lat: lat, lon: lng}, socket.assigns.map_bounds) do
-          socket = push_event(socket, "remove_marker", %{id: callsign_key})
-          new_visible_packets = Map.delete(socket.assigns.visible_packets, callsign_key)
-          {:noreply, assign(socket, visible_packets: new_visible_packets)}
-        else
-          if has_position_data?(sanitized_packet) and
-               within_bounds?(%{lat: lat, lon: lng}, socket.assigns.map_bounds) and
-               packet_matches_callsign?(sanitized_packet, socket.assigns.callsign) and
-               packet_within_time_threshold?(
-                 sanitized_packet,
-                 socket.assigns.packet_age_threshold
-               ) do
-            packet_data = build_packet_data(sanitized_packet)
+             packet_matches_callsign?(sanitized_packet, socket.assigns.callsign) and
+             within_bounds?(%{lat: lat, lon: lng}, socket.assigns.map_bounds) and
+             packet_within_time_threshold?(
+               sanitized_packet,
+               socket.assigns.packet_age_threshold
+             ) do
+          packet_data = build_packet_data(sanitized_packet)
 
-            if packet_data do
-              visible_packets =
-                Map.put(socket.assigns.visible_packets, callsign_key, sanitized_packet)
-
-              last_known_position =
-                if lat && lng, do: %{lat: lat, lng: lng}, else: socket.assigns.last_known_position
-
-              socket =
-                socket
-                |> push_event("new_packet", packet_data)
-                |> assign(
-                  visible_packets: visible_packets,
-                  last_known_position: last_known_position
-                )
-
-              {:noreply, socket}
+          # Remove any previous marker for this callsign
+          socket =
+            if Map.has_key?(socket.assigns.visible_packets, callsign_key) do
+              push_event(socket, "remove_marker", %{id: callsign_key})
             else
-              {:noreply, socket}
+              socket
             end
+
+          visible_packets = %{callsign_key => sanitized_packet}
+
+          last_known_position =
+            if lat && lng, do: %{lat: lat, lng: lng}, else: socket.assigns.last_known_position
+
+          socket =
+            socket
+            |> push_event("new_packet", packet_data)
+            |> assign(
+              visible_packets: visible_packets,
+              last_known_position: last_known_position
+            )
+
+          {:noreply, socket}
+        else
+          # Remove marker if it exists and is now out of bounds or expired
+          if Map.has_key?(socket.assigns.visible_packets, callsign_key) do
+            socket = push_event(socket, "remove_marker", %{id: callsign_key})
+            visible_packets = %{}
+            {:noreply, assign(socket, visible_packets: visible_packets)}
           else
             {:noreply, socket}
           end
@@ -633,31 +635,6 @@ defmodule AprsWeb.MapLive.CallsignView do
         </div>
       </div>
 
-      <%= if @replay_active do %>
-        <div class="replay-controls">
-          <button class="replay-button" phx-click="pause_replay">
-            {if @replay_paused, do: "Resume", else: "Pause"}
-          </button>
-
-          <div class="speed-control">
-            <label>Speed:</label>
-            <input
-              type="number"
-              min="0.1"
-              max="10"
-              step="0.1"
-              value={@replay_speed}
-              phx-change="adjust_replay_speed"
-              name="speed"
-            />x
-          </div>
-        </div>
-      <% end %>
-
-      <button class="locate-button" phx-click="locate_me" title="Find my location">
-        🎯
-      </button>
-
       <%= if map_size(@visible_packets) == 0 and not @replay_active do %>
         <div class="empty-state">
           <h3>Loading Historical Data</h3>
@@ -707,7 +684,9 @@ defmodule AprsWeb.MapLive.CallsignView do
 
     # Use Map.drop/2 for better performance
     updated_visible_packets = Map.drop(socket.assigns.visible_packets, expired_keys)
-    assign(socket, visible_packets: updated_visible_packets)
+    socket = assign(socket, visible_packets: updated_visible_packets)
+
+    {:noreply, socket}
   end
 
   defp packet_within_time_threshold?(packet, threshold) do
@@ -917,12 +896,10 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   defp load_callsign_packets(socket, callsign) do
-    # Load recent packets (last hour) for this specific callsign
-    recent_packets = Packets.get_recent_packets(%{callsign: callsign})
-
-    # Find the most recent packet with position data for auto-zoom and symbol info
+    # Load only the latest packet for this specific callsign
     latest_packet =
-      recent_packets
+      %{callsign: callsign}
+      |> Packets.get_recent_packets()
       |> Enum.filter(&has_position_data?/1)
       |> Enum.sort_by(& &1.received_at, {:desc, DateTime})
       |> List.first()
@@ -949,29 +926,31 @@ defmodule AprsWeb.MapLive.CallsignView do
         _ -> ">"
       end
 
-    # Convert packets to client-friendly format and send to map
-    packet_data_list =
-      recent_packets
-      |> Stream.filter(&has_position_data?/1)
-      |> Stream.map(&build_packet_data/1)
-      |> Stream.filter(&(&1 != nil))
-      |> Enum.to_list()
-
-    # Build visible_packets map from the loaded packets
+    # Build visible_packets map with only the latest packet
     visible_packets =
-      recent_packets
-      |> Stream.filter(&has_position_data?/1)
-      |> Map.new(fn packet ->
-        callsign_key = "#{packet.base_callsign}#{if packet.ssid, do: "-#{packet.ssid}", else: ""}"
-        {callsign_key, packet}
-      end)
+      case latest_packet do
+        nil ->
+          %{}
 
-    # Send packets to map if any exist
+        packet ->
+          callsign_key =
+            "#{packet.base_callsign}#{if packet.ssid, do: "-#{packet.ssid}", else: ""}"
+
+          %{callsign_key => packet}
+      end
+
+    # Send only the latest marker to the map if it exists
     socket =
-      if length(packet_data_list) > 0 do
-        push_event(socket, "add_markers", %{markers: packet_data_list})
-      else
-        socket
+      case latest_packet do
+        nil ->
+          socket
+
+        packet ->
+          packet_data = build_packet_data(packet)
+
+          if packet_data,
+            do: push_event(socket, "add_markers", %{markers: [packet_data]}),
+            else: socket
       end
 
     assign(socket,
