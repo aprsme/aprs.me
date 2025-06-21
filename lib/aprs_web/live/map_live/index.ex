@@ -69,7 +69,7 @@ defmodule AprsWeb.MapLive.Index do
   defp maybe_start_geolocation(socket) do
     if geolocation_enabled?() do
       ip_for_geolocation =
-        if Mix.env() == :dev do
+        if Application.get_env(:aprs, AprsWeb.Endpoint)[:code_reloader] do
           # For testing geolocation in dev environment, use a public IP address.
           # This will be geolocated to Mountain View, CA.
           "8.8.8.8"
