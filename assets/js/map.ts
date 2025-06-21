@@ -39,6 +39,8 @@ interface MarkerData {
   historical?: boolean;
   color?: string;
   timestamp?: number;
+  is_most_recent_for_callsign?: boolean;
+  callsign_group?: string;
 }
 
 interface BoundsData {
@@ -60,6 +62,8 @@ interface MarkerState {
   symbol_code: string;
   popup?: string;
   historical?: boolean;
+  is_most_recent_for_callsign?: boolean;
+  callsign_group?: string;
 }
 
 interface MapEventData {
@@ -536,11 +540,41 @@ let MapAPRSMap = {
     // Handle bulk loading of historical packets
     self.handleEvent("add_historical_packets", (data: { packets: MarkerData[] }) => {
       if (data.packets && Array.isArray(data.packets)) {
+        // Group packets by callsign to process them in chronological order for proper trail drawing
+        const packetsByCallsign = new Map<string, MarkerData[]>();
+
         data.packets.forEach((packet) => {
-          self.addMarker({
-            ...packet,
-            historical: true,
-            popup: self.buildPopupContent(packet),
+          const callsign = packet.callsign_group || packet.callsign || packet.id;
+          if (!packetsByCallsign.has(callsign)) {
+            packetsByCallsign.set(callsign, []);
+          }
+          packetsByCallsign.get(callsign)!.push(packet);
+        });
+
+        // Process each callsign group in chronological order (oldest first)
+        packetsByCallsign.forEach((packets, callsign) => {
+          // Sort by timestamp (oldest first) to ensure proper trail line drawing
+          const sortedPackets = packets.sort((a, b) => {
+            const timeA = a.timestamp
+              ? typeof a.timestamp === "number"
+                ? a.timestamp
+                : new Date(a.timestamp).getTime()
+              : 0;
+            const timeB = b.timestamp
+              ? typeof b.timestamp === "number"
+                ? b.timestamp
+                : new Date(b.timestamp).getTime()
+              : 0;
+            return timeA - timeB;
+          });
+
+          // Add markers in chronological order
+          sortedPackets.forEach((packet) => {
+            self.addMarker({
+              ...packet,
+              historical: true,
+              popup: self.buildPopupContent(packet),
+            });
           });
         });
       }
@@ -561,7 +595,7 @@ let MapAPRSMap = {
       const markersToRemove: string[] = [];
       self.markers!.forEach((marker: any, id: any) => {
         if ((marker as any)._isHistorical) {
-          markersToRemove.push(id);
+          markersToRemove.push(String(id));
         }
       });
       markersToRemove.forEach((id) => self.removeMarker(id));
@@ -643,7 +677,13 @@ let MapAPRSMap = {
 
       if (positionChanged && self.trailManager) {
         // Position changed, update trail
-        self.trailManager.addPosition(data.id, lat, lng, data.timestamp || Date.now());
+        const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
+        const timestamp = data.timestamp
+          ? typeof data.timestamp === "string"
+            ? new Date(data.timestamp).getTime()
+            : data.timestamp
+          : Date.now();
+        self.trailManager.addPosition(data.id, lat, lng, timestamp, isHistoricalDot);
       }
 
       if (!positionChanged && !dataChanged) {
@@ -659,7 +699,7 @@ let MapAPRSMap = {
     // Remove existing marker if it exists
     self.removeMarker(data.id);
 
-    // Create marker using APRS symbol icon
+    // Create marker - use simple dot for older historical positions, APRS icon for most recent
     const marker = L.marker([lat, lng], {
       icon: self.createMarkerIcon(data),
     });
@@ -697,11 +737,19 @@ let MapAPRSMap = {
       symbol_code: data.symbol_code || ">",
       popup: data.popup,
       historical: data.historical,
+      is_most_recent_for_callsign: data.is_most_recent_for_callsign,
+      callsign_group: data.callsign_group,
     });
 
-    // Initialize trail for new marker
+    // Initialize trail for new marker - always add to trail for line drawing
     if (self.trailManager) {
-      self.trailManager.addPosition(data.id, lat, lng, data.timestamp || Date.now());
+      const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
+      const timestamp = data.timestamp
+        ? typeof data.timestamp === "string"
+          ? new Date(data.timestamp).getTime()
+          : data.timestamp
+        : Date.now();
+      self.trailManager.addPosition(data.id, lat, lng, timestamp, isHistoricalDot);
     }
 
     // Open popup if requested
@@ -710,18 +758,21 @@ let MapAPRSMap = {
     }
   },
 
-  removeMarker(id: string) {
+  removeMarker(id: string | any) {
     const self = this as unknown as LiveViewHookContext;
-    const marker = self.markers!.get(id);
+    // Ensure id is a string
+    const markerId = typeof id === "string" ? id : String(id);
+
+    const marker = self.markers!.get(markerId);
     if (marker) {
       self.markerLayer!.removeLayer(marker);
-      self.markers!.delete(id);
-      self.markerStates!.delete(id);
+      self.markers!.delete(markerId);
+      self.markerStates!.delete(markerId);
     }
 
     // Remove trail
     if (self.trailManager) {
-      self.trailManager.removeTrail(id);
+      self.trailManager.removeTrail(markerId);
     }
   },
 
@@ -743,7 +794,13 @@ let MapAPRSMap = {
           if (positionChanged) {
             existingMarker.setLatLng([lat, lng]);
             if (self.trailManager) {
-              self.trailManager.addPosition(data.id, lat, lng, data.timestamp || Date.now());
+              const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
+              const timestamp = data.timestamp
+                ? typeof data.timestamp === "string"
+                  ? new Date(data.timestamp).getTime()
+                  : data.timestamp
+                : Date.now();
+              self.trailManager.addPosition(data.id, lat, lng, timestamp, isHistoricalDot);
             }
           }
         }
@@ -802,10 +859,32 @@ let MapAPRSMap = {
     });
 
     // Remove out-of-bounds markers
-    markersToRemove.forEach((id) => self.removeMarker(id));
+    markersToRemove.forEach((id) => self.removeMarker(String(id)));
   },
 
   createMarkerIcon(data: MarkerData): L.DivIcon {
+    // For historical packets that are not the most recent for their callsign,
+    // show a simple red dot (only positions where lat/lon actually changed)
+    if (data.historical && !data.is_most_recent_for_callsign) {
+      const iconHtml = `<div style="
+        width: 8px;
+        height: 8px;
+        background-color: #FF6B6B;
+        border: 2px solid #FFFFFF;
+        border-radius: 50%;
+        opacity: 0.8;
+        box-shadow: 0 0 2px rgba(0,0,0,0.3);
+      " title="Historical position for ${data.callsign} (position changed)"></div>`;
+
+      return L.divIcon({
+        html: iconHtml,
+        className: "historical-dot-marker",
+        iconSize: [12, 12],
+        iconAnchor: [6, 6],
+      });
+    }
+
+    // For current packets or most recent historical packets, show the full APRS symbol icon
     const symbolTableId = data.symbol_table_id || "/";
     const symbolCode = getValidSymbolCode(data.symbol_code, symbolTableId);
 
@@ -841,7 +920,7 @@ let MapAPRSMap = {
       background-size: 512px 192px;
       background-repeat: no-repeat;
       image-rendering: pixelated;
-      opacity: ${data.historical ? "0.7" : "1.0"};
+      opacity: ${data.historical && data.is_most_recent_for_callsign ? "0.9" : "1.0"};
       overflow: hidden;
     " data-symbol-table="${symbolTableId}" data-symbol-code="${symbolCode}" data-sprite-position="${x},${y}" data-expected-index="${index}" title="Symbol: ${symbolCode} (${charCode}) at row ${row}, col ${column}"></div>`;
 

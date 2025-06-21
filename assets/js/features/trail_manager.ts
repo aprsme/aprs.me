@@ -32,29 +32,62 @@ export class TrailManager {
     }
   }
 
-  addPosition(markerId: string, lat: number, lng: number, timestamp: number) {
+  addPosition(
+    markerId: string,
+    lat: number,
+    lng: number,
+    timestamp: number,
+    isHistoricalDot: boolean = false,
+  ) {
     if (!this.showTrails) return;
 
-    let trailState = this.trails.get(markerId);
+    // Extract base callsign from markerId to group positions by callsign
+    const baseCallsign = this.extractBaseCallsign(markerId);
+
+    let trailState = this.trails.get(baseCallsign);
     if (!trailState) {
       trailState = { positions: [] };
-      this.trails.set(markerId, trailState);
+      this.trails.set(baseCallsign, trailState);
     }
 
-    // Only add if position is different from the last one
+    // Only add if position is different from the last one (more than ~1 meter)
     const lastPos = trailState.positions[trailState.positions.length - 1];
-    if (!lastPos || Math.abs(lastPos.lat - lat) > 0.0001 || Math.abs(lastPos.lng - lng) > 0.0001) {
+    if (
+      !lastPos ||
+      Math.abs(lastPos.lat - lat) > 0.00001 ||
+      Math.abs(lastPos.lng - lng) > 0.00001
+    ) {
       trailState.positions.push({ lat, lng, timestamp });
     }
 
-    // Filter positions to keep only recent ones
-    const cutoffTime = Date.now() - this.trailDuration;
-    trailState.positions = trailState.positions.filter((pos) => pos.timestamp >= cutoffTime);
+    // For historical dots, keep all positions. For live positions, filter by time.
+    if (!isHistoricalDot) {
+      const cutoffTime = Date.now() - this.trailDuration;
+      trailState.positions = trailState.positions.filter((pos) => {
+        // Ensure timestamp is a number for comparison
+        const posTimestamp =
+          typeof pos.timestamp === "string" ? new Date(pos.timestamp).getTime() : pos.timestamp;
+        return posTimestamp >= cutoffTime;
+      });
+    }
 
-    this.updateTrailVisualization(markerId, trailState);
+    // Always update trail visualization
+    this.updateTrailVisualization(baseCallsign, trailState);
   }
 
-  private updateTrailVisualization(markerId: string, trailState: TrailState) {
+  private extractBaseCallsign(markerId: string | any): string {
+    // Ensure markerId is a string
+    const id = typeof markerId === "string" ? markerId : String(markerId);
+
+    // Extract base callsign from various ID formats
+    if (id.startsWith("hist_")) {
+      // Remove hist_ prefix and any trailing index
+      return id.replace(/^hist_/, "").replace(/_\d+$/, "");
+    }
+    return id;
+  }
+
+  private updateTrailVisualization(baseCallsign: string, trailState: TrailState) {
     // Remove old trail and dots
     if (trailState.trail) {
       this.trailLayer.removeLayer(trailState.trail);
@@ -69,45 +102,25 @@ export class TrailManager {
       const L = (window as any).L;
       const latLngs = trailState.positions.map((pos) => [pos.lat, pos.lng]);
 
-      // Create polyline for the trail
+      // Create blue polyline connecting the historical position dots
       trailState.trail = L.polyline(latLngs, {
         color: "#1E90FF",
         weight: 3,
-        opacity: 0.5,
+        opacity: 0.8,
         smoothFactor: 1,
+        lineCap: "round",
+        lineJoin: "round",
+        className: "historical-trail-line",
       }).addTo(this.trailLayer);
 
-      // Create dots for each position
-      trailState.dots = trailState.positions.map((pos, index) => {
-        const age = (Date.now() - pos.timestamp) / this.trailDuration;
-        const opacity = Math.max(0.4, 1 - age * 0.6);
-        const isCurrentPosition = index === trailState.positions.length - 1;
-        const radius = isCurrentPosition ? 5 : 3;
-
-        const dot = L.circleMarker([pos.lat, pos.lng], {
-          radius: radius,
-          fillColor: "#FF4500",
-          color: "#8B0000",
-          weight: 1,
-          opacity: opacity,
-          fillOpacity: opacity * 0.8,
-        });
-
-        // Add tooltip with timestamp
-        const time = new Date(pos.timestamp);
-        dot.bindTooltip(time.toLocaleTimeString(), {
-          permanent: false,
-          direction: "top",
-          className: "trail-tooltip",
-        });
-
-        return dot.addTo(this.trailLayer);
-      });
+      // Don't create additional dots here since historical positions are now shown as markers
+      trailState.dots = [];
     }
   }
 
   removeTrail(markerId: string) {
-    const trailState = this.trails.get(markerId);
+    const baseCallsign = this.extractBaseCallsign(markerId);
+    const trailState = this.trails.get(baseCallsign);
     if (trailState) {
       if (trailState.trail) {
         this.trailLayer.removeLayer(trailState.trail);
@@ -115,7 +128,7 @@ export class TrailManager {
       if (trailState.dots) {
         trailState.dots.forEach((dot) => this.trailLayer.removeLayer(dot));
       }
-      this.trails.delete(markerId);
+      this.trails.delete(baseCallsign);
     }
   }
 
@@ -126,12 +139,21 @@ export class TrailManager {
   }
 
   cleanupOldPositions() {
-    const cutoffTime = Date.now() - this.trailDuration;
+    // Don't clean up historical positions - only clean up very old live positions
+    const veryOldCutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours
     this.trails.forEach((trailState, markerId) => {
-      trailState.positions = trailState.positions.filter((pos) => pos.timestamp >= cutoffTime);
+      const originalLength = trailState.positions.length;
+      trailState.positions = trailState.positions.filter((pos) => {
+        // Ensure timestamp is a number for comparison
+        const posTimestamp =
+          typeof pos.timestamp === "string" ? new Date(pos.timestamp).getTime() : pos.timestamp;
+        // Keep all positions newer than 24 hours (includes all historical data we care about)
+        return posTimestamp >= veryOldCutoff;
+      });
+
       if (trailState.positions.length === 0) {
         this.removeTrail(markerId);
-      } else {
+      } else if (trailState.positions.length !== originalLength) {
         this.updateTrailVisualization(markerId, trailState);
       }
     });

@@ -720,21 +720,94 @@ defmodule AprsWeb.MapLive.CallsignView do
         now
       )
 
-    socket =
+    if Enum.empty?(packets) do
+      # No historical packets found
+      socket
+    else
+      # Clear any previous historical packets from the map
+      socket = push_event(socket, "clear_historical_packets", %{})
+
+      # Sort packets by inserted_at to identify the most recent
+      # Convert NaiveDateTime to DateTime if needed for proper comparison
+      sorted_packets =
+        Enum.sort_by(
+          packets,
+          fn packet ->
+            case packet.inserted_at do
+              %NaiveDateTime{} = naive_dt ->
+                DateTime.from_naive!(naive_dt, "Etc/UTC")
+
+              %DateTime{} = dt ->
+                dt
+
+              _other ->
+                DateTime.utc_now()
+            end
+          end,
+          {:desc, DateTime}
+        )
+
+      # Filter out packets with unchanged positions (only keep if lat/lon changed)
+      unique_position_packets = filter_unique_positions(sorted_packets)
+
+      # Build packet data for all positions, marking which is the most recent
+      packet_data_list =
+        unique_position_packets
+        |> Enum.with_index()
+        |> Enum.map(fn {packet, index} ->
+          case build_packet_data(packet) do
+            nil ->
+              nil
+
+            packet_data ->
+              # Generate a unique ID for this historical packet
+              packet_id =
+                "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
+
+              is_most_recent = index == 0
+              callsign = socket.assigns.callsign
+
+              packet_data
+              |> Map.put("id", packet_id)
+              |> Map.put("is_historical", true)
+              |> Map.put("is_most_recent_for_callsign", is_most_recent)
+              |> Map.put("callsign_group", callsign)
+              |> Map.put(
+                "timestamp",
+                case packet.inserted_at do
+                  %NaiveDateTime{} = naive_dt ->
+                    DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
+
+                  %DateTime{} = dt ->
+                    DateTime.to_unix(dt, :millisecond)
+
+                  _other ->
+                    DateTime.to_unix(DateTime.utc_now(), :millisecond)
+                end
+              )
+          end
+        end)
+        |> Enum.filter(& &1)
+
+      # Send all historical packets at once
+      socket = push_event(socket, "add_historical_packets", %{packets: packet_data_list})
+
+      # Store historical packets in assigns for reference
+      historical_packets_map =
+        packet_data_list
+        |> Enum.zip(unique_position_packets)
+        |> Enum.reduce(%{}, fn {packet_data, packet}, acc ->
+          Map.put(acc, packet_data["id"], packet)
+        end)
+
       assign(socket,
-        replay_packets: packets,
+        historical_packets: historical_packets_map,
+        replay_packets: [],
         replay_index: 0,
         replay_start_time: one_hour_ago,
-        replay_end_time: now,
-        historical_packets: %{}
+        replay_end_time: now
       )
-
-    # Start replay immediately if we have packets
-    if length(packets) > 0 do
-      Process.send_after(self(), :replay_next_packet, 100)
     end
-
-    socket
   end
 
   defp fetch_historical_packets_for_callsign(callsign, start_time, end_time) do
@@ -744,6 +817,43 @@ defmodule AprsWeb.MapLive.CallsignView do
       end_time: end_time,
       limit: 1000
     })
+  end
+
+  # Filter packets to only include those with unique positions (lat/lon changed)
+  @spec filter_unique_positions([struct()]) :: [struct()]
+  defp filter_unique_positions(packets) do
+    packets
+    |> Enum.reduce([], fn packet, acc ->
+      {lat, lng, _} = MapHelpers.get_coordinates(packet)
+
+      if lat && lng do
+        # Check if this position is different from the last position
+        case acc do
+          [] ->
+            # First packet, always include
+            [packet | acc]
+
+          [last_packet | _] ->
+            if position_changed?(packet, last_packet) do
+              [packet | acc]
+            else
+              acc
+            end
+        end
+      else
+        acc
+      end
+    end)
+    |> Enum.reverse()
+  end
+
+  # Check if position changed significantly between two packets (more than ~1 meter)
+  @spec position_changed?(struct(), struct()) :: boolean()
+  defp position_changed?(packet1, packet2) do
+    {lat1, lng1, _} = MapHelpers.get_coordinates(packet1)
+    {lat2, lng2, _} = MapHelpers.get_coordinates(packet2)
+
+    abs(lat1 - lat2) > 0.00001 || abs(lng1 - lng2) > 0.00001
   end
 
   defp build_packet_data(packet) do

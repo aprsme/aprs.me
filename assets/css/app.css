@@ -181,8 +181,22 @@ body.home-page main > div {
 
 /* Trail polyline hover effect */
 .leaflet-interactive:hover {
-    stroke-width: 4;
+    stroke-width: 5;
+    stroke-opacity: 1 !important;
+}
+
+/* Historical trail lines */
+.leaflet-interactive[stroke="#1E90FF"] {
+    stroke-width: 3;
     stroke-opacity: 0.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.leaflet-interactive[stroke="#1E90FF"]:hover {
+    stroke-width: 5;
+    stroke-opacity: 1;
+    filter: drop-shadow(0 0 4px #1e90ff);
 }
 
 /* Position dot hover effect */
@@ -209,4 +223,53 @@ body.home-page main > div {
 .trail-toggle-control.active {
     background-color: #1e90ff;
     color: white;
+}
+
+/* Historical dot marker styles */
+.historical-dot-marker {
+    cursor: pointer;
+    transition: transform 0.2s ease-out;
+}
+
+.historical-dot-marker:hover {
+    transform: scale(1.5);
+    z-index: 1000 !important;
+}
+
+.historical-dot-marker div {
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s ease-out;
+}
+
+.historical-dot-marker:hover div {
+    box-shadow: 0 0 8px rgba(255, 107, 107, 0.8);
+    border-color: #ff6b6b !important;
+}
+
+/* Historical trail line styling */
+.historical-trail-line {
+    stroke: #1e90ff;
+    stroke-width: 3;
+    stroke-opacity: 0.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    transition: all 0.2s ease-out;
+    z-index: 1;
+}
+
+.historical-trail-line:hover {
+    stroke-width: 5;
+    stroke-opacity: 1;
+    filter: drop-shadow(0 0 4px #1e90ff);
+    z-index: 2;
+}
+
+/* Ensure markers are above trail lines */
+.leaflet-marker-icon {
+    z-index: 10 !important;
+}
+
+.historical-dot-marker {
+    z-index: 15 !important;
 }
