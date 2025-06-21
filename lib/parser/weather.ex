@@ -17,7 +17,11 @@ defmodule Parser.Weather do
     Map.merge(%{data_type: :weather}, weather_data)
   end
 
-  defp parse_weather_data(weather_data) do
+  @doc """
+  Parses a weather data string into a map of weather values.
+  """
+  @spec parse_weather_data(String.t()) :: map()
+  def parse_weather_data(weather_data) do
     timestamp = Parser.Helpers.extract_timestamp(weather_data)
     weather_data = Parser.Helpers.remove_timestamp(weather_data)
 

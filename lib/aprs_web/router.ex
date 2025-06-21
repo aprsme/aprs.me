@@ -30,8 +30,6 @@ defmodule AprsWeb.Router do
 
     live_dashboard "/dashboard", metrics: AprsWeb.Telemetry
     live "/", MapLive.Index, :index
-    live "/enhanced", MapLive.Enhanced, :index
-    get "/old", PageController, :map
     live "/status", StatusLive.Index, :index
 
     live "/packets", PacketsLive.Index, :index

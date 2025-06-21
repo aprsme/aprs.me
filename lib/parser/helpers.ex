@@ -267,7 +267,7 @@ defmodule Parser.Helpers do
 
   @spec parse_wind_speed(String.t()) :: integer() | nil
   def parse_wind_speed(weather_data) do
-    case Regex.run(~r'/(\d{3})', weather_data) do
+    case Regex.run(~r/\/(\d{3})/, weather_data) do
       [_, speed] -> String.to_integer(speed)
       nil -> nil
     end

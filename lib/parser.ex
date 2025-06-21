@@ -458,7 +458,7 @@ defmodule Parser do
           (is_number(lat) or is_struct(lat, Decimal)) and
             (is_number(lon) or is_struct(lon, Decimal))
 
-        %{
+        base_map = %{
           latitude: lat,
           longitude: lon,
           timestamp: nil,
@@ -474,6 +474,13 @@ defmodule Parser do
           speed: speed,
           has_position: has_position
         }
+
+        if sym_table_id == "/" and symbol_code == "_" do
+          weather_map = Parser.Weather.parse_weather_data(comment)
+          Map.merge(base_map, weather_map)
+        else
+          base_map
+        end
 
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
         %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)

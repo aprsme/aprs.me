@@ -12,7 +12,6 @@ defmodule AprsWeb.MapLive.Index do
 
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
-  @ip_api_url "https://ip-api.com/json/"
   @finch_name Aprs.Finch
 
   @impl true
@@ -688,41 +687,46 @@ defmodule AprsWeb.MapLive.Index do
   # Helper function to start historical replay
   @spec start_historical_replay(Socket.t()) :: Socket.t()
   defp start_historical_replay(socket) do
-    # Get time range for historical data
-    now = DateTime.utc_now()
-    one_hour_ago = DateTime.add(now, -60 * 60, :second)
+    # Only fetch historical packets if map is ready and not already replaying
+    if socket.assigns.map_ready and not socket.assigns.replay_active do
+      # Get time range for historical data
+      now = DateTime.utc_now()
+      one_hour_ago = DateTime.add(now, -60 * 60, :second)
 
-    # Convert map bounds to the format expected by the database query
-    bounds = [
-      socket.assigns.map_bounds.west,
-      socket.assigns.map_bounds.south,
-      socket.assigns.map_bounds.east,
-      socket.assigns.map_bounds.north
-    ]
+      # Convert map bounds to the format expected by the database query
+      bounds = [
+        socket.assigns.map_bounds.west,
+        socket.assigns.map_bounds.south,
+        socket.assigns.map_bounds.east,
+        socket.assigns.map_bounds.north
+      ]
 
-    # Fetch historical packets with position data within the current map bounds
-    historical_packets = fetch_historical_packets(bounds, one_hour_ago, now)
+      # Fetch historical packets with position data within the current map bounds
+      historical_packets = fetch_historical_packets(bounds, one_hour_ago, now)
 
-    if Enum.empty?(historical_packets) do
-      # No historical packets found - silently continue without replay
-      socket
+      if Enum.empty?(historical_packets) do
+        # No historical packets found - silently continue without replay
+        socket
+      else
+        # Clear any previous historical packets from the map
+        socket = push_event(socket, "clear_historical_packets", %{})
+
+        # Start replay
+        timer_ref = Process.send_after(self(), :replay_next_packet, 1000)
+
+        assign(socket,
+          replay_active: true,
+          replay_packets: historical_packets,
+          replay_index: 0,
+          replay_timer_ref: timer_ref,
+          replay_start_time: one_hour_ago,
+          replay_end_time: now,
+          historical_packets: %{},
+          replay_started: true
+        )
+      end
     else
-      # Clear any previous historical packets from the map
-      socket = push_event(socket, "clear_historical_packets", %{})
-
-      # Start replay
-      timer_ref = Process.send_after(self(), :replay_next_packet, 1000)
-
-      assign(socket,
-        replay_active: true,
-        replay_packets: historical_packets,
-        replay_index: 0,
-        replay_timer_ref: timer_ref,
-        replay_start_time: one_hour_ago,
-        replay_end_time: now,
-        historical_packets: %{},
-        replay_started: true
-      )
+      socket
     end
   end
 
@@ -783,6 +787,7 @@ defmodule AprsWeb.MapLive.Index do
   defp build_packet_data(packet) do
     {lat, lon, data_extended} = MapHelpers.get_coordinates(packet)
     callsign = Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))
+
     # Only include packets with valid position data and a non-empty callsign
     if lat && lon && callsign != "" && callsign != nil do
       build_packet_map(packet, lat, lon, data_extended)
@@ -846,15 +851,23 @@ defmodule AprsWeb.MapLive.Index do
         0.0
     end
 
-    popup = """
-    <div class=\"aprs-popup\">
-      <div class=\"aprs-callsign\"><strong><a href=\"/#{callsign}\">#{callsign}</a></strong></div>
-      <div class=\"aprs-symbol-info\">#{symbol_description}</div>
-      #{if comment == "", do: "", else: "<div class=\\\"aprs-comment\\\">#{comment}</div>"}
-      <div class=\"aprs-coords\">#{Float.round(to_float.(lat), 4)}, #{Float.round(to_float.(lon), 4)}</div>
-      <div class=\"aprs-time\">#{timestamp}</div>
-    </div>
-    """
+    is_weather_packet =
+      (Map.get(packet, :data_type) || Map.get(packet, "data_type")) == "weather" or
+        (symbol_table_id == "/" and symbol_code == "_")
+
+    popup =
+      if is_weather_packet do
+        build_weather_popup_html(packet, callsign)
+      else
+        """
+        <div class="aprs-popup">
+          <div class="aprs-callsign"><strong><a href="/map/callsign/#{callsign}">#{callsign}</a></strong></div>
+          #{if comment == "", do: "", else: ~s(<div class="aprs-comment">#{comment}</div>)}
+          <div class="aprs-coords">#{Float.round(to_float.(lat), 4)}, #{Float.round(to_float.(lon), 4)}</div>
+          <div class="aprs-time">#{timestamp}</div>
+        </div>
+        """
+      end
 
     %{
       "id" => callsign,
@@ -873,6 +886,42 @@ defmodule AprsWeb.MapLive.Index do
       "timestamp" => timestamp,
       "popup" => popup
     }
+  end
+
+  defp build_weather_popup_html(packet, callsign) do
+    received_at =
+      cond do
+        Map.has_key?(packet, :received_at) -> packet.received_at
+        Map.has_key?(packet, "received_at") -> packet["received_at"]
+        true -> nil
+      end
+
+    timestamp_str =
+      if received_at,
+        do: Calendar.strftime(received_at, "%Y-%m-%d %H:%M:%S"),
+        else: "N/A"
+
+    """
+    <strong>#{callsign} - Weather Report</strong><br>
+    <small>#{timestamp_str} UTC</small>
+    <hr>
+    Temperature: #{get_weather_field(packet, :temperature)}°F<br>
+    Humidity: #{get_weather_field(packet, :humidity)}%<br>
+    Wind: #{get_weather_field(packet, :wind_direction)}° at #{get_weather_field(packet, :wind_speed)} mph, gusts to #{get_weather_field(packet, :wind_gust)} mph<br>
+    Pressure: #{get_weather_field(packet, :pressure)} hPa<br>
+    Rain (1h): #{get_weather_field(packet, :rain_1h)} in.<br>
+    Rain (24h): #{get_weather_field(packet, :rain_24h)} in.<br>
+    Rain (since midnight): #{get_weather_field(packet, :rain_since_midnight)} in.<br>
+    """
+  end
+
+  defp get_weather_field(packet, key) do
+    data_extended = Map.get(packet, "data_extended", %{})
+
+    Map.get(packet, key) ||
+      Map.get(packet, to_string(key)) ||
+      Map.get(data_extended, key) ||
+      Map.get(data_extended, to_string(key)) || "N/A"
   end
 
   @spec generate_callsign(map() | struct()) :: String.t()
@@ -894,17 +943,8 @@ defmodule AprsWeb.MapLive.Index do
   defp get_ip_location(nil), do: nil
 
   defp get_ip_location(ip) do
-    url = "#{@ip_api_url}#{ip}"
-
-    request =
-      Finch.build(:get, url, [
-        {"User-Agent", "APRS.me/1.0"},
-        {"Accept", "application/json"}
-      ])
-
-    Process.sleep(2000)
-
-    case Finch.request(request, @finch_name, receive_timeout: 10_000) do
+    # Asynchronously fetch IP location
+    case :get |> Finch.build("http://ip-api.com/json/#{ip}") |> Finch.request(@finch_name) do
       {:ok, %{status: 200, body: body}} -> handle_ip_api_response(body)
       {:ok, _response} -> send_default_ip_location()
       {:error, %{reason: :timeout}} -> send_default_ip_location()
