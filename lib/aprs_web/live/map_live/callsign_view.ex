@@ -632,11 +632,8 @@ defmodule AprsWeb.MapLive.CallsignView do
 
     <div style="position: relative; width: 100vw; height: 100vh;">
       <div class="callsign-header">
-        <div class="callsign-title">📡 {@callsign}</div>
-        <div class="aprs-symbol-info">
-          <span>Symbol Table: <code>{@latest_symbol_table_id}</code></span>
-          <span style="margin-left:8px;">Symbol Code: <code>{@latest_symbol_code}</code></span>
-        </div>
+        <div class="callsign-title">{@callsign}</div>
+
         <div class="nav-links">
           <a href="/" class="nav-link">← Back to Map</a>
           <a href="/packets" class="nav-link">All Packets</a>
