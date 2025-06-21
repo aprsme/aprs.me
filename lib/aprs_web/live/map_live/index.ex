@@ -52,7 +52,11 @@ defmodule AprsWeb.MapLive.Index do
       pending_geolocation: nil,
       bounds_update_timer: nil,
       pending_bounds: nil,
-      initial_bounds_loaded: false
+      initial_bounds_loaded: false,
+      # Overlay controls
+      overlay_callsign: "",
+      trail_duration: "1",
+      historical_hours: "1"
     )
   end
 
@@ -199,6 +203,33 @@ defmodule AprsWeb.MapLive.Index do
   @impl true
   def handle_event("marker_clicked", _params, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("update_callsign", %{"callsign" => callsign}, socket) do
+    {:noreply, assign(socket, overlay_callsign: callsign)}
+  end
+
+  @impl true
+  def handle_event("update_trail_duration", %{"target" => %{"value" => duration}}, socket) do
+    {:noreply, assign(socket, trail_duration: duration)}
+  end
+
+  @impl true
+  def handle_event("update_historical_hours", %{"target" => %{"value" => hours}}, socket) do
+    {:noreply, assign(socket, historical_hours: hours)}
+  end
+
+  @impl true
+  def handle_event("search_callsign", %{"callsign" => callsign}, socket) do
+    trimmed_callsign = callsign |> String.trim() |> String.upcase()
+
+    if trimmed_callsign == "" do
+      {:noreply, socket}
+    else
+      # Navigate to the callsign-specific route
+      {:noreply, push_navigate(socket, to: "/#{trimmed_callsign}")}
+    end
   end
 
   @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
@@ -425,9 +456,8 @@ defmodule AprsWeb.MapLive.Index do
         position: absolute;
         top: 0;
         left: 0;
-        right: 0;
+        right: 352px;
         bottom: 0;
-        width: 100%;
         height: 100vh;
         z-index: 1;
       }
@@ -526,6 +556,176 @@ defmodule AprsWeb.MapLive.Index do
         <line x1="8" y1="12" x2="16" y2="12" />
       </svg>
     </button>
+
+    <!-- Control Panel Overlay -->
+    <div class="fixed top-0 right-0 h-full w-88 bg-white shadow-2xl z-[1000] backdrop-blur-sm">
+      <!-- Header -->
+      <div class="flex items-center justify-center p-6 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+        <div class="flex items-center space-x-2">
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+            />
+          </svg>
+          <h2 class="text-xl font-bold">APRS.me</h2>
+        </div>
+      </div>
+      
+    <!-- Content -->
+      <div class="p-6 space-y-6 bg-slate-50 h-full overflow-y-auto">
+        <!-- Callsign Search -->
+        <div class="space-y-4">
+          <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
+            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <span>Search Callsign</span>
+          </label>
+          <form phx-submit="search_callsign" class="flex space-x-2">
+            <input
+              type="text"
+              name="callsign"
+              value={@overlay_callsign}
+              phx-change="update_callsign"
+              placeholder="Enter callsign..."
+              class="flex-1 px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm uppercase placeholder-slate-400 transition-all duration-200 hover:border-slate-400"
+            />
+            <button
+              type="submit"
+              class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl"
+            >
+              Search
+            </button>
+          </form>
+        </div>
+        
+    <!-- Trail Duration -->
+        <div class="space-y-4">
+          <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
+            <svg
+              class="w-4 h-4 text-emerald-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span>Trail Duration</span>
+          </label>
+          <div class="relative">
+            <select
+              phx-change="update_trail_duration"
+              class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white appearance-none transition-all duration-200 hover:border-slate-400"
+            >
+              <option value="1" selected={@trail_duration == "1"}>1 Hour</option>
+              <option value="6" selected={@trail_duration == "6"}>6 Hours</option>
+              <option value="12" selected={@trail_duration == "12"}>12 Hours</option>
+              <option value="24" selected={@trail_duration == "24"}>24 Hours</option>
+              <option value="48" selected={@trail_duration == "48"}>48 Hours</option>
+              <option value="168" selected={@trail_duration == "168"}>1 Week</option>
+            </select>
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <svg
+                class="w-4 h-4 text-slate-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 flex items-center space-x-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span>How long should position trails be displayed</span>
+          </p>
+        </div>
+        
+    <!-- Historical Data -->
+        <div class="space-y-4">
+          <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
+            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span>Historical Data</span>
+          </label>
+          <div class="relative">
+            <select
+              phx-change="update_historical_hours"
+              class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white appearance-none transition-all duration-200 hover:border-slate-400"
+            >
+              <option value="1" selected={@historical_hours == "1"}>1 Hour</option>
+              <option value="3" selected={@historical_hours == "3"}>3 Hours</option>
+              <option value="6" selected={@historical_hours == "6"}>6 Hours</option>
+              <option value="12" selected={@historical_hours == "12"}>12 Hours</option>
+              <option value="24" selected={@historical_hours == "24"}>24 Hours</option>
+            </select>
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <svg
+                class="w-4 h-4 text-slate-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 flex items-center space-x-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span>How many hours of historical packets to load</span>
+          </p>
+        </div>
+      </div>
+    </div>
     """
   end
 
