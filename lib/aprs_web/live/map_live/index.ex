@@ -68,10 +68,17 @@ defmodule AprsWeb.MapLive.Index do
   @spec maybe_start_geolocation(Socket.t()) :: Socket.t()
   defp maybe_start_geolocation(socket) do
     if geolocation_enabled?() do
-      ip = extract_ip(socket)
+      ip_for_geolocation =
+        if Mix.env() == :dev do
+          # For testing geolocation in dev environment, use a public IP address.
+          # This will be geolocated to Mountain View, CA.
+          "8.8.8.8"
+        else
+          extract_ip(socket)
+        end
 
-      if valid_ip_for_geolocation?(ip) do
-        start_geolocation_task(ip)
+      if valid_ip_for_geolocation?(ip_for_geolocation) do
+        start_geolocation_task(ip_for_geolocation)
       end
     end
 
@@ -369,15 +376,11 @@ defmodule AprsWeb.MapLive.Index do
         true -> lng
       end
 
+    # Schedule a delayed zoom to give the user a moment to see the map
+    Process.send_after(self(), {:delayed_zoom, %{lat: lat_float, lng: lng_float}}, 500)
+
+    # We can still optimistically set the center and zoom
     socket = assign(socket, map_center: %{lat: lat_float, lng: lng_float}, map_zoom: 12)
-
-    socket =
-      if socket.assigns.map_ready do
-        push_event(socket, "zoom_to_location", %{lat: lat_float, lng: lng_float, zoom: 12})
-      else
-        assign(socket, pending_geolocation: %{lat: lat_float, lng: lng_float})
-      end
-
     {:noreply, socket}
   end
 
@@ -936,15 +939,13 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
-  # Get IP location from external service
-
   # Get location from IP using ip-api.com
   @spec get_ip_location(String.t() | nil) :: {float(), float()} | nil
   defp get_ip_location(nil), do: nil
 
   defp get_ip_location(ip) do
     # Asynchronously fetch IP location
-    case :get |> Finch.build("http://ip-api.com/json/#{ip}") |> Finch.request(@finch_name) do
+    case :get |> Finch.build("https://ip-api.com/json/#{ip}") |> Finch.request(@finch_name) do
       {:ok, %{status: 200, body: body}} -> handle_ip_api_response(body)
       {:ok, _response} -> send_default_ip_location()
       {:error, %{reason: :timeout}} -> send_default_ip_location()
