@@ -48,16 +48,23 @@ export class TrailManager {
     if (!trailState) {
       trailState = { positions: [] };
       this.trails.set(baseCallsign, trailState);
+      console.log(`TrailManager: Created new trail for ${baseCallsign}`);
     }
 
-    // Only add if position is different from the last one (more than ~1 meter)
-    const lastPos = trailState.positions[trailState.positions.length - 1];
-    if (
-      !lastPos ||
-      Math.abs(lastPos.lat - lat) > 0.00001 ||
-      Math.abs(lastPos.lng - lng) > 0.00001
-    ) {
+    // Check if this position already exists (avoid duplicates)
+    const existingPos = trailState.positions.find(
+      (pos) =>
+        Math.abs(pos.lat - lat) < 0.00001 &&
+        Math.abs(pos.lng - lng) < 0.00001 &&
+        Math.abs(pos.timestamp - timestamp) < 1000, // Within 1 second
+    );
+
+    if (!existingPos) {
+      // Add new position
       trailState.positions.push({ lat, lng, timestamp });
+
+      // Sort positions by timestamp to maintain chronological order
+      trailState.positions.sort((a, b) => a.timestamp - b.timestamp);
     }
 
     // For historical dots, keep all positions. For live positions, filter by time.
@@ -79,11 +86,15 @@ export class TrailManager {
     // Ensure markerId is a string
     const id = typeof markerId === "string" ? markerId : String(markerId);
 
-    // Extract base callsign from various ID formats
+    // For historical markers like "hist_CALLSIGN_123", extract the CALLSIGN part
     if (id.startsWith("hist_")) {
-      // Remove hist_ prefix and any trailing index
-      return id.replace(/^hist_/, "").replace(/_\d+$/, "");
+      // Remove hist_ prefix and any trailing numeric index
+      const withoutPrefix = id.replace(/^hist_/, "");
+      // Remove trailing _digits pattern
+      return withoutPrefix.replace(/_\d+$/, "");
     }
+
+    // For regular callsigns or IDs, return as-is
     return id;
   }
 
@@ -112,6 +123,10 @@ export class TrailManager {
         lineJoin: "round",
         className: "historical-trail-line",
       }).addTo(this.trailLayer);
+
+      console.log(
+        `TrailManager: Created trail line for ${baseCallsign} with ${trailState.positions.length} positions`,
+      );
 
       // Don't create additional dots here since historical positions are now shown as markers
       trailState.dots = [];

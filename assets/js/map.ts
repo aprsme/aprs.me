@@ -499,9 +499,73 @@ let MapAPRSMap = {
 
     // Handle new packets from LiveView
     self.handleEvent("new_packet", (data: MarkerData) => {
+      // Check if there's already a marker for this callsign
+      const incomingCallsign = data.callsign_group || data.callsign || data.id;
+
+      if (incomingCallsign) {
+        // Find existing marker for this callsign - check both live and historical markers
+        let existingMarkerId: string | null = null;
+        let existingCallsign: string | null = null;
+
+        self.markerStates!.forEach((state, id) => {
+          // Extract callsign from various sources
+          const stateCallsign =
+            state.callsign_group ||
+            (typeof id === "string" && !id.startsWith("hist_") ? id : null) ||
+            (typeof id === "string" && id.startsWith("hist_")
+              ? id.replace(/^hist_/, "").replace(/_\d+$/, "")
+              : null);
+
+          // Match callsigns (only consider non-historical markers for conversion)
+          if (stateCallsign === incomingCallsign && !state.historical) {
+            existingMarkerId = id;
+            existingCallsign = stateCallsign;
+          }
+        });
+
+        // If we found an existing live marker, convert it to a historical dot
+        if (existingMarkerId && existingCallsign) {
+          const existingMarker = self.markers!.get(existingMarkerId);
+          const existingState = self.markerStates!.get(existingMarkerId);
+
+          if (existingMarker && existingState) {
+            // Create historical dot data from existing marker
+            const historicalData = {
+              id: `hist_${existingCallsign}_${Date.now()}`,
+              lat: existingState.lat,
+              lng: existingState.lng,
+              callsign: existingCallsign,
+              callsign_group: existingCallsign,
+              symbol_table_id: existingState.symbol_table,
+              symbol_code: existingState.symbol_code,
+              historical: true,
+              is_most_recent_for_callsign: false,
+              timestamp: data.timestamp
+                ? typeof data.timestamp === "string"
+                  ? new Date(data.timestamp).getTime() - 1000
+                  : data.timestamp - 1000
+                : Date.now() - 1000,
+              popup: existingState.popup,
+            };
+
+            // Remove the existing marker (this will also clean up its trail reference)
+            self.removeMarker(existingMarkerId);
+
+            // Add the historical dot marker
+            self.addMarker({
+              ...historicalData,
+              popup: self.buildPopupContent(historicalData),
+            });
+          }
+        }
+      }
+
+      // Add the new marker with proper callsign grouping
       self.addMarker({
         ...data,
         historical: false,
+        is_most_recent_for_callsign: true,
+        callsign_group: data.callsign_group || data.callsign || incomingCallsign, // Ensure callsign_group is set for trail grouping
         popup: self.buildPopupContent(data),
         openPopup: true,
       });
@@ -683,7 +747,10 @@ let MapAPRSMap = {
             ? new Date(data.timestamp).getTime()
             : data.timestamp
           : Date.now();
-        self.trailManager.addPosition(data.id, lat, lng, timestamp, isHistoricalDot);
+        // Use callsign_group for proper trail grouping - prioritize callsign_group, then callsign, then id
+        const trailId = data.callsign_group || data.callsign || data.id;
+
+        self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
       }
 
       if (!positionChanged && !dataChanged) {
@@ -738,7 +805,8 @@ let MapAPRSMap = {
       popup: data.popup,
       historical: data.historical,
       is_most_recent_for_callsign: data.is_most_recent_for_callsign,
-      callsign_group: data.callsign_group,
+      callsign_group: data.callsign_group || data.callsign,
+      callsign: data.callsign,
     });
 
     // Initialize trail for new marker - always add to trail for line drawing
@@ -749,7 +817,10 @@ let MapAPRSMap = {
           ? new Date(data.timestamp).getTime()
           : data.timestamp
         : Date.now();
-      self.trailManager.addPosition(data.id, lat, lng, timestamp, isHistoricalDot);
+      // Use callsign_group for proper trail grouping - prioritize callsign_group, then callsign, then id
+      const trailId = data.callsign_group || data.callsign || data.id;
+
+      self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
     }
 
     // Open popup if requested
@@ -764,15 +835,18 @@ let MapAPRSMap = {
     const markerId = typeof id === "string" ? id : String(id);
 
     const marker = self.markers!.get(markerId);
+    const markerState = self.markerStates!.get(markerId);
+
     if (marker) {
       self.markerLayer!.removeLayer(marker);
       self.markers!.delete(markerId);
       self.markerStates!.delete(markerId);
     }
 
-    // Remove trail
+    // Remove trail - use callsign_group for proper trail identification
     if (self.trailManager) {
-      self.trailManager.removeTrail(markerId);
+      const trailId = markerState?.callsign_group || markerState?.callsign || markerId;
+      self.trailManager.removeTrail(trailId);
     }
   },
 
@@ -800,7 +874,9 @@ let MapAPRSMap = {
                   ? new Date(data.timestamp).getTime()
                   : data.timestamp
                 : Date.now();
-              self.trailManager.addPosition(data.id, lat, lng, timestamp, isHistoricalDot);
+              // Use callsign_group for proper trail grouping - prioritize callsign_group, then callsign, then id
+              const trailId = data.callsign_group || data.callsign || data.id;
+              self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
             }
           }
         }
