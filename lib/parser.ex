@@ -6,6 +6,7 @@ defmodule Parser do
   """
   # import Bitwise
   alias Aprs.Convert
+  alias Parser.MicE
 
   require Logger
 
@@ -221,8 +222,8 @@ defmodule Parser do
   def parse_datatype(_), do: :unknown_datatype
 
   @spec parse_data(atom(), String.t(), String.t()) :: map() | nil
-  def parse_data(:mic_e, destination, data), do: parse_mic_e(data, destination)
-  def parse_data(:mic_e_old, destination, data), do: parse_mic_e(data, destination)
+  def parse_data(:mic_e, destination, data), do: MicE.parse(data, destination)
+  def parse_data(:mic_e_old, destination, data), do: MicE.parse(data, destination)
 
   def parse_data(:position, destination, <<"!", rest::binary>>) do
     parse_data(:position, destination, rest)
@@ -685,184 +686,6 @@ defmodule Parser do
           raw_data: data
         }
     end
-  end
-
-  @spec parse_mic_e(binary(), String.t()) :: map()
-  def parse_mic_e(data, destination \\ nil) do
-    case data do
-      <<dti::binary-size(1), latitude::binary-size(6), longitude::binary-size(7), symbol_code::binary-size(1),
-        speed::binary-size(1), course::binary-size(1), symbol_table_id::binary-size(1), rest::binary>> ->
-        # Try to extract lat/lon from destination if provided
-        dest_pos = if destination, do: parse_mic_e_destination(destination), else: %{}
-        %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-
-        %{
-          latitude: lat || Map.get(dest_pos, :latitude),
-          longitude: lon || Map.get(dest_pos, :longitude),
-          symbol_table_id: symbol_table_id,
-          symbol_code: symbol_code,
-          speed: speed,
-          course: course,
-          dti: dti,
-          comment: rest,
-          data_type: :mic_e
-        }
-
-      _ ->
-        nil
-    end
-  end
-
-  @spec parse_mic_e_digit(binary()) :: [integer() | atom() | nil]
-  def parse_mic_e_digit(<<c>>) when c in ?0..?9, do: [c - ?0, 0, nil]
-  def parse_mic_e_digit(<<c>>) when c in ?A..?J, do: [c - ?A, 1, :custom]
-  def parse_mic_e_digit(<<c>>) when c in ?P..?Y, do: [c - ?P, 1, :standard]
-  def parse_mic_e_digit(<<"K">>), do: [0, 1, :custom]
-  def parse_mic_e_digit(<<"L">>), do: [0, 0, nil]
-  def parse_mic_e_digit(<<"Z">>), do: [0, 1, :standard]
-  def parse_mic_e_digit(_), do: [:unknown, :unknown, :unknown]
-
-  @spec parse_mic_e_destination(String.t()) :: map()
-  def parse_mic_e_destination(destination_field) do
-    digits =
-      destination_field
-      |> String.codepoints()
-      |> Enum.map(&parse_mic_e_digit/1)
-      |> Enum.map(&hd/1)
-
-    deg = digits |> Enum.slice(0..1) |> Enum.join() |> String.to_integer()
-    min = digits |> Enum.slice(2..3) |> Enum.join() |> String.to_integer()
-    fractional = digits |> Enum.slice(4..5) |> Enum.join() |> String.to_integer()
-
-    [ns, lo, ew] = destination_field |> to_charlist() |> Enum.slice(3..5)
-
-    north_south_indicator =
-      case ns do
-        x when x in ?0..?9 -> :south
-        x when x == ?L -> :south
-        x when x in ?P..?Z -> :north
-        _ -> :unknown
-      end
-
-    east_west_indicator =
-      case ew do
-        x when x in ?0..?9 -> :east
-        x when x == ?L -> :east
-        x when x in ?P..?Z -> :west
-        _ -> :unknown
-      end
-
-    longitude_offset =
-      case lo do
-        x when x in ?0..?9 -> 0
-        x when x == ?L -> 0
-        x when x in ?P..?Z -> 100
-        _ -> :unknown
-      end
-
-    statuses = [
-      "Emergency",
-      "Priority",
-      "Special",
-      "Committed",
-      "Returning",
-      "In Service",
-      "En Route",
-      "Off Duty"
-    ]
-
-    message_digits =
-      destination_field
-      |> String.codepoints()
-      |> Enum.take(3)
-
-    [_, message_bit_1, message_type] = parse_mic_e_digit(Enum.at(message_digits, 0))
-    [_, message_bit_2, _] = parse_mic_e_digit(Enum.at(message_digits, 1))
-    [_, message_bit_3, _] = parse_mic_e_digit(Enum.at(message_digits, 2))
-
-    # Convert the bits to binary to get the array index
-    index = message_bit_1 * 4 + message_bit_2 * 2 + message_bit_3
-    # need to invert this from the actual array index
-    display_index = (7 - index) |> to_string() |> String.pad_leading(2, "0")
-
-    [message_code, message_description] =
-      case message_type do
-        :standard ->
-          ["M" <> display_index, Enum.at(statuses, index)]
-
-        :custom ->
-          ["C" <> display_index, "Custom-#{display_index}"]
-
-        nil ->
-          ["", Enum.at(statuses, index)]
-      end
-
-    %{
-      lat_degrees: deg,
-      lat_minutes: min,
-      lat_fractional: fractional,
-      lat_direction: north_south_indicator,
-      lon_direction: east_west_indicator,
-      longitude_offset: longitude_offset,
-      message_code: message_code,
-      message_description: message_description
-    }
-  end
-
-  def parse_mic_e_information(
-        <<dti::binary-size(1), d28::integer, m28::integer, f28::integer, sp28::integer, dc28::integer, se28::integer,
-          symbol::binary-size(1), table::binary-size(1), message::binary>> = _information_field,
-        longitude_offset
-      ) do
-    m =
-      case m28 - 28 do
-        x when x >= 60 -> x - 60
-        x -> x
-      end
-
-    sp =
-      case sp28 - 28 do
-        x when x >= 80 -> x - 80
-        x -> x
-      end
-
-    dc = dc28 - 28
-    quotient = div(dc, 10)
-    remainder = rem(dc, 10)
-    dc = sp * 10 + quotient
-    heading = (remainder - 4) * 100 + (se28 - 28)
-
-    # Messages should at least have a starting and ending symbol, and an optional message in between
-    # But, there might not be any symbols either, so it could look like any of the following:
-    # >^  <- TH-D74
-    # nil <- who knows
-    # ]\"55}146.820 MHz T103 -0600= <- Kenwood DM-710
-
-    regex = ~r/^(?<first>.?)(?<msg>.*)(?<secondtolast>.)(?<last>.)$/i
-    result = Parser.Helpers.find_matches(regex, message)
-
-    symbol1 =
-      if result["first"] == "" do
-        result["secondtolast"]
-      else
-        result["first"]
-      end
-
-    manufacturer =
-      Parser.Helpers.parse_manufacturer(symbol1 <> result["secondtolast"] <> result["last"])
-
-    %{
-      dti: dti,
-      lon_degrees: d28 - 28 + longitude_offset,
-      lon_minutes: m,
-      lon_fractional: f28 - 28,
-      speed: dc,
-      heading: heading,
-      symbol: symbol,
-      table: table,
-      manufacturer: manufacturer,
-      message: message
-    }
   end
 
   @spec parse_manufacturer(binary()) :: String.t()
