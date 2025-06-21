@@ -66,8 +66,6 @@ defmodule Parser do
          {:ok, callsign_parts} <- parse_callsign(sender),
          {:ok, data_type} <- parse_datatype_safe(data),
          {:ok, [destination, path]} <- split_path(path),
-         :ok <- validate_callsign(sender, :src),
-         :ok <- validate_callsign(destination, :dst),
          :ok <- validate_path(path) do
       data_trimmed = String.trim(data)
       data_without_type = String.slice(data_trimmed, 1..-1//1)
@@ -118,27 +116,6 @@ defmodule Parser do
       Logger.debug("PARSE ERROR: #{inspect(error)} for message: #{message}")
       {:error, :invalid_packet}
   end
-
-  # Validate callsign for AX.25 compliance
-  def validate_callsign(callsign, :src) when is_binary(callsign) do
-    if regex_callsign_valid?(callsign) and not String.contains?(callsign, "*") do
-      :ok
-    else
-      {:error, "Invalid source callsign"}
-    end
-  end
-
-  def validate_callsign(_callsign, :src), do: {:error, "Invalid source callsign"}
-
-  def validate_callsign("", :dst), do: {:error, "Missing destination callsign"}
-
-  def validate_callsign(callsign, :dst) when is_binary(callsign) do
-    if regex_callsign_valid?(callsign), do: :ok, else: {:error, "Invalid destination callsign"}
-  end
-
-  def validate_callsign(_callsign, :dst), do: {:error, "Invalid destination callsign"}
-
-  defp regex_callsign_valid?(callsign), do: String.match?(callsign, ~r/^[A-Z0-9\-]+$/)
 
   # Validate path for too many components
   def validate_path(path) when is_binary(path) and path != "" do

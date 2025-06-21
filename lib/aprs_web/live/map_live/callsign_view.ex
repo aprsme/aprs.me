@@ -10,6 +10,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   @default_zoom 4
   @default_replay_speed 1.0
 
+  @impl true
   def mount(%{"callsign" => callsign}, _session, socket) do
     # Normalize callsign to uppercase
     normalized_callsign = String.upcase(callsign)
@@ -140,7 +141,13 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   def handle_event("adjust_replay_speed", %{"speed" => speed}, socket) do
-    {:noreply, assign(socket, replay_speed: to_float(speed))}
+    speed_float = to_float(speed)
+    {:noreply, assign(socket, replay_speed: speed_float)}
+  end
+
+  @impl true
+  def handle_event("marker_clicked", _params, socket) do
+    {:noreply, socket}
   end
 
   def handle_event("map_ready", _params, socket) do
@@ -182,10 +189,6 @@ defmodule AprsWeb.MapLive.CallsignView do
         end
       end
 
-    {:noreply, socket}
-  end
-
-  def handle_event("marker_clicked", %{"id" => _id, "callsign" => _callsign, "lat" => _lat, "lng" => _lng}, socket) do
     {:noreply, socket}
   end
 
@@ -233,6 +236,7 @@ defmodule AprsWeb.MapLive.CallsignView do
     end
   end
 
+  @impl true
   def handle_info({:zoom_to_location, lat, lng, zoom}, socket) do
     socket = push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: zoom})
     {:noreply, socket}
@@ -384,6 +388,7 @@ defmodule AprsWeb.MapLive.CallsignView do
     {:noreply, socket}
   end
 
+  @impl true
   def render(assigns) do
     ~H"""
     <link

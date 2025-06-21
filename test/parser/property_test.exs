@@ -40,26 +40,6 @@ defmodule Parser.PropertyTest do
     end
   end
 
-  describe "validate_callsign/2" do
-    property "accepts valid source callsigns" do
-      uppercase = Enum.map(?A..?Z, &<<&1>>)
-      digits = Enum.map(?0..?9, &<<&1>>)
-      valid_chars = uppercase ++ digits ++ ["-"]
-
-      check all cs_list <- StreamData.list_of(StreamData.member_of(valid_chars), min_length: 1),
-                cs = Enum.join(cs_list) do
-        assert :ok = Parser.validate_callsign(cs, :src)
-      end
-    end
-
-    property "rejects invalid source callsigns" do
-      check all cs <- StreamData.string(:printable, min_length: 1),
-                not String.match?(cs, ~r/^[A-Z0-9\-]+$/) or String.contains?(cs, "*") do
-        assert match?({:error, _}, Parser.validate_callsign(cs, :src))
-      end
-    end
-  end
-
   describe "validate_path/1" do
     property "rejects paths with too many components" do
       check all n <- StreamData.integer(9..20) do

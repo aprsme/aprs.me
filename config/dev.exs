@@ -15,6 +15,7 @@ config :aprs, Aprs.Repo,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10,
+  log: false,
   types: Aprs.PostgresTypes
 
 config :aprs, AprsWeb.Endpoint,

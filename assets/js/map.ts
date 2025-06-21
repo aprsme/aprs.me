@@ -496,13 +496,6 @@ let MapAPRSMap = {
         popup: self.buildPopupContent(data),
         openPopup: true,
       });
-      // Send marker_clicked for the latest packet only
-      self.pushEvent("marker_clicked", {
-        id: data.id,
-        callsign: data.callsign,
-        lat: data.lat,
-        lng: data.lng,
-      });
     });
 
     // Handle highlighting the latest packet (open its popup)
@@ -665,7 +658,7 @@ let MapAPRSMap = {
         id: data.id,
         callsign: data.callsign,
         lat: lat,
-        lng: lng,
+        lng: lng
       });
     });
 
@@ -862,6 +855,19 @@ let MapAPRSMap = {
       content += `<div class="aprs-coords">
         ${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}
       </div>`;
+    }
+
+    if (data.timestamp) {
+      let date;
+      if (typeof data.timestamp === "number") {
+        date = new Date(data.timestamp * 1000);
+      } else if (typeof data.timestamp === "string") {
+        date = new Date(data.timestamp);
+      }
+
+      if (date && !isNaN(date.getTime())) {
+        content += `<div class="aprs-timestamp">${date.toISOString()}</div>`;
+      }
     }
 
     content += "</div>";

@@ -12,6 +12,7 @@ defmodule AprsWeb.MapLive.Index do
 
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
+  @default_replay_speed 25.0
   @finch_name Aprs.Finch
 
   @impl true
@@ -26,7 +27,6 @@ defmodule AprsWeb.MapLive.Index do
       Endpoint.subscribe("aprs_messages")
       Phoenix.PubSub.subscribe(Aprs.PubSub, "postgres:aprs_packets")
       maybe_start_geolocation(socket)
-      # schedule_timers() # COMMENTED OUT: disables periodic replay
     end
 
     {:ok, socket}
@@ -46,18 +46,18 @@ defmodule AprsWeb.MapLive.Index do
       },
       map_center: @default_center,
       map_zoom: @default_zoom,
-      # replay_active: false, # COMMENTED OUT
-      # replay_speed: @default_replay_speed, # COMMENTED OUT
-      # replay_paused: false, # COMMENTED OUT
-      # replay_packets: [], # COMMENTED OUT
-      # replay_index: 0, # COMMENTED OUT
-      # replay_timer_ref: nil, # COMMENTED OUT
-      # replay_start_time: nil, # COMMENTED OUT
-      # replay_end_time: nil, # COMMENTED OUT
-      # historical_packets: %{}, # COMMENTED OUT
+      replay_active: false,
+      replay_speed: @default_replay_speed,
+      replay_paused: false,
+      replay_packets: [],
+      replay_index: 0,
+      replay_timer_ref: nil,
+      replay_start_time: nil,
+      replay_end_time: nil,
+      historical_packets: %{},
       packet_age_threshold: one_hour_ago,
       map_ready: false,
-      # replay_started: false, # COMMENTED OUT
+      replay_started: false,
       pending_geolocation: nil,
       bounds_update_timer: nil,
       pending_bounds: nil,
@@ -179,9 +179,6 @@ defmodule AprsWeb.MapLive.Index do
           replay_started: false
         )
 
-      # Restart replay after a short delay
-      Process.send_after(self(), :initialize_replay, 1000)
-
       {:noreply, socket}
     else
       # If not active, the user manually requested a replay restart
@@ -246,6 +243,9 @@ defmodule AprsWeb.MapLive.Index do
   def handle_event("map_ready", _params, socket) do
     socket = assign(socket, map_ready: true)
 
+    # Start historical replay
+    Process.send_after(self(), :initialize_replay, 500)
+
     # If we have pending geolocation, zoom to it now
     socket =
       if socket.assigns.pending_geolocation do
@@ -259,7 +259,7 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   @impl true
-  def handle_event("marker_clicked", %{"id" => _id, "callsign" => _callsign, "lat" => _lat, "lng" => _lng}, socket) do
+  def handle_event("marker_clicked", _params, socket) do
     {:noreply, socket}
   end
 
@@ -332,9 +332,7 @@ defmodule AprsWeb.MapLive.Index do
 
   def handle_info({:ip_location, %{lat: lat, lng: lng}}, socket), do: handle_info_ip_location(lat, lng, socket)
 
-  # COMMENTED OUT
   def handle_info(:initialize_replay, socket), do: handle_info_initialize_replay(socket)
-  # COMMENTED OUT
   def handle_info(:replay_next_packet, socket), do: handle_replay_next_packet(socket)
   def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
 
@@ -401,9 +399,9 @@ defmodule AprsWeb.MapLive.Index do
         do: to_string(packet["id"]),
         else: System.unique_integer([:positive])
 
-    Logger.debug(
-      "[MAP] Incoming packet: id=#{inspect(callsign_key)} lat=#{inspect(lat)} lon=#{inspect(lon)} bounds=#{inspect(socket.assigns.map_bounds)} within_bounds?=#{inspect(MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds))}"
-    )
+    # Logger.debug(
+    #   "[MAP] Incoming packet: id=#{inspect(callsign_key)} lat=#{inspect(lat)} lon=#{inspect(lon)} bounds=#{inspect(socket.assigns.map_bounds)} within_bounds?=#{inspect(MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds))}"
+    # )
 
     all_packets = Map.put(socket.assigns.all_packets, callsign_key, packet)
     socket = assign(socket, all_packets: all_packets)
@@ -502,8 +500,6 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   defp handle_replay_end(socket) do
-    Process.send_after(self(), :initialize_replay, 10_000)
-
     socket =
       assign(socket,
         replay_active: false,
@@ -601,6 +597,13 @@ defmodule AprsWeb.MapLive.Index do
         color: #6b7280;
         font-size: 11px;
         font-family: monospace;
+      }
+
+      .aprs-timestamp {
+        color: #6b7280;
+        font-size: 11px;
+        font-family: monospace;
+        padding-top: 4px;
       }
 
       /* Leaflet popup improvements for APRS data */
@@ -834,6 +837,9 @@ defmodule AprsWeb.MapLive.Index do
 
     comment = Map.get(data_extended, :comment) || Map.get(data_extended, "comment") || ""
 
+    # Recursively convert tuples in data_extended to strings
+    safe_data_extended = convert_tuples_to_strings(data_extended)
+
     to_float = fn
       %Decimal{} = d ->
         Decimal.to_float(d)
@@ -882,7 +888,7 @@ defmodule AprsWeb.MapLive.Index do
       "data_type" => to_string(Map.get(packet, :data_type, Map.get(packet, "data_type", "unknown"))),
       "path" => Map.get(packet, :path, Map.get(packet, "path", "")),
       "comment" => comment,
-      "data_extended" => data_extended || %{},
+      "data_extended" => safe_data_extended || %{},
       "symbol_table_id" => symbol_table_id,
       "symbol_code" => symbol_code,
       "symbol_description" => symbol_description,
@@ -890,6 +896,26 @@ defmodule AprsWeb.MapLive.Index do
       "popup" => popup
     }
   end
+
+  defp convert_tuples_to_strings(map) when is_map(map) do
+    if Map.has_key?(map, :__struct__) do
+      map
+    else
+      Map.new(map, fn {k, v} ->
+        {k, convert_tuples_to_strings(v)}
+      end)
+    end
+  end
+
+  defp convert_tuples_to_strings(list) when is_list(list) do
+    Enum.map(list, &convert_tuples_to_strings/1)
+  end
+
+  defp convert_tuples_to_strings(tuple) when is_tuple(tuple) do
+    to_string(inspect(tuple))
+  end
+
+  defp convert_tuples_to_strings(other), do: other
 
   defp build_weather_popup_html(packet, callsign) do
     received_at =
