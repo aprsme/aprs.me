@@ -946,7 +946,7 @@ defmodule AprsWeb.MapLive.CallsignView do
       "data_type" => to_string(Map.get(packet, :data_type, Map.get(packet, "data_type", "unknown"))),
       "path" => Map.get(packet, :path, Map.get(packet, "path", "")),
       "comment" => comment,
-      "data_extended" => data_extended || %{},
+      "data_extended" => convert_tuples_to_strings(data_extended || %{}),
       "symbol_table_id" => symbol_table_id,
       "symbol_code" => symbol_code,
       "symbol_description" => symbol_description,
@@ -997,6 +997,26 @@ defmodule AprsWeb.MapLive.CallsignView do
         false
     end
   end
+
+  defp convert_tuples_to_strings(map) when is_map(map) do
+    if Map.has_key?(map, :__struct__) do
+      map
+    else
+      Map.new(map, fn {k, v} ->
+        {k, convert_tuples_to_strings(v)}
+      end)
+    end
+  end
+
+  defp convert_tuples_to_strings(list) when is_list(list) do
+    Enum.map(list, &convert_tuples_to_strings/1)
+  end
+
+  defp convert_tuples_to_strings(tuple) when is_tuple(tuple) do
+    to_string(inspect(tuple))
+  end
+
+  defp convert_tuples_to_strings(other), do: other
 
   defp load_callsign_packets(socket, callsign) do
     # Load only the latest packet for this specific callsign

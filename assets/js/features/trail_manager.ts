@@ -48,7 +48,6 @@ export class TrailManager {
     if (!trailState) {
       trailState = { positions: [] };
       this.trails.set(baseCallsign, trailState);
-      console.log(`TrailManager: Created new trail for ${baseCallsign}`);
     }
 
     // Check if this position already exists (avoid duplicates)
@@ -123,10 +122,6 @@ export class TrailManager {
         lineJoin: "round",
         className: "historical-trail-line",
       }).addTo(this.trailLayer);
-
-      console.log(
-        `TrailManager: Created trail line for ${baseCallsign} with ${trailState.positions.length} positions`,
-      );
 
       // Don't create additional dots here since historical positions are now shown as markers
       trailState.dots = [];
