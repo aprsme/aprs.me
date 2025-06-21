@@ -12,7 +12,6 @@ defmodule AprsWeb.MapLive.Index do
 
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
-  @default_replay_speed 25.0
   @finch_name Aprs.Finch
 
   @impl true
@@ -46,18 +45,10 @@ defmodule AprsWeb.MapLive.Index do
       },
       map_center: @default_center,
       map_zoom: @default_zoom,
-      replay_active: false,
-      replay_speed: @default_replay_speed,
-      replay_paused: false,
-      replay_packets: [],
-      replay_index: 0,
-      replay_timer_ref: nil,
-      replay_start_time: nil,
-      replay_end_time: nil,
       historical_packets: %{},
       packet_age_threshold: one_hour_ago,
       map_ready: false,
-      replay_started: false,
+      historical_loaded: false,
       pending_geolocation: nil,
       bounds_update_timer: nil,
       pending_bounds: nil,
@@ -156,59 +147,6 @@ defmodule AprsWeb.MapLive.Index do
       |> push_event("zoom_to_location", %{lat: lat_float, lng: lng_float, zoom: 12})
 
     {:noreply, socket}
-  end
-
-  @impl true
-  def handle_event("toggle_replay", _params, socket) do
-    if socket.assigns.replay_active do
-      # Stop replay
-      if socket.assigns.replay_timer_ref,
-        do: Process.cancel_timer(socket.assigns.replay_timer_ref)
-
-      # Clear historical packets from the map
-      socket =
-        socket
-        |> push_event("clear_historical_packets", %{})
-        |> assign(
-          replay_active: false,
-          replay_timer_ref: nil,
-          replay_paused: false,
-          replay_packets: [],
-          replay_index: 0,
-          historical_packets: %{},
-          replay_started: false
-        )
-
-      {:noreply, socket}
-    else
-      # If not active, the user manually requested a replay restart
-      {:noreply, start_historical_replay(socket)}
-    end
-  end
-
-  @impl true
-  def handle_event("pause_replay", _params, socket) do
-    if socket.assigns.replay_active do
-      if socket.assigns.replay_paused do
-        # Resume replay
-        timer_ref = Process.send_after(self(), :replay_next_packet, 1000)
-        {:noreply, assign(socket, replay_paused: false, replay_timer_ref: timer_ref)}
-      else
-        # Pause replay
-        if socket.assigns.replay_timer_ref,
-          do: Process.cancel_timer(socket.assigns.replay_timer_ref)
-
-        {:noreply, assign(socket, replay_paused: true, replay_timer_ref: nil)}
-      end
-    else
-      {:noreply, socket}
-    end
-  end
-
-  @impl true
-  def handle_event("adjust_replay_speed", %{"speed" => speed}, socket) do
-    speed_float = to_float(speed)
-    {:noreply, assign(socket, replay_speed: speed_float)}
   end
 
   @impl true
@@ -333,7 +271,7 @@ defmodule AprsWeb.MapLive.Index do
   def handle_info({:ip_location, %{lat: lat, lng: lng}}, socket), do: handle_info_ip_location(lat, lng, socket)
 
   def handle_info(:initialize_replay, socket), do: handle_info_initialize_replay(socket)
-  def handle_info(:replay_next_packet, socket), do: handle_replay_next_packet(socket)
+
   def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
 
   def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
@@ -383,9 +321,9 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   defp handle_info_initialize_replay(socket) do
-    if not socket.assigns.replay_started and socket.assigns.map_ready do
+    if not socket.assigns.historical_loaded and socket.assigns.map_ready do
       socket = start_historical_replay(socket)
-      {:noreply, assign(socket, replay_started: true)}
+      {:noreply, socket}
     else
       {:noreply, socket}
     end
@@ -448,67 +386,6 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   # Handle replaying the next historical packet
-  defp handle_replay_next_packet(socket) do
-    %{
-      replay_packets: packets,
-      replay_index: index,
-      replay_speed: speed,
-      historical_packets: historical_packets
-    } = socket.assigns
-
-    if index < length(packets) do
-      handle_next_replay_packet(socket, packets, index, speed, historical_packets)
-    else
-      handle_replay_end(socket)
-    end
-  end
-
-  defp handle_next_replay_packet(socket, packets, index, speed, historical_packets) do
-    packet = Enum.at(packets, index)
-    next_index = index + 1
-    packet_data = build_packet_data(packet)
-
-    socket =
-      if packet_data do
-        packet_data =
-          Map.merge(packet_data, %{
-            "is_historical" => true,
-            "timestamp" =>
-              if(Map.has_key?(packet, :received_at),
-                do: DateTime.to_iso8601(packet.received_at)
-              )
-          })
-
-        packet_id =
-          "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}"
-
-        new_historical_packets = Map.put(historical_packets, packet_id, packet)
-
-        socket
-        |> push_event("historical_packet", packet_data)
-        |> assign(
-          replay_index: next_index,
-          historical_packets: new_historical_packets
-        )
-      else
-        assign(socket, replay_index: next_index)
-      end
-
-    delay_ms = trunc(1000 / speed)
-    timer_ref = Process.send_after(self(), :replay_next_packet, delay_ms)
-    {:noreply, assign(socket, replay_timer_ref: timer_ref)}
-  end
-
-  defp handle_replay_end(socket) do
-    socket =
-      assign(socket,
-        replay_active: false,
-        replay_timer_ref: nil,
-        replay_started: false
-      )
-
-    {:noreply, socket}
-  end
 
   @impl true
   def render(assigns) do
@@ -693,8 +570,8 @@ defmodule AprsWeb.MapLive.Index do
   # Helper function to start historical replay
   @spec start_historical_replay(Socket.t()) :: Socket.t()
   defp start_historical_replay(socket) do
-    # Only fetch historical packets if map is ready and not already replaying
-    if socket.assigns.map_ready and not socket.assigns.replay_active do
+    # Only fetch historical packets if map is ready
+    if socket.assigns.map_ready do
       # Get time range for historical data
       now = DateTime.utc_now()
       one_hour_ago = DateTime.add(now, -60 * 60, :second)
@@ -711,24 +588,56 @@ defmodule AprsWeb.MapLive.Index do
       historical_packets = fetch_historical_packets(bounds, one_hour_ago, now)
 
       if Enum.empty?(historical_packets) do
-        # No historical packets found - silently continue without replay
+        # No historical packets found - silently continue
         socket
       else
         # Clear any previous historical packets from the map
         socket = push_event(socket, "clear_historical_packets", %{})
 
-        # Start replay
-        timer_ref = Process.send_after(self(), :replay_next_packet, 1000)
+        # Group packets by callsign and get only the most recent for each
+        latest_packets_by_callsign =
+          historical_packets
+          |> Enum.group_by(&generate_callsign/1)
+          |> Enum.map(fn {_callsign, packets} ->
+            # Sort by received_at descending and take the most recent
+            Enum.max_by(packets, & &1.received_at, DateTime)
+          end)
+
+        # Build packet data for all latest packets
+        packet_data_list =
+          latest_packets_by_callsign
+          |> Enum.map(fn packet ->
+            case build_packet_data(packet) do
+              nil ->
+                nil
+
+              packet_data ->
+                # Generate a unique ID for this historical packet
+                packet_id =
+                  "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}"
+
+                packet_data
+                |> Map.put("id", packet_id)
+                |> Map.put("is_historical", true)
+            end
+          end)
+          # Remove nil values
+          |> Enum.filter(& &1)
+
+        # Send all historical packets at once
+        socket = push_event(socket, "add_historical_packets", %{packets: packet_data_list})
+
+        # Store historical packets in assigns for reference
+        historical_packets_map =
+          packet_data_list
+          |> Enum.zip(latest_packets_by_callsign)
+          |> Enum.reduce(%{}, fn {packet_data, packet}, acc ->
+            Map.put(acc, packet_data["id"], packet)
+          end)
 
         assign(socket,
-          replay_active: true,
-          replay_packets: historical_packets,
-          replay_index: 0,
-          replay_timer_ref: timer_ref,
-          replay_start_time: one_hour_ago,
-          replay_end_time: now,
-          historical_packets: %{},
-          replay_started: true
+          historical_packets: historical_packets_map,
+          historical_loaded: true
         )
       end
     else
@@ -758,7 +667,8 @@ defmodule AprsWeb.MapLive.Index do
     }
 
     # Call the database through the Packets context
-    packets = Aprs.Packets.get_packets_for_replay(packets_params)
+    packets_module = Application.get_env(:aprs, :packets_module, Aprs.Packets)
+    packets = packets_module.get_packets_for_replay(packets_params)
 
     # Sort packets by received_at timestamp to ensure chronological replay
     Enum.sort_by(packets, fn packet -> packet.received_at end)
@@ -1001,30 +911,12 @@ defmodule AprsWeb.MapLive.Index do
 
   defp send_default_ip_location, do: send(self(), {:ip_location, @default_center})
 
-  # Helper function to convert string or float to float
-  @spec to_float(number() | String.t()) :: float()
-  defp to_float(value) when is_float(value), do: value
-  defp to_float(value) when is_integer(value), do: value * 1.0
-
-  @spec to_float(String.t()) :: float()
-  defp to_float(value) when is_binary(value) do
-    case Float.parse(value) do
-      {float_val, _} -> float_val
-      :error -> 0.0
-    end
-  end
-
   @impl true
   def terminate(_reason, socket) do
     if socket.assigns.buffer_timer, do: Process.cancel_timer(socket.assigns.buffer_timer)
     # Clean up any pending bounds update timer
     if socket.assigns[:bounds_update_timer] do
       Process.cancel_timer(socket.assigns.bounds_update_timer)
-    end
-
-    # Clean up replay timer
-    if socket.assigns[:replay_timer_ref] do
-      Process.cancel_timer(socket.assigns.replay_timer_ref)
     end
 
     :ok

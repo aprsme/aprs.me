@@ -110,9 +110,7 @@ defmodule AprsWeb.Integration.AprsStatusTest do
       # Test map ready event
       assert render_hook(view, "map_ready", %{})
 
-      # Test replay speed adjustment if available
-      speed_params = %{"speed" => "1.0"}
-      render_hook(view, "adjust_replay_speed", speed_params)
+      # Replay functionality has been removed - historical packets are now loaded all at once
     end
 
     test "real-time updates are disabled without APRS connection", %{conn: conn} do

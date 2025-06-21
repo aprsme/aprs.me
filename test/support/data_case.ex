@@ -24,8 +24,11 @@ defmodule Aprs.DataCase do
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
+      import Mox
 
       alias Aprs.Repo
+
+      setup :verify_on_exit!
     end
   end
 

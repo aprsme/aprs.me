@@ -3,6 +3,8 @@ defmodule Aprs.Packets do
   The Packets context.
   """
 
+  @behaviour Aprs.PacketsBehaviour
+
   import Ecto.Query, warn: false
 
   alias Aprs.BadPacket

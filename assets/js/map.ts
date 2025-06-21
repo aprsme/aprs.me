@@ -112,9 +112,12 @@ let MapAPRSMap = {
           typeof lat === "number" &&
           typeof lng === "number" &&
           typeof zoom === "number" &&
-          lat >= -90 && lat <= 90 &&
-          lng >= -180 && lng <= 180 &&
-          zoom >= 1 && zoom <= 20
+          lat >= -90 &&
+          lat <= 90 &&
+          lng >= -180 &&
+          lng <= 180 &&
+          zoom >= 1 &&
+          zoom <= 20
         ) {
           initialCenter = { lat, lng };
           initialZoom = zoom;
@@ -136,8 +139,10 @@ let MapAPRSMap = {
           !initialCenter ||
           typeof initialCenter.lat !== "number" ||
           typeof initialCenter.lng !== "number"
-        ) throw new Error("Invalid center data");
-        if (isNaN(initialZoom) || initialZoom < 1 || initialZoom > 20) throw new Error("Invalid zoom data");
+        )
+          throw new Error("Invalid center data");
+        if (isNaN(initialZoom) || initialZoom < 1 || initialZoom > 20)
+          throw new Error("Invalid zoom data");
       } catch (error) {
         console.error("Error parsing map data attributes:", error);
         initialCenter = { lat: 39.8283, lng: -98.5795 };
@@ -283,7 +288,7 @@ let MapAPRSMap = {
         const zoom = self.map.getZoom();
         localStorage.setItem(
           "aprs_map_state",
-          JSON.stringify({ lat: center.lat, lng: center.lng, zoom })
+          JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
         );
       }, 300);
     });
@@ -307,7 +312,7 @@ let MapAPRSMap = {
         const zoom = self.map.getZoom();
         localStorage.setItem(
           "aprs_map_state",
-          JSON.stringify({ lat: center.lat, lng: center.lng, zoom })
+          JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
         );
       }, 300);
     });
@@ -528,6 +533,19 @@ let MapAPRSMap = {
       });
     });
 
+    // Handle bulk loading of historical packets
+    self.handleEvent("add_historical_packets", (data: { packets: MarkerData[] }) => {
+      if (data.packets && Array.isArray(data.packets)) {
+        data.packets.forEach((packet) => {
+          self.addMarker({
+            ...packet,
+            historical: true,
+            popup: self.buildPopupContent(packet),
+          });
+        });
+      }
+    });
+
     // Handle refresh markers event
     self.handleEvent("refresh_markers", () => {
       // Remove markers that are outside current bounds
@@ -658,7 +676,7 @@ let MapAPRSMap = {
         id: data.id,
         callsign: data.callsign,
         lat: lat,
-        lng: lng
+        lng: lng,
       });
     });
 

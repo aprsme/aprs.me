@@ -64,36 +64,24 @@ defmodule AprsWeb.MapLive.IndexTest do
       assert render_hook(view, "bounds_changed", bounds_params)
     end
 
-    test "handles adjust_replay_speed event with float values", %{conn: conn} do
+    test "loads historical packets when map is ready", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
 
-      # Test with float speed value
-      speed_params = %{"speed" => 1.5}
-      assert render_hook(view, "adjust_replay_speed", speed_params)
+      # Simulate map initialization which should trigger historical packet loading
+      assert render_hook(view, "map_ready", %{})
+
+      # Wait for the initialize_replay message to be processed
+      Process.sleep(600)
+
+      # The view should still be rendering without errors after loading historical packets
+      assert render(view) =~ "aprs-map"
     end
 
-    test "handles adjust_replay_speed event with string values", %{conn: conn} do
+    test "handles clear_and_reload_markers event", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
 
-      # Test with string speed value
-      speed_params = %{"speed" => "2.0"}
-      assert render_hook(view, "adjust_replay_speed", speed_params)
-    end
-
-    test "handles adjust_replay_speed event with integer values", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/")
-
-      # Test with integer speed value
-      speed_params = %{"speed" => 3}
-      assert render_hook(view, "adjust_replay_speed", speed_params)
-    end
-
-    test "handles adjust_replay_speed event with integer string values", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/")
-
-      # Test with integer string value (should work with improved Float.parse)
-      speed_params = %{"speed" => "1"}
-      assert render_hook(view, "adjust_replay_speed", speed_params)
+      # This should not crash and should work without replay functionality
+      assert render_hook(view, "clear_and_reload_markers", %{})
     end
 
     test "sets correct page title", %{conn: conn} do

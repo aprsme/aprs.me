@@ -76,6 +76,7 @@ defmodule Aprs.MixProject do
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
       {:sobelow, "~> 0.8", only: :dev},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
+      {:mox, "~> 1.2", only: :test},
       {:styler, "~> 1.4.2", only: [:dev, :test], runtime: false}
     ]
   end

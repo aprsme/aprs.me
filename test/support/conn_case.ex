@@ -22,17 +22,28 @@ defmodule AprsWeb.ConnCase do
       # The default endpoint for testing
       use AprsWeb, :verified_routes
 
+      import Aprs.MockHelpers
+
       # Import conveniences for testing with connections
       import AprsWeb.ConnCase
+      import Mox
       import Phoenix.ConnTest
       import Plug.Conn
 
       @endpoint AprsWeb.Endpoint
+
+      setup :verify_on_exit!
     end
   end
 
   setup tags do
     Aprs.DataCase.setup_sandbox(tags)
+
+    # Stub PacketsMock by default for tests that use MapLive but don't test historical packets
+    if !tags[:skip_packets_mock] do
+      Aprs.MockHelpers.stub_packets_mock()
+    end
+
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 

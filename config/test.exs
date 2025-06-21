@@ -14,7 +14,7 @@ config :aprs, Aprs.Repo,
   hostname: "localhost",
   database: "aprs_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: 10,
+  pool_size: System.schedulers_online() * 2,
   types: Aprs.PostgresTypes
 
 # We don't run a server during test. If one is required,
@@ -26,6 +26,9 @@ config :aprs, AprsWeb.Endpoint,
 
 # Disable Oban during tests to prevent background job execution
 config :aprs, Oban, testing: :inline
+
+# Configure the packets module to use the mock in tests
+config :aprs, :packets_module, Aprs.PacketsMock
 
 # Disable APRS-IS external connections in test environment
 config :aprs,

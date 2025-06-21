@@ -1,6 +1,10 @@
 ExUnit.start()
 Ecto.Adapters.SQL.Sandbox.mode(Aprs.Repo, :manual)
 
+# Configure Mox
+Mox.defmock(Aprs.PacketsMock, for: Aprs.PacketsBehaviour)
+Mox.defmock(Aprs.PacketReplayMock, for: Aprs.PacketReplayBehaviour)
+
 # Ensure no external APRS connections during tests
 Application.put_env(:aprs, :disable_aprs_connection, true)
 Application.put_env(:aprs, :aprs_is_server, "mock.aprs.test")
