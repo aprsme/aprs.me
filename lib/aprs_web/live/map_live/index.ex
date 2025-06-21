@@ -211,13 +211,29 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   @impl true
-  def handle_event("update_trail_duration", %{"target" => %{"value" => duration}}, socket) do
-    {:noreply, assign(socket, trail_duration: duration)}
+  def handle_event("update_trail_duration", %{"trail_duration" => duration}, socket) do
+    # Convert duration string to hours and calculate new threshold
+    hours = String.to_integer(duration)
+    new_threshold = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
+
+    socket = assign(socket, trail_duration: duration, packet_age_threshold: new_threshold)
+
+    # Trigger cleanup to remove packets that are now outside the new duration
+    send(self(), :cleanup_old_packets)
+
+    {:noreply, socket}
   end
 
   @impl true
-  def handle_event("update_historical_hours", %{"target" => %{"value" => hours}}, socket) do
-    {:noreply, assign(socket, historical_hours: hours)}
+  def handle_event("update_historical_hours", %{"historical_hours" => hours}, socket) do
+    socket = assign(socket, historical_hours: hours)
+
+    # Trigger a reload of historical packets with the new time range
+    if socket.assigns.map_ready do
+      send(self(), :reload_historical_packets)
+    end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -311,6 +327,8 @@ defmodule AprsWeb.MapLive.Index do
   def handle_info(:initialize_replay, socket), do: handle_info_initialize_replay(socket)
 
   def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
+
+  def handle_info(:reload_historical_packets, socket), do: handle_reload_historical_packets(socket)
 
   def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
 
@@ -631,9 +649,9 @@ defmodule AprsWeb.MapLive.Index do
             </svg>
             <span>Trail Duration</span>
           </label>
-          <div class="relative">
+          <form phx-change="update_trail_duration" class="relative">
             <select
-              phx-change="update_trail_duration"
+              name="trail_duration"
               class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white appearance-none transition-all duration-200 hover:border-slate-400"
             >
               <option value="1" selected={@trail_duration == "1"}>1 Hour</option>
@@ -658,7 +676,7 @@ defmodule AprsWeb.MapLive.Index do
                 />
               </svg>
             </div>
-          </div>
+          </form>
           <p class="text-xs text-slate-500 flex items-center space-x-1">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -685,9 +703,9 @@ defmodule AprsWeb.MapLive.Index do
             </svg>
             <span>Historical Data</span>
           </label>
-          <div class="relative">
+          <form phx-change="update_historical_hours" class="relative">
             <select
-              phx-change="update_historical_hours"
+              name="historical_hours"
               class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white appearance-none transition-all duration-200 hover:border-slate-400"
             >
               <option value="1" selected={@historical_hours == "1"}>1 Hour</option>
@@ -711,7 +729,7 @@ defmodule AprsWeb.MapLive.Index do
                 />
               </svg>
             </div>
-          </div>
+          </form>
           <p class="text-xs text-slate-500 flex items-center space-x-1">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -734,12 +752,14 @@ defmodule AprsWeb.MapLive.Index do
     # Schedule next cleanup
     Process.send_after(self(), :cleanup_old_packets, 60_000)
 
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+    # Use the current packet_age_threshold instead of hardcoded one hour
+    threshold = socket.assigns.packet_age_threshold
+
     # Remove expired packets from visible_packets
     expired_keys =
       socket.assigns.visible_packets
       |> Enum.filter(fn {_key, packet} ->
-        not packet_within_time_threshold?(packet, one_hour_ago)
+        not packet_within_time_threshold?(packet, threshold)
       end)
       |> Enum.map(fn {key, _} -> key end)
 
@@ -756,6 +776,23 @@ defmodule AprsWeb.MapLive.Index do
     # Use Map.drop/2 for better performance
     updated_visible_packets = Map.drop(socket.assigns.visible_packets, expired_keys)
     {:noreply, assign(socket, visible_packets: updated_visible_packets)}
+  end
+
+  defp handle_reload_historical_packets(socket) do
+    if socket.assigns.map_ready and socket.assigns.map_bounds do
+      # Clear existing historical packets
+      socket = assign(socket, historical_packets: %{})
+
+      # Clear all markers on the client
+      socket = push_event(socket, "clear_all_markers", %{})
+
+      # Load historical packets with new time range
+      socket = load_historical_packets_for_bounds(socket, socket.assigns.map_bounds)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   # Check if a packet is within the time threshold (not too old)
@@ -781,7 +818,9 @@ defmodule AprsWeb.MapLive.Index do
     if socket.assigns.map_ready do
       # Get time range for historical data
       now = DateTime.utc_now()
-      one_hour_ago = DateTime.add(now, -60 * 60, :second)
+      # Use the user's selected historical hours setting
+      historical_hours = String.to_integer(socket.assigns.historical_hours)
+      start_time = DateTime.add(now, -historical_hours * 3600, :second)
 
       # Convert map bounds to the format expected by the database query
       bounds = [
@@ -792,7 +831,7 @@ defmodule AprsWeb.MapLive.Index do
       ]
 
       # Fetch historical packets with position data within the current map bounds
-      historical_packets = fetch_historical_packets(bounds, one_hour_ago, now)
+      historical_packets = fetch_historical_packets(bounds, start_time, now)
 
       if Enum.empty?(historical_packets) do
         # No historical packets found - silently continue
@@ -927,13 +966,7 @@ defmodule AprsWeb.MapLive.Index do
   # Fetch historical packets from the database
   @spec fetch_historical_packets(list(), DateTime.t(), DateTime.t()) :: [struct()]
   defp fetch_historical_packets(bounds, start_time, end_time) do
-    # Force start_time to be at most 1 hour ago
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
-
-    effective_start_time =
-      if DateTime.before?(start_time, one_hour_ago),
-        do: one_hour_ago,
-        else: start_time
+    effective_start_time = start_time
 
     # Use the Packets context to retrieve historical packets
     packets_params = %{
@@ -957,7 +990,9 @@ defmodule AprsWeb.MapLive.Index do
   defp load_historical_packets_for_bounds(socket, map_bounds) do
     # Get time range for historical data
     now = DateTime.utc_now()
-    one_hour_ago = DateTime.add(now, -60 * 60, :second)
+    # Use the user's selected historical hours setting
+    historical_hours = String.to_integer(socket.assigns.historical_hours)
+    start_time = DateTime.add(now, -historical_hours * 3600, :second)
 
     # Convert map bounds to the format expected by the database query
     bounds = [
@@ -968,7 +1003,7 @@ defmodule AprsWeb.MapLive.Index do
     ]
 
     # Fetch historical packets with position data within the current map bounds
-    historical_packets = fetch_historical_packets(bounds, one_hour_ago, now)
+    historical_packets = fetch_historical_packets(bounds, start_time, now)
 
     if Enum.empty?(historical_packets) do
       # No historical packets found
