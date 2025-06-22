@@ -1,5 +1,8 @@
 #!/bin/sh
 set -eu
 
+# Write the current UTC time to /app/deployed_at.txt at container start
+date -u +"%Y-%m-%dT%H:%M:%SZ" > /app/deployed_at.txt
+
 cd -P -- "$(dirname -- "$0")"
 PHX_SERVER=true exec ./aprs start
