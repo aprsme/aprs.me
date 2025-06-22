@@ -27,9 +27,52 @@ let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("
 // Import minimal APRS map hook
 import MapAPRSMap from "./map";
 
+// Responsive Slideover Hook
+let ResponsiveSlideoverHook = {
+  mounted() {
+    this.isInitialized = false;
+
+    this.handleResize = () => {
+      const isDesktop = window.innerWidth >= 1024;
+      const isMobile = window.innerWidth < 1024;
+
+      // Set initial state based on screen size
+      if (!this.isInitialized) {
+        this.isInitialized = true;
+        if (isDesktop) {
+          this.pushEvent("set_slideover_state", { open: true });
+        } else {
+          this.pushEvent("set_slideover_state", { open: false });
+        }
+      }
+    };
+
+    // Initial check after a brief delay to ensure LiveView is ready
+    setTimeout(() => {
+      this.handleResize();
+    }, 100);
+
+    // Listen for resize events with debouncing
+    let resizeTimer;
+    this.debouncedResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(this.handleResize, 150);
+    };
+
+    window.addEventListener("resize", this.debouncedResize);
+  },
+
+  destroyed() {
+    if (this.debouncedResize) {
+      window.removeEventListener("resize", this.debouncedResize);
+    }
+  },
+};
+
 // APRS Map Hook
 let Hooks = {};
 Hooks.APRSMap = MapAPRSMap;
+Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
 
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

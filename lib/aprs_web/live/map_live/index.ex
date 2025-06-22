@@ -56,7 +56,9 @@ defmodule AprsWeb.MapLive.Index do
       # Overlay controls
       overlay_callsign: "",
       trail_duration: "1",
-      historical_hours: "1"
+      historical_hours: "1",
+      # Slideover state - will be set based on screen size
+      slideover_open: true
     )
   end
 
@@ -246,6 +248,16 @@ defmodule AprsWeb.MapLive.Index do
       # Navigate to the callsign-specific route
       {:noreply, push_navigate(socket, to: "/#{trimmed_callsign}")}
     end
+  end
+
+  @impl true
+  def handle_event("toggle_slideover", _params, socket) do
+    {:noreply, assign(socket, slideover_open: !socket.assigns.slideover_open)}
+  end
+
+  @impl true
+  def handle_event("set_slideover_state", %{"open" => open}, socket) do
+    {:noreply, assign(socket, slideover_open: open)}
   end
 
   @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
@@ -474,10 +486,28 @@ defmodule AprsWeb.MapLive.Index do
         position: absolute;
         top: 0;
         left: 0;
-        right: 352px;
         bottom: 0;
         height: 100vh;
         z-index: 1;
+        transition: right 0.3s ease-in-out;
+      }
+
+      /* Desktop styles */
+      @media (min-width: 1024px) {
+        #aprs-map.slideover-open {
+          right: 352px;
+        }
+
+        #aprs-map.slideover-closed {
+          right: 0;
+        }
+      }
+
+      /* Mobile styles */
+      @media (max-width: 1023px) {
+        #aprs-map {
+          right: 0 !important;
+        }
       }
 
       .locate-button {
@@ -550,6 +580,7 @@ defmodule AprsWeb.MapLive.Index do
 
     <div
       id="aprs-map"
+      class={if @slideover_open, do: "slideover-open", else: "slideover-closed"}
       phx-hook="APRSMap"
       phx-update="ignore"
       data-center={Jason.encode!(@map_center)}
@@ -575,10 +606,63 @@ defmodule AprsWeb.MapLive.Index do
       </svg>
     </button>
 
+    <!-- Slideover Toggle Button -->
+    <button
+      class={["slideover-toggle", if(@slideover_open, do: "slideover-open", else: "slideover-closed")]}
+      phx-click="toggle_slideover"
+      title={if @slideover_open, do: "Hide controls", else: "Show controls"}
+    >
+      <%= if @slideover_open do %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      <% else %>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      <% end %>
+    </button>
+
+    <!-- Mobile Backdrop -->
+    <%= if @slideover_open do %>
+      <div
+        class="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden backdrop-blur-sm"
+        phx-click="toggle_slideover"
+      >
+      </div>
+    <% end %>
+
     <!-- Control Panel Overlay -->
-    <div class="fixed top-0 right-0 h-full w-88 bg-white shadow-2xl z-[1000] backdrop-blur-sm">
+    <div
+      id="slideover-panel"
+      class={[
+        "slideover-panel",
+        if(@slideover_open, do: "slideover-open", else: "slideover-closed")
+      ]}
+      phx-hook="ResponsiveSlideoverHook"
+    >
       <!-- Header -->
-      <div class="flex items-center justify-center p-6 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+      <div class="flex items-center justify-between p-6 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div class="flex items-center space-x-2">
           <svg
             class="w-6 h-6"
@@ -596,10 +680,32 @@ defmodule AprsWeb.MapLive.Index do
           </svg>
           <h2 class="text-xl font-bold">APRS.me</h2>
         </div>
+        
+    <!-- Close button for mobile -->
+        <button
+          class="lg:hidden text-white hover:text-slate-200 transition-colors"
+          phx-click="toggle_slideover"
+          title="Close controls"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m18 6-12 12" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
       </div>
       
     <!-- Content -->
-      <div class="p-6 space-y-6 bg-slate-50 h-full overflow-y-auto">
+      <div class="p-6 space-y-6 bg-slate-50 flex-1 overflow-y-auto">
         <!-- Callsign Search -->
         <div class="space-y-4">
           <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
@@ -741,6 +847,38 @@ defmodule AprsWeb.MapLive.Index do
             </svg>
             <span>How many hours of historical packets to load</span>
           </p>
+        </div>
+        
+    <!-- Navigation Links (Mobile) -->
+        <div class="lg:hidden pt-4 border-t border-slate-200 space-y-3">
+          <.link
+            navigate={~p"/packets"}
+            class="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              />
+            </svg>
+            <span>View All Packets</span>
+          </.link>
+          <.link
+            navigate={~p"/badpackets"}
+            class="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+            <span>View Bad Packets</span>
+          </.link>
         </div>
       </div>
     </div>
