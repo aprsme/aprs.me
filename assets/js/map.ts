@@ -305,9 +305,10 @@ let MapAPRSMap = {
         const currentZoom = self.map!.getZoom();
         const zoomDifference = self.lastZoom ? Math.abs(currentZoom - self.lastZoom) : 0;
 
-        // If zoom changed significantly (more than 2 levels), clear and reload
+        // If zoom changed significantly (more than 2 levels), request reload of normal markers
+        // but preserve historical ones and current position
         if (zoomDifference > 2) {
-          self.pushEvent("clear_and_reload_markers", {});
+          self.pushEvent("refresh_markers", {});
         }
 
         self.sendBoundsToServer();
@@ -668,25 +669,15 @@ let MapAPRSMap = {
           self.markers!.delete(id);
           self.markerStates!.delete(id);
 
-          // Only remove trail if this was the only marker for this callsign
-          if (self.trailManager && markerState) {
-            const callsign = markerState.callsign_group || markerState.callsign || id;
-            // Check if there are any live markers left for this callsign
-            let hasLiveMarkers = false;
-            self.markerStates!.forEach((state) => {
-              const stateCallsign = state.callsign_group || state.callsign;
-              if (stateCallsign === callsign && !state.historical) {
-                hasLiveMarkers = true;
-              }
-            });
-
-            // Only remove trail if no live markers remain
-            if (!hasLiveMarkers) {
-              self.trailManager.removeTrail(callsign);
-            }
-          }
+          // We now NEVER remove trails when clearing historical packets
+          // This preserves the historical trail visibility
         }
       });
+
+      // Make sure trail layer is visible and on top
+      if (self.trailLayer && self.trailLayer.bringToFront) {
+        self.trailLayer.bringToFront();
+      }
     });
 
     // Handle bounds-based marker filtering
@@ -708,7 +699,13 @@ let MapAPRSMap = {
 
     // Handle clear_all_markers event
     self.handleEvent("clear_all_markers", () => {
+      // Modified to preserve historical trails - only removes non-historical markers
       self.clearAllMarkers();
+
+      // Force trail layer to front to ensure visibility
+      if (self.trailLayer && self.trailLayer.bringToFront) {
+        self.trailLayer.bringToFront();
+      }
     });
   },
 
@@ -720,8 +717,9 @@ let MapAPRSMap = {
     const center = self.map!.getCenter();
     const zoom = self.map!.getZoom();
 
-    // Remove markers that are now outside the visible bounds
-    self.removeMarkersOutsideBounds(bounds);
+    // We're no longer removing markers outside bounds during normal panning/zooming
+    // to preserve historical positions and the current marker
+    // self.removeMarkersOutsideBounds(bounds);
 
     self.pushEvent("bounds_changed", {
       bounds: {
@@ -825,6 +823,13 @@ let MapAPRSMap = {
     marker.addTo(self.markerLayer!);
     self.markers!.set(data.id, marker);
 
+    // Make sure historical markers and trails stay visible
+    if (data.historical || data.is_most_recent_for_callsign) {
+      if (self.trailLayer && self.trailLayer.bringToFront) {
+        setTimeout(() => self.trailLayer.bringToFront(), 50);
+      }
+    }
+
     // Store marker state for optimization
     self.markerStates!.set(data.id, {
       lat: lat,
@@ -923,13 +928,49 @@ let MapAPRSMap = {
 
   clearAllMarkers() {
     const self = this as unknown as LiveViewHookContext;
-    self.markerLayer!.clearLayers();
+
+    // Instead of clearing all markers, only remove non-historical and non-current markers
+    const markersToPreserve = new Map();
+    const statesToPreserve = new Map();
+
+    // Identify historical markers and most recent markers to preserve
+    self.markers!.forEach((marker, id) => {
+      const markerState = self.markerStates!.get(String(id));
+      const isHistorical = (marker as any)._isHistorical || (markerState && markerState.historical);
+      const isMostRecent = markerState && markerState.is_most_recent_for_callsign;
+
+      // Keep historical markers and current position markers
+      if (isHistorical || isMostRecent) {
+        markersToPreserve.set(String(id), marker);
+        if (markerState) {
+          statesToPreserve.set(String(id), markerState);
+        }
+      } else {
+        // Remove only non-historical, non-current markers
+        self.markerLayer!.removeLayer(marker);
+      }
+    });
+
+    // Replace the markers and states with just the preserved ones
     self.markers!.clear();
     self.markerStates!.clear();
 
-    // Clear all trails
-    if (self.trailManager) {
-      self.trailManager.clearAllTrails();
+    markersToPreserve.forEach((marker, id) => {
+      self.markers!.set(id, marker);
+    });
+
+    statesToPreserve.forEach((state, id) => {
+      self.markerStates!.set(id, state);
+    });
+
+    // Don't clear trails - keep them visible
+    // if (self.trailManager) {
+    //   self.trailManager.clearAllTrails();
+    // }
+
+    // Make sure trail layer is on top
+    if (self.trailLayer && self.trailLayer.bringToFront) {
+      setTimeout(() => self.trailLayer.bringToFront(), 100);
     }
   },
 
@@ -940,6 +981,16 @@ let MapAPRSMap = {
     const markersToRemove: string[] = [];
 
     self.markers!.forEach((marker: L.Marker, id: string) => {
+      // Check if this is a historical marker or the most recent marker for a callsign
+      const markerState = self.markerStates!.get(String(id));
+      const isHistorical = (marker as any)._isHistorical || (markerState && markerState.historical);
+      const isMostRecent = markerState && markerState.is_most_recent_for_callsign;
+
+      // Always preserve historical markers and the most recent marker for a callsign
+      if (isHistorical || isMostRecent) {
+        return; // Skip this marker, don't remove it
+      }
+
       const position = marker.getLatLng();
       const lat = position.lat;
       const lng = position.lng;

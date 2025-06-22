@@ -160,7 +160,26 @@ defmodule AprsWeb.MapLive.CallsignView do
         |> assign(packets_loaded: true)
       end
 
-    # Don't start historical replay yet - wait for bounds to be available
+    # Immediately start historical replay without waiting for bounds
+    # If bounds aren't available, use a default world bounds
+    socket =
+      if is_nil(socket.assigns.map_bounds) do
+        # Use a default global bounds to ensure we get all historical points
+        default_bounds = %{
+          north: 90.0,
+          south: -90.0,
+          east: 180.0,
+          west: -180.0
+        }
+
+        socket = assign(socket, map_bounds: default_bounds)
+        socket = start_historical_replay(socket)
+        assign(socket, replay_started: true, replay_active: true)
+      else
+        # Bounds already available, use them
+        socket = start_historical_replay(socket)
+        assign(socket, replay_started: true, replay_active: true)
+      end
 
     # If we have a pending geolocation, zoom to it after a delay
     socket =
@@ -252,12 +271,30 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   def handle_info(:auto_start_replay, socket) do
-    if not socket.assigns.replay_started and socket.assigns.map_ready and
-         not is_nil(socket.assigns.map_bounds) do
+    # We now handle this in map_ready event, but keep this for backward compatibility
+    # and in case auto_start_replay is triggered from elsewhere
+    if socket.assigns.map_ready and not socket.assigns.replay_started do
+      # Update socket with bounds if needed
+      socket =
+        if is_nil(socket.assigns.map_bounds) do
+          # Use a default global bounds if needed
+          default_bounds = %{
+            north: 90.0,
+            south: -90.0,
+            east: 180.0,
+            west: -180.0
+          }
+
+          assign(socket, map_bounds: default_bounds)
+        else
+          socket
+        end
+
       socket = start_historical_replay(socket)
       {:noreply, assign(socket, replay_started: true, replay_active: true)}
     else
-      if not socket.assigns.map_ready or is_nil(socket.assigns.map_bounds) do
+      # Only retry if map isn't ready yet
+      if not socket.assigns.map_ready do
         Process.send_after(self(), :auto_start_replay, 1000)
       end
 

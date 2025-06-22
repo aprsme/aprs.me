@@ -23,12 +23,22 @@ export class TrailManager {
     this.trails = new Map();
     this.showTrails = true;
     this.trailDuration = trailDuration;
+
+    // Ensure trail layer is added to the map and visible
+    if (this.trailLayer && this.trailLayer.bringToFront) {
+      setTimeout(() => this.trailLayer.bringToFront(), 100);
+    }
   }
 
   setShowTrails(show: boolean) {
     this.showTrails = show;
     if (!show) {
       this.clearAllTrails();
+    } else {
+      // When re-enabling trails, recreate all trails immediately
+      this.trails.forEach((trailState, baseCallsign) => {
+        this.updateTrailVisualization(baseCallsign, trailState, true);
+      });
     }
   }
 
@@ -77,8 +87,9 @@ export class TrailManager {
       });
     }
 
-    // Always update trail visualization
-    this.updateTrailVisualization(baseCallsign, trailState);
+    // Always update trail visualization, with immediate=true for historical dots
+    // This ensures historical trails are immediately visible when loaded all at once
+    this.updateTrailVisualization(baseCallsign, trailState, isHistoricalDot);
   }
 
   private extractBaseCallsign(markerId: string | any): string {
@@ -97,7 +108,11 @@ export class TrailManager {
     return id;
   }
 
-  private updateTrailVisualization(baseCallsign: string, trailState: TrailState) {
+  private updateTrailVisualization(
+    baseCallsign: string,
+    trailState: TrailState,
+    immediate: boolean = false,
+  ) {
     // Remove old trail and dots
     if (trailState.trail) {
       this.trailLayer.removeLayer(trailState.trail);
@@ -113,14 +128,17 @@ export class TrailManager {
       const latLngs = trailState.positions.map((pos) => [pos.lat, pos.lng]);
 
       // Create blue polyline connecting the historical position dots
+      // For historical positions (immediate=true), use higher opacity for better visibility
       trailState.trail = L.polyline(latLngs, {
         color: "#1E90FF",
         weight: 3,
-        opacity: 0.8,
+        opacity: immediate ? 0.9 : 0.8,
         smoothFactor: 1,
         lineCap: "round",
         lineJoin: "round",
         className: "historical-trail-line",
+        // Ensure the trail renders on top of other map elements
+        zIndexOffset: immediate ? 1000 : 0,
       }).addTo(this.trailLayer);
 
       // Don't create additional dots here since historical positions are now shown as markers
