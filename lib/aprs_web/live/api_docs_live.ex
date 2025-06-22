@@ -6,8 +6,203 @@ defmodule AprsWeb.ApiDocsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "API Documentation")}
+    {:ok,
+     socket
+     |> assign(page_title: "API Documentation")
+     |> assign(test_callsign: "")
+     |> assign(loading: false)
+     |> assign(api_result: nil)
+     |> assign(error: nil)}
   end
+
+  @impl true
+  def handle_event("update_callsign", %{"callsign" => callsign}, socket) do
+    {:noreply,
+     socket
+     |> assign(test_callsign: callsign)
+     |> assign(error: nil)}
+  end
+
+  @impl true
+  def handle_event("test_api", %{"callsign" => callsign}, socket) do
+    normalized_callsign = callsign |> String.trim() |> String.upcase()
+
+    if normalized_callsign == "" do
+      {:noreply, assign(socket, error: "Please enter a callsign")}
+    else
+      socket =
+        socket
+        |> assign(loading: true)
+        |> assign(error: nil)
+        |> assign(api_result: nil)
+
+      # Make the API call
+      send(self(), {:call_api, normalized_callsign})
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:call_api, callsign}, socket) do
+    case call_api(callsign) do
+      {:ok, result} ->
+        {:noreply,
+         socket
+         |> assign(loading: false)
+         |> assign(api_result: result)}
+
+      {:error, error_message} ->
+        {:noreply,
+         socket
+         |> assign(loading: false)
+         |> assign(error: error_message)}
+    end
+  end
+
+  defp call_api(callsign) do
+    # Use the same validation and lookup logic as the API controller
+    alias Aprs.Packets
+
+    # Validate callsign format
+    if validate_callsign_format(callsign) do
+      # Try to get the most recent packet for this callsign
+      thirty_days_ago = DateTime.add(DateTime.utc_now(), -30, :day)
+
+      opts = %{
+        callsign: callsign,
+        start_time: thirty_days_ago,
+        limit: 1
+      }
+
+      case Packets.get_recent_packets(opts) do
+        [] ->
+          {:ok, %{"data" => nil, "message" => "No packets found for callsign #{callsign}"}}
+
+        [packet | _] ->
+          # Format the packet data similar to the JSON view
+          packet_data = format_packet_for_display(packet)
+          {:ok, %{"data" => packet_data}}
+
+        {:error, _reason} ->
+          {:error, "Database error occurred while fetching packet data"}
+      end
+    else
+      {:error, "Invalid callsign format"}
+    end
+  rescue
+    error ->
+      {:error, "An error occurred: #{inspect(error)}"}
+  end
+
+  defp validate_callsign_format(callsign) do
+    # Same validation as in the controller
+    callsign_regex = ~r/^[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(-[0-9]{1,2})?$/
+    String.match?(callsign, callsign_regex) and String.length(callsign) <= 12
+  end
+
+  defp format_packet_for_display(%Aprs.Packet{} = packet) do
+    %{
+      "id" => packet.id,
+      "callsign" => format_callsign(packet.base_callsign, packet.ssid),
+      "base_callsign" => packet.base_callsign,
+      "ssid" => packet.ssid,
+      "sender" => packet.sender,
+      "destination" => packet.destination,
+      "path" => packet.path,
+      "data_type" => packet.data_type,
+      "information_field" => packet.information_field,
+      "raw_packet" => packet.raw_packet,
+      "received_at" => packet.received_at,
+      "region" => packet.region,
+      "position" => position_data(packet),
+      "symbol" => symbol_data(packet),
+      "comment" => packet.comment,
+      "timestamp" => packet.timestamp,
+      "aprs_messaging" => packet.aprs_messaging,
+      "weather" => weather_data(packet),
+      "equipment" => equipment_data(packet),
+      "message" => message_data(packet),
+      "has_position" => packet.has_position,
+      "inserted_at" => packet.inserted_at,
+      "updated_at" => packet.updated_at
+    }
+  end
+
+  defp format_callsign(base_callsign, nil), do: base_callsign
+  defp format_callsign(base_callsign, "0"), do: base_callsign
+  defp format_callsign(base_callsign, ssid), do: "#{base_callsign}-#{ssid}"
+
+  defp position_data(%Aprs.Packet{has_position: false}), do: nil
+  defp position_data(%Aprs.Packet{lat: nil, lon: nil}), do: nil
+
+  defp position_data(%Aprs.Packet{} = packet) do
+    base_position = %{
+      "latitude" => to_float(packet.lat),
+      "longitude" => to_float(packet.lon)
+    }
+
+    base_position
+    |> maybe_add("course", packet.course)
+    |> maybe_add("speed", packet.speed)
+    |> maybe_add("altitude", packet.altitude)
+  end
+
+  defp symbol_data(%Aprs.Packet{symbol_code: nil, symbol_table_id: nil}), do: nil
+
+  defp symbol_data(%Aprs.Packet{} = packet) do
+    %{
+      "code" => packet.symbol_code,
+      "table_id" => packet.symbol_table_id
+    }
+  end
+
+  defp weather_data(%Aprs.Packet{} = packet) do
+    weather_data =
+      %{}
+      |> maybe_add("temperature", packet.temperature)
+      |> maybe_add("humidity", packet.humidity)
+      |> maybe_add("wind_speed", packet.wind_speed)
+      |> maybe_add("wind_direction", packet.wind_direction)
+      |> maybe_add("wind_gust", packet.wind_gust)
+      |> maybe_add("pressure", packet.pressure)
+      |> maybe_add("rain_1h", packet.rain_1h)
+      |> maybe_add("rain_24h", packet.rain_24h)
+      |> maybe_add("rain_since_midnight", packet.rain_since_midnight)
+
+    case weather_data do
+      empty when empty == %{} -> nil
+      data -> data
+    end
+  end
+
+  defp equipment_data(%Aprs.Packet{} = packet) do
+    equipment_data =
+      %{}
+      |> maybe_add("manufacturer", packet.manufacturer)
+      |> maybe_add("equipment_type", packet.equipment_type)
+
+    case equipment_data do
+      empty when empty == %{} -> nil
+      data -> data
+    end
+  end
+
+  defp message_data(%Aprs.Packet{addressee: nil, message_text: nil, message_number: nil}), do: nil
+
+  defp message_data(%Aprs.Packet{} = packet) do
+    %{}
+    |> maybe_add("addressee", packet.addressee)
+    |> maybe_add("text", packet.message_text)
+    |> maybe_add("number", packet.message_number)
+  end
+
+  defp maybe_add(map, _key, nil), do: map
+  defp maybe_add(map, _key, ""), do: map
+  defp maybe_add(map, key, value), do: Map.put(map, key, value)
+
+  defp to_float(%Decimal{} = decimal), do: Decimal.to_float(decimal)
+  defp to_float(value) when is_number(value), do: value
+  defp to_float(_), do: nil
 
   @impl true
   def render(assigns) do
@@ -434,6 +629,192 @@ defmodule AprsWeb.ApiDocsLive do
           </div>
         </div>
         
+    <!-- Interactive API Testing -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">Test the API</h2>
+          </div>
+
+          <div class="px-6 py-4">
+            <p class="text-gray-700 mb-4">
+              Try the API directly from this page. Enter a callsign to see the most recent packet data.
+            </p>
+
+            <div class="max-w-md">
+              <form phx-submit="test_api" class="space-y-4">
+                <div>
+                  <label for="test_callsign" class="block text-sm font-medium text-gray-700 mb-2">
+                    Callsign (e.g., N0CALL or N0CALL-9)
+                  </label>
+                  <div class="flex space-x-2">
+                    <input
+                      type="text"
+                      id="test_callsign"
+                      name="callsign"
+                      value={@test_callsign}
+                      phx-change="update_callsign"
+                      placeholder="Enter callsign..."
+                      class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      disabled={@loading}
+                    />
+                    <button
+                      type="submit"
+                      disabled={@loading or String.trim(@test_callsign) == ""}
+                      class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <%= if @loading do %>
+                        <svg
+                          class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          >
+                          </circle>
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          >
+                          </path>
+                        </svg>
+                        Testing...
+                      <% else %>
+                        Test API
+                      <% end %>
+                    </button>
+                  </div>
+                </div>
+              </form>
+              
+    <!-- Error Display -->
+              <%= if @error do %>
+                <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <div class="flex">
+                    <div class="flex-shrink-0">
+                      <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path
+                          fill-rule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <div class="ml-3">
+                      <p class="text-sm text-red-800">{@error}</p>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+              
+    <!-- Results Display -->
+              <%= if @api_result do %>
+                <div class="mt-4">
+                  <h4 class="text-lg font-medium text-gray-900 mb-2">API Response</h4>
+
+                  <%= if @api_result["data"] do %>
+                    <!-- Success Response -->
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div class="flex items-center mb-3">
+                        <svg
+                          class="h-5 w-5 text-green-400 mr-2"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                        <span class="text-green-800 font-medium">Packet Found!</span>
+                      </div>
+
+                      <div class="space-y-2 text-sm">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <span class="font-medium text-gray-700">Callsign:</span>
+                            <span class="ml-2 text-gray-900">{@api_result["data"]["callsign"]}</span>
+                          </div>
+                          <div>
+                            <span class="font-medium text-gray-700">Received:</span>
+                            <span class="ml-2 text-gray-900">
+                              {format_datetime(@api_result["data"]["received_at"])}
+                            </span>
+                          </div>
+                          <%= if @api_result["data"]["position"] do %>
+                            <div>
+                              <span class="font-medium text-gray-700">Position:</span>
+                              <span class="ml-2 text-gray-900">
+                                {Float.round(@api_result["data"]["position"]["latitude"], 4)}, {Float.round(
+                                  @api_result["data"]["position"]["longitude"],
+                                  4
+                                )}
+                              </span>
+                            </div>
+                          <% end %>
+                          <%= if @api_result["data"]["comment"] do %>
+                            <div>
+                              <span class="font-medium text-gray-700">Comment:</span>
+                              <span class="ml-2 text-gray-900">{@api_result["data"]["comment"]}</span>
+                            </div>
+                          <% end %>
+                        </div>
+                      </div>
+                      
+    <!-- Raw JSON Toggle -->
+                      <details class="mt-4">
+                        <summary class="cursor-pointer text-sm text-green-700 hover:text-green-800 font-medium">
+                          View Raw JSON Response
+                        </summary>
+                        <div class="mt-2 bg-gray-900 text-white p-3 rounded text-xs overflow-x-auto">
+                          <pre><%= Jason.encode!(@api_result, pretty: true) %></pre>
+                        </div>
+                      </details>
+                    </div>
+                  <% else %>
+                    <!-- Not Found Response -->
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div class="flex items-center mb-2">
+                        <svg
+                          class="h-5 w-5 text-yellow-400 mr-2"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                        <span class="text-yellow-800 font-medium">No Packets Found</span>
+                      </div>
+                      <p class="text-yellow-700 text-sm">{@api_result["message"]}</p>
+                      
+    <!-- Raw JSON Toggle -->
+                      <details class="mt-3">
+                        <summary class="cursor-pointer text-sm text-yellow-700 hover:text-yellow-800 font-medium">
+                          View Raw JSON Response
+                        </summary>
+                        <div class="mt-2 bg-gray-900 text-white p-3 rounded text-xs overflow-x-auto">
+                          <pre><%= Jason.encode!(@api_result, pretty: true) %></pre>
+                        </div>
+                      </details>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+        
     <!-- Contact and Support -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200">
           <div class="px-6 py-4 border-b border-gray-200">
@@ -462,5 +843,21 @@ defmodule AprsWeb.ApiDocsLive do
       </div>
     </div>
     """
+  end
+
+  defp format_datetime(nil), do: "N/A"
+
+  defp format_datetime(datetime_string) do
+    case DateTime.from_iso8601(datetime_string) do
+      {:ok, datetime, _} ->
+        datetime
+        |> DateTime.shift_zone!("America/New_York")
+        |> Calendar.strftime("%Y-%m-%d %H:%M:%S %Z")
+
+      _ ->
+        datetime_string
+    end
+  rescue
+    _ -> datetime_string
   end
 end
