@@ -80,27 +80,14 @@ defmodule AprsWeb.MapLive.MapHelpers do
     end
   end
 
-  defp extract_lat_lon(packet_or_coords) do
-    cond do
-      is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :lat) and
-          Map.has_key?(packet_or_coords, :lon) ->
-        extract_lat_lon_atom(packet_or_coords)
+  defp extract_lat_lon(%{lat: lat, lon: lon}), do: extract_lat_lon_atom(%{lat: lat, lon: lon})
 
-      is_map(packet_or_coords) and Map.has_key?(packet_or_coords, "lat") and
-          Map.has_key?(packet_or_coords, "lon") ->
-        extract_lat_lon_string(packet_or_coords)
+  defp extract_lat_lon(%{"lat" => lat, "lon" => lon}), do: extract_lat_lon_string(%{"lat" => lat, "lon" => lon})
 
-      is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :latitude) and
-          Map.has_key?(packet_or_coords, :longitude) ->
-        extract_lat_lon_atom_alt(packet_or_coords)
+  defp extract_lat_lon(%{latitude: lat, longitude: lon}), do: extract_lat_lon_atom_alt(%{latitude: lat, longitude: lon})
 
-      is_tuple(packet_or_coords) and tuple_size(packet_or_coords) == 2 ->
-        packet_or_coords
-
-      true ->
-        {nil, nil}
-    end
-  end
+  defp extract_lat_lon({lat, lon}) when is_number(lat) and is_number(lon), do: {lat, lon}
+  defp extract_lat_lon(_), do: {nil, nil}
 
   defp extract_lat_lon_atom(packet), do: {packet.lat, packet.lon}
   defp extract_lat_lon_string(packet), do: {packet["lat"], packet["lon"]}

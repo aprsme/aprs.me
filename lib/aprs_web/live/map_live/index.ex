@@ -1102,35 +1102,7 @@ defmodule AprsWeb.MapLive.Index do
         unique_position_packets
         |> Enum.with_index()
         |> Enum.map(fn {packet, index} ->
-          case build_packet_data(packet) do
-            nil ->
-              nil
-
-            packet_data ->
-              packet_id =
-                "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
-
-              is_most_recent = index == 0
-
-              packet_data
-              |> Map.put("id", packet_id)
-              |> Map.put("is_historical", true)
-              |> Map.put("is_most_recent_for_callsign", is_most_recent)
-              |> Map.put("callsign_group", callsign)
-              |> Map.put(
-                "timestamp",
-                case packet.inserted_at do
-                  %NaiveDateTime{} = naive_dt ->
-                    DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
-
-                  %DateTime{} = dt ->
-                    DateTime.to_unix(dt, :millisecond)
-
-                  _other ->
-                    DateTime.to_unix(DateTime.utc_now(), :millisecond)
-                end
-              )
-          end
+          build_historical_packet_data(packet, index, callsign)
         end)
         |> Enum.filter(& &1)
       end)
@@ -1148,6 +1120,39 @@ defmodule AprsWeb.MapLive.Index do
       historical_packets: historical_packets_map,
       historical_loaded: true
     )
+  end
+
+  defp build_historical_packet_data(packet, index, callsign) do
+    case build_packet_data(packet) do
+      nil ->
+        nil
+
+      packet_data ->
+        packet_id =
+          "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
+
+        is_most_recent = index == 0
+
+        packet_data
+        |> Map.put("id", packet_id)
+        |> Map.put("is_historical", true)
+        |> Map.put("is_most_recent_for_callsign", is_most_recent)
+        |> Map.put("callsign_group", callsign)
+        |> Map.put("timestamp", packet_timestamp_ms(packet))
+    end
+  end
+
+  defp packet_timestamp_ms(packet) do
+    case packet.inserted_at do
+      %NaiveDateTime{} = naive_dt ->
+        DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
+
+      %DateTime{} = dt ->
+        DateTime.to_unix(dt, :millisecond)
+
+      _other ->
+        DateTime.to_unix(DateTime.utc_now(), :millisecond)
+    end
   end
 
   # Filter packets to only include those with unique positions (lat/lon changed)
@@ -1227,76 +1232,8 @@ defmodule AprsWeb.MapLive.Index do
     if Enum.empty?(historical_packets) do
       socket
     else
-      process_historical_packets_for_bounds(socket, historical_packets)
+      process_historical_packets(socket, historical_packets)
     end
-  end
-
-  defp process_historical_packets_for_bounds(socket, historical_packets) do
-    packet_data_list =
-      historical_packets
-      |> Enum.group_by(&generate_callsign/1)
-      |> Enum.flat_map(fn {callsign, packets} ->
-        sorted_packets =
-          Enum.sort_by(
-            packets,
-            fn packet ->
-              case packet.inserted_at do
-                %NaiveDateTime{} = naive_dt -> DateTime.from_naive!(naive_dt, "Etc/UTC")
-                %DateTime{} = dt -> dt
-                _other -> DateTime.utc_now()
-              end
-            end,
-            {:desc, DateTime}
-          )
-
-        unique_position_packets = filter_unique_positions(sorted_packets)
-
-        unique_position_packets
-        |> Enum.with_index()
-        |> Enum.map(fn {packet, index} ->
-          case build_packet_data(packet) do
-            nil ->
-              nil
-
-            packet_data ->
-              packet_id =
-                "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
-
-              is_most_recent = index == 0
-
-              packet_data
-              |> Map.put("id", packet_id)
-              |> Map.put("is_historical", true)
-              |> Map.put("is_most_recent_for_callsign", is_most_recent)
-              |> Map.put("callsign_group", callsign)
-              |> Map.put(
-                "timestamp",
-                case packet.inserted_at do
-                  %NaiveDateTime{} = naive_dt ->
-                    DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
-
-                  %DateTime{} = dt ->
-                    DateTime.to_unix(dt, :millisecond)
-
-                  _other ->
-                    DateTime.to_unix(DateTime.utc_now(), :millisecond)
-                end
-              )
-          end
-        end)
-        |> Enum.filter(& &1)
-      end)
-
-    socket = push_event(socket, "add_historical_packets", %{packets: packet_data_list})
-
-    historical_packets_map =
-      packet_data_list
-      |> Enum.zip(historical_packets)
-      |> Enum.reduce(%{}, fn {packet_data, packet}, acc ->
-        Map.put(acc, packet_data["id"], packet)
-      end)
-
-    assign(socket, historical_packets: historical_packets_map)
   end
 
   @spec within_bounds?(map() | struct(), map()) :: boolean()
@@ -1536,23 +1473,6 @@ defmodule AprsWeb.MapLive.Index do
     end)
   end
 
-  # Rails-style time ago helper
-  defp time_ago_in_words(datetime) do
-    now = DateTime.utc_now()
-    diff_seconds = DateTime.diff(now, datetime, :second)
-
-    cond do
-      diff_seconds < 60 -> "less than a minute"
-      diff_seconds < 120 -> "1 minute"
-      diff_seconds < 3600 -> "#{div(diff_seconds, 60)} minutes"
-      diff_seconds < 7200 -> "1 hour"
-      diff_seconds < 86_400 -> "#{div(diff_seconds, 3600)} hours"
-      diff_seconds < 172_800 -> "1 day"
-      diff_seconds < 2_592_000 -> "#{div(diff_seconds, 86_400)} days"
-      diff_seconds < 5_184_000 -> "1 month"
-      diff_seconds < 31_536_000 -> "#{div(diff_seconds, 2_592_000)} months"
-      diff_seconds < 63_072_000 -> "1 year"
-      true -> "#{div(diff_seconds, 31_536_000)} years"
-    end <> " ago"
-  end
+  # Use shared helper
+  defp time_ago_in_words(datetime), do: AprsWeb.TimeHelpers.time_ago_in_words(datetime)
 end
