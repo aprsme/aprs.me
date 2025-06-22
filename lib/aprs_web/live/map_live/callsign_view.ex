@@ -5,6 +5,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   alias Aprs.Packets
   alias AprsWeb.Endpoint
   alias AprsWeb.MapLive.MapHelpers
+  alias AprsWeb.MapLive.PacketUtils
 
   @default_center %{lat: 39.0, lng: -98.0}
   @default_zoom 4
@@ -864,74 +865,17 @@ defmodule AprsWeb.MapLive.CallsignView do
 
   defp build_packet_map(packet, lat, lng, data_extended) do
     data_extended = data_extended || %{}
-
-    callsign =
-      case {Map.get(packet, :base_callsign), Map.get(packet, :ssid)} do
-        {base, ssid} when is_binary(base) and ssid not in [nil, "", "0"] ->
-          "#{base}-#{ssid}"
-
-        {base, _} ->
-          base || ""
-      end
-
-    symbol_table_id =
-      Map.get(data_extended, :symbol_table_id) ||
-        Map.get(data_extended, "symbol_table_id") ||
-        Map.get(packet, :symbol_table_id) ||
-        Map.get(packet, "symbol_table_id") ||
-        "/"
-
-    symbol_code =
-      Map.get(data_extended, :symbol_code) ||
-        Map.get(data_extended, "symbol_code") ||
-        Map.get(packet, :symbol_code) ||
-        Map.get(packet, "symbol_code") ||
-        ">"
-
-    symbol_description =
-      Map.get(data_extended, :symbol_description) || Map.get(data_extended, "symbol_description") ||
-        "Symbol: #{symbol_table_id}#{symbol_code}"
-
-    timestamp =
-      cond do
-        Map.has_key?(packet, :received_at) && packet.received_at ->
-          DateTime.to_iso8601(packet.received_at)
-
-        Map.has_key?(packet, "received_at") && packet["received_at"] ->
-          DateTime.to_iso8601(packet["received_at"])
-
-        true ->
-          ""
-      end
-
-    comment = Map.get(data_extended, :comment) || Map.get(data_extended, "comment") || ""
-
-    to_float = fn
-      %Decimal{} = d ->
-        Decimal.to_float(d)
-
-      n when is_float(n) ->
-        n
-
-      n when is_integer(n) ->
-        n * 1.0
-
-      n when is_binary(n) ->
-        case Float.parse(n) do
-          {f, _} -> f
-          :error -> 0.0
-        end
-
-      _ ->
-        0.0
-    end
+    callsign = PacketUtils.generate_callsign(packet)
+    {symbol_table_id, symbol_code} = PacketUtils.get_symbol_info(packet)
+    timestamp = PacketUtils.get_timestamp(packet)
+    comment = PacketUtils.get_packet_field(packet, :comment, "")
 
     popup = """
     <div class=\"aprs-popup\">
       <div class=\"aprs-callsign\"><strong><a href=\"/#{callsign}\">#{callsign}</a></strong></div>
-      <div class=\"aprs-symbol-info\">#{symbol_description}</div>
+      <div class=\"aprs-symbol-info\">Symbol: #{symbol_table_id}#{symbol_code}</div>
       #{if comment == "", do: "", else: "<div class=\\\"aprs-comment\\\">#{comment}</div>"}
-      <div class=\"aprs-coords\">#{Float.round(to_float.(lat), 4)}, #{Float.round(to_float.(lng), 4)}</div>
+      <div class=\"aprs-coords\">#{Float.round(PacketUtils.to_float(lat), 4)}, #{Float.round(PacketUtils.to_float(lng), 4)}</div>
       <div class=\"aprs-time\">#{timestamp}</div>
     </div>
     """
@@ -939,17 +883,17 @@ defmodule AprsWeb.MapLive.CallsignView do
     %{
       "id" => callsign,
       "callsign" => callsign,
-      "base_callsign" => Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", "")),
-      "ssid" => Map.get(packet, :ssid, Map.get(packet, "ssid", 0)),
-      "lat" => to_float.(lat),
-      "lng" => to_float.(lng),
-      "data_type" => to_string(Map.get(packet, :data_type, Map.get(packet, "data_type", "unknown"))),
-      "path" => Map.get(packet, :path, Map.get(packet, "path", "")),
+      "base_callsign" => PacketUtils.get_packet_field(packet, :base_callsign, ""),
+      "ssid" => PacketUtils.get_packet_field(packet, :ssid, 0),
+      "lat" => PacketUtils.to_float(lat),
+      "lng" => PacketUtils.to_float(lng),
+      "data_type" => to_string(PacketUtils.get_packet_field(packet, :data_type, "unknown")),
+      "path" => PacketUtils.get_packet_field(packet, :path, ""),
       "comment" => comment,
-      "data_extended" => convert_tuples_to_strings(data_extended || %{}),
+      "data_extended" => PacketUtils.convert_tuples_to_strings(data_extended || %{}),
       "symbol_table_id" => symbol_table_id,
       "symbol_code" => symbol_code,
-      "symbol_description" => symbol_description,
+      "symbol_description" => "Symbol: #{symbol_table_id}#{symbol_code}",
       "timestamp" => timestamp,
       "popup" => popup
     }
@@ -997,26 +941,6 @@ defmodule AprsWeb.MapLive.CallsignView do
         false
     end
   end
-
-  defp convert_tuples_to_strings(map) when is_map(map) do
-    if Map.has_key?(map, :__struct__) do
-      map
-    else
-      Map.new(map, fn {k, v} ->
-        {k, convert_tuples_to_strings(v)}
-      end)
-    end
-  end
-
-  defp convert_tuples_to_strings(list) when is_list(list) do
-    Enum.map(list, &convert_tuples_to_strings/1)
-  end
-
-  defp convert_tuples_to_strings(tuple) when is_tuple(tuple) do
-    to_string(inspect(tuple))
-  end
-
-  defp convert_tuples_to_strings(other), do: other
 
   defp load_callsign_packets(socket, callsign) do
     # Load only the latest packet for this specific callsign

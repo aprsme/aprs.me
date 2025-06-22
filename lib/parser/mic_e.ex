@@ -63,67 +63,98 @@ defmodule Parser.MicE do
       try do
         <<c1, c2, c3, c4, c5, c6>> = destination
 
-        d1 = decode_digit(c1)
-        d2 = decode_digit(c2)
-        d3 = decode_digit(c3)
-        d4 = decode_digit(c4)
-        d5 = decode_digit(c5)
-        d6 = decode_digit(c6)
+        digits = decode_destination_digits([c1, c2, c3, c4, c5, c6])
+        lat_info = calculate_latitude_info(digits, c4)
+        lon_info = calculate_longitude_info(c5, c6)
+        message_info = extract_message_info(digits)
 
-        lat_degrees = d1.digit * 10 + d2.digit
-        lat_minutes = d3.digit * 10 + d4.digit
-        lat_hundredths = d5.digit * 10 + d6.digit
-
-        lat_direction =
-          case c4 do
-            c when c in ?0..?9 -> :south
-            ?L -> :south
-            c when c in ?P..?Z -> :north
-            _ -> :unknown
-          end
-
-        longitude_offset =
-          case c5 do
-            c when c in ?0..?9 -> 0
-            ?L -> 0
-            c when c in ?P..?Z -> 100
-            _ -> 0
-          end
-
-        lon_direction =
-          case c6 do
-            c when c in ?0..?9 -> :east
-            ?L -> :east
-            c when c in ?P..?Z -> :west
-            _ -> :unknown
-          end
-
-        message_bits = {d1.msg_bit, d2.msg_bit, d3.msg_bit}
-
-        message_type =
-          cond do
-            d1.msg_type != nil -> d1.msg_type
-            d2.msg_type != nil -> d2.msg_type
-            d3.msg_type != nil -> d3.msg_type
-            true -> nil
-          end
-
-        {:ok,
-         %{
-           lat_degrees: lat_degrees,
-           lat_minutes: lat_minutes,
-           lat_hundredths: lat_hundredths,
-           lat_direction: lat_direction,
-           lon_direction: lon_direction,
-           longitude_offset: longitude_offset,
-           message_bits: message_bits,
-           message_type: message_type
-         }}
+        {:ok, Map.merge(lat_info, Map.merge(lon_info, message_info))}
       rescue
         _ -> {:error, :invalid_character_in_destination}
       end
     else
       {:error, :invalid_destination_length}
+    end
+  end
+
+  defp decode_destination_digits([c1, c2, c3, c4, c5, c6]) do
+    [
+      decode_digit(c1),
+      decode_digit(c2),
+      decode_digit(c3),
+      decode_digit(c4),
+      decode_digit(c5),
+      decode_digit(c6)
+    ]
+  end
+
+  defp calculate_latitude_info([d1, d2, d3, d4, d5, d6], c4) do
+    lat_degrees = d1.digit * 10 + d2.digit
+    lat_minutes = d3.digit * 10 + d4.digit
+    lat_hundredths = d5.digit * 10 + d6.digit
+    lat_direction = determine_lat_direction(c4)
+
+    %{
+      lat_degrees: lat_degrees,
+      lat_minutes: lat_minutes,
+      lat_hundredths: lat_hundredths,
+      lat_direction: lat_direction
+    }
+  end
+
+  defp determine_lat_direction(c4) do
+    case c4 do
+      c when c in ?0..?9 -> :south
+      ?L -> :south
+      c when c in ?P..?Z -> :north
+      _ -> :unknown
+    end
+  end
+
+  defp calculate_longitude_info(c5, c6) do
+    longitude_offset = determine_longitude_offset(c5)
+    lon_direction = determine_lon_direction(c6)
+
+    %{
+      lon_direction: lon_direction,
+      longitude_offset: longitude_offset
+    }
+  end
+
+  defp determine_longitude_offset(c5) do
+    case c5 do
+      c when c in ?0..?9 -> 0
+      ?L -> 0
+      c when c in ?P..?Z -> 100
+      _ -> 0
+    end
+  end
+
+  defp determine_lon_direction(c6) do
+    case c6 do
+      c when c in ?0..?9 -> :east
+      ?L -> :east
+      c when c in ?P..?Z -> :west
+      _ -> :unknown
+    end
+  end
+
+  defp extract_message_info([d1, d2, d3, _d4, _d5, _d6]) do
+    message_bits = {d1.msg_bit, d2.msg_bit, d3.msg_bit}
+    message_type = determine_message_type([d1, d2, d3])
+
+    %{
+      message_bits: message_bits,
+      message_type: message_type
+    }
+  end
+
+  defp determine_message_type([d1, d2, d3]) do
+    cond do
+      d1.msg_type != nil -> d1.msg_type
+      d2.msg_type != nil -> d2.msg_type
+      d3.msg_type != nil -> d3.msg_type
+      true -> nil
     end
   end
 

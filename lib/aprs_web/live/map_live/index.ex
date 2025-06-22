@@ -6,6 +6,7 @@ defmodule AprsWeb.MapLive.Index do
 
   alias AprsWeb.Endpoint
   alias AprsWeb.MapLive.MapHelpers
+  alias AprsWeb.MapLive.PacketUtils
   alias Phoenix.LiveView.Socket
 
   require Logger
@@ -411,38 +412,51 @@ defmodule AprsWeb.MapLive.Index do
 
   defp handle_info_postgres_packet(packet, socket) do
     {lat, lon, _data_extended} = MapHelpers.get_coordinates(packet)
+    callsign_key = get_callsign_key(packet)
 
-    callsign_key =
-      if Map.has_key?(packet, "id"),
-        do: to_string(packet["id"]),
-        else: System.unique_integer([:positive])
-
-    # Logger.debug(
-    #   "[MAP] Incoming packet: id=#{inspect(callsign_key)} lat=#{inspect(lat)} lon=#{inspect(lon)} bounds=#{inspect(socket.assigns.map_bounds)} within_bounds?=#{inspect(MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds))}"
-    # )
-
+    # Update all_packets
     all_packets = Map.put(socket.assigns.all_packets, callsign_key, packet)
     socket = assign(socket, all_packets: all_packets)
 
-    # Remove marker if packet is out of bounds but present
-    if !is_nil(lat) and !is_nil(lon) and
-         Map.has_key?(socket.assigns.visible_packets, callsign_key) and
-         not MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
-      socket = push_event(socket, "remove_marker", %{id: callsign_key})
-      new_visible_packets = Map.delete(socket.assigns.visible_packets, callsign_key)
-      {:noreply, assign(socket, visible_packets: new_visible_packets)}
-      # Only add marker if it is within bounds and not already present
-    else
-      if is_nil(lat) or is_nil(lon) or Map.has_key?(socket.assigns.visible_packets, callsign_key) do
+    # Handle packet visibility logic
+    handle_packet_visibility(packet, lat, lon, callsign_key, socket)
+  end
+
+  defp get_callsign_key(packet) do
+    if Map.has_key?(packet, "id"),
+      do: to_string(packet["id"]),
+      else: System.unique_integer([:positive])
+  end
+
+  defp handle_packet_visibility(packet, lat, lon, callsign_key, socket) do
+    cond do
+      should_remove_marker?(lat, lon, callsign_key, socket) ->
+        remove_marker_from_map(callsign_key, socket)
+
+      should_add_marker?(lat, lon, callsign_key, socket) ->
+        handle_valid_postgres_packet(packet, lat, lon, socket)
+
+      true ->
         {:noreply, socket}
-      else
-        if MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds) do
-          handle_valid_postgres_packet(packet, lat, lon, socket)
-        else
-          {:noreply, socket}
-        end
-      end
     end
+  end
+
+  defp should_remove_marker?(lat, lon, callsign_key, socket) do
+    !is_nil(lat) and !is_nil(lon) and
+      Map.has_key?(socket.assigns.visible_packets, callsign_key) and
+      not MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
+  end
+
+  defp should_add_marker?(lat, lon, callsign_key, socket) do
+    !is_nil(lat) and !is_nil(lon) and
+      not Map.has_key?(socket.assigns.visible_packets, callsign_key) and
+      MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
+  end
+
+  defp remove_marker_from_map(callsign_key, socket) do
+    socket = push_event(socket, "remove_marker", %{id: callsign_key})
+    new_visible_packets = Map.delete(socket.assigns.visible_packets, callsign_key)
+    {:noreply, assign(socket, visible_packets: new_visible_packets)}
   end
 
   defp handle_valid_postgres_packet(packet, _lat, _lon, socket) do
@@ -1082,9 +1096,9 @@ defmodule AprsWeb.MapLive.Index do
   defp filter_unique_positions(packets) do
     packets
     |> Enum.reduce([], fn packet, acc ->
-      {lat, lng, _} = MapHelpers.get_coordinates(packet)
+      {lat, lon, _} = MapHelpers.get_coordinates(packet)
 
-      if lat && lng do
+      if lat && lon do
         case acc do
           [] ->
             # First packet, always include
@@ -1278,154 +1292,98 @@ defmodule AprsWeb.MapLive.Index do
   @spec build_packet_map(map() | struct(), number(), number(), map() | nil) :: map()
   defp build_packet_map(packet, lat, lon, data_extended) do
     data_extended = data_extended || %{}
-    callsign = generate_callsign(packet)
+    packet_info = extract_packet_info(packet, data_extended)
+    popup = build_popup_content(packet, packet_info, lat, lon)
 
-    symbol_table_id =
-      Map.get(data_extended, :symbol_table_id) ||
-        Map.get(data_extended, "symbol_table_id") ||
-        Map.get(packet, :symbol_table_id) ||
-        Map.get(packet, "symbol_table_id") ||
-        "/"
+    build_packet_result(packet, packet_info, lat, lon, popup)
+  end
 
-    symbol_code =
-      Map.get(data_extended, :symbol_code) ||
-        Map.get(data_extended, "symbol_code") ||
-        Map.get(packet, :symbol_code) ||
-        Map.get(packet, "symbol_code") ||
-        ">"
-
-    symbol_description =
-      Map.get(data_extended, :symbol_description) || Map.get(data_extended, "symbol_description") ||
-        "Symbol: #{symbol_table_id}#{symbol_code}"
-
-    timestamp =
-      cond do
-        Map.has_key?(packet, :received_at) && packet.received_at ->
-          DateTime.to_iso8601(packet.received_at)
-
-        Map.has_key?(packet, "received_at") && packet["received_at"] ->
-          DateTime.to_iso8601(packet["received_at"])
-
-        true ->
-          ""
-      end
-
-    comment = Map.get(data_extended, :comment) || Map.get(data_extended, "comment") || ""
-
-    # Recursively convert tuples in data_extended to strings
-    safe_data_extended = convert_tuples_to_strings(data_extended)
-
-    to_float = fn
-      %Decimal{} = d ->
-        Decimal.to_float(d)
-
-      n when is_float(n) ->
-        n
-
-      n when is_integer(n) ->
-        n * 1.0
-
-      n when is_binary(n) ->
-        case Float.parse(n) do
-          {f, _} -> f
-          :error -> 0.0
-        end
-
-      _ ->
-        0.0
-    end
-
-    is_weather_packet =
-      (Map.get(packet, :data_type) || Map.get(packet, "data_type")) == "weather" or
-        (symbol_table_id == "/" and symbol_code == "_")
-
-    popup =
-      if is_weather_packet do
-        build_weather_popup_html(packet, callsign)
-      else
-        """
-        <div class="aprs-popup">
-          <div class="aprs-callsign"><strong><a href="/map/callsign/#{callsign}">#{callsign}</a></strong></div>
-          #{if comment == "", do: "", else: ~s(<div class="aprs-comment">#{comment}</div>)}
-          <div class="aprs-coords">#{Float.round(to_float.(lat), 4)}, #{Float.round(to_float.(lon), 4)}</div>
-          <div class="aprs-time">#{timestamp}</div>
-        </div>
-        """
-      end
-
+  defp extract_packet_info(packet, data_extended) do
     %{
-      "id" => callsign,
-      "callsign" => callsign,
-      "base_callsign" => Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", "")),
-      "ssid" => Map.get(packet, :ssid, Map.get(packet, "ssid", 0)),
-      "lat" => to_float.(lat),
-      "lng" => to_float.(lon),
-      "data_type" => to_string(Map.get(packet, :data_type, Map.get(packet, "data_type", "unknown"))),
-      "path" => Map.get(packet, :path, Map.get(packet, "path", "")),
-      "comment" => comment,
-      "data_extended" => safe_data_extended || %{},
-      "symbol_table_id" => symbol_table_id,
-      "symbol_code" => symbol_code,
-      "symbol_description" => symbol_description,
-      "timestamp" => timestamp,
+      callsign: PacketUtils.generate_callsign(packet),
+      symbol_table_id: PacketUtils.get_packet_field(packet, :symbol_table_id, "/"),
+      symbol_code: PacketUtils.get_packet_field(packet, :symbol_code, ">"),
+      timestamp: PacketUtils.get_timestamp(packet),
+      comment: PacketUtils.get_packet_field(packet, :comment, ""),
+      safe_data_extended: PacketUtils.convert_tuples_to_strings(data_extended),
+      is_weather_packet: PacketUtils.is_weather_packet?(packet)
+    }
+  end
+
+  defp build_popup_content(packet, packet_info, lat, lon) do
+    if packet_info.is_weather_packet do
+      build_weather_popup_html(packet, packet_info.callsign)
+    else
+      build_standard_popup_html(packet_info, lat, lon)
+    end
+  end
+
+  defp build_standard_popup_html(packet_info, lat, lon) do
+    comment_html =
+      if packet_info.comment == "",
+        do: "",
+        else: ~s(<div class="aprs-comment">#{packet_info.comment}</div>)
+
+    """
+    <div class="aprs-popup">
+      <div class="aprs-callsign"><strong><a href="/map/callsign/#{packet_info.callsign}">#{packet_info.callsign}</a></strong></div>
+      #{comment_html}
+      <div class="aprs-coords">#{Float.round(PacketUtils.to_float(lat), 4)}, #{Float.round(PacketUtils.to_float(lon), 4)}</div>
+      <div class="aprs-time">#{packet_info.timestamp}</div>
+    </div>
+    """
+  end
+
+  defp build_packet_result(packet, packet_info, lat, lon, popup) do
+    %{
+      "id" => packet_info.callsign,
+      "callsign" => packet_info.callsign,
+      "base_callsign" => PacketUtils.get_packet_field(packet, :base_callsign, ""),
+      "ssid" => PacketUtils.get_packet_field(packet, :ssid, 0),
+      "lat" => PacketUtils.to_float(lat),
+      "lng" => PacketUtils.to_float(lon),
+      "data_type" => to_string(PacketUtils.get_packet_field(packet, :data_type, "unknown")),
+      "path" => PacketUtils.get_packet_field(packet, :path, ""),
+      "comment" => packet_info.comment,
+      "data_extended" => packet_info.safe_data_extended || %{},
+      "symbol_table_id" => packet_info.symbol_table_id,
+      "symbol_code" => packet_info.symbol_code,
+      "symbol_description" => "Symbol: #{packet_info.symbol_table_id}#{packet_info.symbol_code}",
+      "timestamp" => packet_info.timestamp,
       "popup" => popup
     }
   end
 
-  defp convert_tuples_to_strings(map) when is_map(map) do
-    if Map.has_key?(map, :__struct__) do
-      map
-    else
-      Map.new(map, fn {k, v} ->
-        {k, convert_tuples_to_strings(v)}
-      end)
-    end
-  end
-
-  defp convert_tuples_to_strings(list) when is_list(list) do
-    Enum.map(list, &convert_tuples_to_strings/1)
-  end
-
-  defp convert_tuples_to_strings(tuple) when is_tuple(tuple) do
-    to_string(inspect(tuple))
-  end
-
-  defp convert_tuples_to_strings(other), do: other
-
   defp build_weather_popup_html(packet, callsign) do
-    received_at =
-      cond do
-        Map.has_key?(packet, :received_at) -> packet.received_at
-        Map.has_key?(packet, "received_at") -> packet["received_at"]
-        true -> nil
-      end
-
-    timestamp_str =
-      if received_at,
-        do: Calendar.strftime(received_at, "%Y-%m-%d %H:%M:%S"),
-        else: "N/A"
+    received_at = get_received_at(packet)
+    timestamp_str = format_timestamp(received_at)
 
     """
     <strong>#{callsign} - Weather Report</strong><br>
     <small>#{timestamp_str} UTC</small>
     <hr>
-    Temperature: #{get_weather_field(packet, :temperature)}°F<br>
-    Humidity: #{get_weather_field(packet, :humidity)}%<br>
-    Wind: #{get_weather_field(packet, :wind_direction)}° at #{get_weather_field(packet, :wind_speed)} mph, gusts to #{get_weather_field(packet, :wind_gust)} mph<br>
-    Pressure: #{get_weather_field(packet, :pressure)} hPa<br>
-    Rain (1h): #{get_weather_field(packet, :rain_1h)} in.<br>
-    Rain (24h): #{get_weather_field(packet, :rain_24h)} in.<br>
-    Rain (since midnight): #{get_weather_field(packet, :rain_since_midnight)} in.<br>
+    Temperature: #{PacketUtils.get_weather_field(packet, :temperature)}°F<br>
+    Humidity: #{PacketUtils.get_weather_field(packet, :humidity)}%<br>
+    Wind: #{PacketUtils.get_weather_field(packet, :wind_direction)}° at #{PacketUtils.get_weather_field(packet, :wind_speed)} mph, gusts to #{PacketUtils.get_weather_field(packet, :wind_gust)} mph<br>
+    Pressure: #{PacketUtils.get_weather_field(packet, :pressure)} hPa<br>
+    Rain (1h): #{PacketUtils.get_weather_field(packet, :rain_1h)} in.<br>
+    Rain (24h): #{PacketUtils.get_weather_field(packet, :rain_24h)} in.<br>
+    Rain (since midnight): #{PacketUtils.get_weather_field(packet, :rain_since_midnight)} in.<br>
     """
   end
 
-  defp get_weather_field(packet, key) do
-    data_extended = Map.get(packet, "data_extended", %{})
+  defp get_received_at(packet) do
+    cond do
+      Map.has_key?(packet, :received_at) -> packet.received_at
+      Map.has_key?(packet, "received_at") -> packet["received_at"]
+      true -> nil
+    end
+  end
 
-    Map.get(packet, key) ||
-      Map.get(packet, to_string(key)) ||
-      Map.get(data_extended, key) ||
-      Map.get(data_extended, to_string(key)) || "N/A"
+  defp format_timestamp(received_at) do
+    if received_at,
+      do: Calendar.strftime(received_at, "%Y-%m-%d %H:%M:%S"),
+      else: "N/A"
   end
 
   @spec generate_callsign(map() | struct()) :: String.t()

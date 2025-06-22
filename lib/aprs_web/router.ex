@@ -29,13 +29,18 @@ defmodule AprsWeb.Router do
     pipe_through :browser
 
     live_dashboard "/dashboard", metrics: AprsWeb.Telemetry
-    live "/", MapLive.Index, :index
-    live "/status", StatusLive.Index, :index
 
-    live "/packets", PacketsLive.Index, :index
-    live "/packets/:callsign", PacketsLive.CallsignView, :index
-    live "/badpackets", BadPacketsLive.Index, :index
-    live "/:callsign", MapLive.CallsignView, :index
+    live_session :map_pages, layout: {AprsWeb.Layouts, :map} do
+      live "/", MapLive.Index, :index
+      live "/:callsign", MapLive.CallsignView, :index
+    end
+
+    live_session :regular_pages do
+      live "/status", StatusLive.Index, :index
+      live "/packets", PacketsLive.Index, :index
+      live "/packets/:callsign", PacketsLive.CallsignView, :index
+      live "/badpackets", BadPacketsLive.Index, :index
+    end
   end
 
   # Other scopes may use custom stacks.
