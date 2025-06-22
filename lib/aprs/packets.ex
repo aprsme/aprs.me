@@ -394,20 +394,8 @@ defmodule Aprs.Packets do
   defp filter_by_region(query, _), do: query
 
   defp filter_by_callsign(query, %{callsign: callsign}) do
-    # Support both exact match and partial match
-    # For exact match, check if callsign contains a hyphen (has SSID)
-    if String.contains?(callsign, "-") do
-      # Exact match for callsign with SSID
-      [base_call, ssid] = String.split(callsign, "-", parts: 2)
-
-      from p in query,
-        where:
-          ilike(p.base_callsign, ^base_call) and
-            ((is_nil(p.ssid) and ^ssid == "0") or p.ssid == ^ssid)
-    else
-      # Match base callsign exactly, regardless of SSID
-      from p in query, where: ilike(p.base_callsign, ^callsign)
-    end
+    # Use sender field for exact callsign matching
+    from p in query, where: ilike(p.sender, ^callsign)
   end
 
   defp filter_by_callsign(query, _), do: query

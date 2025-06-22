@@ -361,10 +361,10 @@ defmodule AprsWeb.MapLive.Index do
         end)
       end
 
-    # Clear existing historical packets
-    socket = push_event(socket, "clear_historical_packets", %{})
+    # Remove only out-of-bounds historical packets instead of clearing all
+    socket = push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
 
-    # Load historical packets for the new bounds
+    # Load additional historical packets for the new bounds if needed
     socket = load_historical_packets_for_bounds(socket, map_bounds)
 
     # Update map bounds and visible packets
@@ -496,11 +496,13 @@ defmodule AprsWeb.MapLive.Index do
         else: System.unique_integer([:positive])
 
     new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
-    marker_data = PacketUtils.build_packet_data(packet)
+
+    # Live packets are always the most recent for their callsign
+    marker_data = PacketUtils.build_packet_data(packet, true)
 
     socket =
       if marker_data do
-        push_event(socket, "add_markers", %{markers: [marker_data]})
+        push_event(socket, "new_packet", marker_data)
       else
         socket
       end
@@ -965,8 +967,8 @@ defmodule AprsWeb.MapLive.Index do
       # Clear existing historical packets
       socket = assign(socket, historical_packets: %{})
 
-      # Clear all markers on the client
-      socket = push_event(socket, "clear_all_markers", %{})
+      # Clear only historical markers on the client (preserve live markers)
+      socket = push_event(socket, "clear_historical_packets", %{})
 
       # Load historical packets with new time range
       socket = load_historical_packets_for_bounds(socket, socket.assigns.map_bounds)

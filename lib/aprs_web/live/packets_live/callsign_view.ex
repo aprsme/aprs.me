@@ -95,20 +95,8 @@ defmodule AprsWeb.PacketsLive.CallsignView do
         order_by: [desc: p.received_at],
         limit: ^limit
 
-    # Apply callsign filter
-    filtered_query =
-      if String.contains?(callsign, "-") do
-        # Exact match for callsign with SSID
-        [base_call, ssid] = String.split(callsign, "-", parts: 2)
-
-        from p in query,
-          where:
-            ilike(p.base_callsign, ^base_call) and
-              ((is_nil(p.ssid) and ^ssid == "0") or p.ssid == ^ssid)
-      else
-        # Match base callsign exactly, regardless of SSID
-        from p in query, where: ilike(p.base_callsign, ^callsign)
-      end
+    # Apply callsign filter using sender field for exact matching
+    filtered_query = from p in query, where: ilike(p.sender, ^callsign)
 
     filtered_query
     |> Repo.all()
@@ -122,20 +110,15 @@ defmodule AprsWeb.PacketsLive.CallsignView do
   end
 
   defp packet_matches_callsign?(packet, target_callsign) do
-    # Check if packet sender or base_callsign matches the target callsign
-    # Supports both exact matches and SSID variants (e.g., "N0CALL" matches "N0CALL-1")
+    # Check exact match for sender field only
     sender = packet.sender || ""
-    base_callsign = packet.base_callsign || ""
 
     # Convert to uppercase for case-insensitive comparison
     sender_upper = String.upcase(sender)
-    base_upper = String.upcase(base_callsign)
     target_upper = String.upcase(target_callsign)
 
-    # Check exact match for sender or base_callsign
-    # Also check if the sender starts with the target callsign (for SSID variants)
-    sender_upper == target_upper || base_upper == target_upper ||
-      String.starts_with?(sender_upper, target_upper <> "-")
+    # Exact match only
+    sender_upper == target_upper
   end
 
   # Helper to get all packets (stored + live) in chronological order

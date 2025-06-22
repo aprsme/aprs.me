@@ -136,7 +136,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
     test "only loads packets within map bounds", %{conn: conn, packets: mock_packets} do
       # Mock to return only packets within the specified bounds
       # TEST2 is at lat: 38.8, lon: -97.5, which is outside these bounds
-      test1_packets = Enum.filter(mock_packets, fn packet -> packet.base_callsign == "TEST1" end)
+      test1_packets = Enum.filter(mock_packets, fn packet -> packet.sender == "TEST1" end)
       expect_packets_for_replay_with_bounds(test1_packets)
 
       {:ok, view, _html} = live(conn, "/")

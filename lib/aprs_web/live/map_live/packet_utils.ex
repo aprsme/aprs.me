@@ -81,9 +81,9 @@ defmodule AprsWeb.MapLive.PacketUtils do
   @spec generate_callsign(map()) :: String.t()
   def generate_callsign(packet) do
     base_callsign = get_packet_field(packet, :base_callsign, "")
-    ssid = get_packet_field(packet, :ssid, 0)
+    ssid = get_packet_field(packet, :ssid, nil)
 
-    if ssid != 0 and ssid != "" and ssid != nil do
+    if ssid != nil and ssid != "" do
       "#{base_callsign}-#{ssid}"
     else
       base_callsign
@@ -138,13 +138,18 @@ defmodule AprsWeb.MapLive.PacketUtils do
       Map.get(data_extended, to_string(key)) || "N/A"
   end
 
-  def build_packet_data(packet) do
+  def build_packet_data(packet, is_most_recent_for_callsign) when is_boolean(is_most_recent_for_callsign) do
     {lat, lon, data_extended} = MapHelpers.get_coordinates(packet)
     callsign = generate_callsign(packet)
 
     if lat && lon && callsign != "" && callsign != nil do
-      build_packet_map(packet, lat, lon, data_extended)
+      packet_data = build_packet_map(packet, lat, lon, data_extended)
+      Map.put(packet_data, "is_most_recent_for_callsign", is_most_recent_for_callsign)
     end
+  end
+
+  def build_packet_data(packet) do
+    build_packet_data(packet, false)
   end
 
   defp build_packet_map(packet, lat, lon, data_extended) do
@@ -157,7 +162,7 @@ defmodule AprsWeb.MapLive.PacketUtils do
 
   defp extract_packet_info(packet, data_extended) do
     %{
-      callsign: generate_callsign(packet),
+      callsign: get_packet_field(packet, :sender, ""),
       symbol_table_id: get_packet_field(packet, :symbol_table_id, "/"),
       symbol_code: get_packet_field(packet, :symbol_code, ">"),
       timestamp: get_timestamp(packet),
@@ -197,7 +202,7 @@ defmodule AprsWeb.MapLive.PacketUtils do
 
     """
     <div class="aprs-popup">
-      <div class="aprs-callsign"><strong><a href="/map/callsign/#{packet_info.callsign}">#{packet_info.callsign}</a></strong></div>
+      <div class="aprs-callsign"><strong><a href="/#{packet_info.callsign}">#{packet_info.callsign}</a></strong></div>
       #{comment_html}
       <div class="aprs-coords">#{Float.round(to_float(lat), 4)}, #{Float.round(to_float(lon), 4)}</div>
       #{timestamp_html}
@@ -205,7 +210,7 @@ defmodule AprsWeb.MapLive.PacketUtils do
     """
   end
 
-  defp build_weather_popup_html(packet, callsign) do
+  defp build_weather_popup_html(packet, sender) do
     received_at = get_received_at(packet)
     timestamp_dt = TimeHelpers.to_datetime(received_at)
 
@@ -222,7 +227,7 @@ defmodule AprsWeb.MapLive.PacketUtils do
       end
 
     """
-    <strong>#{callsign} - Weather Report</strong>
+    <strong>#{sender} - Weather Report</strong>
     #{timestamp_html}
     <hr style="margin-top: 4px; margin-bottom: 4px;">
     Temperature: #{get_weather_field(packet, :temperature)}°F<br>
@@ -236,11 +241,19 @@ defmodule AprsWeb.MapLive.PacketUtils do
   end
 
   defp build_packet_result(packet, packet_info, lat, lon, popup) do
+    # Generate unique ID for live packets to prevent conflicts
+    packet_id =
+      if Map.has_key?(packet, :id) do
+        "live_#{packet.id}_#{System.unique_integer([:positive])}"
+      else
+        "live_#{packet_info.callsign}_#{System.unique_integer([:positive])}"
+      end
+
     %{
-      "id" => packet_info.callsign,
+      "id" => packet_id,
       "callsign" => packet_info.callsign,
       "base_callsign" => get_packet_field(packet, :base_callsign, ""),
-      "ssid" => get_packet_field(packet, :ssid, 0),
+      "ssid" => get_packet_field(packet, :ssid, nil),
       "lat" => to_float(lat),
       "lng" => to_float(lon),
       "data_type" => to_string(get_packet_field(packet, :data_type, "unknown")),

@@ -64,6 +64,7 @@ interface MarkerState {
   historical?: boolean;
   is_most_recent_for_callsign?: boolean;
   callsign_group?: string;
+  callsign?: string;
 }
 
 interface MapEventData {
@@ -503,69 +504,60 @@ let MapAPRSMap = {
       const incomingCallsign = data.callsign_group || data.callsign || data.id;
 
       if (incomingCallsign) {
-        // Find existing marker for this callsign - check both live and historical markers
-        let existingMarkerId: string | null = null;
-        let existingCallsign: string | null = null;
+        // Find existing live markers for this callsign and convert them to historical dots
+        const markersToConvert: string[] = [];
 
         self.markerStates!.forEach((state, id) => {
-          // Extract callsign from various sources
-          const stateCallsign =
-            state.callsign_group ||
-            (typeof id === "string" && !id.startsWith("hist_") ? id : null) ||
-            (typeof id === "string" && id.startsWith("hist_")
-              ? id.replace(/^hist_/, "").replace(/_\d+$/, "")
-              : null);
-
-          // Match callsigns (only consider non-historical markers for conversion)
-          if (stateCallsign === incomingCallsign && !state.historical) {
-            existingMarkerId = id;
-            existingCallsign = stateCallsign;
+          const stateCallsign = state.callsign_group || state.callsign;
+          // Only convert non-historical markers for the same callsign, but exclude the incoming packet's ID
+          if (
+            stateCallsign === incomingCallsign &&
+            !state.historical &&
+            String(id) !== String(data.id)
+          ) {
+            markersToConvert.push(String(id));
           }
         });
 
-        // If we found an existing live marker, convert it to a historical dot
-        if (existingMarkerId && existingCallsign) {
-          const existingMarker = self.markers!.get(existingMarkerId);
-          const existingState = self.markerStates!.get(existingMarkerId);
+        // Convert existing live markers to historical dots by updating their icon
+        markersToConvert.forEach((id) => {
+          const existingMarker = self.markers!.get(id);
+          const existingState = self.markerStates!.get(id);
 
           if (existingMarker && existingState) {
-            // Create historical dot data from existing marker
-            const historicalData = {
-              id: `hist_${existingCallsign}_${Date.now()}`,
+            // Update the state to historical
+            existingState.historical = true;
+            existingState.is_most_recent_for_callsign = false;
+
+            // Create new historical dot icon
+            const historicalIconData = {
+              id: String(id),
               lat: existingState.lat,
               lng: existingState.lng,
-              callsign: existingCallsign,
-              callsign_group: existingCallsign,
+              callsign: existingState.callsign || incomingCallsign,
+              callsign_group: existingState.callsign_group || incomingCallsign,
               symbol_table_id: existingState.symbol_table,
               symbol_code: existingState.symbol_code,
               historical: true,
               is_most_recent_for_callsign: false,
-              timestamp: data.timestamp
-                ? typeof data.timestamp === "string"
-                  ? new Date(data.timestamp).getTime() - 1000
-                  : data.timestamp - 1000
-                : Date.now() - 1000,
               popup: existingState.popup,
             };
 
-            // Remove the existing marker (this will also clean up its trail reference)
-            self.removeMarker(existingMarkerId);
+            // Update the marker's icon to show as a dot
+            existingMarker.setIcon(self.createMarkerIcon(historicalIconData));
 
-            // Add the historical dot marker
-            self.addMarker({
-              ...historicalData,
-              popup: self.buildPopupContent(historicalData),
-            });
+            // Mark as historical
+            (existingMarker as any)._isHistorical = true;
           }
-        }
+        });
       }
 
-      // Add the new marker with proper callsign grouping
+      // Add the new marker as the most recent for this callsign
       self.addMarker({
         ...data,
         historical: false,
         is_most_recent_for_callsign: true,
-        callsign_group: data.callsign_group || data.callsign || incomingCallsign, // Ensure callsign_group is set for trail grouping
+        callsign_group: data.callsign_group || data.callsign || incomingCallsign,
         popup: self.buildPopupContent(data),
         openPopup: true,
       });
@@ -655,14 +647,46 @@ let MapAPRSMap = {
 
     // Handle clearing historical packets
     self.handleEvent("clear_historical_packets", () => {
-      // Remove all historical markers
+      // Remove only historical markers (preserve live markers and their trails)
       const markersToRemove: string[] = [];
       self.markers!.forEach((marker: any, id: any) => {
-        if ((marker as any)._isHistorical) {
+        const markerState = self.markerStates!.get(String(id));
+        // Only remove markers that are explicitly historical
+        if ((marker as any)._isHistorical || (markerState && markerState.historical)) {
           markersToRemove.push(String(id));
         }
       });
-      markersToRemove.forEach((id) => self.removeMarker(id));
+
+      // Remove historical markers without affecting trails of live markers
+      markersToRemove.forEach((id) => {
+        const marker = self.markers!.get(id);
+        const markerState = self.markerStates!.get(id);
+
+        if (marker) {
+          // Remove from map and storage
+          self.markerLayer!.removeLayer(marker);
+          self.markers!.delete(id);
+          self.markerStates!.delete(id);
+
+          // Only remove trail if this was the only marker for this callsign
+          if (self.trailManager && markerState) {
+            const callsign = markerState.callsign_group || markerState.callsign || id;
+            // Check if there are any live markers left for this callsign
+            let hasLiveMarkers = false;
+            self.markerStates!.forEach((state) => {
+              const stateCallsign = state.callsign_group || state.callsign;
+              if (stateCallsign === callsign && !state.historical) {
+                hasLiveMarkers = true;
+              }
+            });
+
+            // Only remove trail if no live markers remain
+            if (!hasLiveMarkers) {
+              self.trailManager.removeTrail(callsign);
+            }
+          }
+        }
+      });
     });
 
     // Handle bounds-based marker filtering
@@ -680,6 +704,11 @@ let MapAPRSMap = {
     // Handle clearing all markers and reloading visible ones
     self.handleEvent("clear_and_reload_markers", () => {
       // This event is just a trigger - the server will handle clearing and adding markers
+    });
+
+    // Handle clear_all_markers event
+    self.handleEvent("clear_all_markers", () => {
+      self.clearAllMarkers();
     });
   },
 
@@ -763,8 +792,8 @@ let MapAPRSMap = {
       }
     }
 
-    // Remove existing marker if it exists
-    self.removeMarker(data.id);
+    // Remove existing marker if it exists (without affecting trails since we're just replacing it)
+    self.removeMarkerWithoutTrail(data.id);
 
     // Create marker - use simple dot for older historical positions, APRS icon for most recent
     const marker = L.marker([lat, lng], {
@@ -934,8 +963,24 @@ let MapAPRSMap = {
       }
     });
 
-    // Remove out-of-bounds markers
-    markersToRemove.forEach((id) => self.removeMarker(String(id)));
+    // Remove out-of-bounds markers without affecting trails
+    markersToRemove.forEach((id) => self.removeMarkerWithoutTrail(String(id)));
+  },
+
+  removeMarkerWithoutTrail(id: string | any) {
+    const self = this as unknown as LiveViewHookContext;
+    // Ensure id is a string
+    const markerId = typeof id === "string" ? id : String(id);
+
+    const marker = self.markers!.get(markerId);
+
+    if (marker) {
+      // Remove marker from map but don't touch trails
+      self.markerLayer!.removeLayer(marker);
+      self.markers!.delete(markerId);
+      self.markerStates!.delete(markerId);
+      // Note: We intentionally don't remove trails here
+    }
   },
 
   createMarkerIcon(data: MarkerData): L.DivIcon {

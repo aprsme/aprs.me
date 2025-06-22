@@ -74,19 +74,16 @@ defmodule Parser do
       ssid =
         case List.last(callsign_parts) do
           nil ->
-            0
+            nil
 
           s when is_binary(s) ->
-            case Integer.parse(s) do
-              {i, _} -> i
-              :error -> 0
-            end
+            s
 
           i when is_integer(i) ->
-            i
+            to_string(i)
 
           _ ->
-            0
+            nil
         end
 
       {:ok,
@@ -1182,17 +1179,12 @@ defmodule Parser do
     end
   end
 
-  defp extract_ssid(nil), do: 0
+  defp extract_ssid(nil), do: nil
 
-  defp extract_ssid(s) when is_binary(s) do
-    case Integer.parse(s) do
-      {i, _} -> i
-      :error -> 0
-    end
-  end
+  defp extract_ssid(s) when is_binary(s), do: s
 
-  defp extract_ssid(i) when is_integer(i), do: i
-  defp extract_ssid(_), do: 0
+  defp extract_ssid(i) when is_integer(i), do: to_string(i)
+  defp extract_ssid(_), do: nil
 
   defp split_path_for_tunnel(path) do
     split_path(path)

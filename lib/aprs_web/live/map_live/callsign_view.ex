@@ -26,13 +26,8 @@ defmodule AprsWeb.MapLive.CallsignView do
         page_title: "APRS Map - #{normalized_callsign}",
         # Track visible packets by callsign
         visible_packets: %{},
-        # Default bounds - will be updated based on packet locations
-        map_bounds: %{
-          north: 49.0,
-          south: 24.0,
-          east: -66.0,
-          west: -125.0
-        },
+        # Map bounds - will be set when first bounds update is received
+        map_bounds: nil,
         map_center: @default_center,
         map_zoom: @default_zoom,
         default_center: @default_center,
@@ -62,7 +57,9 @@ defmodule AprsWeb.MapLive.CallsignView do
         packets_loaded: false,
         # Latest symbol table ID and code
         latest_symbol_table_id: "/",
-        latest_symbol_code: ">"
+        latest_symbol_code: ">",
+        # Flag to track if latest marker was already pushed
+        latest_marker_pushed: false
       )
 
     if connected?(socket) do
@@ -164,14 +161,7 @@ defmodule AprsWeb.MapLive.CallsignView do
         |> assign(packets_loaded: true)
       end
 
-    # Auto-start replay if it hasn't been started yet
-    socket =
-      if socket.assigns.replay_started do
-        socket
-      else
-        socket = start_historical_replay(socket)
-        assign(socket, replay_started: true, replay_active: true)
-      end
+    # Don't start historical replay yet - wait for bounds to be available
 
     # If we have a pending geolocation, zoom to it after a delay
     socket =
@@ -208,21 +198,32 @@ defmodule AprsWeb.MapLive.CallsignView do
       |> Enum.filter(fn {_k, packet} -> MapHelpers.within_bounds?(packet, normalized_bounds) end)
       |> Map.new()
 
-    markers_to_remove =
+    packets_to_remove =
       socket.assigns.visible_packets
       |> Enum.reject(fn {_k, packet} -> MapHelpers.within_bounds?(packet, normalized_bounds) end)
       |> Enum.map(fn {k, _} -> k end)
 
     socket =
-      if markers_to_remove == [] do
+      if packets_to_remove == [] do
         socket
       else
-        Enum.reduce(markers_to_remove, socket, fn k, acc ->
+        Enum.reduce(packets_to_remove, socket, fn k, acc ->
           push_event(acc, "remove_marker", %{id: k})
         end)
       end
 
     socket = assign(socket, map_bounds: normalized_bounds, visible_packets: new_visible_packets)
+
+    # Start historical replay now that we have bounds (if not already started)
+    socket =
+      if socket.assigns.map_ready and not socket.assigns.replay_started and
+           not is_nil(socket.assigns.map_bounds) do
+        socket = start_historical_replay(socket)
+        assign(socket, replay_started: true, replay_active: true)
+      else
+        socket
+      end
+
     {:noreply, socket}
   end
 
@@ -249,11 +250,12 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   def handle_info(:auto_start_replay, socket) do
-    if not socket.assigns.replay_started and socket.assigns.map_ready do
+    if not socket.assigns.replay_started and socket.assigns.map_ready and
+         not is_nil(socket.assigns.map_bounds) do
       socket = start_historical_replay(socket)
       {:noreply, assign(socket, replay_started: true, replay_active: true)}
     else
-      if not socket.assigns.map_ready do
+      if not socket.assigns.map_ready or is_nil(socket.assigns.map_bounds) do
         Process.send_after(self(), :auto_start_replay, 1000)
       end
 
@@ -266,7 +268,9 @@ defmodule AprsWeb.MapLive.CallsignView do
 
   def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket) do
     # Only process packets for the specific callsign being viewed
-    if PacketUtils.generate_callsign(packet) == socket.assigns.callsign do
+    packet_sender = Map.get(packet, :sender, "")
+
+    if String.upcase(packet_sender) == String.upcase(socket.assigns.callsign) do
       handle_info_postgres_packet(packet, socket)
     else
       {:noreply, socket}
@@ -280,11 +284,12 @@ defmodule AprsWeb.MapLive.CallsignView do
     updated_visible_packets = Map.put(socket.assigns.visible_packets, key, packet)
     socket = assign(socket, visible_packets: updated_visible_packets)
 
-    packet_data = PacketUtils.build_packet_data(packet)
+    # Live packets are always the most recent for their callsign
+    packet_data = PacketUtils.build_packet_data(packet, true)
 
     socket =
       if packet_data,
-        do: push_event(socket, "add_markers", %{markers: [packet_data]}),
+        do: push_event(socket, "new_packet", packet_data),
         else: socket
 
     {:noreply, socket}
@@ -672,7 +677,8 @@ defmodule AprsWeb.MapLive.CallsignView do
       fetch_historical_packets_for_callsign(
         socket.assigns.callsign,
         one_hour_ago,
-        now
+        now,
+        socket.assigns.map_bounds
       )
 
     # Always fetch the latest packet with a position, regardless of age
@@ -752,23 +758,23 @@ defmodule AprsWeb.MapLive.CallsignView do
 
     historical_callsigns = MapSet.new(unique_position_packets, &PacketUtils.generate_callsign/1)
 
-    socket =
+    {socket, latest_marker_pushed} =
       if latest_packet && !MapSet.member?(historical_callsigns, latest_packet_id) do
         # Push the latest marker as a regular marker (not historical)
-        packet_data = PacketUtils.build_packet_data(latest_packet)
+        packet_data = PacketUtils.build_packet_data(latest_packet, true)
 
         if packet_data do
-          push_event(socket, "add_markers", %{markers: [packet_data]})
+          {push_event(socket, "new_packet", packet_data), true}
         else
-          socket
+          {socket, false}
         end
       else
-        socket
+        {socket, false}
       end
 
     if Enum.empty?(packet_data_list) do
       # No historical packets found (but latest marker may have been pushed above)
-      socket
+      assign(socket, latest_marker_pushed: latest_marker_pushed)
     else
       # Clear any previous historical packets from the map
       socket = push_event(socket, "clear_historical_packets", %{})
@@ -787,18 +793,28 @@ defmodule AprsWeb.MapLive.CallsignView do
         replay_packets: [],
         replay_index: 0,
         replay_start_time: one_hour_ago,
-        replay_end_time: now
+        replay_end_time: now,
+        latest_marker_pushed: latest_marker_pushed
       )
     end
   end
 
-  defp fetch_historical_packets_for_callsign(callsign, start_time, end_time) do
-    Packets.get_packets_for_replay(%{
+  defp fetch_historical_packets_for_callsign(callsign, start_time, end_time, bounds) do
+    params = %{
       callsign: callsign,
       start_time: start_time,
       end_time: end_time,
       limit: 1000
-    })
+    }
+
+    params =
+      if bounds do
+        Map.put(params, :bounds, [bounds.west, bounds.south, bounds.east, bounds.north])
+      else
+        params
+      end
+
+    Packets.get_packets_for_replay(params)
   end
 
   # Filter packets to only include those with unique positions (lat/lon changed)
@@ -886,7 +902,12 @@ defmodule AprsWeb.MapLive.CallsignView do
   defp maybe_push_latest_marker(socket, nil), do: socket
 
   defp maybe_push_latest_marker(socket, packet) do
-    packet_data = PacketUtils.build_packet_data(packet)
-    if packet_data, do: push_event(socket, "add_markers", %{markers: [packet_data]}), else: socket
+    # Only push if we haven't already pushed it during historical replay
+    if Map.get(socket.assigns, :latest_marker_pushed, false) do
+      socket
+    else
+      packet_data = PacketUtils.build_packet_data(packet, true)
+      if packet_data, do: push_event(socket, "new_packet", packet_data), else: socket
+    end
   end
 end
