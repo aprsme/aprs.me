@@ -3,7 +3,7 @@ defmodule AprsWeb.PacketsLive.CallsignView do
   LiveView for displaying packets specific to a single callsign.
 
   Shows up to 100 packets total (stored + live) for the specified callsign.
-  Includes both stored packets from the database (last hour) and live incoming packets.
+  Includes both stored packets from the database and live incoming packets.
   """
   use AprsWeb, :live_view
 
@@ -92,14 +92,11 @@ defmodule AprsWeb.PacketsLive.CallsignView do
   # Private helper functions
 
   # Get recent packets for this callsign from the database (all packets, not just position)
-  # Returns packets from the last hour, filtered by callsign
+  # Returns the latest packets regardless of age, filtered by callsign
   defp get_stored_packets(callsign, limit) do
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
-
     # Create query for all packets (not just position packets) for this callsign
     query =
       from p in Packet,
-        where: p.received_at >= ^one_hour_ago,
         order_by: [desc: p.received_at],
         limit: ^limit
 
