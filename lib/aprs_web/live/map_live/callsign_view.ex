@@ -2,12 +2,10 @@ defmodule AprsWeb.MapLive.CallsignView do
   @moduledoc false
   use AprsWeb, :live_view
 
-  alias Aprs.EncodingUtils
   alias Aprs.Packets
   alias AprsWeb.Endpoint
   alias AprsWeb.MapLive.MapHelpers
   alias AprsWeb.MapLive.PacketUtils
-  alias AprsWeb.TimeHelpers
 
   @default_center %{lat: 39.0, lng: -98.0}
   @default_zoom 4
@@ -266,61 +264,30 @@ defmodule AprsWeb.MapLive.CallsignView do
   def handle_info(:replay_next_packet, socket), do: handle_replay_next_packet(socket)
   def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
 
-  def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: payload} = msg, socket) do
-    handle_aprs_packet_broadcast(msg, payload, socket)
+  def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket) do
+    # Only process packets for the specific callsign being viewed
+    if PacketUtils.generate_callsign(packet) == socket.assigns.callsign do
+      handle_info_postgres_packet(packet, socket)
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info(_msg, socket), do: {:noreply, socket}
 
-  defp handle_aprs_packet_broadcast(_msg, payload, socket) do
-    sanitized_packet = EncodingUtils.sanitize_packet(payload)
-    sanitized_packet = Map.put_new(sanitized_packet, :received_at, DateTime.utc_now())
-    {lat, lng, _} = MapHelpers.get_coordinates(sanitized_packet)
+  defp handle_info_postgres_packet(packet, socket) do
+    key = System.unique_integer([:positive])
+    updated_visible_packets = Map.put(socket.assigns.visible_packets, key, packet)
+    socket = assign(socket, visible_packets: updated_visible_packets)
 
-    callsign_key =
-      "#{sanitized_packet.base_callsign}#{if sanitized_packet.ssid, do: "-#{sanitized_packet.ssid}", else: ""}"
+    packet_data = PacketUtils.build_packet_data(packet)
 
-    if MapHelpers.has_position_data?(sanitized_packet) and
-         packet_matches_callsign?(sanitized_packet, socket.assigns.callsign) and
-         MapHelpers.within_bounds?(%{lat: lat, lon: lng}, socket.assigns.map_bounds) and
-         packet_within_time_threshold?(
-           sanitized_packet,
-           socket.assigns.packet_age_threshold
-         ) do
-      packet_data = build_packet_data(sanitized_packet)
+    socket =
+      if packet_data,
+        do: push_event(socket, "add_markers", %{markers: [packet_data]}),
+        else: socket
 
-      # Remove any previous marker for this callsign
-      socket =
-        if Map.has_key?(socket.assigns.visible_packets, callsign_key) do
-          push_event(socket, "remove_marker", %{id: callsign_key})
-        else
-          socket
-        end
-
-      visible_packets = %{callsign_key => sanitized_packet}
-
-      last_known_position =
-        if lat && lng, do: %{lat: lat, lng: lng}, else: socket.assigns.last_known_position
-
-      socket =
-        socket
-        |> push_event("new_packet", packet_data)
-        |> assign(
-          visible_packets: visible_packets,
-          last_known_position: last_known_position
-        )
-
-      {:noreply, socket}
-    else
-      # Remove marker if it exists and is now out of bounds or expired
-      if Map.has_key?(socket.assigns.visible_packets, callsign_key) do
-        socket = push_event(socket, "remove_marker", %{id: callsign_key})
-        visible_packets = %{}
-        {:noreply, assign(socket, visible_packets: visible_packets)}
-      else
-        {:noreply, socket}
-      end
-    end
+    {:noreply, socket}
   end
 
   defp handle_replay_next_packet(socket) do
@@ -338,20 +305,8 @@ defmodule AprsWeb.MapLive.CallsignView do
       socket.assigns.replay_index < length(socket.assigns.replay_packets)
   end
 
-  defp handle_replay_packet(nil, socket) do
-    socket =
-      assign(socket,
-        replay_active: false,
-        replay_paused: false,
-        replay_timer_ref: nil,
-        replay_index: 0
-      )
-
-    {:noreply, socket}
-  end
-
   defp handle_replay_packet(packet, socket) do
-    case build_packet_data(packet) do
+    case PacketUtils.build_packet_data(packet) do
       nil -> handle_invalid_replay_packet(socket)
       packet_data -> handle_valid_replay_packet(packet, packet_data, socket)
     end
@@ -445,7 +400,7 @@ defmodule AprsWeb.MapLive.CallsignView do
       .callsign-header {
         position: absolute;
         top: 10px;
-        left: 10px;
+        left: 60px;
         z-index: 1000;
         background: rgba(255, 255, 255, 0.95);
         border: 2px solid rgba(0,0,0,0.2);
@@ -614,6 +569,11 @@ defmodule AprsWeb.MapLive.CallsignView do
         max-width: 300px;
       }
 
+      /* Hides the empty state dialog when not needed */
+      .empty-state.hidden {
+        display: none;
+      }
+
       .empty-state h3 {
         margin: 0 0 8px 0;
         color: #333;
@@ -638,14 +598,15 @@ defmodule AprsWeb.MapLive.CallsignView do
         </div>
       </div>
 
-      <%= if map_size(@visible_packets) == 0 and not @replay_active do %>
-        <div class="empty-state">
-          <h3>Loading Historical Data</h3>
-          <p>
-            Loading packet history for {@callsign}...
-          </p>
-        </div>
-      <% end %>
+      <div class={[
+        "empty-state",
+        if(map_size(@visible_packets) > 0 or @replay_active, do: "hidden")
+      ]}>
+        <h3>Loading Historical Data</h3>
+        <p>
+          Loading packet history for {@callsign}...
+        </p>
+      </div>
 
       <div
         id="aprs-map"
@@ -749,7 +710,7 @@ defmodule AprsWeb.MapLive.CallsignView do
       unique_position_packets
       |> Enum.with_index()
       |> Enum.map(fn {packet, index} ->
-        case build_packet_data(packet) do
+        case PacketUtils.build_packet_data(packet) do
           nil ->
             nil
 
@@ -794,7 +755,7 @@ defmodule AprsWeb.MapLive.CallsignView do
     socket =
       if latest_packet && !MapSet.member?(historical_callsigns, latest_packet_id) do
         # Push the latest marker as a regular marker (not historical)
-        packet_data = build_packet_data(latest_packet)
+        packet_data = PacketUtils.build_packet_data(latest_packet)
 
         if packet_data do
           push_event(socket, "add_markers", %{markers: [packet_data]})
@@ -876,123 +837,6 @@ defmodule AprsWeb.MapLive.CallsignView do
     abs(lat1 - lat2) > 0.00001 || abs(lng1 - lng2) > 0.00001
   end
 
-  defp build_packet_data(packet) do
-    {lat, lng, _} = MapHelpers.get_coordinates(packet)
-    callsign = Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))
-
-    if lat != nil and lng != nil and callsign != "" and callsign != nil do
-      build_packet_map(packet, lat, lng, packet.data_extended)
-    end
-  end
-
-  defp format_popup_timestamp(ts) do
-    dt =
-      cond do
-        is_binary(ts) ->
-          case DateTime.from_iso8601(ts) do
-            {:ok, dt, _} -> dt
-            _ -> DateTime.utc_now()
-          end
-
-        is_integer(ts) ->
-          DateTime.from_unix!(ts, :millisecond)
-
-        match?(%DateTime{}, ts) ->
-          ts
-
-        match?(%NaiveDateTime{}, ts) ->
-          DateTime.from_naive!(ts, "Etc/UTC")
-
-        true ->
-          DateTime.utc_now()
-      end
-
-    ago = TimeHelpers.time_ago_in_words(dt)
-    abs_time = Calendar.strftime(dt, "%Y-%m-%d %H:%M UTC")
-    {ago, abs_time}
-  end
-
-  defp build_packet_map(packet, lat, lng, data_extended) do
-    data_extended = data_extended || %{}
-    callsign = PacketUtils.generate_callsign(packet)
-    {symbol_table_id, symbol_code} = PacketUtils.get_symbol_info(packet)
-    timestamp = PacketUtils.get_timestamp(packet)
-    comment = PacketUtils.get_packet_field(packet, :comment, "")
-
-    {ago, abs_time} = format_popup_timestamp(timestamp)
-
-    popup = """
-    <div class=\"aprs-popup\">
-      <div class=\"aprs-callsign\"><strong><a href=\"/#{callsign}\">#{callsign}</a></strong></div>
-      <div class=\"aprs-symbol-info\">Symbol: #{symbol_table_id}#{symbol_code}</div>
-      #{if comment == "", do: "", else: "<div class=\\\"aprs-comment\\\">#{comment}</div>"}
-      <div class=\"aprs-coords\">#{Float.round(PacketUtils.to_float(lat), 4)}, #{Float.round(PacketUtils.to_float(lng), 4)}</div>
-      <div class=\"aprs-timestamp\"><div>#{ago}</div><div>#{abs_time}</div></div>
-    </div>
-    """
-
-    %{
-      "id" => callsign,
-      "callsign" => callsign,
-      "base_callsign" => PacketUtils.get_packet_field(packet, :base_callsign, ""),
-      "ssid" => PacketUtils.get_packet_field(packet, :ssid, 0),
-      "lat" => PacketUtils.to_float(lat),
-      "lng" => PacketUtils.to_float(lng),
-      "data_type" => to_string(PacketUtils.get_packet_field(packet, :data_type, "unknown")),
-      "path" => PacketUtils.get_packet_field(packet, :path, ""),
-      "comment" => comment,
-      "data_extended" => PacketUtils.convert_tuples_to_strings(data_extended || %{}),
-      "symbol_table_id" => symbol_table_id,
-      "symbol_code" => symbol_code,
-      "symbol_description" => "Symbol: #{symbol_table_id}#{symbol_code}",
-      "timestamp" => timestamp,
-      "popup" => popup
-    }
-  end
-
-  defp packet_matches_callsign?(packet, target_callsign) do
-    normalized_packet = normalize_packet_callsign(packet)
-    normalized_target = normalize_target_callsign(target_callsign)
-    exact_or_base_match?(normalized_packet, normalized_target, packet)
-  end
-
-  defp normalize_packet_callsign(packet) do
-    base_callsign = packet[:base_callsign] || packet.base_callsign || ""
-    ssid = packet[:ssid] || packet.ssid
-
-    case_result =
-      case ssid do
-        nil -> base_callsign
-        "" -> base_callsign
-        "0" -> base_callsign
-        _ -> "#{base_callsign}-#{ssid}"
-      end
-
-    case_result
-    |> String.upcase()
-    |> String.trim()
-  end
-
-  defp normalize_target_callsign(target_callsign) do
-    target_callsign
-    |> String.upcase()
-    |> String.trim()
-  end
-
-  defp exact_or_base_match?(normalized_packet, normalized_target, packet) do
-    cond do
-      normalized_packet == normalized_target ->
-        true
-
-      not String.contains?(normalized_target, "-") ->
-        base_callsign = packet[:base_callsign] || packet.base_callsign || ""
-        String.upcase(String.trim(base_callsign)) == normalized_target
-
-      true ->
-        false
-    end
-  end
-
   defp load_callsign_packets(socket, callsign) do
     latest_packet =
       %{callsign: callsign}
@@ -1042,7 +886,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   defp maybe_push_latest_marker(socket, nil), do: socket
 
   defp maybe_push_latest_marker(socket, packet) do
-    packet_data = build_packet_data(packet)
+    packet_data = PacketUtils.build_packet_data(packet)
     if packet_data, do: push_event(socket, "add_markers", %{markers: [packet_data]}), else: socket
   end
 end

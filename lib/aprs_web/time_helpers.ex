@@ -26,4 +26,31 @@ defmodule AprsWeb.TimeHelpers do
 
   defp format_time_diff(seconds) when seconds < 63_072_000, do: "1 year"
   defp format_time_diff(seconds), do: "#{div(seconds, 31_536_000)} years"
+
+  @doc """
+  Converts various timestamp formats into a standard DateTime object.
+  Handles ISO 8601 strings, Unix timestamps in milliseconds, and existing
+  DateTime or NaiveDateTime structs.
+  """
+  def to_datetime(ts) do
+    cond do
+      is_binary(ts) ->
+        case DateTime.from_iso8601(ts) do
+          {:ok, dt, _} -> dt
+          _ -> nil
+        end
+
+      is_integer(ts) ->
+        DateTime.from_unix!(ts, :millisecond)
+
+      match?(%DateTime{}, ts) ->
+        ts
+
+      match?(%NaiveDateTime{}, ts) ->
+        DateTime.from_naive!(ts, "Etc/UTC")
+
+      true ->
+        nil
+    end
+  end
 end

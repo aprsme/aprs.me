@@ -4,6 +4,8 @@ defmodule AprsWeb.MapLive.Index do
   """
   use AprsWeb, :live_view
 
+  import AprsWeb.TimeHelpers, only: [time_ago_in_words: 1]
+
   alias AprsWeb.Endpoint
   alias AprsWeb.MapLive.MapHelpers
   alias AprsWeb.MapLive.PacketUtils
@@ -195,7 +197,7 @@ defmodule AprsWeb.MapLive.Index do
 
     visible_packets_list =
       filtered_packets
-      |> Enum.map(fn {_callsign, packet} -> build_packet_data(packet) end)
+      |> Enum.map(fn {_callsign, packet} -> PacketUtils.build_packet_data(packet) end)
       |> Enum.filter(& &1)
 
     socket = assign(socket, visible_packets: filtered_packets)
@@ -273,7 +275,7 @@ defmodule AprsWeb.MapLive.Index do
       {:noreply, socket}
     else
       # Navigate to the callsign-specific route
-      {:noreply, push_navigate(socket, to: "/#{trimmed_callsign}")}
+      {:noreply, push_navigate(socket, to: "/map/callsign/#{trimmed_callsign}")}
     end
   end
 
@@ -307,7 +309,7 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
   defp handle_bounds_update(bounds, socket) do
-    # Update the map bounds from the client
+    # Update the map bounds from the client, converting to atom keys
     map_bounds = %{
       north: bounds["north"],
       south: bounds["south"],
@@ -324,7 +326,6 @@ defmodule AprsWeb.MapLive.Index do
       # Only schedule a bounds update if the bounds have actually changed (with rounding)
       if compare_bounds(map_bounds, socket.assigns.map_bounds) do
         {:noreply, socket}
-        # Cancel any pending bounds update timer
       else
         if socket.assigns[:bounds_update_timer] do
           Process.cancel_timer(socket.assigns.bounds_update_timer)
@@ -495,7 +496,7 @@ defmodule AprsWeb.MapLive.Index do
         else: System.unique_integer([:positive])
 
     new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
-    marker_data = build_packet_data(packet)
+    marker_data = PacketUtils.build_packet_data(packet)
 
     socket =
       if marker_data do
@@ -903,38 +904,6 @@ defmodule AprsWeb.MapLive.Index do
           </p>
         </div>
         
-    <!-- Navigation Links (Mobile) -->
-        <div class="lg:hidden pt-4 border-t border-slate-200 space-y-3">
-          <.link
-            navigate={~p"/packets"}
-            class="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-              />
-            </svg>
-            <span>View All Packets</span>
-          </.link>
-          <.link
-            navigate={~p"/badpackets"}
-            class="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-              />
-            </svg>
-            <span>View Bad Packets</span>
-          </.link>
-        </div>
-        
     <!-- Deployment Information -->
         <div class="pt-4 border-t border-slate-200 space-y-3">
           <div class="flex items-center space-x-2 text-sm text-slate-600">
@@ -1079,7 +1048,7 @@ defmodule AprsWeb.MapLive.Index do
 
     packet_data_list =
       historical_packets
-      |> Enum.group_by(&generate_callsign/1)
+      |> Enum.group_by(&PacketUtils.generate_callsign/1)
       |> Enum.flat_map(fn {callsign, packets} ->
         sorted_packets =
           Enum.sort_by(
@@ -1120,7 +1089,7 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   defp build_historical_packet_data(packet, index, callsign) do
-    case build_packet_data(packet) do
+    case PacketUtils.build_packet_data(packet) do
       nil ->
         nil
 
@@ -1208,7 +1177,7 @@ defmodule AprsWeb.MapLive.Index do
     packets = packets_module.get_packets_for_replay(packets_params)
 
     # Sort packets by received_at timestamp to ensure chronological replay
-    Enum.sort_by(packets, fn packet -> packet.received_at end)
+    Enum.sort_by(packets, & &1.received_at)
   end
 
   @spec load_historical_packets_for_bounds(Socket.t(), map()) :: Socket.t()
@@ -1255,146 +1224,6 @@ defmodule AprsWeb.MapLive.Index do
         end
 
       lat_in_bounds && lng_in_bounds
-    end
-  end
-
-  @spec build_packet_data(map() | struct()) :: map() | nil
-  defp build_packet_data(packet) do
-    {lat, lon, data_extended} = MapHelpers.get_coordinates(packet)
-    callsign = Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))
-
-    # Only include packets with valid position data and a non-empty callsign
-    if lat && lon && callsign != "" && callsign != nil do
-      build_packet_map(packet, lat, lon, data_extended)
-    end
-  end
-
-  @spec build_packet_map(map() | struct(), number(), number(), map() | nil) :: map()
-  defp build_packet_map(packet, lat, lon, data_extended) do
-    data_extended = data_extended || %{}
-    packet_info = extract_packet_info(packet, data_extended)
-    popup = build_popup_content(packet, packet_info, lat, lon)
-
-    build_packet_result(packet, packet_info, lat, lon, popup)
-  end
-
-  defp extract_packet_info(packet, data_extended) do
-    %{
-      callsign: PacketUtils.generate_callsign(packet),
-      symbol_table_id: PacketUtils.get_packet_field(packet, :symbol_table_id, "/"),
-      symbol_code: PacketUtils.get_packet_field(packet, :symbol_code, ">"),
-      timestamp: PacketUtils.get_timestamp(packet),
-      comment: PacketUtils.get_packet_field(packet, :comment, ""),
-      safe_data_extended: PacketUtils.convert_tuples_to_strings(data_extended),
-      is_weather_packet: PacketUtils.weather_packet?(packet)
-    }
-  end
-
-  defp build_popup_content(packet, packet_info, lat, lon) do
-    if packet_info.is_weather_packet do
-      build_weather_popup_html(packet, packet_info.callsign)
-    else
-      build_standard_popup_html(packet_info, lat, lon)
-    end
-  end
-
-  defp build_standard_popup_html(packet_info, lat, lon) do
-    comment_html =
-      if packet_info.comment == "",
-        do: "",
-        else: ~s(<div class="aprs-comment">#{packet_info.comment}</div>)
-
-    """
-    <div class="aprs-popup">
-      <div class="aprs-callsign"><strong><a href="/map/callsign/#{packet_info.callsign}">#{packet_info.callsign}</a></strong></div>
-      #{comment_html}
-      <div class="aprs-coords">#{Float.round(PacketUtils.to_float(lat), 4)}, #{Float.round(PacketUtils.to_float(lon), 4)}</div>
-      <div class="aprs-time">#{format_popup_timestamp(packet_info.timestamp)}</div>
-    </div>
-    """
-  end
-
-  defp build_packet_result(packet, packet_info, lat, lon, popup) do
-    %{
-      "id" => packet_info.callsign,
-      "callsign" => packet_info.callsign,
-      "base_callsign" => PacketUtils.get_packet_field(packet, :base_callsign, ""),
-      "ssid" => PacketUtils.get_packet_field(packet, :ssid, 0),
-      "lat" => PacketUtils.to_float(lat),
-      "lng" => PacketUtils.to_float(lon),
-      "data_type" => to_string(PacketUtils.get_packet_field(packet, :data_type, "unknown")),
-      "path" => PacketUtils.get_packet_field(packet, :path, ""),
-      "comment" => packet_info.comment,
-      "data_extended" => packet_info.safe_data_extended || %{},
-      "symbol_table_id" => packet_info.symbol_table_id,
-      "symbol_code" => packet_info.symbol_code,
-      "symbol_description" => "Symbol: #{packet_info.symbol_table_id}#{packet_info.symbol_code}",
-      "timestamp" => packet_info.timestamp,
-      "popup" => popup
-    }
-  end
-
-  defp build_weather_popup_html(packet, callsign) do
-    received_at = get_received_at(packet)
-    timestamp_str = format_popup_timestamp(received_at)
-
-    """
-    <strong>#{callsign} - Weather Report</strong><br>
-    <small>#{timestamp_str}</small>
-    <hr>
-    Temperature: #{PacketUtils.get_weather_field(packet, :temperature)}°F<br>
-    Humidity: #{PacketUtils.get_weather_field(packet, :humidity)}%<br>
-    Wind: #{PacketUtils.get_weather_field(packet, :wind_direction)}° at #{PacketUtils.get_weather_field(packet, :wind_speed)} mph, gusts to #{PacketUtils.get_weather_field(packet, :wind_gust)} mph<br>
-    Pressure: #{PacketUtils.get_weather_field(packet, :pressure)} hPa<br>
-    Rain (1h): #{PacketUtils.get_weather_field(packet, :rain_1h)} in.<br>
-    Rain (24h): #{PacketUtils.get_weather_field(packet, :rain_24h)} in.<br>
-    Rain (since midnight): #{PacketUtils.get_weather_field(packet, :rain_since_midnight)} in.<br>
-    """
-  end
-
-  defp get_received_at(packet) do
-    cond do
-      Map.has_key?(packet, :received_at) -> packet.received_at
-      Map.has_key?(packet, "received_at") -> packet["received_at"]
-      true -> nil
-    end
-  end
-
-  defp format_popup_timestamp(ts) do
-    cond do
-      is_binary(ts) ->
-        case DateTime.from_iso8601(ts) do
-          {:ok, dt, _} -> Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S UTC")
-          _ -> ts
-        end
-
-      is_integer(ts) ->
-        ts
-        |> DateTime.from_unix!(:millisecond)
-        |> Calendar.strftime("%Y-%m-%d %H:%M:%S UTC")
-
-      match?(%DateTime{}, ts) ->
-        Calendar.strftime(ts, "%Y-%m-%d %H:%M:%S UTC")
-
-      match?(%NaiveDateTime{}, ts) ->
-        ts
-        |> DateTime.from_naive!("Etc/UTC")
-        |> Calendar.strftime("%Y-%m-%d %H:%M:%S UTC")
-
-      true ->
-        to_string(ts)
-    end
-  end
-
-  @spec generate_callsign(map() | struct()) :: String.t()
-  defp generate_callsign(packet) do
-    base_callsign = Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))
-    ssid = Map.get(packet, :ssid, Map.get(packet, "ssid", 0))
-
-    if ssid != 0 and ssid != "" and ssid != nil do
-      "#{base_callsign}-#{ssid}"
-    else
-      base_callsign
     end
   end
 
@@ -1469,7 +1298,4 @@ defmodule AprsWeb.MapLive.Index do
       round4.(Map.get(b1, key)) == round4.(Map.get(b2, key))
     end)
   end
-
-  # Use shared helper
-  defp time_ago_in_words(datetime), do: AprsWeb.TimeHelpers.time_ago_in_words(datetime)
 end
