@@ -17,6 +17,29 @@ defmodule AprsWeb.MapLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      # Subscribe to packet updates
+      Phoenix.PubSub.subscribe(Aprs.PubSub, "packets")
+      Phoenix.PubSub.subscribe(Aprs.PubSub, "bad_packets")
+
+      # Schedule periodic cleanup of old packets
+      Process.send_after(self(), :cleanup_old_packets, 60_000)
+    end
+
+    # Get deployment timestamp from environment variable or use current time as fallback
+    deployed_at =
+      case System.get_env("DEPLOYED_AT") do
+        nil ->
+          # Fallback to current time if not set
+          DateTime.utc_now()
+
+        timestamp when is_binary(timestamp) ->
+          case DateTime.from_iso8601(timestamp) do
+            {:ok, datetime, _} -> datetime
+            _ -> DateTime.utc_now()
+          end
+      end
+
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
 
     socket = assign_defaults(socket, one_hour_ago)
@@ -29,7 +52,26 @@ defmodule AprsWeb.MapLive.Index do
       maybe_start_geolocation(socket)
     end
 
-    {:ok, socket}
+    {:ok,
+     assign(socket,
+       map_ready: false,
+       map_bounds: nil,
+       map_center: %{lat: 39.8283, lng: -98.5795},
+       map_zoom: 4,
+       visible_packets: %{},
+       historical_packets: %{},
+       overlay_callsign: "",
+       trail_duration: "1",
+       historical_hours: "1",
+       packet_age_threshold: 3600,
+       slideover_open: true,
+       replay_active: false,
+       replay_start_time: nil,
+       replay_end_time: nil,
+       replay_current_time: nil,
+       replay_speed: 1,
+       deployed_at: deployed_at
+     )}
   end
 
   @spec assign_defaults(Socket.t(), DateTime.t()) :: Socket.t()
@@ -905,6 +947,24 @@ defmodule AprsWeb.MapLive.Index do
             </svg>
             <span>View Bad Packets</span>
           </.link>
+        </div>
+        
+    <!-- Deployment Information -->
+        <div class="pt-4 border-t border-slate-200 space-y-3">
+          <div class="flex items-center space-x-2 text-sm text-slate-600">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span class="font-medium">Deployed:</span>
+          </div>
+          <div class="text-xs text-slate-500 font-mono">
+            {Calendar.strftime(@deployed_at, "%Y-%m-%d %H:%M UTC")}
+          </div>
         </div>
       </div>
     </div>

@@ -53,6 +53,9 @@ RUN apt-get update -y && \
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 ENV LANG="en_US.UTF-8" LANGUAGE="en_US:en" LC_ALL="en_US.UTF-8"
 
+# Set deployment timestamp to current time during build
+ENV DEPLOYED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 # Set working directory
 WORKDIR "/app"
 RUN chown nobody /app
