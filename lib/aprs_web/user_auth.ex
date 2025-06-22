@@ -41,9 +41,7 @@ defmodule AprsWeb.UserAuth do
     put_resp_cookie(conn, @remember_me_cookie, token, @remember_me_options)
   end
 
-  defp maybe_write_remember_me_cookie(conn, _token, _params) do
-    conn
-  end
+  defp maybe_write_remember_me_cookie(conn, _token, _params), do: conn
 
   # This function renews the session ID and erases the whole
   # session to avoid fixation attacks. If there is any data
@@ -96,16 +94,18 @@ defmodule AprsWeb.UserAuth do
   end
 
   defp ensure_user_token(conn) do
-    if token = get_session(conn, :user_token) do
-      {token, conn}
-    else
-      conn = fetch_cookies(conn, signed: [@remember_me_cookie])
+    case get_session(conn, :user_token) do
+      nil -> ensure_user_token_from_cookie(conn)
+      token -> {token, conn}
+    end
+  end
 
-      if token = conn.cookies[@remember_me_cookie] do
-        {token, put_token_in_session(conn, token)}
-      else
-        {nil, conn}
-      end
+  defp ensure_user_token_from_cookie(conn) do
+    conn = fetch_cookies(conn, signed: [@remember_me_cookie])
+
+    case conn.cookies[@remember_me_cookie] do
+      nil -> {nil, conn}
+      token -> {token, put_token_in_session(conn, token)}
     end
   end
 
@@ -151,25 +151,26 @@ defmodule AprsWeb.UserAuth do
   def on_mount(:ensure_authenticated, _params, session, socket) do
     socket = mount_current_user(session, socket)
 
-    if socket.assigns.current_user do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/users/log_in")
+    case socket.assigns.current_user do
+      nil ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: ~p"/users/log_in")
 
-      {:halt, socket}
+        {:halt, socket}
+
+      _user ->
+        {:cont, socket}
     end
   end
 
   def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
     socket = mount_current_user(session, socket)
 
-    if socket.assigns.current_user do
-      {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
-    else
-      {:cont, socket}
+    case socket.assigns.current_user do
+      nil -> {:cont, socket}
+      _user -> {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
     end
   end
 
@@ -189,12 +190,14 @@ defmodule AprsWeb.UserAuth do
   Used for routes that require the user to not be authenticated.
   """
   def redirect_if_user_is_authenticated(conn, _opts) do
-    if conn.assigns[:current_user] do
-      conn
-      |> redirect(to: signed_in_path(conn))
-      |> halt()
-    else
-      conn
+    case conn.assigns[:current_user] do
+      nil ->
+        conn
+
+      _user ->
+        conn
+        |> redirect(to: signed_in_path(conn))
+        |> halt()
     end
   end
 
@@ -205,14 +208,16 @@ defmodule AprsWeb.UserAuth do
   they use the application at all, here would be a good place.
   """
   def require_authenticated_user(conn, _opts) do
-    if conn.assigns[:current_user] do
-      conn
-    else
-      conn
-      |> put_flash(:error, "You must log in to access this page.")
-      |> maybe_store_return_to()
-      |> redirect(to: ~p"/users/log_in")
-      |> halt()
+    case conn.assigns[:current_user] do
+      nil ->
+        conn
+        |> put_flash(:error, "You must log in to access this page.")
+        |> maybe_store_return_to()
+        |> redirect(to: ~p"/users/log_in")
+        |> halt()
+
+      _user ->
+        conn
     end
   end
 

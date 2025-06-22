@@ -1,4 +1,5 @@
 defmodule AprsWeb.UserSessionController do
+  @moduledoc false
   use AprsWeb, :controller
 
   alias Aprs.Accounts

@@ -37,7 +37,9 @@ defmodule Aprs.DeviceIdentification do
   @spec identify_device(String.t()) :: String.t()
   def identify_device(symbols) do
     Enum.find_value(@device_patterns, "Unknown", fn {regex, name} ->
-      if Regex.match?(regex, symbols), do: name
+      if Regex.match?(regex, symbols) do
+        name
+      end
     end)
   end
 
@@ -66,13 +68,11 @@ defmodule Aprs.DeviceIdentification do
   Returns a list of all known device models for a given manufacturer.
   """
   @spec known_models(String.t()) :: [String.t()]
-  def known_models(manufacturer) do
-    case manufacturer do
-      "Kenwood" -> ["TH-D74", "TH-D74A", "DM-710", "DM-700"]
-      "Yaesu" -> ["VX-8", "FTM-350", "VX-8G", "FT1D", "FTM-400DR", "FTM-100D", "FT2D"]
-      "Byonics" -> ["TinyTrack3", "TinyTrack4"]
-      "SCS GmbH & Co." -> ["P4dragon DR-7400 modems", "P4dragon DR-7800 modems"]
-      _ -> []
-    end
-  end
+  def known_models("Kenwood"), do: ["TH-D74", "TH-D74A", "DM-710", "DM-700"]
+
+  def known_models("Yaesu"), do: ["VX-8", "FTM-350", "VX-8G", "FT1D", "FTM-400DR", "FTM-100D", "FT2D"]
+
+  def known_models("Byonics"), do: ["TinyTrack3", "TinyTrack4"]
+  def known_models("SCS GmbH & Co."), do: ["P4dragon DR-7400 modems", "P4dragon DR-7800 modems"]
+  def known_models(_), do: []
 end

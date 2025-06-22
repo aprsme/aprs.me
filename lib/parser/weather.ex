@@ -42,7 +42,10 @@ defmodule Parser.Weather do
     result = %{timestamp: timestamp, data_type: :weather, raw_weather_data: weather_data}
 
     Enum.reduce(weather_values, result, fn {key, value}, acc ->
-      if is_nil(value), do: acc, else: Map.put(acc, key, value)
+      put_weather_value(acc, key, value)
     end)
   end
+
+  defp put_weather_value(acc, _key, nil), do: acc
+  defp put_weather_value(acc, key, value), do: Map.put(acc, key, value)
 end

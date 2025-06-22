@@ -4,7 +4,16 @@ defmodule Parser.MicE do
   """
 
   @spec parse(binary(), String.t()) :: map()
-  def parse(data, destination \\ nil) do
+  def parse(_data, nil) do
+    %{
+      latitude: nil,
+      longitude: nil,
+      error: "Destination is nil",
+      data_type: :mic_e_error
+    }
+  end
+
+  def parse(data, destination) do
     with {:ok, dest_info} <- parse_destination(destination),
          {:ok, info_info} <- parse_information(data, dest_info.longitude_offset) do
       lat =
@@ -19,7 +28,7 @@ defmodule Parser.MicE do
           )
         )
 
-      lat = if dest_info.lat_direction == :south, do: Decimal.negate(lat), else: lat
+      lat = apply_lat_direction(lat, dest_info.lat_direction)
 
       lon =
         Decimal.add(
@@ -33,7 +42,7 @@ defmodule Parser.MicE do
           )
         )
 
-      lon = if dest_info.lon_direction == :west, do: Decimal.negate(lon), else: lon
+      lon = apply_lon_direction(lon, dest_info.lon_direction)
 
       %{
         latitude: lat,
@@ -212,7 +221,7 @@ defmodule Parser.MicE do
     sp = sp_c - 28
     dc = dc_c - 28
     speed = div(sp, 10) * 100 + rem(sp, 10) * 10 + div(dc, 10)
-    speed = if speed >= 800, do: speed - 800, else: speed
+    speed = normalize_speed(speed)
     speed * 0.868976
   end
 
@@ -220,6 +229,18 @@ defmodule Parser.MicE do
     dc = dc_c - 28
     se = se_c - 28
     course = rem(dc, 10) * 100 + se
-    if course >= 400, do: course - 400, else: course
+    normalize_course(course)
   end
+
+  defp apply_lat_direction(lat, :south), do: Decimal.negate(lat)
+  defp apply_lat_direction(lat, _), do: lat
+
+  defp apply_lon_direction(lon, :west), do: Decimal.negate(lon)
+  defp apply_lon_direction(lon, _), do: lon
+
+  defp normalize_speed(speed) when speed >= 800, do: speed - 800
+  defp normalize_speed(speed), do: speed
+
+  defp normalize_course(course) when course >= 400, do: course - 400
+  defp normalize_course(course), do: course
 end

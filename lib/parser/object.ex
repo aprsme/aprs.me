@@ -11,20 +11,6 @@ defmodule Parser.Object do
   def parse(<<";", object_name::binary-size(9), live_killed::binary-size(1), timestamp::binary-size(7), rest::binary>>) do
     position_data =
       case rest do
-        <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
-          comment::binary>> ->
-          %{latitude: lat, longitude: lon} =
-            Parser.Position.parse_aprs_position(latitude, longitude)
-
-          %{
-            latitude: lat,
-            longitude: lon,
-            symbol_table_id: sym_table_id,
-            symbol_code: symbol_code,
-            comment: comment,
-            position_format: :uncompressed
-          }
-
         <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
           cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
           try do
@@ -46,6 +32,20 @@ defmodule Parser.Object do
           rescue
             _ -> %{latitude: nil, longitude: nil, comment: comment, position_format: :compressed}
           end
+
+        <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
+          comment::binary>> ->
+          %{latitude: lat, longitude: lon} =
+            Parser.Position.parse_aprs_position(latitude, longitude)
+
+          %{
+            latitude: lat,
+            longitude: lon,
+            symbol_table_id: sym_table_id,
+            symbol_code: symbol_code,
+            comment: comment,
+            position_format: :uncompressed
+          }
 
         _ ->
           %{comment: rest, position_format: :unknown}

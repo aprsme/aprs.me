@@ -69,41 +69,41 @@ defmodule Aprs.EncodingUtils do
   def sanitize_data_extended(data_extended) when is_map(data_extended) do
     # Handle generic maps by sanitizing all string values
     Enum.reduce(data_extended, %{}, fn {key, value}, acc ->
-      sanitized_value =
-        case value do
-          val when is_binary(val) -> sanitize_string(val)
-          val -> val
-        end
-
+      sanitized_value = sanitize_map_value(value)
       Map.put(acc, key, sanitized_value)
     end)
   end
 
   def sanitize_data_extended(data_extended), do: data_extended
 
+  defp sanitize_map_value(val) when is_binary(val), do: sanitize_string(val)
+  defp sanitize_map_value(val), do: val
+
   # Private helper functions
 
   @spec scrub_problematic_bytes(binary()) :: String.t()
   defp scrub_problematic_bytes(binary) do
     # Handle both invalid UTF-8 sequences and problematic control characters
-    cleaned =
-      if String.valid?(binary) do
-        # String is valid UTF-8, just remove control characters
-        binary
-        # Remove null bytes
-        |> String.replace(<<0>>, "")
-        # Remove other control chars
-        |> String.replace(~r/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/, "")
-      else
-        # String has invalid UTF-8, filter byte by byte
-        binary
-        |> :binary.bin_to_list()
-        |> Enum.filter(&valid_utf8_byte?/1)
-        |> :binary.list_to_bin()
-        |> ensure_valid_utf8()
-      end
-
+    cleaned = clean_binary_by_validity(binary, String.valid?(binary))
     String.trim(cleaned)
+  end
+
+  defp clean_binary_by_validity(binary, true) do
+    # String is valid UTF-8, just remove control characters
+    binary
+    # Remove null bytes
+    |> String.replace(<<0>>, "")
+    # Remove other control chars
+    |> String.replace(~r/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/, "")
+  end
+
+  defp clean_binary_by_validity(binary, false) do
+    # String has invalid UTF-8, filter byte by byte
+    binary
+    |> :binary.bin_to_list()
+    |> Enum.filter(&valid_utf8_byte?/1)
+    |> :binary.list_to_bin()
+    |> ensure_valid_utf8()
   end
 
   # Check if byte should be kept (ASCII printable + safe whitespace)
@@ -115,7 +115,11 @@ defmodule Aprs.EncodingUtils do
   # Ensure the final result is valid UTF-8
   @spec ensure_valid_utf8(binary()) :: binary()
   defp ensure_valid_utf8(binary) do
-    if String.valid?(binary), do: binary, else: try_convert_utf8(binary)
+    if String.valid?(binary) do
+      binary
+    else
+      try_convert_utf8(binary)
+    end
   end
 
   defp try_convert_utf8(binary) do
@@ -125,11 +129,15 @@ defmodule Aprs.EncodingUtils do
 
       _ ->
         # Last resort: keep only ASCII
-        binary
-        |> :binary.bin_to_list()
-        |> Enum.filter(fn byte -> byte >= 32 and byte <= 126 end)
-        |> :binary.list_to_bin()
+        fallback_to_ascii(binary)
     end
+  end
+
+  defp fallback_to_ascii(binary) do
+    binary
+    |> :binary.bin_to_list()
+    |> Enum.filter(fn byte -> byte >= 32 and byte <= 126 end)
+    |> :binary.list_to_bin()
   end
 
   @doc """
@@ -169,29 +177,29 @@ defmodule Aprs.EncodingUtils do
       byte_count: byte_count
     }
 
-    if valid do
-      Map.put(base_info, :char_count, String.length(binary))
-    else
-      # Try to find where the invalid sequence starts
-      invalid_at = find_invalid_byte_position(binary, 0)
-      Map.put(base_info, :invalid_at, invalid_at)
-    end
+    add_encoding_details(base_info, binary, valid)
+  end
+
+  defp add_encoding_details(base_info, binary, true) do
+    Map.put(base_info, :char_count, String.length(binary))
+  end
+
+  defp add_encoding_details(base_info, binary, false) do
+    # Try to find where the invalid sequence starts
+    invalid_at = find_invalid_byte_position(binary, 0)
+    Map.put(base_info, :invalid_at, invalid_at)
   end
 
   @spec find_invalid_byte_position(binary(), non_neg_integer()) :: non_neg_integer() | nil
   defp find_invalid_byte_position(<<>>, _pos), do: nil
 
-  defp find_invalid_byte_position(binary, pos) do
-    case binary do
-      <<head::binary-size(1), tail::binary>> ->
-        if String.valid?(head) do
-          find_invalid_byte_position(tail, pos + 1)
-        else
-          pos
-        end
-
-      _ ->
-        pos
+  defp find_invalid_byte_position(<<head::binary-size(1), tail::binary>>, pos) do
+    if String.valid?(head) do
+      find_invalid_byte_position(tail, pos + 1)
+    else
+      pos
     end
   end
+
+  defp find_invalid_byte_position(_, pos), do: pos
 end

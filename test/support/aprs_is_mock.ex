@@ -14,8 +14,6 @@ defmodule AprsIsMock do
 
   @impl true
   def init(_opts) do
-    Logger.info("Starting APRS.Is mock for testing")
-
     # Mock connection state
     initial_state = %{
       connected: false,
@@ -40,7 +38,6 @@ defmodule AprsIsMock do
   # Client API - Mock implementations
 
   def stop do
-    Logger.info("Stopping APRS.Is mock")
     GenServer.stop(__MODULE__, :normal)
   end
 
@@ -93,31 +90,26 @@ defmodule AprsIsMock do
     end
   end
 
-  def set_filter(filter_string) do
-    Logger.debug("Mock: Setting filter to #{filter_string}")
+  def set_filter(_filter_string) do
     :ok
   end
 
   def list_active_filters do
-    Logger.debug("Mock: Listing active filters")
     :ok
   end
 
-  def send_message(from, to, message) do
-    Logger.debug("Mock: Sending message from #{from} to #{to}: #{message}")
+  def send_message(_from, _to, _message) do
     :ok
   end
 
   def send_message(message) do
-    Logger.debug("Mock: Sending message: #{message}")
     GenServer.call(__MODULE__, {:send_message, message})
   end
 
   # Server callbacks
 
   @impl true
-  def handle_call({:send_message, message}, _from, state) do
-    Logger.debug("Mock: Handling send message: #{message}")
+  def handle_call({:send_message, _message}, _from, state) do
     {:reply, :ok, state}
   end
 
@@ -146,14 +138,12 @@ defmodule AprsIsMock do
   end
 
   @impl true
-  def handle_info(msg, state) do
-    Logger.debug("Mock: Received unexpected message: #{inspect(msg)}")
+  def handle_info(_msg, state) do
     {:noreply, state}
   end
 
   @impl true
-  def terminate(reason, _state) do
-    Logger.info("Mock APRS.Is terminating: #{inspect(reason)}")
+  def terminate(_reason, _state) do
     :ok
   end
 
@@ -163,7 +153,6 @@ defmodule AprsIsMock do
     # Simulate receiving an APRS packet for testing purposes.
     # This can be used in tests to trigger packet processing without
     # connecting to external servers.
-    Logger.debug("Mock: Simulating packet: #{inspect(packet_data)}")
 
     # Broadcast to live clients like the real implementation would
     AprsWeb.Endpoint.broadcast("aprs_messages", "packet", packet_data)

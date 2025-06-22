@@ -1,10 +1,5 @@
 defmodule AprsWeb.PacketsLive.CallsignView do
-  @moduledoc """
-  LiveView for displaying packets specific to a single callsign.
-
-  Shows up to 100 packets total (stored + live) for the specified callsign.
-  Includes both stored packets from the database and live incoming packets.
-  """
+  @moduledoc false
   use AprsWeb, :live_view
 
   import Ecto.Query

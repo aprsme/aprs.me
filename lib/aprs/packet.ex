@@ -130,68 +130,78 @@ defmodule Aprs.Packet do
     lon = get_field(changeset, :lon) || get_change(changeset, :lon)
 
     # Also check data_extended for coordinates
-    {lat, lon} =
-      case {lat, lon} do
-        {nil, nil} ->
-          data_extended = get_change(changeset, :data_extended)
+    {lat, lon} = extract_coordinates_from_changeset(changeset, {lat, lon})
 
-          if data_extended do
-            {data_extended[:latitude], data_extended[:longitude]}
-          else
-            {nil, nil}
-          end
+    create_geometry_from_coordinates(changeset, lat, lon)
+  end
 
-        coords ->
-          coords
-      end
+  defp extract_coordinates_from_changeset(changeset, {nil, nil}) do
+    data_extended = get_change(changeset, :data_extended)
+    extract_coordinates_from_data_extended(data_extended)
+  end
 
+  defp extract_coordinates_from_changeset(_changeset, coords), do: coords
+
+  defp extract_coordinates_from_data_extended(nil), do: {nil, nil}
+
+  defp extract_coordinates_from_data_extended(data_extended) when is_map(data_extended) do
+    {data_extended[:latitude], data_extended[:longitude]}
+  end
+
+  defp extract_coordinates_from_data_extended(_), do: {nil, nil}
+
+  defp create_geometry_from_coordinates(changeset, lat, lon) do
     if valid_coordinates?(lat, lon) do
-      try do
-        location = create_point(lat, lon)
-
-        if location do
-          put_change(changeset, :location, location)
-        else
-          changeset
-        end
-      rescue
-        error ->
-          require Logger
-
-          Logger.error("Failed to create geometry for lat=#{lat}, lon=#{lon}: #{inspect(error)}")
-          changeset
-      end
+      create_and_set_location(changeset, lat, lon)
     else
       changeset
     end
   end
 
+  defp create_and_set_location(changeset, lat, lon) do
+    case create_point(lat, lon) do
+      nil -> changeset
+      location -> put_change(changeset, :location, location)
+    end
+  rescue
+    error ->
+      require Logger
+
+      Logger.error("Failed to create geometry for lat=#{lat}, lon=#{lon}: #{inspect(error)}")
+      changeset
+  end
+
   defp maybe_set_has_position(changeset) do
     location = get_field(changeset, :location) || get_change(changeset, :location)
 
-    if location do
+    case location do
+      nil -> check_legacy_coordinates(changeset)
+      _location -> put_change(changeset, :has_position, true)
+    end
+  end
+
+  defp check_legacy_coordinates(changeset) do
+    lat = get_field(changeset, :lat) || get_change(changeset, :lat)
+    lon = get_field(changeset, :lon) || get_change(changeset, :lon)
+
+    if valid_coordinates?(lat, lon) do
       put_change(changeset, :has_position, true)
     else
-      # Check legacy lat/lon fields
-      lat = get_field(changeset, :lat) || get_change(changeset, :lat)
-      lon = get_field(changeset, :lon) || get_change(changeset, :lon)
-
-      if valid_coordinates?(lat, lon) do
-        put_change(changeset, :has_position, true)
-      else
-        changeset
-      end
+      changeset
     end
   end
 
   defp valid_coordinates?(lat, lon) do
-    lat = if is_struct(lat, Decimal), do: Decimal.to_float(lat), else: lat
-    lon = if is_struct(lon, Decimal), do: Decimal.to_float(lon), else: lon
+    lat = normalize_coordinate(lat)
+    lon = normalize_coordinate(lon)
 
     is_number(lat) && is_number(lon) &&
       lat >= -90 && lat <= 90 &&
       lon >= -180 && lon <= 180
   end
+
+  defp normalize_coordinate(%Decimal{} = decimal), do: Decimal.to_float(decimal)
+  defp normalize_coordinate(coord), do: coord
 
   # Convert atom data_type to string for storage
   defp normalize_data_type(%{data_type: data_type} = attrs) when is_atom(data_type) do
@@ -202,12 +212,13 @@ defmodule Aprs.Packet do
     %{attrs | "data_type" => to_string(data_type)}
   end
 
-  # Handle :data_type key access format
   defp normalize_data_type(attrs) when is_map(attrs) do
-    if Map.has_key?(attrs, :data_type) and is_atom(attrs.data_type) do
-      %{attrs | data_type: to_string(attrs.data_type)}
-    else
-      attrs
+    case {Map.has_key?(attrs, :data_type), Map.get(attrs, :data_type)} do
+      {true, data_type} when is_atom(data_type) ->
+        %{attrs | data_type: to_string(data_type)}
+
+      _ ->
+        attrs
     end
   end
 
@@ -485,8 +496,8 @@ defmodule Aprs.Packet do
   @spec create_point(number() | nil, number() | nil) :: Geo.Point.t() | nil
   def create_point(lat, lon)
       when (is_number(lat) or is_struct(lat, Decimal)) and (is_number(lon) or is_struct(lon, Decimal)) do
-    lat = if is_struct(lat, Decimal), do: Decimal.to_float(lat), else: lat
-    lon = if is_struct(lon, Decimal), do: Decimal.to_float(lon), else: lon
+    lat = normalize_coordinate(lat)
+    lon = normalize_coordinate(lon)
 
     if valid_coordinates?(lat, lon) do
       %Geo.Point{coordinates: {lon, lat}, srid: 4326}

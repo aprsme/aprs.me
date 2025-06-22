@@ -1,4 +1,5 @@
 defmodule AprsWeb.ErrorHTML do
+  @moduledoc false
   use AprsWeb, :html
 
   # If you want to customize your error pages,

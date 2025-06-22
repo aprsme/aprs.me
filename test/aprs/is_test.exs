@@ -5,8 +5,6 @@ defmodule Aprs.IsTest do
   use ExUnit.Case, async: false
   use Aprs.DataCase
 
-  require Logger
-
   describe "APRS-IS mock functionality" do
     setup do
       # Start the mock if not already running

@@ -1,8 +1,5 @@
 defmodule AprsWeb.MapLive.MapHelpers do
-  @moduledoc """
-  Shared helpers for APRS map LiveViews (main map, callsign map, etc).
-  Provides coordinate extraction, position checks, and bounds logic.
-  """
+  @moduledoc false
 
   alias Parser.Types.MicE
 

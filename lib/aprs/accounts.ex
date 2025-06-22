@@ -42,7 +42,13 @@ defmodule Aprs.Accounts do
   """
   def get_user_by_email_and_password(email, password) when is_binary(email) and is_binary(password) do
     user = Repo.get_by(User, email: email)
-    if User.valid_password?(user, password), do: user
+    validate_user_password(user, password)
+  end
+
+  defp validate_user_password(user, password) do
+    if User.valid_password?(user, password) do
+      user
+    end
   end
 
   @doc """
@@ -257,15 +263,16 @@ defmodule Aprs.Accounts do
       {:error, :already_confirmed}
 
   """
-  def deliver_user_confirmation_instructions(%User{} = user, confirmation_url_fun)
+  def deliver_user_confirmation_instructions(%User{confirmed_at: nil} = user, confirmation_url_fun)
       when is_function(confirmation_url_fun, 1) do
-    if user.confirmed_at do
-      {:error, :already_confirmed}
-    else
-      {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
-      Repo.insert!(user_token)
-      UserNotifier.deliver_confirmation_instructions(user, confirmation_url_fun.(encoded_token))
-    end
+    {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
+    Repo.insert!(user_token)
+    UserNotifier.deliver_confirmation_instructions(user, confirmation_url_fun.(encoded_token))
+  end
+
+  def deliver_user_confirmation_instructions(%User{confirmed_at: confirmed_at} = _user, _confirmation_url_fun)
+      when not is_nil(confirmed_at) do
+    {:error, :already_confirmed}
   end
 
   @doc """

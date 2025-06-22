@@ -1,4 +1,5 @@
 defmodule AprsWeb.PageController do
+  @moduledoc false
   use AprsWeb, :controller
 
   def home(conn, _params) do

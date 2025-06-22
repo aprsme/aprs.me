@@ -20,14 +20,16 @@ defmodule Aprs.MockHelpers do
   Sets up an expectation for PacketsMock with custom return value.
   """
   def expect_packets_for_replay(packets) do
-    expect(Aprs.PacketsMock, :get_packets_for_replay, fn _opts -> packets end)
+    stub(Aprs.PacketsMock, :get_packets_for_replay, fn _opts ->
+      packets
+    end)
   end
 
   @doc """
   Sets up an expectation for PacketsMock with filtering based on bounds.
   """
   def expect_packets_for_replay_with_bounds(packets) do
-    expect(Aprs.PacketsMock, :get_packets_for_replay, fn opts ->
+    stub(Aprs.PacketsMock, :get_packets_for_replay, fn opts ->
       case opts[:bounds] do
         [west, south, east, north] ->
           Enum.filter(packets, fn packet ->

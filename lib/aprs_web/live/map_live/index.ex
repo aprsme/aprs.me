@@ -9,8 +9,6 @@ defmodule AprsWeb.MapLive.Index do
   alias AprsWeb.MapLive.PacketUtils
   alias Phoenix.LiveView.Socket
 
-  require Logger
-
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
   @finch_name Aprs.Finch
@@ -143,15 +141,11 @@ defmodule AprsWeb.MapLive.Index do
 
   @impl true
   def handle_event("bounds_changed", %{"bounds" => bounds}, socket) do
-    Logger.debug("handle_event bounds_changed: #{inspect(bounds)} vs current #{inspect(socket.assigns.map_bounds)}")
-
     handle_bounds_update(bounds, socket)
   end
 
   @impl true
   def handle_event("update_bounds", %{"bounds" => bounds}, socket) do
-    Logger.debug("handle_event update_bounds: #{inspect(bounds)} vs current #{inspect(socket.assigns.map_bounds)}")
-
     handle_bounds_update(bounds, socket)
   end
 
@@ -304,6 +298,12 @@ defmodule AprsWeb.MapLive.Index do
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_event("get_assigns", _params, socket) do
+    send(self(), {:test_assigns, socket.assigns})
+    {:noreply, socket}
+  end
+
   @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
   defp handle_bounds_update(bounds, socket) do
     # Update the map bounds from the client
@@ -313,8 +313,6 @@ defmodule AprsWeb.MapLive.Index do
       east: bounds["east"],
       west: bounds["west"]
     }
-
-    Logger.debug("handle_bounds_update: new #{inspect(map_bounds)} vs current #{inspect(socket.assigns.map_bounds)}")
 
     # Validate bounds to prevent invalid coordinates
     if map_bounds.north > 90 or map_bounds.south < -90 or
@@ -340,8 +338,6 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec process_bounds_update(map(), Socket.t()) :: Socket.t()
   defp process_bounds_update(map_bounds, socket) do
-    Logger.debug("process_bounds_update: Loading historical packets for bounds #{inspect(map_bounds)}")
-
     # Remove out-of-bounds packets and markers immediately
     new_visible_packets =
       socket.assigns.visible_packets

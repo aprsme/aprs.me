@@ -3,6 +3,8 @@ defmodule Parser.Helpers do
   Public helper functions for APRS parsing (NMEA, PHG/DF, compressed position, etc).
   """
 
+  import Decimal, only: [new: 1, add: 2, negate: 1]
+
   @type phg_power :: {integer() | nil, String.t()}
   @type phg_height :: {integer() | nil, String.t()}
   @type phg_gain :: {integer() | nil, String.t()}
@@ -16,7 +18,7 @@ defmodule Parser.Helpers do
       {coord, _} ->
         coord = coord / 100.0
         coord = apply_nmea_direction(coord, direction)
-        if is_tuple(coord), do: coord, else: {:ok, coord}
+        handle_coordinate_result(coord)
 
       :error ->
         {:error, "Invalid coordinate value"}
@@ -25,6 +27,9 @@ defmodule Parser.Helpers do
 
   @spec parse_nmea_coordinate(any(), any()) :: {:error, String.t()}
   def parse_nmea_coordinate(_, _), do: {:error, "Invalid coordinate format"}
+
+  defp handle_coordinate_result(coord) when is_tuple(coord), do: coord
+  defp handle_coordinate_result(coord), do: {:ok, coord}
 
   defp apply_nmea_direction(coord, direction) do
     case direction do
@@ -317,12 +322,15 @@ defmodule Parser.Helpers do
     case Regex.run(~r/h(\d{2})/, weather_data) do
       [_, humidity] ->
         val = String.to_integer(humidity)
-        if val == 0, do: 100, else: val
+        normalize_humidity(val)
 
       nil ->
         nil
     end
   end
+
+  defp normalize_humidity(0), do: 100
+  defp normalize_humidity(val), do: val
 
   @spec parse_pressure(String.t()) :: float() | nil
   def parse_pressure(weather_data) do
@@ -349,18 +357,23 @@ defmodule Parser.Helpers do
   end
 
   # Ambiguity and utility helpers
+  @doc false
   def count_spaces(str) do
     str
     |> String.graphemes()
     |> Enum.count(fn c -> c == " " end)
   end
 
+  @doc false
   def count_leading_braces(packet), do: count_leading_braces(packet, 0)
 
+  @doc false
   def count_leading_braces(<<"}", rest::binary>>, count), do: count_leading_braces(rest, count + 1)
 
+  @doc false
   def count_leading_braces(_packet, count), do: count
 
+  @doc false
   def calculate_position_ambiguity(latitude, longitude) do
     lat_spaces = count_spaces(latitude)
     lon_spaces = count_spaces(longitude)
@@ -372,6 +385,7 @@ defmodule Parser.Helpers do
     )
   end
 
+  @doc false
   def calculate_compressed_ambiguity(compression_type) do
     case compression_type do
       " " -> 0
@@ -383,6 +397,7 @@ defmodule Parser.Helpers do
     end
   end
 
+  @doc false
   def find_matches(regex, text) do
     case Regex.names(regex) do
       [] ->
@@ -397,10 +412,20 @@ defmodule Parser.Helpers do
     end
   end
 
+  @doc false
   def parse_manufacturer(symbols) do
     Aprs.DeviceIdentification.identify_device(symbols)
   end
 
+  @doc false
+  defp apply_latitude_direction(lat_val, "S"), do: negate(lat_val)
+  defp apply_latitude_direction(lat_val, _), do: lat_val
+
+  @doc false
+  defp apply_longitude_direction(lon_val, "W"), do: negate(lon_val)
+  defp apply_longitude_direction(lon_val, _), do: lon_val
+
+  @doc false
   def convert_to_base91(<<value::binary-size(4)>>) do
     [v1, v2, v3, v4] = to_charlist(value)
     (v1 - 33) * 91 * 91 * 91 + (v2 - 33) * 91 * 91 + (v3 - 33) * 91 + v4
@@ -429,14 +454,13 @@ defmodule Parser.Helpers do
     end
   end
 
+  @doc false
   def validate_position_data(latitude, longitude) do
-    import Decimal, only: [new: 1, add: 2, negate: 1]
-
     lat =
       case Regex.run(~r/^(\d{2})(\d{2}\.\d+)([NS])$/, latitude) do
         [_, degrees, minutes, direction] ->
           lat_val = add(new(degrees), Decimal.div(new(minutes), new("60")))
-          if direction == "S", do: negate(lat_val), else: lat_val
+          apply_latitude_direction(lat_val, direction)
 
         _ ->
           nil
@@ -446,7 +470,7 @@ defmodule Parser.Helpers do
       case Regex.run(~r/^(\d{3})(\d{2}\.\d+)([EW])$/, longitude) do
         [_, degrees, minutes, direction] ->
           lon_val = add(new(degrees), Decimal.div(new(minutes), new("60")))
-          if direction == "W", do: negate(lon_val), else: lon_val
+          apply_longitude_direction(lon_val, direction)
 
         _ ->
           nil
@@ -459,5 +483,6 @@ defmodule Parser.Helpers do
     end
   end
 
+  @doc false
   def validate_timestamp(_time), do: nil
 end

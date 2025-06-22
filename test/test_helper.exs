@@ -12,5 +12,6 @@ Application.put_env(:aprs, :aprs_is_port, 14_580)
 Application.put_env(:aprs, :aprs_is_login_id, "TEST")
 Application.put_env(:aprs, :aprs_is_password, "-1")
 Application.put_env(:aprs, :aprs_is_default_filter, "r/0/0/1")
+Application.put_env(:aprs, :packets_module, Aprs.PacketsMock)
 
 # AprsIsMock is automatically loaded from test/support via elixirc_paths

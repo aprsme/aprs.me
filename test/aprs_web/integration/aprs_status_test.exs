@@ -7,6 +7,9 @@ defmodule AprsWeb.Integration.AprsStatusTest do
 
   import Phoenix.LiveViewTest
 
+  alias AprsWeb.Endpoint
+  alias Ecto.Adapters.SQL
+
   describe "APRS status endpoints without external connections" do
     test "status JSON endpoint returns proper response without APRS connection", %{conn: conn} do
       conn = get(conn, "/status.json")
@@ -55,7 +58,7 @@ defmodule AprsWeb.Integration.AprsStatusTest do
       case live(conn, "/status") do
         {:ok, view, html} ->
           # If status page exists, verify it handles disconnected state
-          assert html =~ "Status"
+          assert html =~ "STATUS"
 
           # Should show disconnected state information
           assert has_element?(view, "[data-testid='connection-status']") ||
@@ -128,7 +131,7 @@ defmodule AprsWeb.Integration.AprsStatusTest do
       }
 
       # This should not cause any updates since APRS.Is is not running
-      AprsWeb.Endpoint.broadcast("aprs_messages", "packet", test_packet)
+      Endpoint.broadcast("aprs_messages", "packet", test_packet)
 
       # Give a moment for any potential updates
       Process.sleep(100)
@@ -162,7 +165,7 @@ defmodule AprsWeb.Integration.AprsStatusTest do
       # Verify that core application functionality works without APRS
 
       # Database should be accessible
-      assert Ecto.Adapters.SQL.query!(Aprs.Repo, "SELECT 1", [])
+      assert SQL.query!(Aprs.Repo, "SELECT 1", [])
 
       # Web interface should load
       {:ok, _view, html} = live(conn, "/")

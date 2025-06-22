@@ -36,12 +36,7 @@ defmodule Aprs.Application do
       Aprs.PostgresNotifier
     ]
 
-    children =
-      if Application.get_env(:aprs, :env) in [:prod, :dev] do
-        children ++ [Aprs.Is.IsSupervisor]
-      else
-        children
-      end
+    children = maybe_add_is_supervisor(children, Application.get_env(:aprs, :env))
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -58,17 +53,8 @@ defmodule Aprs.Application do
   end
 
   defp migrate do
-    if Application.get_env(:aprs, :auto_migrate, true) do
-      require Logger
-
-      Logger.info("Running database migrations...")
-      Aprs.Release.migrate()
-      Logger.info("Database migrations completed")
-    else
-      require Logger
-
-      Logger.info("Automatic migrations disabled")
-    end
+    auto_migrate = Application.get_env(:aprs, :auto_migrate, true)
+    do_migrate(auto_migrate)
   rescue
     error ->
       require Logger
@@ -76,5 +62,25 @@ defmodule Aprs.Application do
       Logger.error("Failed to run migrations: #{inspect(error)}")
       # Don't crash the application, just log the error
       :ok
+  end
+
+  defp maybe_add_is_supervisor(children, env) when env in [:prod, :dev] do
+    children ++ [Aprs.Is.IsSupervisor]
+  end
+
+  defp maybe_add_is_supervisor(children, _env), do: children
+
+  defp do_migrate(true) do
+    require Logger
+
+    Logger.info("Running database migrations...")
+    Aprs.Release.migrate()
+    Logger.info("Database migrations completed")
+  end
+
+  defp do_migrate(false) do
+    require Logger
+
+    Logger.info("Automatic migrations disabled")
   end
 end

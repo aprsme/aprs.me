@@ -1,4 +1,5 @@
 defmodule AprsWeb.MapLive.CallsignView do
+  @moduledoc false
   use AprsWeb, :live_view
 
   alias Aprs.EncodingUtils
@@ -817,26 +818,25 @@ defmodule AprsWeb.MapLive.CallsignView do
     packets
     |> Enum.reduce([], fn packet, acc ->
       {lat, lng, _} = MapHelpers.get_coordinates(packet)
-
-      if lat && lng do
-        # Check if this position is different from the last position
-        case acc do
-          [] ->
-            # First packet, always include
-            [packet | acc]
-
-          [last_packet | _] ->
-            if position_changed?(packet, last_packet) do
-              [packet | acc]
-            else
-              acc
-            end
-        end
-      else
-        acc
-      end
+      process_packet_position(packet, acc, lat, lng)
     end)
     |> Enum.reverse()
+  end
+
+  defp process_packet_position(packet, acc, lat, lng) when not is_nil(lat) and not is_nil(lng) do
+    check_position_uniqueness(packet, acc)
+  end
+
+  defp process_packet_position(_packet, acc, _lat, _lng), do: acc
+
+  defp check_position_uniqueness(packet, []), do: [packet]
+
+  defp check_position_uniqueness(packet, [last_packet | _] = acc) do
+    if position_changed?(packet, last_packet) do
+      [packet | acc]
+    else
+      acc
+    end
   end
 
   # Check if position changed significantly between two packets (more than ~1 meter)

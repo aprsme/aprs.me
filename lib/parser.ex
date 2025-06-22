@@ -8,8 +8,6 @@ defmodule Parser do
   alias Aprs.Convert
   alias Parser.MicE
 
-  require Logger
-
   # Simple APRS position parsing to replace parse_aprs_position
   defp parse_aprs_position(lat, lon) do
     # Regex for latitude: 2 deg, 2+ min, 1 dir (N/S)
@@ -54,8 +52,7 @@ defmodule Parser do
   def parse(message) when is_binary(message) do
     do_parse(message)
   rescue
-    error ->
-      Logger.debug("PARSE ERROR: #{inspect(error)} for message: #{message}")
+    _ ->
       {:error, :invalid_packet}
   end
 
@@ -112,8 +109,7 @@ defmodule Parser do
         end
     end
   rescue
-    error ->
-      Logger.debug("PARSE ERROR: #{inspect(error)} for message: #{message}")
+    _ ->
       {:error, :invalid_packet}
   end
 

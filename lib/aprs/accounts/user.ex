@@ -65,7 +65,11 @@ defmodule Aprs.Accounts.User do
     hash_password? = Keyword.get(opts, :hash_password, true)
     password = get_change(changeset, :password)
 
-    if hash_password? && password && changeset.valid? do
+    do_hash_password(changeset, hash_password?, password)
+  end
+
+  defp do_hash_password(changeset, true, password) when is_binary(password) do
+    if changeset.valid? do
       changeset
       # If using Bcrypt, then further validate it is at most 72 bytes long
       |> validate_length(:password, max: 72, count: :bytes)
@@ -76,15 +80,20 @@ defmodule Aprs.Accounts.User do
     end
   end
 
+  defp do_hash_password(changeset, _, _), do: changeset
+
   defp maybe_validate_unique_email(changeset, opts) do
-    if Keyword.get(opts, :validate_email, true) do
-      changeset
-      |> unsafe_validate_unique(:email, Aprs.Repo)
-      |> unique_constraint(:email)
-    else
-      changeset
-    end
+    validate_email? = Keyword.get(opts, :validate_email, true)
+    do_validate_unique_email(changeset, validate_email?)
   end
+
+  defp do_validate_unique_email(changeset, true) do
+    changeset
+    |> unsafe_validate_unique(:email, Aprs.Repo)
+    |> unique_constraint(:email)
+  end
+
+  defp do_validate_unique_email(changeset, false), do: changeset
 
   @doc """
   A user changeset for changing the email.

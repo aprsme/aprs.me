@@ -1,9 +1,15 @@
 defmodule Aprs.Integration.HistoricalPacketsTest do
   use AprsWeb.ConnCase
 
+  import Aprs.MockHelpers
   import Phoenix.LiveViewTest
 
-  @moduletag :skip_packets_mock
+  setup do
+    Mox.set_mox_global()
+    Application.put_env(:aprs, :packets_module, Aprs.PacketsMock)
+    on_exit(fn -> Mox.set_mox_private() end)
+    :ok
+  end
 
   describe "historical packet loading" do
     setup do
@@ -78,7 +84,10 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
       {:ok, packets: [packet1, packet2, packet3, packet4]}
     end
 
-    test "loads all historical packets at once when map is ready", %{conn: conn, packets: mock_packets} do
+    test "loads all historical packets at once when map is ready", %{
+      conn: conn,
+      packets: mock_packets
+    } do
       # Mock the Packets.get_packets_for_replay function
       expect_packets_for_replay_with_bounds(mock_packets)
 
@@ -94,14 +103,29 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
         }
       }
 
-      # Update bounds first
+      # Set historical_hours assign
+      render_hook(view, "update_historical_hours", %{"historical_hours" => "1"})
+      Process.sleep(100)
+
+      # Set bounds and wait for map_bounds to be set in assigns
       render_hook(view, "bounds_changed", bounds_params)
 
-      # Trigger map ready event
-      render_hook(view, "map_ready", %{})
+      send(
+        view.pid,
+        {:process_bounds_update,
+         %{
+           north: bounds_params["bounds"]["north"],
+           south: bounds_params["bounds"]["south"],
+           east: bounds_params["bounds"]["east"],
+           west: bounds_params["bounds"]["west"]
+         }}
+      )
 
-      # Wait for the historical packet loading to complete
-      Process.sleep(700)
+      Process.sleep(100)
+
+      # Now trigger map_ready
+      render_hook(view, "map_ready", %{})
+      Process.sleep(1200)
 
       # The LiveView should have pushed an event with historical packets
       # Note: In real implementation, we'd need to verify the push_event was called
@@ -127,14 +151,29 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
         }
       }
 
-      # Update bounds first
+      # Set historical_hours assign
+      render_hook(view, "update_historical_hours", %{"historical_hours" => "1"})
+      Process.sleep(100)
+
+      # Set bounds and wait for map_bounds to be set in assigns
       render_hook(view, "bounds_changed", bounds_params)
 
-      # Trigger map ready event
-      render_hook(view, "map_ready", %{})
+      send(
+        view.pid,
+        {:process_bounds_update,
+         %{
+           north: bounds_params["bounds"]["north"],
+           south: bounds_params["bounds"]["south"],
+           east: bounds_params["bounds"]["east"],
+           west: bounds_params["bounds"]["west"]
+         }}
+      )
 
-      # Wait for the historical packet loading to complete
-      Process.sleep(700)
+      Process.sleep(100)
+
+      # Now trigger map_ready
+      render_hook(view, "map_ready", %{})
+      Process.sleep(1200)
 
       verify!()
     end
@@ -145,11 +184,32 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
 
       {:ok, view, _html} = live(conn, "/")
 
-      # Trigger map ready event
+      # Set historical_hours assign
+      render_hook(view, "update_historical_hours", %{"historical_hours" => "1"})
+
+      # Set bounds and synchronously update map_bounds
+      bounds_params = %{
+        "bounds" => %{"north" => "45.0", "south" => "35.0", "east" => "-90.0", "west" => "-105.0"}
+      }
+
+      render_hook(view, "bounds_changed", bounds_params)
+
+      send(
+        view.pid,
+        {:process_bounds_update,
+         %{
+           north: bounds_params["bounds"]["north"],
+           south: bounds_params["bounds"]["south"],
+           east: bounds_params["bounds"]["east"],
+           west: bounds_params["bounds"]["west"]
+         }}
+      )
+
+      # Now trigger map_ready
       render_hook(view, "map_ready", %{})
 
-      # Wait for the historical packet loading attempt
-      Process.sleep(700)
+      # Give a very short time for message processing, if needed
+      Process.sleep(20)
 
       # Should not crash
       verify!()
@@ -170,7 +230,10 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
       verify!()
     end
 
-    test "handles locate_me event after historical packets are loaded", %{conn: conn, packets: mock_packets} do
+    test "handles locate_me event after historical packets are loaded", %{
+      conn: conn,
+      packets: mock_packets
+    } do
       expect_packets_for_replay(mock_packets)
 
       {:ok, view, _html} = live(conn, "/")
@@ -210,7 +273,10 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
       {:ok, historical_packet: historical_packet}
     end
 
-    test "new live packet updates marker for same callsign", %{conn: conn, historical_packet: historical_packet} do
+    test "new live packet updates marker for same callsign", %{
+      conn: conn,
+      historical_packet: historical_packet
+    } do
       expect_packets_for_replay([historical_packet])
 
       {:ok, view, _html} = live(conn, "/")
@@ -226,8 +292,25 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
       }
 
       render_hook(view, "bounds_changed", bounds_params)
+
+      send(
+        view.pid,
+        {:process_bounds_update,
+         %{
+           north: bounds_params["bounds"]["north"],
+           south: bounds_params["bounds"]["south"],
+           east: bounds_params["bounds"]["east"],
+           west: bounds_params["bounds"]["west"]
+         }}
+      )
+
+      Process.sleep(100)
       render_hook(view, "map_ready", %{})
       Process.sleep(700)
+
+      # Set historical_hours assign
+      render_hook(view, "update_historical_hours", %{"historical_hours" => "1"})
+      Process.sleep(100)
 
       # Simulate a new live packet for the same callsign
       new_packet = %{

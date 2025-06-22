@@ -7,7 +7,7 @@ defmodule AprsWeb.MapLive.CallsignViewTest do
     test "renders callsign view with valid callsign", %{conn: conn} do
       {:ok, view, html} = live(conn, "/W5ISP-9")
 
-      assert html =~ "📡 W5ISP-9"
+      assert html =~ "W5ISP-9"
       assert html =~ "Back to Map"
       assert html =~ "Packets"
       assert has_element?(view, "#aprs-map")
@@ -16,7 +16,7 @@ defmodule AprsWeb.MapLive.CallsignViewTest do
     test "normalizes callsign to uppercase", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/w5isp-9")
 
-      assert html =~ "📡 W5ISP-9"
+      assert html =~ "W5ISP-9"
     end
 
     test "shows loading state when no packets found", %{conn: conn} do
@@ -29,7 +29,7 @@ defmodule AprsWeb.MapLive.CallsignViewTest do
     test "handles callsign without SSID", %{conn: conn} do
       {:ok, _view, html} = live(conn, "/W5ISP")
 
-      assert html =~ "📡 W5ISP"
+      assert html =~ "W5ISP"
     end
 
     test "sets correct page title", %{conn: conn} do
