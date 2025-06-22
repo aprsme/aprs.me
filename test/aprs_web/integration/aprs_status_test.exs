@@ -134,7 +134,7 @@ defmodule AprsWeb.Integration.AprsStatusTest do
       Endpoint.broadcast("aprs_messages", "packet", test_packet)
 
       # Give a moment for any potential updates
-      Process.sleep(100)
+      Process.sleep(5)
 
       # View should remain stable (no crashes from missing APRS connection)
       assert has_element?(view, "#aprs-map")

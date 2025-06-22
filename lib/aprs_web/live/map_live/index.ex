@@ -12,6 +12,7 @@ defmodule AprsWeb.MapLive.Index do
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
   @finch_name Aprs.Finch
+  @initialize_replay_delay Application.compile_env(:aprs, :initialize_replay_delay, 500)
 
   @impl true
   def mount(_params, _session, socket) do
@@ -214,7 +215,7 @@ defmodule AprsWeb.MapLive.Index do
     socket = assign(socket, map_ready: true)
 
     # Start historical replay
-    Process.send_after(self(), :initialize_replay, 500)
+    Process.send_after(self(), :initialize_replay, @initialize_replay_delay)
 
     # If we have pending geolocation, zoom to it now
     socket =

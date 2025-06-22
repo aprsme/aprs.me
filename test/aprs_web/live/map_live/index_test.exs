@@ -71,7 +71,7 @@ defmodule AprsWeb.MapLive.IndexTest do
       assert render_hook(view, "map_ready", %{})
 
       # Wait for the initialize_replay message to be processed
-      Process.sleep(600)
+      Process.sleep(20)
 
       # The view should still be rendering without errors after loading historical packets
       assert render(view) =~ "aprs-map"

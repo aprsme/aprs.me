@@ -27,6 +27,9 @@ config :aprs, AprsWeb.Endpoint,
 # Disable Oban during tests to prevent background job execution
 config :aprs, Oban, testing: :inline
 
+# Disable initialize replay delay in test environment
+config :aprs, :initialize_replay_delay, 0
+
 # Configure the packets module to use the mock in tests
 config :aprs, :packets_module, Aprs.PacketsMock
 

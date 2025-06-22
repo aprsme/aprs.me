@@ -105,7 +105,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
 
       # Set historical_hours assign
       render_hook(view, "update_historical_hours", %{"historical_hours" => "1"})
-      Process.sleep(100)
+      Process.sleep(10)
 
       # Set bounds and wait for map_bounds to be set in assigns
       render_hook(view, "bounds_changed", bounds_params)
@@ -121,11 +121,11 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
          }}
       )
 
-      Process.sleep(100)
+      Process.sleep(10)
 
       # Now trigger map_ready
       render_hook(view, "map_ready", %{})
-      Process.sleep(1200)
+      Process.sleep(20)
 
       # The LiveView should have pushed an event with historical packets
       # Note: In real implementation, we'd need to verify the push_event was called
@@ -153,7 +153,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
 
       # Set historical_hours assign
       render_hook(view, "update_historical_hours", %{"historical_hours" => "1"})
-      Process.sleep(100)
+      Process.sleep(10)
 
       # Set bounds and wait for map_bounds to be set in assigns
       render_hook(view, "bounds_changed", bounds_params)
@@ -169,11 +169,11 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
          }}
       )
 
-      Process.sleep(100)
+      Process.sleep(10)
 
       # Now trigger map_ready
       render_hook(view, "map_ready", %{})
-      Process.sleep(1200)
+      Process.sleep(20)
 
       verify!()
     end
@@ -222,7 +222,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
 
       # First load historical packets
       render_hook(view, "map_ready", %{})
-      Process.sleep(700)
+      Process.sleep(20)
 
       # Clear and reload markers
       render_hook(view, "clear_and_reload_markers", %{})
@@ -240,7 +240,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
 
       # Load historical packets first
       render_hook(view, "map_ready", %{})
-      Process.sleep(700)
+      Process.sleep(20)
 
       # Request location
       render_hook(view, "locate_me", %{})
@@ -304,13 +304,13 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
          }}
       )
 
-      Process.sleep(100)
+      Process.sleep(10)
       render_hook(view, "map_ready", %{})
-      Process.sleep(700)
+      Process.sleep(20)
 
       # Set historical_hours assign
       render_hook(view, "update_historical_hours", %{"historical_hours" => "1"})
-      Process.sleep(100)
+      Process.sleep(5)
 
       # Simulate a new live packet for the same callsign
       new_packet = %{
@@ -341,7 +341,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
       })
 
       # Give the LiveView time to process the message
-      Process.sleep(100)
+      Process.sleep(5)
 
       verify!()
     end
