@@ -7,6 +7,7 @@ defmodule AprsWeb.MapLive.CallsignView do
   alias AprsWeb.Endpoint
   alias AprsWeb.MapLive.MapHelpers
   alias AprsWeb.MapLive.PacketUtils
+  alias AprsWeb.TimeHelpers
 
   @default_center %{lat: 39.0, lng: -98.0}
   @default_zoom 4
@@ -713,78 +714,105 @@ defmodule AprsWeb.MapLive.CallsignView do
         now
       )
 
-    if Enum.empty?(packets) do
-      # No historical packets found
+    # Always fetch the latest packet with a position, regardless of age
+    latest_packet =
+      %{callsign: socket.assigns.callsign}
+      |> Packets.get_recent_packets()
+      |> Enum.filter(&MapHelpers.has_position_data?/1)
+      |> Enum.sort_by(& &1.received_at, {:desc, DateTime})
+      |> List.first()
+
+    # Sort packets by inserted_at to identify the most recent
+    sorted_packets =
+      Enum.sort_by(
+        packets,
+        fn packet ->
+          case packet.inserted_at do
+            %NaiveDateTime{} = naive_dt ->
+              DateTime.from_naive!(naive_dt, "Etc/UTC")
+
+            %DateTime{} = dt ->
+              dt
+
+            _other ->
+              DateTime.utc_now()
+          end
+        end,
+        {:desc, DateTime}
+      )
+
+    # Filter out packets with unchanged positions (only keep if lat/lon changed)
+    unique_position_packets = filter_unique_positions(sorted_packets)
+
+    # Build packet data for all positions, marking which is the most recent
+    packet_data_list =
+      unique_position_packets
+      |> Enum.with_index()
+      |> Enum.map(fn {packet, index} ->
+        case build_packet_data(packet) do
+          nil ->
+            nil
+
+          packet_data ->
+            # Generate a unique ID for this historical packet
+            packet_id =
+              "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
+
+            is_most_recent = index == 0
+            callsign = socket.assigns.callsign
+
+            packet_data
+            |> Map.put("id", packet_id)
+            |> Map.put("is_historical", true)
+            |> Map.put("is_most_recent_for_callsign", is_most_recent)
+            |> Map.put("callsign_group", callsign)
+            |> Map.put(
+              "timestamp",
+              case packet.inserted_at do
+                %NaiveDateTime{} = naive_dt ->
+                  DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
+
+                %DateTime{} = dt ->
+                  DateTime.to_unix(dt, :millisecond)
+
+                _other ->
+                  DateTime.to_unix(DateTime.utc_now(), :millisecond)
+              end
+            )
+        end
+      end)
+      |> Enum.filter(& &1)
+
+    # Check if the latest_packet is present in the historical trail
+    latest_packet_id =
+      if latest_packet do
+        PacketUtils.generate_callsign(latest_packet)
+      end
+
+    historical_callsigns = MapSet.new(unique_position_packets, &PacketUtils.generate_callsign/1)
+
+    socket =
+      if latest_packet && !MapSet.member?(historical_callsigns, latest_packet_id) do
+        # Push the latest marker as a regular marker (not historical)
+        packet_data = build_packet_data(latest_packet)
+
+        if packet_data do
+          push_event(socket, "add_markers", %{markers: [packet_data]})
+        else
+          socket
+        end
+      else
+        socket
+      end
+
+    if Enum.empty?(packet_data_list) do
+      # No historical packets found (but latest marker may have been pushed above)
       socket
     else
       # Clear any previous historical packets from the map
       socket = push_event(socket, "clear_historical_packets", %{})
-
-      # Sort packets by inserted_at to identify the most recent
-      # Convert NaiveDateTime to DateTime if needed for proper comparison
-      sorted_packets =
-        Enum.sort_by(
-          packets,
-          fn packet ->
-            case packet.inserted_at do
-              %NaiveDateTime{} = naive_dt ->
-                DateTime.from_naive!(naive_dt, "Etc/UTC")
-
-              %DateTime{} = dt ->
-                dt
-
-              _other ->
-                DateTime.utc_now()
-            end
-          end,
-          {:desc, DateTime}
-        )
-
-      # Filter out packets with unchanged positions (only keep if lat/lon changed)
-      unique_position_packets = filter_unique_positions(sorted_packets)
-
-      # Build packet data for all positions, marking which is the most recent
-      packet_data_list =
-        unique_position_packets
-        |> Enum.with_index()
-        |> Enum.map(fn {packet, index} ->
-          case build_packet_data(packet) do
-            nil ->
-              nil
-
-            packet_data ->
-              # Generate a unique ID for this historical packet
-              packet_id =
-                "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
-
-              is_most_recent = index == 0
-              callsign = socket.assigns.callsign
-
-              packet_data
-              |> Map.put("id", packet_id)
-              |> Map.put("is_historical", true)
-              |> Map.put("is_most_recent_for_callsign", is_most_recent)
-              |> Map.put("callsign_group", callsign)
-              |> Map.put(
-                "timestamp",
-                case packet.inserted_at do
-                  %NaiveDateTime{} = naive_dt ->
-                    DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
-
-                  %DateTime{} = dt ->
-                    DateTime.to_unix(dt, :millisecond)
-
-                  _other ->
-                    DateTime.to_unix(DateTime.utc_now(), :millisecond)
-                end
-              )
-          end
-        end)
-        |> Enum.filter(& &1)
-
       # Send all historical packets at once
       socket = push_event(socket, "add_historical_packets", %{packets: packet_data_list})
-
       # Store historical packets in assigns for reference
       historical_packets_map =
         packet_data_list
@@ -857,6 +885,33 @@ defmodule AprsWeb.MapLive.CallsignView do
     end
   end
 
+  defp format_popup_timestamp(ts) do
+    dt =
+      cond do
+        is_binary(ts) ->
+          case DateTime.from_iso8601(ts) do
+            {:ok, dt, _} -> dt
+            _ -> DateTime.utc_now()
+          end
+
+        is_integer(ts) ->
+          DateTime.from_unix!(ts, :millisecond)
+
+        match?(%DateTime{}, ts) ->
+          ts
+
+        match?(%NaiveDateTime{}, ts) ->
+          DateTime.from_naive!(ts, "Etc/UTC")
+
+        true ->
+          DateTime.utc_now()
+      end
+
+    ago = TimeHelpers.time_ago_in_words(dt)
+    abs_time = Calendar.strftime(dt, "%Y-%m-%d %H:%M UTC")
+    {ago, abs_time}
+  end
+
   defp build_packet_map(packet, lat, lng, data_extended) do
     data_extended = data_extended || %{}
     callsign = PacketUtils.generate_callsign(packet)
@@ -864,13 +919,15 @@ defmodule AprsWeb.MapLive.CallsignView do
     timestamp = PacketUtils.get_timestamp(packet)
     comment = PacketUtils.get_packet_field(packet, :comment, "")
 
+    {ago, abs_time} = format_popup_timestamp(timestamp)
+
     popup = """
     <div class=\"aprs-popup\">
       <div class=\"aprs-callsign\"><strong><a href=\"/#{callsign}\">#{callsign}</a></strong></div>
       <div class=\"aprs-symbol-info\">Symbol: #{symbol_table_id}#{symbol_code}</div>
       #{if comment == "", do: "", else: "<div class=\\\"aprs-comment\\\">#{comment}</div>"}
       <div class=\"aprs-coords\">#{Float.round(PacketUtils.to_float(lat), 4)}, #{Float.round(PacketUtils.to_float(lng), 4)}</div>
-      <div class=\"aprs-time\">#{timestamp}</div>
+      <div class=\"aprs-timestamp\"><div>#{ago}</div><div>#{abs_time}</div></div>
     </div>
     """
 
