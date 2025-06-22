@@ -260,6 +260,18 @@ defmodule AprsWeb.MapLive.Index do
     {:noreply, assign(socket, slideover_open: open)}
   end
 
+  @impl true
+  def handle_event("geolocation_error", %{"error" => _error}, socket) do
+    # Handle geolocation errors gracefully - just continue without geolocation
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("request_geolocation", _params, socket) do
+    # This event is handled by the JavaScript hook
+    {:noreply, socket}
+  end
+
   @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
   defp handle_bounds_update(bounds, socket) do
     # Update the map bounds from the client
