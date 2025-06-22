@@ -53,15 +53,18 @@ RUN apt-get update -y && \
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 ENV LANG="en_US.UTF-8" LANGUAGE="en_US:en" LC_ALL="en_US.UTF-8"
 
-# Set deployment timestamp to current time during build
-RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > /app/deployed_at.txt
-
-# Set working directory
+# Set working directory and create it
 WORKDIR "/app"
-RUN chown nobody /app
+RUN mkdir -p /app
+
+# Set deployment timestamp to current time during runtime container build
+RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > /app/deployed_at.txt
 
 # Copy release from builder
 COPY --from=builder --chown=nobody:root /app/release ./
+
+# Set ownership for the entire app directory
+RUN chown -R nobody:root /app
 
 # Set user and command
 USER nobody
