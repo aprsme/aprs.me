@@ -59,7 +59,7 @@
                 %{} = data_ext -> Map.get(data_ext, :latitude) || Map.get(data_ext, "latitude")
                 _ -> nil
               end %>
-          {if lat,
+          {if not is_nil(lat),
             do:
               (is_float(lat) and :io_lib.format("~.6f", [lat]) |> List.to_string()) or
                 (is_binary(lat) and Regex.replace(~r/(\d+\.\d{1,6})\d*/, lat, "\\1")) or lat,
@@ -80,7 +80,7 @@
                 %{} = data_ext -> Map.get(data_ext, :longitude) || Map.get(data_ext, "longitude")
                 _ -> nil
               end %>
-          {if lon,
+          {if not is_nil(lon),
             do:
               (is_float(lon) and :io_lib.format("~.6f", [lon]) |> List.to_string()) or
                 (is_binary(lon) and Regex.replace(~r/(\d+\.\d{1,6})\d*/, lon, "\\1")) or lon,

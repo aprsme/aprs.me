@@ -9,6 +9,10 @@ defmodule Parser.AX25Test do
       assert {:ok, {"CALL", "1"}} = AX25.parse_callsign("CALL-1")
     end
 
+    test "parses callsign with multiple dashes" do
+      assert {:ok, {"CALL-1-EXTRA", "0"}} = AX25.parse_callsign("CALL-1-EXTRA")
+    end
+
     test "parses callsign without dash" do
       assert {:ok, {"CALL", "0"}} = AX25.parse_callsign("CALL")
     end

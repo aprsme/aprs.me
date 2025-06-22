@@ -58,6 +58,7 @@ defmodule Parser do
 
   def parse(_), do: {:error, :invalid_packet}
 
+  @spec do_parse(String.t()) :: parse_result()
   defp do_parse(message) do
     with {:ok, [sender, path, data]} <- split_packet(message),
          {:ok, callsign_parts} <- parse_callsign(sender),
@@ -101,12 +102,6 @@ defmodule Parser do
          data_extended: data_extended,
          received_at: DateTime.truncate(DateTime.utc_now(), :microsecond)
        }}
-    else
-      {:error, reason} when is_binary(reason) ->
-        case reason do
-          "Invalid packet format" -> {:error, "Invalid packet format"}
-          _ -> {:error, reason}
-        end
     end
   rescue
     _ ->
@@ -288,20 +283,10 @@ defmodule Parser do
 
   def parse_data(:raw_gps_ultimeter, _destination, data) do
     case Parser.Helpers.parse_nmea_sentence(data) do
-      {:error, error} when is_binary(error) ->
+      {:error, error} ->
         %{
           data_type: :raw_gps_ultimeter,
           error: error,
-          nmea_type: nil,
-          raw_data: data,
-          latitude: nil,
-          longitude: nil
-        }
-
-      _ ->
-        %{
-          data_type: :raw_gps_ultimeter,
-          error: "Invalid NMEA sentence",
           nmea_type: nil,
           raw_data: data,
           latitude: nil,

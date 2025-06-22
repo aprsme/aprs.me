@@ -1154,7 +1154,7 @@ defmodule AprsWeb.MapLive.Index do
     {lat1, lng1, _} = MapHelpers.get_coordinates(packet1)
     {lat2, lng2, _} = MapHelpers.get_coordinates(packet2)
 
-    abs(lat1 - lat2) > 0.00001 || abs(lng1 - lng2) > 0.00001
+    abs(lat1 - lat2) > 0.0001 || abs(lng1 - lng2) > 0.0001
   end
 
   # Fetch historical packets from the database
