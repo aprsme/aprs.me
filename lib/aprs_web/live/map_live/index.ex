@@ -1049,117 +1049,105 @@ defmodule AprsWeb.MapLive.Index do
   # Helper function to start historical replay
   @spec start_historical_replay(Socket.t()) :: Socket.t()
   defp start_historical_replay(socket) do
-    # Only fetch historical packets if map is ready and bounds are available
     if socket.assigns.map_ready and socket.assigns.map_bounds do
-      # Get time range for historical data
-      now = DateTime.utc_now()
-      # Use the user's selected historical hours setting
-      historical_hours = String.to_integer(socket.assigns.historical_hours)
-      start_time = DateTime.add(now, -historical_hours * 3600, :second)
-
-      # Convert map bounds to the format expected by the database query
-      bounds = [
-        socket.assigns.map_bounds.west,
-        socket.assigns.map_bounds.south,
-        socket.assigns.map_bounds.east,
-        socket.assigns.map_bounds.north
-      ]
-
-      # Fetch historical packets with position data within the current map bounds
-      historical_packets = fetch_historical_packets(bounds, start_time, now)
-
-      if Enum.empty?(historical_packets) do
-        # No historical packets found - silently continue
-        socket
-      else
-        # Clear any previous historical packets from the map
-        socket = push_event(socket, "clear_historical_packets", %{})
-
-        # Group packets by callsign-ssid and process all positions
-        packet_data_list =
-          historical_packets
-          |> Enum.group_by(&generate_callsign/1)
-          |> Enum.flat_map(fn {callsign, packets} ->
-            # Sort packets by inserted_at to identify the most recent
-            # Convert NaiveDateTime to DateTime if needed for proper comparison
-            sorted_packets =
-              Enum.sort_by(
-                packets,
-                fn packet ->
-                  case packet.inserted_at do
-                    %NaiveDateTime{} = naive_dt ->
-                      DateTime.from_naive!(naive_dt, "Etc/UTC")
-
-                    %DateTime{} = dt ->
-                      dt
-
-                    _other ->
-                      DateTime.utc_now()
-                  end
-                end,
-                {:desc, DateTime}
-              )
-
-            # Filter out packets with unchanged positions (only keep if lat/lon changed)
-            unique_position_packets = filter_unique_positions(sorted_packets)
-
-            # Process all packets with unique positions, marking which is the most recent
-            unique_position_packets
-            |> Enum.with_index()
-            |> Enum.map(fn {packet, index} ->
-              case build_packet_data(packet) do
-                nil ->
-                  nil
-
-                packet_data ->
-                  # Generate a unique ID for this historical packet
-                  packet_id =
-                    "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
-
-                  is_most_recent = index == 0
-
-                  packet_data
-                  |> Map.put("id", packet_id)
-                  |> Map.put("is_historical", true)
-                  |> Map.put("is_most_recent_for_callsign", is_most_recent)
-                  |> Map.put("callsign_group", callsign)
-                  |> Map.put(
-                    "timestamp",
-                    case packet.inserted_at do
-                      %NaiveDateTime{} = naive_dt ->
-                        DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
-
-                      %DateTime{} = dt ->
-                        DateTime.to_unix(dt, :millisecond)
-
-                      _other ->
-                        DateTime.to_unix(DateTime.utc_now(), :millisecond)
-                    end
-                  )
-              end
-            end)
-            |> Enum.filter(& &1)
-          end)
-
-        # Send all historical packets at once
-        socket = push_event(socket, "add_historical_packets", %{packets: packet_data_list})
-
-        # Store historical packets in assigns for reference
-        historical_packets_map =
-          packet_data_list
-          |> Enum.zip(historical_packets)
-          |> Enum.reduce(%{}, fn {packet_data, packet}, acc ->
-            Map.put(acc, packet_data["id"], packet)
-          end)
-
-        assign(socket,
-          historical_packets: historical_packets_map,
-          historical_loaded: true
-        )
-      end
+      start_historical_replay_with_bounds(socket)
     else
       socket
     end
+  end
+
+  defp start_historical_replay_with_bounds(socket) do
+    now = DateTime.utc_now()
+    historical_hours = String.to_integer(socket.assigns.historical_hours)
+    start_time = DateTime.add(now, -historical_hours * 3600, :second)
+
+    bounds = [
+      socket.assigns.map_bounds.west,
+      socket.assigns.map_bounds.south,
+      socket.assigns.map_bounds.east,
+      socket.assigns.map_bounds.north
+    ]
+
+    historical_packets = fetch_historical_packets(bounds, start_time, now)
+
+    if Enum.empty?(historical_packets) do
+      socket
+    else
+      process_historical_packets(socket, historical_packets)
+    end
+  end
+
+  defp process_historical_packets(socket, historical_packets) do
+    socket = push_event(socket, "clear_historical_packets", %{})
+
+    packet_data_list =
+      historical_packets
+      |> Enum.group_by(&generate_callsign/1)
+      |> Enum.flat_map(fn {callsign, packets} ->
+        sorted_packets =
+          Enum.sort_by(
+            packets,
+            fn packet ->
+              case packet.inserted_at do
+                %NaiveDateTime{} = naive_dt -> DateTime.from_naive!(naive_dt, "Etc/UTC")
+                %DateTime{} = dt -> dt
+                _other -> DateTime.utc_now()
+              end
+            end,
+            {:desc, DateTime}
+          )
+
+        unique_position_packets = filter_unique_positions(sorted_packets)
+
+        unique_position_packets
+        |> Enum.with_index()
+        |> Enum.map(fn {packet, index} ->
+          case build_packet_data(packet) do
+            nil ->
+              nil
+
+            packet_data ->
+              packet_id =
+                "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
+
+              is_most_recent = index == 0
+
+              packet_data
+              |> Map.put("id", packet_id)
+              |> Map.put("is_historical", true)
+              |> Map.put("is_most_recent_for_callsign", is_most_recent)
+              |> Map.put("callsign_group", callsign)
+              |> Map.put(
+                "timestamp",
+                case packet.inserted_at do
+                  %NaiveDateTime{} = naive_dt ->
+                    DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
+
+                  %DateTime{} = dt ->
+                    DateTime.to_unix(dt, :millisecond)
+
+                  _other ->
+                    DateTime.to_unix(DateTime.utc_now(), :millisecond)
+                end
+              )
+          end
+        end)
+        |> Enum.filter(& &1)
+      end)
+
+    socket = push_event(socket, "add_historical_packets", %{packets: packet_data_list})
+
+    historical_packets_map =
+      packet_data_list
+      |> Enum.zip(historical_packets)
+      |> Enum.reduce(%{}, fn {packet_data, packet}, acc ->
+        Map.put(acc, packet_data["id"], packet)
+      end)
+
+    assign(socket,
+      historical_packets: historical_packets_map,
+      historical_loaded: true
+    )
   end
 
   # Filter packets to only include those with unique positions (lat/lon changed)
@@ -1223,13 +1211,10 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec load_historical_packets_for_bounds(Socket.t(), map()) :: Socket.t()
   defp load_historical_packets_for_bounds(socket, map_bounds) do
-    # Get time range for historical data
     now = DateTime.utc_now()
-    # Use the user's selected historical hours setting
     historical_hours = String.to_integer(socket.assigns.historical_hours)
     start_time = DateTime.add(now, -historical_hours * 3600, :second)
 
-    # Convert map bounds to the format expected by the database query
     bounds = [
       map_bounds.west,
       map_bounds.south,
@@ -1237,91 +1222,81 @@ defmodule AprsWeb.MapLive.Index do
       map_bounds.north
     ]
 
-    # Fetch historical packets with position data within the current map bounds
     historical_packets = fetch_historical_packets(bounds, start_time, now)
 
     if Enum.empty?(historical_packets) do
-      # No historical packets found
       socket
     else
-      # Group packets by callsign-ssid and process all positions
-      packet_data_list =
-        historical_packets
-        |> Enum.group_by(&generate_callsign/1)
-        |> Enum.flat_map(fn {callsign, packets} ->
-          # Sort packets by inserted_at to identify the most recent
-          sorted_packets =
-            Enum.sort_by(
-              packets,
-              fn packet ->
+      process_historical_packets_for_bounds(socket, historical_packets)
+    end
+  end
+
+  defp process_historical_packets_for_bounds(socket, historical_packets) do
+    packet_data_list =
+      historical_packets
+      |> Enum.group_by(&generate_callsign/1)
+      |> Enum.flat_map(fn {callsign, packets} ->
+        sorted_packets =
+          Enum.sort_by(
+            packets,
+            fn packet ->
+              case packet.inserted_at do
+                %NaiveDateTime{} = naive_dt -> DateTime.from_naive!(naive_dt, "Etc/UTC")
+                %DateTime{} = dt -> dt
+                _other -> DateTime.utc_now()
+              end
+            end,
+            {:desc, DateTime}
+          )
+
+        unique_position_packets = filter_unique_positions(sorted_packets)
+
+        unique_position_packets
+        |> Enum.with_index()
+        |> Enum.map(fn {packet, index} ->
+          case build_packet_data(packet) do
+            nil ->
+              nil
+
+            packet_data ->
+              packet_id =
+                "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
+
+              is_most_recent = index == 0
+
+              packet_data
+              |> Map.put("id", packet_id)
+              |> Map.put("is_historical", true)
+              |> Map.put("is_most_recent_for_callsign", is_most_recent)
+              |> Map.put("callsign_group", callsign)
+              |> Map.put(
+                "timestamp",
                 case packet.inserted_at do
                   %NaiveDateTime{} = naive_dt ->
-                    DateTime.from_naive!(naive_dt, "Etc/UTC")
+                    DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
 
                   %DateTime{} = dt ->
-                    dt
+                    DateTime.to_unix(dt, :millisecond)
 
                   _other ->
-                    DateTime.utc_now()
+                    DateTime.to_unix(DateTime.utc_now(), :millisecond)
                 end
-              end,
-              {:desc, DateTime}
-            )
-
-          # Filter out packets with unchanged positions
-          unique_position_packets = filter_unique_positions(sorted_packets)
-
-          # Process all packets with unique positions, marking which is the most recent
-          unique_position_packets
-          |> Enum.with_index()
-          |> Enum.map(fn {packet, index} ->
-            case build_packet_data(packet) do
-              nil ->
-                nil
-
-              packet_data ->
-                # Generate a unique ID for this historical packet
-                packet_id =
-                  "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
-
-                is_most_recent = index == 0
-
-                packet_data
-                |> Map.put("id", packet_id)
-                |> Map.put("is_historical", true)
-                |> Map.put("is_most_recent_for_callsign", is_most_recent)
-                |> Map.put("callsign_group", callsign)
-                |> Map.put(
-                  "timestamp",
-                  case packet.inserted_at do
-                    %NaiveDateTime{} = naive_dt ->
-                      DateTime.to_unix(DateTime.from_naive!(naive_dt, "Etc/UTC"), :millisecond)
-
-                    %DateTime{} = dt ->
-                      DateTime.to_unix(dt, :millisecond)
-
-                    _other ->
-                      DateTime.to_unix(DateTime.utc_now(), :millisecond)
-                  end
-                )
-            end
-          end)
-          |> Enum.filter(& &1)
+              )
+          end
         end)
+        |> Enum.filter(& &1)
+      end)
 
-      # Send all historical packets at once
-      socket = push_event(socket, "add_historical_packets", %{packets: packet_data_list})
+    socket = push_event(socket, "add_historical_packets", %{packets: packet_data_list})
 
-      # Store historical packets in assigns for reference
-      historical_packets_map =
-        packet_data_list
-        |> Enum.zip(historical_packets)
-        |> Enum.reduce(%{}, fn {packet_data, packet}, acc ->
-          Map.put(acc, packet_data["id"], packet)
-        end)
+    historical_packets_map =
+      packet_data_list
+      |> Enum.zip(historical_packets)
+      |> Enum.reduce(%{}, fn {packet_data, packet}, acc ->
+        Map.put(acc, packet_data["id"], packet)
+      end)
 
-      assign(socket, historical_packets: historical_packets_map)
-    end
+    assign(socket, historical_packets: historical_packets_map)
   end
 
   @spec within_bounds?(map() | struct(), map()) :: boolean()
@@ -1377,7 +1352,7 @@ defmodule AprsWeb.MapLive.Index do
       timestamp: PacketUtils.get_timestamp(packet),
       comment: PacketUtils.get_packet_field(packet, :comment, ""),
       safe_data_extended: PacketUtils.convert_tuples_to_strings(data_extended),
-      is_weather_packet: PacketUtils.is_weather_packet?(packet)
+      is_weather_packet: PacketUtils.weather_packet?(packet)
     }
   end
 

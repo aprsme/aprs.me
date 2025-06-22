@@ -77,14 +77,14 @@ defmodule Parser.MicE do
     end
   end
 
-  defp decode_destination_digits([c1, c2, c3, c4, c5, c6]) do
+  defp decode_destination_digits([c1, c2, c3, d4, d5, d6]) do
     [
       decode_digit(c1),
       decode_digit(c2),
       decode_digit(c3),
-      decode_digit(c4),
-      decode_digit(c5),
-      decode_digit(c6)
+      decode_digit(d4),
+      decode_digit(d5),
+      decode_digit(d6)
     ]
   end
 
@@ -173,32 +173,11 @@ defmodule Parser.MicE do
     else
       <<lon_deg_c, lon_min_c, lon_hmin_c, sp_c, dc_c, se_c, symbol_code, symbol_table_id, comment::binary>> = data
 
-      lon_deg =
-        case lon_deg_c - 28 do
-          d when d >= 108 and d <= 117 -> d - 80
-          d when d >= 118 and d <= 127 -> d - 190
-          d -> d
-        end + lon_offset
-
-      lon_min =
-        case lon_min_c - 28 do
-          m when m >= 60 -> m - 60
-          m -> m
-        end
-
+      lon_deg = decode_lon_deg(lon_deg_c, lon_offset)
+      lon_min = decode_lon_min(lon_min_c)
       lon_hmin = lon_hmin_c - 28
-
-      sp = sp_c - 28
-      dc = dc_c - 28
-      se = se_c - 28
-
-      speed = div(sp, 10) * 100 + rem(sp, 10) * 10 + div(dc, 10)
-      speed = if speed >= 800, do: speed - 800, else: speed
-      # Convert to knots from mph
-      speed = speed * 0.868976
-
-      course = rem(dc, 10) * 100 + se
-      course = if course >= 400, do: course - 400, else: course
+      speed = decode_speed(sp_c, dc_c)
+      course = decode_course(dc_c, se_c)
 
       {:ok,
        %{
@@ -212,5 +191,35 @@ defmodule Parser.MicE do
          comment: comment
        }}
     end
+  end
+
+  defp decode_lon_deg(lon_deg_c, lon_offset) do
+    case lon_deg_c - 28 do
+      d when d >= 108 and d <= 117 -> d - 80
+      d when d >= 118 and d <= 127 -> d - 190
+      d -> d
+    end + lon_offset
+  end
+
+  defp decode_lon_min(lon_min_c) do
+    case lon_min_c - 28 do
+      m when m >= 60 -> m - 60
+      m -> m
+    end
+  end
+
+  defp decode_speed(sp_c, dc_c) do
+    sp = sp_c - 28
+    dc = dc_c - 28
+    speed = div(sp, 10) * 100 + rem(sp, 10) * 10 + div(dc, 10)
+    speed = if speed >= 800, do: speed - 800, else: speed
+    speed * 0.868976
+  end
+
+  defp decode_course(dc_c, se_c) do
+    dc = dc_c - 28
+    se = se_c - 28
+    course = rem(dc, 10) * 100 + se
+    if course >= 400, do: course - 400, else: course
   end
 end

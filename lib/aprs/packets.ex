@@ -24,132 +24,139 @@ defmodule Aprs.Packets do
     require Logger
 
     try do
-      # Convert to map if it's a struct, or use as is if already a map
-      packet_attrs =
-        case packet_data do
-          %Packet{} = packet ->
-            packet
-            |> Map.from_struct()
-            |> Map.delete(:__meta__)
-
-          %{} ->
-            packet_data
-        end
-
-      # Sanitize all string fields to prevent UTF-8 encoding errors
-      packet_attrs = sanitize_packet_strings(packet_attrs)
-
-      # Convert data_type to string if it's an atom
-      packet_attrs =
-        case packet_attrs do
-          %{data_type: data_type} when is_atom(data_type) ->
-            Map.put(packet_attrs, :data_type, to_string(data_type))
-
-          _ ->
-            packet_attrs
-        end
-
-      # Make sure received_at is set with explicit UTC DateTime
-      current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
-      packet_attrs = Map.put(packet_attrs, :received_at, current_time)
-
-      # Patch: If data_extended has latitude/longitude, set them as lat/lon as Decimal
-      packet_attrs =
-        case packet_attrs[:data_extended] do
-          %{} = ext ->
-            # Convert struct to map if needed
-            ext_map = if Map.has_key?(ext, :__struct__), do: Map.from_struct(ext), else: ext
-
-            lat =
-              ext_map[:latitude] || ext_map["latitude"] ||
-                (Map.has_key?(ext_map, :position) &&
-                   (ext_map[:position][:latitude] || ext_map[:position]["latitude"])) ||
-                (Map.has_key?(ext_map, "position") &&
-                   (ext_map["position"][:latitude] || ext_map["position"]["latitude"]))
-
-            lon =
-              ext_map[:longitude] || ext_map["longitude"] ||
-                (Map.has_key?(ext_map, :position) &&
-                   (ext_map[:position][:longitude] || ext_map[:position]["longitude"])) ||
-                (Map.has_key?(ext_map, "position") &&
-                   (ext_map["position"][:longitude] || ext_map["position"]["longitude"]))
-
-            latd = to_decimal(lat)
-            lond = to_decimal(lon)
-
-            if not is_nil(latd) and not is_nil(lond) do
-              packet_attrs
-              |> Map.put(:lat, latd)
-              |> Map.put(:lon, lond)
-            else
-              packet_attrs
-            end
-
-          _ ->
-            packet_attrs
-        end
-
-      # Extract position data with error handling
+      packet_attrs = normalize_packet_attrs(packet_data)
+      packet_attrs = set_received_at(packet_attrs)
+      packet_attrs = patch_lat_lon_from_data_extended(packet_attrs)
       {lat, lon} = extract_position(packet_attrs)
-
-      # Helper to round to 6 decimal places
-      round6 = fn
-        nil ->
-          nil
-
-        %Decimal{} = d ->
-          Decimal.round(d, 6)
-
-        n when is_float(n) ->
-          Float.round(n, 6)
-
-        n when is_integer(n) ->
-          n * 1.0
-
-        n when is_binary(n) ->
-          case Float.parse(n) do
-            {f, _} -> Float.round(f, 6)
-            :error -> nil
-          end
-
-        _ ->
-          nil
-      end
-
-      # Set position fields if found (this will overwrite above if extract_position finds something different)
-      packet_attrs =
-        packet_attrs
-        |> Map.put(:lat, round6.(lat))
-        |> Map.put(:lon, round6.(lon))
-
-      # Normalize ssid to string if present and not nil
-      packet_attrs =
-        case Map.get(packet_attrs, :ssid) do
-          nil -> packet_attrs
-          ssid -> Map.put(packet_attrs, :ssid, to_string(ssid))
-        end
-
-      # Insert the packet
-      case %Packet{}
-           |> Packet.changeset(packet_attrs)
-           |> Repo.insert() do
-        {:ok, packet} ->
-          {:ok, packet}
-
-        {:error, changeset} ->
-          # Store validation errors as bad packets
-          error_message =
-            Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field}: #{msg}" end)
-
-          store_bad_packet(packet_data, %{message: error_message, type: "ValidationError"})
-          {:error, :validation_error}
-      end
+      packet_attrs = set_lat_lon(packet_attrs, lat, lon)
+      packet_attrs = normalize_ssid(packet_attrs)
+      insert_packet(packet_attrs, packet_data)
     rescue
       error ->
         Logger.error("Exception in store_packet for #{inspect(packet_data[:sender])}: #{inspect(error)}")
 
         store_bad_packet(packet_data, error)
         {:error, :storage_exception}
+    end
+  end
+
+  defp normalize_packet_attrs(packet_data) do
+    case_result =
+      case packet_data do
+        %Packet{} = packet ->
+          packet
+          |> Map.from_struct()
+          |> Map.delete(:__meta__)
+
+        %{} ->
+          packet_data
+      end
+
+    case_result
+    |> sanitize_packet_strings()
+    |> normalize_data_type()
+  end
+
+  defp normalize_data_type(attrs) do
+    case attrs do
+      %{data_type: data_type} when is_atom(data_type) ->
+        Map.put(attrs, :data_type, to_string(data_type))
+
+      _ ->
+        attrs
+    end
+  end
+
+  defp set_received_at(attrs) do
+    current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
+    Map.put(attrs, :received_at, current_time)
+  end
+
+  defp patch_lat_lon_from_data_extended(attrs) do
+    case attrs[:data_extended] do
+      %{} = ext ->
+        ext_map = if Map.has_key?(ext, :__struct__), do: Map.from_struct(ext), else: ext
+        lat = extract_lat_from_ext_map(ext_map)
+        lon = extract_lon_from_ext_map(ext_map)
+        latd = to_decimal(lat)
+        lond = to_decimal(lon)
+
+        if not is_nil(latd) and not is_nil(lond) do
+          attrs
+          |> Map.put(:lat, latd)
+          |> Map.put(:lon, lond)
+        else
+          attrs
+        end
+
+      _ ->
+        attrs
+    end
+  end
+
+  defp extract_lat_from_ext_map(ext_map) do
+    ext_map[:latitude] || ext_map["latitude"] ||
+      (Map.has_key?(ext_map, :position) &&
+         (ext_map[:position][:latitude] || ext_map[:position]["latitude"])) ||
+      (Map.has_key?(ext_map, "position") &&
+         (ext_map["position"][:latitude] || ext_map["position"]["latitude"]))
+  end
+
+  defp extract_lon_from_ext_map(ext_map) do
+    ext_map[:longitude] || ext_map["longitude"] ||
+      (Map.has_key?(ext_map, :position) &&
+         (ext_map[:position][:longitude] || ext_map[:position]["longitude"])) ||
+      (Map.has_key?(ext_map, "position") &&
+         (ext_map["position"][:longitude] || ext_map["position"]["longitude"]))
+  end
+
+  defp set_lat_lon(attrs, lat, lon) do
+    round6 = fn
+      nil ->
+        nil
+
+      %Decimal{} = d ->
+        Decimal.round(d, 6)
+
+      n when is_float(n) ->
+        Float.round(n, 6)
+
+      n when is_integer(n) ->
+        n * 1.0
+
+      n when is_binary(n) ->
+        case Float.parse(n) do
+          {f, _} -> Float.round(f, 6)
+          :error -> nil
+        end
+
+      _ ->
+        nil
+    end
+
+    attrs
+    |> Map.put(:lat, round6.(lat))
+    |> Map.put(:lon, round6.(lon))
+  end
+
+  defp normalize_ssid(attrs) do
+    case Map.get(attrs, :ssid) do
+      nil -> attrs
+      ssid -> Map.put(attrs, :ssid, to_string(ssid))
+    end
+  end
+
+  defp insert_packet(attrs, packet_data) do
+    case %Packet{} |> Packet.changeset(attrs) |> Repo.insert() do
+      {:ok, packet} ->
+        {:ok, packet}
+
+      {:error, changeset} ->
+        error_message =
+          Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field}: #{msg}" end)
+
+        store_bad_packet(packet_data, %{message: error_message, type: "ValidationError"})
+        {:error, :validation_error}
     end
   end
 
@@ -200,46 +207,58 @@ defmodule Aprs.Packets do
   defp extract_position_from_data_extended(nil), do: {nil, nil}
 
   defp extract_position_from_data_extended(data_extended) when is_map(data_extended) do
-    # Standard position format
-    if not is_nil(data_extended[:latitude]) and not is_nil(data_extended[:longitude]) do
-      {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
-      # MicE packet format with components
+    if has_standard_position?(data_extended) do
+      extract_standard_position(data_extended)
     else
-      case data_extended do
-        %{__struct__: MicE} = mic_e ->
-          lat = mic_e[:latitude]
-          lon = mic_e[:longitude]
-
-          if is_number(lat) and is_number(lon) do
-            {lat, lon}
-          else
-            {nil, nil}
-          end
-
-        _ ->
-          extract_position_from_mic_e(data_extended)
-      end
+      extract_position_from_data_extended_case(data_extended)
     end
   end
 
   defp extract_position_from_data_extended(_), do: {nil, nil}
 
-  defp extract_position_from_mic_e(%{__struct__: MicE} = mic_e) do
-    if is_number(mic_e.lat_degrees) and is_number(mic_e.lat_minutes) and
-         is_number(mic_e.lon_degrees) and is_number(mic_e.lon_minutes) do
-      lat = mic_e.lat_degrees + mic_e.lat_minutes / 60.0
-      lat = if mic_e.lat_direction == :south, do: -lat, else: lat
+  defp has_standard_position?(data_extended) do
+    not is_nil(data_extended[:latitude]) and not is_nil(data_extended[:longitude])
+  end
 
-      lon = mic_e.lon_degrees + mic_e.lon_minutes / 60.0
-      lon = if mic_e.lon_direction == :west, do: -lon, else: lon
+  defp extract_standard_position(data_extended) do
+    {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
+  end
 
+  defp extract_position_from_data_extended_case(data_extended) do
+    case data_extended do
+      %{__struct__: MicE} = mic_e ->
+        extract_position_from_mic_e_struct(mic_e)
+
+      _ ->
+        extract_position_from_mic_e(data_extended)
+    end
+  end
+
+  defp extract_position_from_mic_e_struct(mic_e) do
+    lat = mic_e[:latitude]
+    lon = mic_e[:longitude]
+
+    if is_number(lat) and is_number(lon) do
       {lat, lon}
     else
       {nil, nil}
     end
   end
 
-  defp extract_position_from_mic_e(_), do: {nil, nil}
+  defp extract_position_from_mic_e(data_extended) do
+    if is_number(data_extended[:lat_degrees]) and is_number(data_extended[:lat_minutes]) and
+         is_number(data_extended[:lon_degrees]) and is_number(data_extended[:lon_minutes]) do
+      lat = data_extended[:lat_degrees] + data_extended[:lat_minutes] / 60.0
+      lat = if data_extended[:lat_direction] == :south, do: -lat, else: lat
+
+      lon = data_extended[:lon_degrees] + data_extended[:lon_minutes] / 60.0
+      lon = if data_extended[:lon_direction] == :west, do: -lon, else: lon
+
+      {lat, lon}
+    else
+      {nil, nil}
+    end
+  end
 
   @doc """
   Gets packets for replay.

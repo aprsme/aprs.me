@@ -226,7 +226,6 @@ defmodule Parser do
   end
 
   def parse_data(:timestamped_position_with_message, _destination, data) do
-    # Correct binary pattern match for APRS position with weather
     case data do
       <<time::binary-size(7), latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9),
         symbol_code::binary-size(1), rest::binary>> ->
@@ -244,32 +243,15 @@ defmodule Parser do
               rest
             )
 
-          Map.put(
-            result,
-            :has_location,
-            (is_number(result[:latitude]) or is_struct(result[:latitude], Decimal)) and
-              (is_number(result[:longitude]) or is_struct(result[:longitude], Decimal))
-          )
+          add_has_location(result)
         else
           result = parse_position_with_timestamp(true, data, :timestamped_position_with_message)
-
-          Map.put(
-            result,
-            :has_location,
-            (is_number(result[:latitude]) or is_struct(result[:latitude], Decimal)) and
-              (is_number(result[:longitude]) or is_struct(result[:longitude], Decimal))
-          )
+          add_has_location(result)
         end
 
       _ ->
         result = parse_position_with_timestamp(true, data, :timestamped_position_with_message)
-
-        Map.put(
-          result,
-          :has_location,
-          (is_number(result[:latitude]) or is_struct(result[:latitude], Decimal)) and
-            (is_number(result[:longitude]) or is_struct(result[:longitude], Decimal))
-        )
+        add_has_location(result)
     end
   end
 
@@ -304,7 +286,6 @@ defmodule Parser do
   def parse_data(:query, _destination, data), do: parse_query(data)
   def parse_data(:user_defined, _destination, data), do: parse_user_defined(data)
   def parse_data(:third_party_traffic, _destination, data), do: parse_third_party_traffic(data)
-
   def parse_data(:peet_logging, _destination, data), do: Parser.Helpers.parse_peet_logging(data)
 
   def parse_data(:invalid_test_data, _destination, data), do: Parser.Helpers.parse_invalid_test_data(data)
@@ -354,8 +335,16 @@ defmodule Parser do
   end
 
   def parse_data(:phg_data, _destination, data), do: parse_phg_data(data)
-
   def parse_data(_type, _destination, _data), do: nil
+
+  defp add_has_location(result) do
+    Map.put(
+      result,
+      :has_location,
+      (is_number(result[:latitude]) or is_struct(result[:latitude], Decimal)) and
+        (is_number(result[:longitude]) or is_struct(result[:longitude], Decimal))
+    )
+  end
 
   @spec parse_position_with_datetime_and_weather(
           boolean(),
@@ -427,129 +416,147 @@ defmodule Parser do
     case position_data do
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
         comment::binary>> ->
-        %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-        ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
-        dao_data = parse_dao_extension(comment)
-        {course, speed} = extract_course_and_speed(comment)
-
-        has_position =
-          (is_number(lat) or is_struct(lat, Decimal)) and
-            (is_number(lon) or is_struct(lon, Decimal))
-
-        base_map = %{
-          latitude: lat,
-          longitude: lon,
-          timestamp: nil,
-          symbol_table_id: sym_table_id,
-          symbol_code: symbol_code,
-          comment: comment,
-          data_type: :position,
-          aprs_messaging?: false,
-          compressed?: false,
-          position_ambiguity: ambiguity,
-          dao: dao_data,
-          course: course,
-          speed: speed,
-          has_position: has_position
-        }
-
-        if sym_table_id == "/" and symbol_code == "_" do
-          weather_map = Parser.Weather.parse_weather_data(comment)
-          Map.merge(base_map, weather_map)
-        else
-          base_map
-        end
+        parse_position_uncompressed(latitude, sym_table_id, longitude, symbol_code, comment)
 
       <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9)>> ->
-        %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-        ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
-
-        has_position =
-          (is_number(lat) or is_struct(lat, Decimal)) and
-            (is_number(lon) or is_struct(lon, Decimal))
-
-        %{
-          latitude: lat,
-          longitude: lon,
-          timestamp: nil,
-          symbol_table_id: sym_table_id,
-          symbol_code: "_",
-          data_type: :position,
-          aprs_messaging?: false,
-          compressed?: false,
-          position_ambiguity: ambiguity,
-          dao: nil,
-          course: nil,
-          speed: nil,
-          has_position: has_position
-        }
+        parse_position_short_uncompressed(latitude, sym_table_id, longitude)
 
       <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
         cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
-        try do
-          converted_lat = Parser.Helpers.convert_compressed_lat(latitude_compressed)
-          converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
-          compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
-          ambiguity = Parser.Helpers.calculate_compressed_ambiguity(compression_type)
-
-          has_position =
-            (is_number(converted_lat) or is_struct(converted_lat, Decimal)) and
-              (is_number(converted_lon) or is_struct(converted_lon, Decimal))
-
-          base_data = %{
-            latitude: converted_lat,
-            longitude: converted_lon,
-            symbol_table_id: "/",
-            symbol_code: symbol_code,
-            comment: comment,
-            position_format: :compressed,
-            compression_type: compression_type,
-            data_type: :position,
-            compressed?: true,
-            position_ambiguity: ambiguity,
-            dao: nil,
-            has_position: has_position
-          }
-
-          # Merge in course/speed from compressed_cs
-          Map.merge(base_data, compressed_cs)
-        rescue
-          _e ->
-            %{
-              latitude: nil,
-              longitude: nil,
-              symbol_table_id: "/",
-              symbol_code: symbol_code,
-              comment: comment,
-              position_format: :compressed,
-              compression_type: compression_type,
-              data_type: :position,
-              compressed?: true,
-              position_ambiguity: Parser.Helpers.calculate_compressed_ambiguity(compression_type),
-              dao: nil,
-              course: nil,
-              speed: nil,
-              has_position: false
-            }
-        end
+        parse_position_compressed(
+          latitude_compressed,
+          longitude_compressed,
+          symbol_code,
+          cs,
+          compression_type,
+          comment
+        )
 
       _ ->
-        %{
-          latitude: nil,
-          longitude: nil,
-          timestamp: nil,
-          symbol_table_id: nil,
-          symbol_code: nil,
-          data_type: :malformed_position,
-          aprs_messaging?: false,
-          compressed?: false,
-          comment: String.trim(position_data),
-          dao: nil,
-          course: nil,
-          speed: nil,
-          has_position: false
-        }
+        parse_position_malformed(position_data)
     end
+  end
+
+  defp parse_position_uncompressed(latitude, sym_table_id, longitude, symbol_code, comment) do
+    %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
+    ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
+    dao_data = parse_dao_extension(comment)
+    {course, speed} = extract_course_and_speed(comment)
+
+    has_position =
+      (is_number(lat) or is_struct(lat, Decimal)) and (is_number(lon) or is_struct(lon, Decimal))
+
+    base_map = %{
+      latitude: lat,
+      longitude: lon,
+      timestamp: nil,
+      symbol_table_id: sym_table_id,
+      symbol_code: symbol_code,
+      comment: comment,
+      data_type: :position,
+      aprs_messaging?: false,
+      compressed?: false,
+      position_ambiguity: ambiguity,
+      dao: dao_data,
+      course: course,
+      speed: speed,
+      has_position: has_position
+    }
+
+    if sym_table_id == "/" and symbol_code == "_" do
+      weather_map = Parser.Weather.parse_weather_data(comment)
+      Map.merge(base_map, weather_map)
+    else
+      base_map
+    end
+  end
+
+  defp parse_position_short_uncompressed(latitude, sym_table_id, longitude) do
+    %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
+    ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
+
+    has_position =
+      (is_number(lat) or is_struct(lat, Decimal)) and (is_number(lon) or is_struct(lon, Decimal))
+
+    %{
+      latitude: lat,
+      longitude: lon,
+      timestamp: nil,
+      symbol_table_id: sym_table_id,
+      symbol_code: "_",
+      data_type: :position,
+      aprs_messaging?: false,
+      compressed?: false,
+      position_ambiguity: ambiguity,
+      dao: nil,
+      course: nil,
+      speed: nil,
+      has_position: has_position
+    }
+  end
+
+  defp parse_position_compressed(latitude_compressed, longitude_compressed, symbol_code, cs, compression_type, comment) do
+    converted_lat = Parser.Helpers.convert_compressed_lat(latitude_compressed)
+    converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
+    compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
+    ambiguity = Parser.Helpers.calculate_compressed_ambiguity(compression_type)
+
+    has_position =
+      (is_number(converted_lat) or is_struct(converted_lat, Decimal)) and
+        (is_number(converted_lon) or is_struct(converted_lon, Decimal))
+
+    base_data = %{
+      latitude: converted_lat,
+      longitude: converted_lon,
+      symbol_table_id: "/",
+      symbol_code: symbol_code,
+      comment: comment,
+      position_format: :compressed,
+      compression_type: compression_type,
+      data_type: :position,
+      compressed?: true,
+      position_ambiguity: ambiguity,
+      dao: nil,
+      has_position: has_position
+    }
+
+    Map.merge(base_data, compressed_cs)
+  rescue
+    _e ->
+      %{
+        latitude: nil,
+        longitude: nil,
+        symbol_table_id: "/",
+        symbol_code: symbol_code,
+        comment: comment,
+        position_format: :compressed,
+        compression_type: compression_type,
+        data_type: :position,
+        compressed?: true,
+        position_ambiguity: Parser.Helpers.calculate_compressed_ambiguity(compression_type),
+        dao: nil,
+        course: nil,
+        speed: nil,
+        has_position: false
+      }
+  end
+
+  defp parse_position_malformed(position_data) do
+    %{
+      latitude: nil,
+      longitude: nil,
+      timestamp: nil,
+      symbol_table_id: nil,
+      symbol_code: nil,
+      data_type: :malformed_position,
+      aprs_messaging?: false,
+      compressed?: false,
+      comment: String.trim(position_data),
+      dao: nil,
+      course: nil,
+      speed: nil,
+      has_position: false
+    }
   end
 
   # Patch parse_position_with_message_without_timestamp to propagate course/speed
@@ -1168,26 +1175,9 @@ defmodule Parser do
         case parse_callsign(sender) do
           {:ok, callsign_parts} ->
             base_callsign = List.first(callsign_parts)
+            ssid = extract_ssid(List.last(callsign_parts))
 
-            ssid =
-              case List.last(callsign_parts) do
-                nil ->
-                  0
-
-                s when is_binary(s) ->
-                  case Integer.parse(s) do
-                    {i, _} -> i
-                    :error -> 0
-                  end
-
-                i when is_integer(i) ->
-                  i
-
-                _ ->
-                  0
-              end
-
-            case split_path(path) do
+            case split_path_for_tunnel(path) do
               {:ok, [destination, digi_path]} ->
                 {:ok,
                  %{
@@ -1209,6 +1199,22 @@ defmodule Parser do
       _ ->
         {:error, "Invalid header format"}
     end
+  end
+
+  defp extract_ssid(nil), do: 0
+
+  defp extract_ssid(s) when is_binary(s) do
+    case Integer.parse(s) do
+      {i, _} -> i
+      :error -> 0
+    end
+  end
+
+  defp extract_ssid(i) when is_integer(i), do: i
+  defp extract_ssid(_), do: 0
+
+  defp split_path_for_tunnel(path) do
+    split_path(path)
   end
 
   # Add network tunneling support

@@ -10,16 +10,14 @@ defmodule AprsWeb.UserRegistrationLive do
     <div class="mx-auto max-w-sm">
       <.header class="text-center" />
 
-      <.header class="text-center">
-        Register for an account
-        <:subtitle>
-          Already registered?
-          <.link navigate={~p"/users/log_in"} class="font-semibold text-brand hover:underline">
-            Sign in
-          </.link>
-          to your account now.
-        </:subtitle>
-      </.header>
+      <h2 class="text-center text-2xl font-bold mt-6 mb-2">Register for an account</h2>
+      <p class="text-center text-gray-600 mb-6">
+        Already registered?
+        <.link navigate={~p"/users/log_in"} class="font-semibold text-brand hover:underline">
+          Sign in
+        </.link>
+        to your account now.
+      </p>
 
       <.simple_form
         :let={f}

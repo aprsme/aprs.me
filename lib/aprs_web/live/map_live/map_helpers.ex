@@ -52,61 +52,20 @@ defmodule AprsWeb.MapLive.MapHelpers do
 
   @spec within_bounds?(map() | tuple(), map()) :: boolean()
   def within_bounds?(packet_or_coords, bounds) do
-    # Handle nil bounds
     if is_nil(bounds) do
       false
     else
-      to_float = fn
-        n when is_float(n) ->
-          n
-
-        n when is_integer(n) ->
-          n * 1.0
-
-        %Decimal{} = d ->
-          Decimal.to_float(d)
-
-        n when is_binary(n) ->
-          case Float.parse(n) do
-            {f, _} -> f
-            :error -> 0.0
-          end
-
-        _ ->
-          0.0
-      end
-
-      {lat, lon} =
-        cond do
-          is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :lat) and
-              Map.has_key?(packet_or_coords, :lon) ->
-            {packet_or_coords.lat, packet_or_coords.lon}
-
-          is_map(packet_or_coords) and Map.has_key?(packet_or_coords, "lat") and
-              Map.has_key?(packet_or_coords, "lon") ->
-            {packet_or_coords["lat"], packet_or_coords["lon"]}
-
-          is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :latitude) and
-              Map.has_key?(packet_or_coords, :longitude) ->
-            {packet_or_coords.latitude, packet_or_coords.longitude}
-
-          is_tuple(packet_or_coords) and tuple_size(packet_or_coords) == 2 ->
-            packet_or_coords
-
-          true ->
-            {nil, nil}
-        end
+      {lat, lon} = extract_lat_lon(packet_or_coords)
 
       if is_nil(lat) or is_nil(lon) do
         false
       else
-        lat = to_float.(lat)
-        lon = to_float.(lon)
-        south = to_float.(bounds.south)
-        north = to_float.(bounds.north)
-        west = to_float.(bounds.west)
-        east = to_float.(bounds.east)
-
+        lat = to_float(lat)
+        lon = to_float(lon)
+        south = to_float(bounds.south)
+        north = to_float(bounds.north)
+        west = to_float(bounds.west)
+        east = to_float(bounds.east)
         lat_in_bounds = lat >= south && lat <= north
 
         lng_in_bounds =
@@ -120,4 +79,43 @@ defmodule AprsWeb.MapLive.MapHelpers do
       end
     end
   end
+
+  defp extract_lat_lon(packet_or_coords) do
+    cond do
+      is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :lat) and
+          Map.has_key?(packet_or_coords, :lon) ->
+        extract_lat_lon_atom(packet_or_coords)
+
+      is_map(packet_or_coords) and Map.has_key?(packet_or_coords, "lat") and
+          Map.has_key?(packet_or_coords, "lon") ->
+        extract_lat_lon_string(packet_or_coords)
+
+      is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :latitude) and
+          Map.has_key?(packet_or_coords, :longitude) ->
+        extract_lat_lon_atom_alt(packet_or_coords)
+
+      is_tuple(packet_or_coords) and tuple_size(packet_or_coords) == 2 ->
+        packet_or_coords
+
+      true ->
+        {nil, nil}
+    end
+  end
+
+  defp extract_lat_lon_atom(packet), do: {packet.lat, packet.lon}
+  defp extract_lat_lon_string(packet), do: {packet["lat"], packet["lon"]}
+  defp extract_lat_lon_atom_alt(packet), do: {packet.latitude, packet.longitude}
+
+  defp to_float(n) when is_float(n), do: n
+  defp to_float(n) when is_integer(n), do: n * 1.0
+  defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
+
+  defp to_float(n) when is_binary(n) do
+    case Float.parse(n) do
+      {f, _} -> f
+      :error -> 0.0
+    end
+  end
+
+  defp to_float(_), do: 0.0
 end

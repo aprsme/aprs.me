@@ -9,10 +9,8 @@ defmodule AprsWeb.UserForgotPasswordLive do
     <div class="mx-auto max-w-sm">
       <.header class="text-center" />
 
-      <.header class="text-center">
-        Forgot your password?
-        <:subtitle>We'll send a password reset link to your inbox</:subtitle>
-      </.header>
+      <h2 class="text-center text-2xl font-bold mt-6 mb-2">Forgot your password?</h2>
+      <p class="text-center text-gray-600 mb-6">We'll send a password reset link to your inbox</p>
 
       <.simple_form :let={f} id="reset_password_form" for={%{}} as={:user} phx-submit="send_email">
         <.input field={{f, :email}} type="email" placeholder="Email" required />

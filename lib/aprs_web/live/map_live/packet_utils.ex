@@ -90,8 +90,8 @@ defmodule AprsWeb.MapLive.PacketUtils do
   @doc """
   Determines if a packet is a weather packet.
   """
-  @spec is_weather_packet?(map()) :: boolean()
-  def is_weather_packet?(packet) do
+  @spec weather_packet?(map()) :: boolean()
+  def weather_packet?(packet) do
     data_type = get_packet_field(packet, :data_type, "")
     {symbol_table_id, symbol_code} = get_symbol_info(packet)
 

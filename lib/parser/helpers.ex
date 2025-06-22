@@ -15,16 +15,7 @@ defmodule Parser.Helpers do
     case Float.parse(value) do
       {coord, _} ->
         coord = coord / 100.0
-
-        coord =
-          case direction do
-            "N" -> coord
-            "S" -> -coord
-            "E" -> coord
-            "W" -> -coord
-            _ -> {:error, "Invalid coordinate direction"}
-          end
-
+        coord = apply_nmea_direction(coord, direction)
         if is_tuple(coord), do: coord, else: {:ok, coord}
 
       :error ->
@@ -34,6 +25,16 @@ defmodule Parser.Helpers do
 
   @spec parse_nmea_coordinate(any(), any()) :: {:error, String.t()}
   def parse_nmea_coordinate(_, _), do: {:error, "Invalid coordinate format"}
+
+  defp apply_nmea_direction(coord, direction) do
+    case direction do
+      "N" -> coord
+      "S" -> -coord
+      "E" -> coord
+      "W" -> -coord
+      _ -> {:error, "Invalid coordinate direction"}
+    end
+  end
 
   # PHG/DF helpers
   @spec parse_phg_power(integer()) :: phg_power
@@ -193,39 +194,37 @@ defmodule Parser.Helpers do
   end
 
   def parse_analog_values(values) do
-    Enum.map(values, fn value ->
-      case value do
-        "" ->
-          nil
+    Enum.map(values, &parse_analog_value/1)
+  end
 
-        value ->
-          case Float.parse(value) do
-            {float_val, _} -> float_val
-            :error -> nil
-          end
-      end
-    end)
+  defp parse_analog_value("") do
+    nil
+  end
+
+  defp parse_analog_value(value) do
+    case Float.parse(value) do
+      {float_val, _} -> float_val
+      :error -> nil
+    end
   end
 
   def parse_digital_values(values) do
-    values
-    |> Enum.map(fn value ->
-      cond do
-        value == "1" ->
-          true
-
-        is_binary(value) ->
-          value
-          |> String.graphemes()
-          |> Enum.map(fn
-            "1" -> true
-            "0" -> false
-            _ -> nil
-          end)
-      end
-    end)
-    |> List.flatten()
+    Enum.flat_map(values, &parse_digital_value/1)
   end
+
+  defp parse_digital_value("1"), do: [true]
+
+  defp parse_digital_value(value) when is_binary(value) do
+    value
+    |> String.graphemes()
+    |> Enum.map(fn
+      "1" -> true
+      "0" -> false
+      _ -> nil
+    end)
+  end
+
+  defp parse_digital_value(_), do: [nil]
 
   def parse_coefficient(coeff) do
     case Float.parse(coeff) do

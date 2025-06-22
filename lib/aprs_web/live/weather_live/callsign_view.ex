@@ -22,6 +22,6 @@ defmodule AprsWeb.WeatherLive.CallsignView do
     # Get the most recent packet for this callsign that is a weather report
     %{callsign: callsign, limit: 10}
     |> Packets.get_recent_packets()
-    |> Enum.find(&PacketUtils.is_weather_packet?/1)
+    |> Enum.find(&PacketUtils.weather_packet?/1)
   end
 end
