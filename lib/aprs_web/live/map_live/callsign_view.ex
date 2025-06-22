@@ -68,8 +68,7 @@ defmodule AprsWeb.MapLive.CallsignView do
       # Don't load packets here - wait for map_ready event
       # socket = load_callsign_packets(socket, normalized_callsign)
 
-      # Schedule regular cleanup of old packets from the map
-      Process.send_after(self(), :cleanup_old_packets, 60_000)
+      # No longer need scheduled cleanup - packets are cleaned up automatically when new ones arrive
       # Auto-start replay after a short delay
       Process.send_after(self(), :auto_start_replay, 2000)
 
@@ -192,6 +191,9 @@ defmodule AprsWeb.MapLive.CallsignView do
       west: to_float(bounds["west"])
     }
 
+    # Clean up old packets first
+    socket = cleanup_old_packets(socket)
+
     # Remove out-of-bounds visible packets
     new_visible_packets =
       socket.assigns.visible_packets
@@ -264,7 +266,6 @@ defmodule AprsWeb.MapLive.CallsignView do
   end
 
   def handle_info(:replay_next_packet, socket), do: handle_replay_next_packet(socket)
-  def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
 
   def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket) do
     # Only process packets for the specific callsign being viewed
@@ -280,6 +281,9 @@ defmodule AprsWeb.MapLive.CallsignView do
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   defp handle_info_postgres_packet(packet, socket) do
+    # Clean up old packets before adding the new one
+    socket = cleanup_old_packets(socket)
+
     key = System.unique_integer([:positive])
     updated_visible_packets = Map.put(socket.assigns.visible_packets, key, packet)
     socket = assign(socket, visible_packets: updated_visible_packets)
@@ -625,19 +629,16 @@ defmodule AprsWeb.MapLive.CallsignView do
     """
   end
 
-  defp handle_cleanup_old_packets(socket) do
-    # Schedule next cleanup
-    Process.send_after(self(), :cleanup_old_packets, 60_000)
-
+  defp cleanup_old_packets(socket, age_threshold_seconds \\ 3600) do
     # Update packet age threshold
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
-    socket = assign(socket, packet_age_threshold: one_hour_ago)
+    threshold_time = DateTime.add(DateTime.utc_now(), -age_threshold_seconds, :second)
+    socket = assign(socket, packet_age_threshold: threshold_time)
 
     # Remove expired packets from visible_packets
     expired_keys =
       socket.assigns.visible_packets
       |> Enum.filter(fn {_key, packet} ->
-        not packet_within_time_threshold?(packet, one_hour_ago)
+        not packet_within_time_threshold?(packet, threshold_time)
       end)
       |> Enum.map(fn {key, _} -> key end)
 
@@ -653,9 +654,7 @@ defmodule AprsWeb.MapLive.CallsignView do
 
     # Use Map.drop/2 for better performance
     updated_visible_packets = Map.drop(socket.assigns.visible_packets, expired_keys)
-    socket = assign(socket, visible_packets: updated_visible_packets)
-
-    {:noreply, socket}
+    assign(socket, visible_packets: updated_visible_packets)
   end
 
   defp packet_within_time_threshold?(packet, threshold) do
@@ -866,6 +865,9 @@ defmodule AprsWeb.MapLive.CallsignView do
     latest_symbol_code = extract_latest_symbol_code(latest_packet)
     visible_packets = build_visible_packets(latest_packet)
     socket = maybe_push_latest_marker(socket, latest_packet)
+
+    # Clean up old packets before assigning new visible packets
+    socket = cleanup_old_packets(socket)
 
     assign(socket,
       last_known_position: last_known_position,

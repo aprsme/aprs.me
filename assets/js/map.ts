@@ -558,7 +558,7 @@ let MapAPRSMap = {
         historical: false,
         is_most_recent_for_callsign: true,
         callsign_group: data.callsign_group || data.callsign || incomingCallsign,
-        popup: self.buildPopupContent(data),
+        popup: data.popup || self.buildPopupContent(data),
         openPopup: true,
       });
     });
@@ -589,7 +589,7 @@ let MapAPRSMap = {
       self.addMarker({
         ...data,
         historical: true,
-        popup: self.buildPopupContent(data),
+        popup: data.popup || self.buildPopupContent(data),
       });
     });
 
@@ -629,7 +629,7 @@ let MapAPRSMap = {
             self.addMarker({
               ...packet,
               historical: true,
-              popup: self.buildPopupContent(packet),
+              popup: packet.popup || self.buildPopupContent(packet),
             });
           });
         });
@@ -1067,12 +1067,6 @@ let MapAPRSMap = {
 
     if (comment) {
       content += `<div class="aprs-comment">${comment}</div>`;
-    }
-
-    if (data.lat && data.lng) {
-      content += `<div class="aprs-coords">
-        ${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}
-      </div>`;
     }
 
     if (data.timestamp) {

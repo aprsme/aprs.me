@@ -180,7 +180,7 @@ defmodule AprsWeb.MapLive.PacketUtils do
     end
   end
 
-  defp build_standard_popup_html(packet_info, lat, lon) do
+  defp build_standard_popup_html(packet_info, _lat, _lon) do
     comment_html =
       if packet_info.comment == "",
         do: "",
@@ -204,7 +204,6 @@ defmodule AprsWeb.MapLive.PacketUtils do
     <div class="aprs-popup">
       <div class="aprs-callsign"><strong><a href="/#{packet_info.callsign}">#{packet_info.callsign}</a></strong></div>
       #{comment_html}
-      <div class="aprs-coords">#{Float.round(to_float(lat), 4)}, #{Float.round(to_float(lon), 4)}</div>
       #{timestamp_html}
     </div>
     """
@@ -217,9 +216,9 @@ defmodule AprsWeb.MapLive.PacketUtils do
     timestamp_html =
       if timestamp_dt do
         """
-        <div class="aprs-timestamp" style="font-size: 11px; color: #6b7280; padding-top: 0; padding-bottom: 4px;">
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; line-height: 1.4;">#{TimeHelpers.time_ago_in_words(timestamp_dt)}</div>
-          <div style="font-family: monospace;">#{Calendar.strftime(timestamp_dt, "%Y-%m-%d %H:%M:%S UTC")}</div>
+        <div class="aprs-timestamp">
+          <div>#{TimeHelpers.time_ago_in_words(timestamp_dt)}</div>
+          <div class="text-slate-400">#{Calendar.strftime(timestamp_dt, "%Y-%m-%d %H:%M:%S UTC")}</div>
         </div>
         """
       else
