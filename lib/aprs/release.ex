@@ -6,9 +6,9 @@ defmodule Aprs.Release do
   @app :aprs
 
   def migrate do
+    require Logger
     # Initialize deployment timestamp first
     deployed_at = init()
-    require Logger
     Logger.info("Deployment timestamp: #{deployed_at}")
 
     # Run migrations
@@ -18,10 +18,6 @@ defmodule Aprs.Release do
   def rollback(repo, version) do
     load_app()
     {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
-  end
-
-  defp repos do
-    Application.fetch_env!(@app, :ecto_repos)
   end
 
   defp load_app do

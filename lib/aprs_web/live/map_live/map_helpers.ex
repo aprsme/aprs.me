@@ -52,67 +52,72 @@ defmodule AprsWeb.MapLive.MapHelpers do
 
   @spec within_bounds?(map() | tuple(), map()) :: boolean()
   def within_bounds?(packet_or_coords, bounds) do
-    to_float = fn
-      n when is_float(n) ->
-        n
-
-      n when is_integer(n) ->
-        n * 1.0
-
-      %Decimal{} = d ->
-        Decimal.to_float(d)
-
-      n when is_binary(n) ->
-        case Float.parse(n) do
-          {f, _} -> f
-          :error -> 0.0
-        end
-
-      _ ->
-        0.0
-    end
-
-    {lat, lon} =
-      cond do
-        is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :lat) and
-            Map.has_key?(packet_or_coords, :lon) ->
-          {packet_or_coords.lat, packet_or_coords.lon}
-
-        is_map(packet_or_coords) and Map.has_key?(packet_or_coords, "lat") and
-            Map.has_key?(packet_or_coords, "lon") ->
-          {packet_or_coords["lat"], packet_or_coords["lon"]}
-
-        is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :latitude) and
-            Map.has_key?(packet_or_coords, :longitude) ->
-          {packet_or_coords.latitude, packet_or_coords.longitude}
-
-        is_tuple(packet_or_coords) and tuple_size(packet_or_coords) == 2 ->
-          packet_or_coords
-
-        true ->
-          {nil, nil}
-      end
-
-    if is_nil(lat) or is_nil(lon) do
+    # Handle nil bounds
+    if is_nil(bounds) do
       false
     else
-      lat = to_float.(lat)
-      lon = to_float.(lon)
-      south = to_float.(bounds.south)
-      north = to_float.(bounds.north)
-      west = to_float.(bounds.west)
-      east = to_float.(bounds.east)
+      to_float = fn
+        n when is_float(n) ->
+          n
 
-      lat_in_bounds = lat >= south && lat <= north
+        n when is_integer(n) ->
+          n * 1.0
 
-      lng_in_bounds =
-        if west <= east do
-          lon >= west && lon <= east
-        else
-          lon >= west || lon <= east
+        %Decimal{} = d ->
+          Decimal.to_float(d)
+
+        n when is_binary(n) ->
+          case Float.parse(n) do
+            {f, _} -> f
+            :error -> 0.0
+          end
+
+        _ ->
+          0.0
+      end
+
+      {lat, lon} =
+        cond do
+          is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :lat) and
+              Map.has_key?(packet_or_coords, :lon) ->
+            {packet_or_coords.lat, packet_or_coords.lon}
+
+          is_map(packet_or_coords) and Map.has_key?(packet_or_coords, "lat") and
+              Map.has_key?(packet_or_coords, "lon") ->
+            {packet_or_coords["lat"], packet_or_coords["lon"]}
+
+          is_map(packet_or_coords) and Map.has_key?(packet_or_coords, :latitude) and
+              Map.has_key?(packet_or_coords, :longitude) ->
+            {packet_or_coords.latitude, packet_or_coords.longitude}
+
+          is_tuple(packet_or_coords) and tuple_size(packet_or_coords) == 2 ->
+            packet_or_coords
+
+          true ->
+            {nil, nil}
         end
 
-      lat_in_bounds && lng_in_bounds
+      if is_nil(lat) or is_nil(lon) do
+        false
+      else
+        lat = to_float.(lat)
+        lon = to_float.(lon)
+        south = to_float.(bounds.south)
+        north = to_float.(bounds.north)
+        west = to_float.(bounds.west)
+        east = to_float.(bounds.east)
+
+        lat_in_bounds = lat >= south && lat <= north
+
+        lng_in_bounds =
+          if west <= east do
+            lon >= west && lon <= east
+          else
+            lon >= west || lon <= east
+          end
+
+        lat_in_bounds && lng_in_bounds
+      end
     end
   end
 end
