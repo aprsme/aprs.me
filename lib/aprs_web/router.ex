@@ -30,11 +30,6 @@ defmodule AprsWeb.Router do
 
     live_dashboard "/dashboard", metrics: AprsWeb.Telemetry
 
-    live_session :map_pages, layout: {AprsWeb.Layouts, :map} do
-      live "/", MapLive.Index, :index
-      live "/:callsign", MapLive.CallsignView, :index
-    end
-
     live_session :regular_pages do
       live "/status", StatusLive.Index, :index
       live "/packets", PacketsLive.Index, :index
@@ -42,13 +37,21 @@ defmodule AprsWeb.Router do
       live "/badpackets", BadPacketsLive.Index, :index
       live "/weather/:callsign", WeatherLive.CallsignView, :index
       live "/about", AboutLive, :index
+      live "/api", ApiDocsLive, :index
+    end
+
+    live_session :map_pages, layout: {AprsWeb.Layouts, :map} do
+      live "/", MapLive.Index, :index
+      live "/:callsign", MapLive.CallsignView, :index
     end
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", AprsWeb do
-  #   pipe_through :api
-  # end
+  # API v1 routes
+  scope "/api/v1", AprsWeb.Api.V1, as: :api_v1 do
+    pipe_through :api
+
+    get "/callsign/:callsign", CallsignController, :show
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:aprs, :dev_routes) do

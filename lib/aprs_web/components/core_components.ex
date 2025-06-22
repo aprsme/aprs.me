@@ -411,6 +411,9 @@ defmodule AprsWeb.CoreComponents do
         </div>
         <div class="flex items-center space-x-6">
           <a href="/" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">Home</a>
+          <a href="/api" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">
+            API
+          </a>
           <a href="/about" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">
             About
           </a>
