@@ -154,18 +154,14 @@ defmodule AprsWeb.MapLive.Index do
 
   @impl true
   def handle_event("bounds_changed", %{"bounds" => bounds}, socket) do
-    Logger.debug(
-      "handle_event bounds_changed: #{inspect(bounds)} vs current #{inspect(socket.assigns.map_bounds)}"
-    )
+    Logger.debug("handle_event bounds_changed: #{inspect(bounds)} vs current #{inspect(socket.assigns.map_bounds)}")
 
     handle_bounds_update(bounds, socket)
   end
 
   @impl true
   def handle_event("update_bounds", %{"bounds" => bounds}, socket) do
-    Logger.debug(
-      "handle_event update_bounds: #{inspect(bounds)} vs current #{inspect(socket.assigns.map_bounds)}"
-    )
+    Logger.debug("handle_event update_bounds: #{inspect(bounds)} vs current #{inspect(socket.assigns.map_bounds)}")
 
     handle_bounds_update(bounds, socket)
   end
@@ -329,9 +325,7 @@ defmodule AprsWeb.MapLive.Index do
       west: bounds["west"]
     }
 
-    Logger.debug(
-      "handle_bounds_update: new #{inspect(map_bounds)} vs current #{inspect(socket.assigns.map_bounds)}"
-    )
+    Logger.debug("handle_bounds_update: new #{inspect(map_bounds)} vs current #{inspect(socket.assigns.map_bounds)}")
 
     # Validate bounds to prevent invalid coordinates
     if map_bounds.north > 90 or map_bounds.south < -90 or
@@ -357,9 +351,7 @@ defmodule AprsWeb.MapLive.Index do
 
   @spec process_bounds_update(map(), Socket.t()) :: Socket.t()
   defp process_bounds_update(map_bounds, socket) do
-    Logger.debug(
-      "process_bounds_update: Loading historical packets for bounds #{inspect(map_bounds)}"
-    )
+    Logger.debug("process_bounds_update: Loading historical packets for bounds #{inspect(map_bounds)}")
 
     # Remove out-of-bounds packets and markers immediately
     new_visible_packets =
@@ -393,30 +385,22 @@ defmodule AprsWeb.MapLive.Index do
   end
 
   @impl true
-  def handle_info({:process_bounds_update, map_bounds}, socket),
-    do: handle_info_process_bounds_update(map_bounds, socket)
+  def handle_info({:process_bounds_update, map_bounds}, socket), do: handle_info_process_bounds_update(map_bounds, socket)
 
-  def handle_info({:delayed_zoom, %{lat: lat, lng: lng}}, socket),
-    do: handle_info_delayed_zoom(lat, lng, socket)
+  def handle_info({:delayed_zoom, %{lat: lat, lng: lng}}, socket), do: handle_info_delayed_zoom(lat, lng, socket)
 
-  def handle_info({:ip_location, %{lat: lat, lng: lng}}, socket),
-    do: handle_info_ip_location(lat, lng, socket)
+  def handle_info({:ip_location, %{lat: lat, lng: lng}}, socket), do: handle_info_ip_location(lat, lng, socket)
 
   def handle_info(:initialize_replay, socket), do: handle_info_initialize_replay(socket)
 
   def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
 
-  def handle_info(:reload_historical_packets, socket),
-    do: handle_reload_historical_packets(socket)
+  def handle_info(:reload_historical_packets, socket), do: handle_reload_historical_packets(socket)
 
-  def handle_info({:postgres_packet, packet}, socket),
-    do: handle_info_postgres_packet(packet, socket)
+  def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
 
-  def handle_info(
-        %Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet},
-        socket
-      ),
-      do: handle_info({:postgres_packet, packet}, socket)
+  def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket),
+    do: handle_info({:postgres_packet, packet}, socket)
 
   # Private handler functions for each message type
 
@@ -764,7 +748,7 @@ defmodule AprsWeb.MapLive.Index do
           </svg>
           <h2 class="text-xl font-bold">APRS.me</h2>
         </div>
-
+        
     <!-- Close button for mobile -->
         <button
           class="lg:hidden text-white hover:text-slate-200 transition-colors"
@@ -787,7 +771,7 @@ defmodule AprsWeb.MapLive.Index do
           </svg>
         </button>
       </div>
-
+      
     <!-- Content -->
       <div class="p-6 space-y-6 bg-slate-50 flex-1 overflow-y-auto">
         <!-- Callsign Search -->
@@ -820,7 +804,7 @@ defmodule AprsWeb.MapLive.Index do
             </button>
           </form>
         </div>
-
+        
     <!-- Trail Duration -->
         <div class="space-y-4">
           <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
@@ -879,7 +863,7 @@ defmodule AprsWeb.MapLive.Index do
             <span>How long should position trails be displayed</span>
           </p>
         </div>
-
+        
     <!-- Historical Data -->
         <div class="space-y-4">
           <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
@@ -932,7 +916,7 @@ defmodule AprsWeb.MapLive.Index do
             <span>How many hours of historical packets to load</span>
           </p>
         </div>
-
+        
     <!-- Navigation Links (Mobile) -->
         <div class="lg:hidden pt-4 border-t border-slate-200 space-y-3">
           <.link
@@ -964,7 +948,7 @@ defmodule AprsWeb.MapLive.Index do
             <span>View Bad Packets</span>
           </.link>
         </div>
-
+        
     <!-- Deployment Information -->
         <div class="pt-4 border-t border-slate-200 space-y-3">
           <div class="flex items-center space-x-2 text-sm text-slate-600">
@@ -976,10 +960,13 @@ defmodule AprsWeb.MapLive.Index do
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span class="font-medium">Last Deploy:</span>
+            <span class="font-medium">Last Deploy</span>
           </div>
-          <div class="text-xs text-slate-500 font-mono">
-            {Calendar.strftime(@deployed_at, "%Y-%m-%d %H:%M UTC")}
+          <div class="text-xs text-slate-500">
+            <div class="font-mono">{time_ago_in_words(@deployed_at)}</div>
+            <div class="font-mono text-slate-400">
+              {Calendar.strftime(@deployed_at, "%Y-%m-%d %H:%M UTC")}
+            </div>
           </div>
         </div>
       </div>
@@ -1054,8 +1041,8 @@ defmodule AprsWeb.MapLive.Index do
   # Helper function to start historical replay
   @spec start_historical_replay(Socket.t()) :: Socket.t()
   defp start_historical_replay(socket) do
-    # Only fetch historical packets if map is ready
-    if socket.assigns.map_ready do
+    # Only fetch historical packets if map is ready and bounds are available
+    if socket.assigns.map_ready and socket.assigns.map_bounds do
       # Get time range for historical data
       now = DateTime.utc_now()
       # Use the user's selected historical hours setting
@@ -1524,6 +1511,15 @@ defmodule AprsWeb.MapLive.Index do
   # Add a helper for robust bounds comparison
 
   defp compare_bounds(b1, b2) do
+    # Handle nil bounds
+    cond do
+      is_nil(b1) and is_nil(b2) -> true
+      is_nil(b1) or is_nil(b2) -> false
+      true -> compare_bounds_maps(b1, b2)
+    end
+  end
+
+  defp compare_bounds_maps(b1, b2) do
     round4 = fn x ->
       case x do
         n when is_float(n) -> Float.round(n, 4)
@@ -1535,5 +1531,25 @@ defmodule AprsWeb.MapLive.Index do
     Enum.all?([:north, :south, :east, :west], fn key ->
       round4.(Map.get(b1, key)) == round4.(Map.get(b2, key))
     end)
+  end
+
+  # Rails-style time ago helper
+  defp time_ago_in_words(datetime) do
+    now = DateTime.utc_now()
+    diff_seconds = DateTime.diff(now, datetime, :second)
+
+    cond do
+      diff_seconds < 60 -> "less than a minute"
+      diff_seconds < 120 -> "1 minute"
+      diff_seconds < 3600 -> "#{div(diff_seconds, 60)} minutes"
+      diff_seconds < 7200 -> "1 hour"
+      diff_seconds < 86_400 -> "#{div(diff_seconds, 3600)} hours"
+      diff_seconds < 172_800 -> "1 day"
+      diff_seconds < 2_592_000 -> "#{div(diff_seconds, 86_400)} days"
+      diff_seconds < 5_184_000 -> "1 month"
+      diff_seconds < 31_536_000 -> "#{div(diff_seconds, 2_592_000)} months"
+      diff_seconds < 63_072_000 -> "1 year"
+      true -> "#{div(diff_seconds, 31_536_000)} years"
+    end <> " ago"
   end
 end
