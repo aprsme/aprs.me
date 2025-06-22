@@ -6,7 +6,7 @@ defmodule AprsWeb.UserSettingsLive do
 
   def render(assigns) do
     ~H"""
-    <.header>Change Email</.header>
+    <.header />
 
     <.simple_form
       :let={f}
@@ -35,7 +35,7 @@ defmodule AprsWeb.UserSettingsLive do
       </:actions>
     </.simple_form>
 
-    <.header>Change Password</.header>
+    <.header />
 
     <.simple_form
       :let={f}

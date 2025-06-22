@@ -52,7 +52,7 @@ defmodule AprsWeb.MapLive.Index do
        overlay_callsign: "",
        trail_duration: "1",
        historical_hours: "1",
-       packet_age_threshold: 3600,
+       packet_age_threshold: one_hour_ago,
        slideover_open: true,
        replay_active: false,
        replay_start_time: nil,
@@ -1016,7 +1016,26 @@ defmodule AprsWeb.MapLive.Index do
   defp packet_within_time_threshold?(packet, threshold) do
     case packet do
       %{received_at: received_at} when not is_nil(received_at) ->
-        DateTime.compare(received_at, threshold) in [:gt, :eq]
+        threshold_dt =
+          cond do
+            is_integer(threshold) ->
+              # Assume seconds since epoch
+              DateTime.from_unix!(threshold)
+
+            is_binary(threshold) ->
+              case DateTime.from_iso8601(threshold) do
+                {:ok, dt, _} -> dt
+                _ -> DateTime.utc_now()
+              end
+
+            match?(%DateTime{}, threshold) ->
+              threshold
+
+            true ->
+              DateTime.utc_now()
+          end
+
+        DateTime.compare(received_at, threshold_dt) in [:gt, :eq]
 
       _ ->
         # If no timestamp, treat as current
@@ -1381,7 +1400,7 @@ defmodule AprsWeb.MapLive.Index do
       <div class="aprs-callsign"><strong><a href="/map/callsign/#{packet_info.callsign}">#{packet_info.callsign}</a></strong></div>
       #{comment_html}
       <div class="aprs-coords">#{Float.round(PacketUtils.to_float(lat), 4)}, #{Float.round(PacketUtils.to_float(lon), 4)}</div>
-      <div class="aprs-time">#{packet_info.timestamp}</div>
+      <div class="aprs-time">#{format_popup_timestamp(packet_info.timestamp)}</div>
     </div>
     """
   end
@@ -1408,11 +1427,11 @@ defmodule AprsWeb.MapLive.Index do
 
   defp build_weather_popup_html(packet, callsign) do
     received_at = get_received_at(packet)
-    timestamp_str = format_timestamp(received_at)
+    timestamp_str = format_popup_timestamp(received_at)
 
     """
     <strong>#{callsign} - Weather Report</strong><br>
-    <small>#{timestamp_str} UTC</small>
+    <small>#{timestamp_str}</small>
     <hr>
     Temperature: #{PacketUtils.get_weather_field(packet, :temperature)}°F<br>
     Humidity: #{PacketUtils.get_weather_field(packet, :humidity)}%<br>
@@ -1432,10 +1451,30 @@ defmodule AprsWeb.MapLive.Index do
     end
   end
 
-  defp format_timestamp(received_at) do
-    if received_at,
-      do: Calendar.strftime(received_at, "%Y-%m-%d %H:%M:%S"),
-      else: "N/A"
+  defp format_popup_timestamp(ts) do
+    cond do
+      is_binary(ts) ->
+        case DateTime.from_iso8601(ts) do
+          {:ok, dt, _} -> Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S UTC")
+          _ -> ts
+        end
+
+      is_integer(ts) ->
+        ts
+        |> DateTime.from_unix!(:millisecond)
+        |> Calendar.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+      match?(%DateTime{}, ts) ->
+        Calendar.strftime(ts, "%Y-%m-%d %H:%M:%S UTC")
+
+      match?(%NaiveDateTime{}, ts) ->
+        ts
+        |> DateTime.from_naive!("Etc/UTC")
+        |> Calendar.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+      true ->
+        to_string(ts)
+    end
   end
 
   @spec generate_callsign(map() | struct()) :: String.t()

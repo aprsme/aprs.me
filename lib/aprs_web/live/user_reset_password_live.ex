@@ -7,7 +7,7 @@ defmodule AprsWeb.UserResetPasswordLive do
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-sm">
-      <.header class="text-center">Reset Password</.header>
+      <.header class="text-center" />
 
       <.simple_form
         :let={f}

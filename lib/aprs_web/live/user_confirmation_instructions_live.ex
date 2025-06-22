@@ -6,7 +6,7 @@ defmodule AprsWeb.UserConfirmationInstructionsLive do
 
   def render(assigns) do
     ~H"""
-    <.header>Resend confirmation instructions</.header>
+    <.header />
 
     <.simple_form
       :let={f}

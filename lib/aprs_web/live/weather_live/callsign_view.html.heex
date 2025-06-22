@@ -1,0 +1,53 @@
+<%= if @weather_packet do %>
+  <div class="max-w-lg mx-auto mt-8 p-6 bg-white rounded shadow">
+    <h1 class="text-2xl font-bold mb-2">Weather for {@callsign}</h1>
+    <div class="text-gray-600 mb-4">
+      {PacketUtils.get_timestamp(@weather_packet)}
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <strong>Temperature:</strong>
+        {PacketUtils.get_weather_field(@weather_packet, :temperature)}°F
+      </div>
+      <div>
+        <strong>Humidity:</strong>
+        {PacketUtils.get_weather_field(@weather_packet, :humidity)}%
+      </div>
+      <div>
+        <strong>Wind:</strong>
+        {PacketUtils.get_weather_field(@weather_packet, :wind_direction)}° @ {PacketUtils.get_weather_field(
+          @weather_packet,
+          :wind_speed
+        )} mph
+      </div>
+      <div>
+        <strong>Gusts:</strong>
+        {PacketUtils.get_weather_field(@weather_packet, :wind_gust)} mph
+      </div>
+      <div>
+        <strong>Pressure:</strong>
+        {PacketUtils.get_weather_field(@weather_packet, :pressure)} hPa
+      </div>
+      <div>
+        <strong>Rain (1h):</strong>
+        {PacketUtils.get_weather_field(@weather_packet, :rain_1h)} in
+      </div>
+      <div>
+        <strong>Rain (24h):</strong>
+        {PacketUtils.get_weather_field(@weather_packet, :rain_24h)} in
+      </div>
+      <div>
+        <strong>Rain (since midnight):</strong>
+        {PacketUtils.get_weather_field(@weather_packet, :rain_since_midnight)} in
+      </div>
+    </div>
+    <div class="mt-4 text-sm text-gray-500">
+      <strong>Raw comment:</strong> {@weather_packet.comment || @weather_packet["comment"]}
+    </div>
+  </div>
+<% else %>
+  <div class="max-w-lg mx-auto mt-8 p-6 bg-white rounded shadow text-center">
+    <h1 class="text-2xl font-bold mb-2">Weather for {@callsign}</h1>
+    <div class="text-gray-600">No recent weather data available for this callsign.</div>
+  </div>
+<% end %>

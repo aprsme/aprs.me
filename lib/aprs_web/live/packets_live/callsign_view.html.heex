@@ -1,23 +1,6 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-8">
   <div class="mb-8">
-    <.header>
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-semibold text-gray-900">Packets for {@callsign}</h1>
-          <p class="mt-1 text-sm text-gray-500">
-            Showing up to 100 packets (stored and live) for callsign {@callsign}
-          </p>
-        </div>
-        <div class="flex items-center space-x-4">
-          <.link navigate={~p"/"} class="text-sm text-blue-600 hover:text-blue-800">
-            ← Back to Map
-          </.link>
-          <.link navigate={~p"/packets"} class="text-sm text-blue-600 hover:text-blue-800">
-            All Packets
-          </.link>
-        </div>
-      </div>
-    </.header>
+    <.header />
   </div>
 
   <%= if @error do %>

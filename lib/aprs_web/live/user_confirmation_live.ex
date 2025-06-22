@@ -7,7 +7,7 @@ defmodule AprsWeb.UserConfirmationLive do
   def render(%{live_action: :edit} = assigns) do
     ~H"""
     <div class="mx-auto max-w-sm">
-      <.header class="text-center">Confirm Account</.header>
+      <.header class="text-center" />
 
       <.simple_form :let={f} for={%{}} as={:user} id="confirmation_form" phx-submit="confirm_account">
         <.input field={{f, :token}} type="hidden" value={@token} />

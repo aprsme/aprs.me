@@ -393,26 +393,29 @@ defmodule AprsWeb.CoreComponents do
   end
 
   @doc """
-  Renders a header with title.
+  Renders a modern site header with navigation links.
   """
-  attr :class, :string, default: nil
-
-  slot :inner_block, required: true
-  slot :subtitle
-  slot :actions
+  attr :class, :string, default: ""
 
   def header(assigns) do
     ~H"""
-    <header class={[@actions != [] && "flex items-center justify-between gap-6", @class]}>
-      <div>
-        <h1 class="text-lg font-semibold leading-8 text-zinc-800">
-          {render_slot(@inner_block)}
-        </h1>
-        <p :if={@subtitle != []} class="mt-2 text-sm leading-6 text-zinc-600">
-          {render_slot(@subtitle)}
-        </p>
-      </div>
-      <div class="flex-none">{render_slot(@actions)}</div>
+    <header class={["bg-white shadow sticky top-0 z-40", @class]}>
+      <nav
+        class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between"
+        aria-label="Main"
+      >
+        <div class="flex items-center space-x-4">
+          <a href="/" class="text-xl font-bold text-blue-700 hover:text-blue-900 transition-colors">
+            aprs.me
+          </a>
+        </div>
+        <div class="flex items-center space-x-6">
+          <a href="/" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">Home</a>
+          <a href="/about" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">
+            About
+          </a>
+        </div>
+      </nav>
     </header>
     """
   end
