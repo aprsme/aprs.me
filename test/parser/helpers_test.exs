@@ -12,7 +12,10 @@ defmodule Parser.HelpersTest do
 
     test "parse_nmea_coordinate errors on invalid input" do
       assert Helpers.parse_nmea_coordinate("bad", "N") == {:error, "Invalid coordinate value"}
-      assert Helpers.parse_nmea_coordinate("4916.45", "Q") == {:error, "Invalid coordinate direction"}
+
+      assert Helpers.parse_nmea_coordinate("4916.45", "Q") ==
+               {:error, "Invalid coordinate direction"}
+
       assert Helpers.parse_nmea_coordinate(nil, nil) == {:error, "Invalid coordinate format"}
     end
 
