@@ -15,21 +15,12 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
 
   setup do
     Mox.set_mox_global()
-    Application.put_env(:aprs, :packets_module, Aprs.PacketsMock)
+    Application.put_env(:aprs, :packets_module, PacketsMock)
     on_exit(fn -> Mox.set_mox_private() end)
     :ok
   end
 
   describe "historical packet loading" do
-    # Helper functions for mocking
-    defp expect_packets_for_replay(packets) do
-      Mox.expect(PacketsMock, :get_packets_for_replay, fn _opts -> packets end)
-    end
-
-    defp expect_packets_for_replay_with_bounds(packets) do
-      Mox.expect(PacketsMock, :get_packets_for_replay, fn _opts -> packets end)
-    end
-
     setup do
       # Create test packets with different timestamps
       now = DateTime.utc_now()
@@ -268,15 +259,6 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
   end
 
   describe "live packet updates with historical data" do
-    # Helper functions for mocking
-    defp expect_packets_for_replay(packets) do
-      Mox.expect(PacketsMock, :get_packets_for_replay, fn _opts -> packets end)
-    end
-
-    defp expect_packets_for_replay_with_bounds(packets) do
-      Mox.expect(PacketsMock, :get_packets_for_replay, fn _opts -> packets end)
-    end
-
     setup do
       # Create a historical packet
       now = DateTime.utc_now()
