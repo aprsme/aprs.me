@@ -3,7 +3,13 @@ defmodule Parser do
   Main parsing library
   """
   alias Aprs.Convert
+  alias Parser.Item
   alias Parser.MicE
+  alias Parser.Object
+  alias Parser.PHG
+  alias Parser.Status
+  alias Parser.Telemetry
+  alias Parser.Weather
 
   # Simple APRS position parsing to replace parse_aprs_position
   defp parse_aprs_position(lat, lon) do
@@ -186,6 +192,75 @@ defmodule Parser do
   @spec parse_data(atom(), String.t(), String.t()) :: map() | nil
   def parse_data(:mic_e, destination, data), do: MicE.parse(data, destination)
   def parse_data(:mic_e_old, destination, data), do: MicE.parse(data, destination)
+  def parse_data(:object, _destination, data), do: Object.parse(data)
+  def parse_data(:item, _destination, data), do: Item.parse(data)
+  def parse_data(:weather, _destination, data), do: Weather.parse(data)
+  def parse_data(:telemetry, _destination, data), do: Telemetry.parse(data)
+  def parse_data(:status, _destination, data), do: Status.parse(data)
+  def parse_data(:phg_data, _destination, data), do: PHG.parse(data)
+
+  def parse_data(:peet_logging, _destination, data), do: Parser.SpecialDataHelpers.parse_peet_logging(data)
+
+  def parse_data(:invalid_test_data, _destination, data), do: Parser.SpecialDataHelpers.parse_invalid_test_data(data)
+
+  def parse_data(:raw_gps_ultimeter, _destination, data) do
+    case Parser.NMEAHelpers.parse_nmea_sentence(data) do
+      {:error, error} ->
+        %{
+          data_type: :raw_gps_ultimeter,
+          error: error,
+          nmea_type: nil,
+          raw_data: data,
+          latitude: nil,
+          longitude: nil
+        }
+    end
+  end
+
+  def parse_data(:df_report, _destination, data) do
+    if String.starts_with?(data, "DFS") and byte_size(data) >= 7 do
+      <<"DFS", s, h, g, d, rest::binary>> = data
+
+      %{
+        df_strength: Parser.PHGHelpers.parse_df_strength(s),
+        height: Parser.PHGHelpers.parse_phg_height(h),
+        gain: Parser.PHGHelpers.parse_phg_gain(g),
+        directivity: Parser.PHGHelpers.parse_phg_directivity(d),
+        comment: rest,
+        data_type: :df_report
+      }
+    else
+      %{
+        df_data: data,
+        data_type: :df_report
+      }
+    end
+  end
+
+  def parse_data(:user_defined, _destination, data), do: parse_user_defined(data)
+  def parse_data(:third_party_traffic, _destination, data), do: parse_third_party_traffic(data)
+
+  def parse_data(:message, _destination, data) do
+    case Regex.run(~r/^:([^:]+):(.+?)(\{(\d+)\})?$/s, data) do
+      [_, addressee, message_text, _full_ack, message_number] ->
+        %{
+          data_type: :message,
+          addressee: String.trim(addressee),
+          message_text: String.trim(message_text),
+          message_number: message_number
+        }
+
+      [_, addressee, message_text] ->
+        %{
+          data_type: :message,
+          addressee: String.trim(addressee),
+          message_text: String.trim(message_text)
+        }
+
+      _ ->
+        nil
+    end
+  end
 
   def parse_data(:position, destination, <<"!", rest::binary>>) do
     parse_data(:position, destination, rest)
@@ -240,78 +315,8 @@ defmodule Parser do
     end
   end
 
-  def parse_data(:message, _destination, data) do
-    case Regex.run(~r/^:([^:]+):(.+?)(\{(\d+)\})?$/s, data) do
-      [_, addressee, message_text, _full_ack, message_number] ->
-        %{
-          data_type: :message,
-          addressee: String.trim(addressee),
-          message_text: String.trim(message_text),
-          message_number: message_number
-        }
-
-      [_, addressee, message_text] ->
-        %{
-          data_type: :message,
-          addressee: String.trim(addressee),
-          message_text: String.trim(message_text)
-        }
-
-      _ ->
-        nil
-    end
-  end
-
-  def parse_data(:status, _destination, data), do: Parser.Status.parse(data)
-  def parse_data(:object, _destination, data), do: Parser.Object.parse(data)
-  def parse_data(:item, _destination, data), do: Parser.Item.parse(data)
-  def parse_data(:weather, _destination, data), do: Parser.Weather.parse(data)
-  def parse_data(:telemetry, _destination, data), do: Parser.Telemetry.parse(data)
   def parse_data(:station_capabilities, _destination, data), do: parse_station_capabilities(data)
   def parse_data(:query, _destination, data), do: parse_query(data)
-  def parse_data(:user_defined, _destination, data), do: parse_user_defined(data)
-  def parse_data(:third_party_traffic, _destination, data), do: parse_third_party_traffic(data)
-
-  def parse_data(:peet_logging, _destination, data), do: Parser.SpecialDataHelpers.parse_peet_logging(data)
-
-  def parse_data(:invalid_test_data, _destination, data), do: Parser.SpecialDataHelpers.parse_invalid_test_data(data)
-
-  def parse_data(:raw_gps_ultimeter, _destination, data) do
-    case Parser.NMEAHelpers.parse_nmea_sentence(data) do
-      {:error, error} ->
-        %{
-          data_type: :raw_gps_ultimeter,
-          error: error,
-          nmea_type: nil,
-          raw_data: data,
-          latitude: nil,
-          longitude: nil
-        }
-    end
-  end
-
-  def parse_data(:df_report, _destination, data) do
-    if String.starts_with?(data, "DFS") and byte_size(data) >= 7 do
-      <<"DFS", s, h, g, d, rest::binary>> = data
-
-      %{
-        df_strength: Parser.PHGHelpers.parse_df_strength(s),
-        height: Parser.PHGHelpers.parse_phg_height(h),
-        gain: Parser.PHGHelpers.parse_phg_gain(g),
-        directivity: Parser.PHGHelpers.parse_phg_directivity(d),
-        comment: rest,
-        data_type: :df_report
-      }
-    else
-      %{
-        df_data: data,
-        data_type: :df_report
-      }
-    end
-  end
-
-  def parse_data(:phg_data, _destination, data), do: parse_phg_data(data)
-  def parse_data(_type, _destination, _data), do: nil
 
   defp add_has_location(result) do
     Map.put(
@@ -341,7 +346,7 @@ defmodule Parser do
         weather_report
       ) do
     pos = parse_aprs_position(latitude, longitude)
-    weather_data = parse_weather_data(weather_report)
+    weather_data = Parser.Weather.parse_weather_data(weather_report)
 
     %{
       latitude: pos.latitude,
@@ -707,307 +712,6 @@ defmodule Parser do
     }
   end
 
-  # Object Report parsing
-  def parse_object(<<";", object_name::binary-size(9), live_killed::binary-size(1), rest::binary>>) do
-    position_data =
-      case rest do
-        <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
-          comment::binary>> ->
-          %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-
-          %{
-            latitude: lat,
-            longitude: lon,
-            symbol_table_id: sym_table_id,
-            symbol_code: symbol_code,
-            comment: comment,
-            position_format: :uncompressed
-          }
-
-        <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
-          cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
-          try do
-            converted_lat =
-              Parser.CompressedPositionHelpers.convert_compressed_lat(latitude_compressed)
-
-            converted_lon =
-              Parser.CompressedPositionHelpers.convert_compressed_lon(longitude_compressed)
-
-            if is_number(converted_lat) and is_number(converted_lon) do
-              compressed_cs = Parser.CompressedPositionHelpers.convert_compressed_cs(cs)
-
-              base_data = %{
-                latitude: converted_lat,
-                longitude: converted_lon,
-                symbol_table_id: "/",
-                symbol_code: symbol_code,
-                comment: comment,
-                position_format: :compressed,
-                compression_type: compression_type
-              }
-
-              Map.merge(base_data, compressed_cs)
-            else
-              raise "Invalid compressed position"
-            end
-          rescue
-            _ -> %{latitude: nil, longitude: nil, comment: comment, position_format: :compressed}
-          end
-
-        _ ->
-          %{comment: rest, position_format: :unknown}
-      end
-
-    Map.merge(
-      %{
-        object_name: String.trim(object_name),
-        live_killed: live_killed,
-        timestamp: nil,
-        data_type: :object
-      },
-      position_data
-    )
-  end
-
-  @spec parse_object(String.t()) :: map()
-  def parse_object(data) do
-    %{
-      raw_data: data,
-      data_type: :object
-    }
-  end
-
-  # Item Report parsing
-  @spec parse_item(binary()) :: map()
-  def parse_item(<<item_indicator, item_name_and_data::binary>>) when item_indicator in [?%, ?)] do
-    # Items can have up to 9 character names, followed by ! for position or _ for killed
-    case Regex.run(~r/^(.{1,9})([!\_])(.*)$/, item_name_and_data) do
-      [_, item_name, status_char, position_data] ->
-        parsed_position = parse_item_position(position_data)
-
-        base_data = %{
-          item_name: String.trim(item_name),
-          live_killed: status_char,
-          data_type: :item
-        }
-
-        Map.merge(base_data, parsed_position)
-
-      _ ->
-        %{
-          item_name: item_name_and_data,
-          raw_data: <<item_indicator>> <> item_name_and_data,
-          data_type: :item
-        }
-    end
-  end
-
-  def parse_item(data) do
-    %{
-      raw_data: data,
-      data_type: :item
-    }
-  end
-
-  # Parse item position data (similar to object position parsing)
-  @spec parse_item_position(String.t()) :: map()
-  defp parse_item_position(position_data) do
-    case position_data do
-      # Uncompressed position format
-      <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
-        comment::binary>> ->
-        %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-
-        %{
-          latitude: lat,
-          longitude: lon,
-          symbol_table_id: sym_table_id,
-          symbol_code: symbol_code,
-          comment: comment,
-          position_format: :uncompressed
-        }
-
-      # Compressed position format
-      <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
-        cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
-        converted_lat =
-          Parser.CompressedPositionHelpers.convert_compressed_lat(latitude_compressed)
-
-        converted_lon =
-          Parser.CompressedPositionHelpers.convert_compressed_lon(longitude_compressed)
-
-        compressed_cs = Parser.CompressedPositionHelpers.convert_compressed_cs(cs)
-
-        base_data = %{
-          latitude: converted_lat,
-          longitude: converted_lon,
-          symbol_table_id: "/",
-          symbol_code: symbol_code,
-          comment: comment,
-          position_format: :compressed,
-          compression_type: compression_type
-        }
-
-        Map.merge(base_data, compressed_cs)
-
-      _ ->
-        %{
-          comment: position_data,
-          position_format: :unknown
-        }
-    end
-  end
-
-  # Weather Report parsing
-  def parse_weather(<<"_", timestamp::binary-size(8), rest::binary>>) do
-    weather_data = parse_weather_data(rest)
-
-    Map.merge(
-      %{
-        timestamp: timestamp,
-        data_type: :weather
-      },
-      weather_data
-    )
-  end
-
-  @spec parse_weather(String.t()) :: map()
-  def parse_weather(data) do
-    weather_data = parse_weather_data(data)
-
-    Map.merge(
-      %{
-        data_type: :weather
-      },
-      weather_data
-    )
-  end
-
-  # Comprehensive weather data parsing
-  defp parse_weather_data(weather_data) do
-    # Extract timestamp if present
-    timestamp = Parser.WeatherHelpers.extract_timestamp(weather_data)
-    weather_data = Parser.WeatherHelpers.remove_timestamp(weather_data)
-
-    # Parse each weather component
-    weather_values = %{
-      wind_direction: Parser.WeatherHelpers.parse_wind_direction(weather_data),
-      wind_speed: Parser.WeatherHelpers.parse_wind_speed(weather_data),
-      wind_gust: Parser.WeatherHelpers.parse_wind_gust(weather_data),
-      temperature: Parser.WeatherHelpers.parse_temperature(weather_data),
-      rain_1h: Parser.WeatherHelpers.parse_rainfall_1h(weather_data),
-      rain_24h: Parser.WeatherHelpers.parse_rainfall_24h(weather_data),
-      rain_since_midnight: Parser.WeatherHelpers.parse_rainfall_since_midnight(weather_data),
-      humidity: Parser.WeatherHelpers.parse_humidity(weather_data),
-      pressure: Parser.WeatherHelpers.parse_pressure(weather_data),
-      luminosity: Parser.WeatherHelpers.parse_luminosity(weather_data),
-      snow: Parser.WeatherHelpers.parse_snow(weather_data)
-    }
-
-    # Build base result map
-    result = %{
-      timestamp: timestamp,
-      data_type: :weather,
-      raw_weather_data: weather_data
-    }
-
-    # Add non-nil weather values to result
-    Enum.reduce(weather_values, result, fn {key, value}, acc ->
-      if is_nil(value), do: acc, else: Map.put(acc, key, value)
-    end)
-  end
-
-  # Telemetry parsing
-  def parse_telemetry(<<"T#", rest::binary>>) do
-    case String.split(rest, ",") do
-      [seq | [_ | _] = values] ->
-        analog_values = Enum.take(values, 5)
-        digital_values = values |> Enum.drop(5) |> Enum.take(8)
-
-        %{
-          sequence_number: Parser.TelemetryHelpers.parse_telemetry_sequence(seq),
-          analog_values: Parser.TelemetryHelpers.parse_analog_values(analog_values),
-          digital_values: Parser.TelemetryHelpers.parse_digital_values(digital_values),
-          data_type: :telemetry,
-          raw_data: rest
-        }
-
-      _ ->
-        %{
-          raw_data: rest,
-          data_type: :telemetry
-        }
-    end
-  end
-
-  # Handle telemetry parameter definitions (PARM)
-  def parse_telemetry(<<":PARM.", rest::binary>>) do
-    %{
-      data_type: :telemetry_parameters,
-      parameter_names: String.split(rest, ",", trim: true),
-      raw_data: rest
-    }
-  end
-
-  # Handle telemetry equation definitions (EQNS)
-  def parse_telemetry(<<":EQNS.", rest::binary>>) do
-    equations =
-      rest
-      |> String.split(",", trim: true)
-      |> Enum.chunk_every(3)
-      |> Enum.map(fn [a, b, c] ->
-        %{
-          a: Parser.TelemetryHelpers.parse_coefficient(a),
-          b: Parser.TelemetryHelpers.parse_coefficient(b),
-          c: Parser.TelemetryHelpers.parse_coefficient(c)
-        }
-      end)
-
-    %{
-      data_type: :telemetry_equations,
-      equations: equations,
-      raw_data: rest
-    }
-  end
-
-  # Handle telemetry unit definitions (UNIT)
-  def parse_telemetry(<<":UNIT.", rest::binary>>) do
-    %{
-      data_type: :telemetry_units,
-      units: String.split(rest, ",", trim: true),
-      raw_data: rest
-    }
-  end
-
-  # Handle telemetry bit sense definitions (BITS)
-  def parse_telemetry(<<":BITS.", rest::binary>>) do
-    case String.split(rest, ",", trim: true) do
-      [bits_sense | project_names] ->
-        %{
-          data_type: :telemetry_bits,
-          bits_sense: String.to_charlist(bits_sense),
-          project_names: project_names,
-          raw_data: rest
-        }
-
-      [] ->
-        %{
-          data_type: :telemetry_bits,
-          bits_sense: [],
-          project_names: [],
-          raw_data: rest
-        }
-    end
-  end
-
-  @spec parse_telemetry(String.t()) :: map()
-  def parse_telemetry(data) do
-    %{
-      raw_data: data,
-      data_type: :telemetry
-    }
-  end
-
   # Station Capabilities parsing
   def parse_station_capabilities(<<"<", capabilities::binary>>) do
     %{
@@ -1243,26 +947,6 @@ defmodule Parser do
       _ ->
         {:ok, parsed_packet}
     end
-  end
-
-  # PHG Data parsing (Power, Height, Gain, Directivity)
-  def parse_phg_data(<<"#", rest::binary>>) do
-    parse_phg_data(rest)
-  end
-
-  def parse_phg_data(<<"PHG", p, h, g, d, rest::binary>>) do
-    %{
-      power: Parser.PHGHelpers.parse_phg_power(p),
-      height: Parser.PHGHelpers.parse_phg_height(h),
-      gain: Parser.PHGHelpers.parse_phg_gain(g),
-      directivity: Parser.PHGHelpers.parse_phg_directivity(d),
-      comment: rest,
-      data_type: :phg_data
-    }
-  end
-
-  def parse_phg_data(data) do
-    %{raw_data: data, data_type: :phg_data}
   end
 
   # Add DAO (Datum) extension support

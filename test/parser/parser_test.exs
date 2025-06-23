@@ -189,10 +189,11 @@ defmodule ParserTest do
       assert result[:data_type] == :df_report
     end
 
-    test "returns map for phg_data" do
+    test "returns struct for phg_data" do
       result = Parser.parse_data(:phg_data, "", "#PHG1234rest")
-      assert is_map(result)
-      assert result[:data_type] == :phg_data
+      assert match?(%Parser.Types.ParseError{}, result)
+      assert result.error_code == :not_implemented
+      assert result.error_message == "PHG/DFS parsing not yet implemented"
     end
 
     test "extracts coordinates from timestamped position with weather packet" do
