@@ -1,5 +1,6 @@
 ---
-description:
-globs:
-alwaysApply: false
+description: 
+globs: 
+alwaysApply: true
 ---
+This is an elixir & phoenix project that uses esbuild and as much liveview as possible. Do not directly try to interact with npm. Ensure liveview is used as much as possible to minimize javascript. When writing or changing code, ensure the tests still pass and you did not break other parts of the code by running "mix test".
