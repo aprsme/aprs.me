@@ -62,5 +62,5 @@ defmodule Parser.Object do
     )
   end
 
-  def parse(_data), do: %{raw_type: :object}
+  def parse(data), do: %{data_type: :object, raw_
 end
