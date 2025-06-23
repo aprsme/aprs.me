@@ -221,7 +221,7 @@ defmodule Aprs.ArchiverTest do
       result = Archiver.start_link([])
       assert match?({:ok, _pid}, result) or match?({:error, _reason}, result)
 
-      if match?({:ok, pid}, result) do
+      if match?({:ok, _pid}, result) do
         GenServer.stop(elem(result, 1))
       end
     end
