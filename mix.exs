@@ -11,7 +11,8 @@ defmodule Aprs.MixProject do
       aliases: aliases(),
       deps: deps(),
       releases: releases(),
-      test_coverage: [tool: ExCoveralls]
+      test_coverage: [tool: ExCoveralls],
+      listeners: [Phoenix.CodeReloader]
     ]
   end
 
@@ -59,7 +60,7 @@ defmodule Aprs.MixProject do
       {:jason, "~> 1.2"},
       {:libcluster, "~> 3.3"},
       {:oban, "~> 2.11"},
-      {:phoenix, "~> 1.7.0-rc.2", override: true},
+      {:phoenix, "~> 1.8.0-rc.3", override: true},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 4.0"},
       {:phoenix_live_dashboard, "~> 0.8"},
