@@ -124,10 +124,10 @@ defmodule Aprs.BadPacketTest do
 
     test "default limit is 100" do
       # Test that default limit is applied correctly
-      _query = BadPacket.recent()
+      query = BadPacket.recent()
 
       # Check the query structure contains limit
-      _query = BadPacket.recent()
+      query = BadPacket.recent()
       result = Repo.all(query)
       # Verify the query works and the default limit is reasonable
       assert is_struct(query, Ecto.Query)
