@@ -3,11 +3,6 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
 
   import Phoenix.LiveViewTest
 
-  # Helper functions for mocking
-  defp expect_packets_for_replay(packets) do
-    Mox.expect(PacketsMock, :get_packets_for_replay, fn _opts -> packets end)
-  end
-
   defp expect_packets_for_replay_with_bounds(packets) do
     Mox.expect(PacketsMock, :get_packets_for_replay, fn _opts -> packets end)
   end
