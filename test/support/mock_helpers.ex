@@ -7,9 +7,10 @@ defmodule Aprs.MockHelpers do
   alias Aprs.Packets
 
   def stub_packets_mock do
-    Mox.defmock(PacketsMock, for: Packets)
+    Mox.defmock(PacketsMock, for: Aprs.PacketsBehaviour)
 
-    Mox.stub_with(PacketsMock, PacketsStub)
+    Mox.stub(PacketsMock, :get_historical_packet_count, fn _opts -> 0 end)
+    Mox.stub(PacketsMock, :stream_packets_for_replay, fn _opts -> [] end)
   end
 
   def stub_badpackets_mock do
