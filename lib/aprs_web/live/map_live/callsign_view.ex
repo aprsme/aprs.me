@@ -761,13 +761,13 @@ defmodule AprsWeb.MapLive.CallsignView do
             packet_id =
               "hist_#{if Map.has_key?(packet, :id), do: packet.id, else: System.unique_integer([:positive])}_#{index}"
 
-            is_most_recent = index == 0
+            _is_most_recent = index == 0
             callsign = socket.assigns.callsign
 
             packet_data
             |> Map.put("id", packet_id)
             |> Map.put("is_historical", true)
-            |> Map.put("is_most_recent_for_callsign", is_most_recent)
+            |> Map.put("is_most_recent_for_callsign", false)
             |> Map.put("callsign_group", callsign)
             |> Map.put(
               "timestamp",
@@ -786,24 +786,14 @@ defmodule AprsWeb.MapLive.CallsignView do
       end)
       |> Enum.filter(& &1)
 
-    # Check if the latest_packet is present in the historical trail
-    latest_packet_id =
-      if latest_packet do
-        PacketUtils.generate_callsign(latest_packet)
-      end
-
-    historical_callsigns = MapSet.new(unique_position_packets, &PacketUtils.generate_callsign/1)
-
+    # Always push the latest position as a live marker (not historical)
     {socket, latest_marker_pushed} =
-      if latest_packet && !MapSet.member?(historical_callsigns, latest_packet_id) do
-        # Push the latest marker as a regular marker (not historical)
+      if latest_packet do
         packet_data = PacketUtils.build_packet_data(latest_packet, true)
 
-        if packet_data do
-          {push_event(socket, "new_packet", packet_data), true}
-        else
-          {socket, false}
-        end
+        if packet_data,
+          do: {push_event(socket, "new_packet", packet_data), true},
+          else: {socket, false}
       else
         {socket, false}
       end
@@ -814,11 +804,29 @@ defmodule AprsWeb.MapLive.CallsignView do
     else
       # Clear any previous historical packets from the map
       socket = push_event(socket, "clear_historical_packets", %{})
-      # Send all historical packets at once
-      socket = push_event(socket, "add_historical_packets", %{packets: packet_data_list})
+      # Send all historical packets at once (excluding the latest position)
+      # Remove the latest position from the trail if it matches latest_packet
+      filtered_trail =
+        case latest_packet do
+          nil ->
+            packet_data_list
+
+          _ ->
+            latest_latlon =
+              latest_packet |> MapHelpers.get_coordinates() |> Tuple.to_list() |> Enum.take(2)
+
+            Enum.reject(packet_data_list, fn pd ->
+              pd_latlon = [pd["lat"], pd["lng"]]
+
+              abs(Enum.at(pd_latlon, 0) - Enum.at(latest_latlon, 0)) < 0.00001 and
+                abs(Enum.at(pd_latlon, 1) - Enum.at(latest_latlon, 1)) < 0.00001
+            end)
+        end
+
+      socket = push_event(socket, "add_historical_packets", %{packets: filtered_trail})
       # Store historical packets in assigns for reference
       historical_packets_map =
-        packet_data_list
+        filtered_trail
         |> Enum.zip(unique_position_packets)
         |> Enum.reduce(%{}, fn {packet_data, packet}, acc ->
           Map.put(acc, packet_data["id"], packet)

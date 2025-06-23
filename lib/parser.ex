@@ -318,6 +318,9 @@ defmodule Parser do
   def parse_data(:station_capabilities, _destination, data), do: parse_station_capabilities(data)
   def parse_data(:query, _destination, data), do: parse_query(data)
 
+  # Catch-all for unknown or unsupported types
+  def parse_data(_type, _destination, _data), do: nil
+
   defp add_has_location(result) do
     Map.put(
       result,
