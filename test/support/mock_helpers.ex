@@ -4,10 +4,12 @@ defmodule Aprs.MockHelpers do
   """
 
   alias Aprs.BadPacket
-  alias Aprs.Packets
 
   def stub_packets_mock do
-    Mox.defmock(PacketsMock, for: Aprs.PacketsBehaviour)
+    # Only define the mock if it doesn't already exist
+    if !Code.ensure_loaded?(PacketsMock) do
+      Mox.defmock(PacketsMock, for: Aprs.PacketsBehaviour)
+    end
 
     Mox.stub(PacketsMock, :get_historical_packet_count, fn _opts -> 0 end)
     Mox.stub(PacketsMock, :stream_packets_for_replay, fn _opts -> [] end)
@@ -18,7 +20,9 @@ defmodule Aprs.MockHelpers do
   end
 
   def stub_badpackets_mock do
-    Mox.defmock(BadPacketsMock, for: BadPacket)
+    if !Code.ensure_loaded?(BadPacketsMock) do
+      Mox.defmock(BadPacketsMock, for: BadPacket)
+    end
 
     Mox.stub_with(BadPacketsMock, BadPacketsStub)
   end
