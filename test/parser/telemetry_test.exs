@@ -54,6 +54,22 @@ defmodule Parser.TelemetryTest do
       assert result[:project_names] == ["foo", "bar"]
     end
 
+    test "parses empty :BITS. string" do
+      result = Telemetry.parse(":BITS.")
+
+      assert result == %{
+               data_type: :telemetry_bits,
+               bits_sense: [],
+               project_names: [],
+               raw_data: ""
+             }
+    end
+
+    test "parses T# telemetry string with only sequence number" do
+      result = Telemetry.parse("T#123")
+      assert result == %{raw_data: "123", data_type: :telemetry}
+    end
+
     test "parses :BITS. with no project names" do
       result = Telemetry.parse(":BITS.101010")
       assert result[:data_type] == :telemetry_bits
