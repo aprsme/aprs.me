@@ -58,7 +58,7 @@ defmodule AprsWeb.Integration.AprsStatusTest do
       case live(conn, "/status") do
         {:ok, view, html} ->
           # If status page exists, verify it handles disconnected state
-          assert html =~ "STATUS"
+          assert html =~ "System Status"
 
           # Should show disconnected state information
           assert has_element?(view, "[data-testid='connection-status']") ||
