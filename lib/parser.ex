@@ -2,7 +2,6 @@ defmodule Parser do
   @moduledoc """
   Main parsing library
   """
-  # import Bitwise
   alias Aprs.Convert
   alias Parser.MicE
 
@@ -711,10 +710,7 @@ defmodule Parser do
   def parse_object(<<";", object_name::binary-size(9), live_killed::binary-size(1), rest::binary>>) do
     position_data =
       case rest do
-        # Uncompressed position format
-  def parse_object(
-        <<";", object_name::binary-size(9), live_killed::binary-size(1), rest::binary>>
-      ) do
+        <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
           comment::binary>> ->
           %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
 
@@ -727,7 +723,6 @@ defmodule Parser do
             position_format: :uncompressed
           }
 
-        # Compressed position format
         <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
           cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
           try do
