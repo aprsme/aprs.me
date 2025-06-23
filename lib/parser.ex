@@ -1177,6 +1177,7 @@ defmodule Parser do
       {:error, reason} ->
         {:error, "Invalid callsign: #{reason}"}
     end
+  end
 
   defp extract_ssid(nil), do: nil
 
