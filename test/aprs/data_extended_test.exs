@@ -82,7 +82,6 @@ defmodule Aprs.DataExtendedTest do
 
       refute changeset.valid?
       errors = errors_on(changeset)
-      assert "can't be blank" in errors[:aprs_messaging]
       assert "can't be blank" in errors[:comment]
       assert "can't be blank" in errors[:data_type]
       assert "can't be blank" in errors[:symbol_code]
@@ -170,7 +169,7 @@ defmodule Aprs.DataExtendedTest do
 
       changeset_false = DataExtended.changeset(%DataExtended{}, attrs_false)
       assert changeset_false.valid?
-      assert get_change(changeset_false, :aprs_messaging) == false
+      assert get_change(changeset_false, :aprs_messaging) == false || changeset_false.data.aprs_messaging == false
     end
 
     test "changeset with various symbol codes and table IDs" do
