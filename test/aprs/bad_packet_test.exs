@@ -124,6 +124,7 @@ defmodule Aprs.BadPacketTest do
 
     test "default limit is 100" do
       # Test that default limit is applied correctly
+      query = BadPacket.recent()
       _query = BadPacket.recent()
 
       # Check the query structure contains limit
