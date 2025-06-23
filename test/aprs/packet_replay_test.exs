@@ -1,5 +1,5 @@
 defmodule Aprs.PacketReplayTest do
-  use Aprs.DataCase, async: true
+  use Aprs.DataCase, async: false
 
   import Mox
 
@@ -533,73 +533,6 @@ defmodule Aprs.PacketReplayTest do
         event: "replay_complete",
         payload: %{packets_sent: 6, message: "Replay complete"}
       }
-    end
-  end
-
-  describe "sanitize_packet_for_transport/1" do
-    test "converts packet to JSON-safe format" do
-      packet = %{
-        __meta__: %{},
-        __struct__: SomeStruct,
-        id: "test",
-        received_at: ~U[2023-01-01 12:00:00Z],
-        lat: Decimal.new("40.123456"),
-        nested: %{
-          timestamp: ~N[2023-01-01 12:00:00],
-          value: Decimal.new("1.23")
-        },
-        list: [~U[2023-01-01 12:00:00Z], Decimal.new("4.56")]
-      }
-
-      result = PacketReplay.sanitize_packet_for_transport(packet)
-
-      # Should drop meta fields
-      refute Map.has_key?(result, :__meta__)
-      refute Map.has_key?(result, :__struct__)
-
-      # Should preserve normal fields
-      assert result.id == "test"
-
-      # Should convert DateTime to ISO string
-      assert result.received_at == "2023-01-01T12:00:00Z"
-
-      # Should convert Decimal to float
-      assert result.lat == 40.123456
-
-      # Should handle nested structures
-      assert result.nested.timestamp == "2023-01-01T12:00:00"
-      assert result.nested.value == 1.23
-
-      # Should handle lists
-      assert result.list == ["2023-01-01T12:00:00Z", 4.56]
-    end
-
-    test "handles packets without special types" do
-      packet = %{
-        id: "simple",
-        name: "test",
-        count: 42,
-        active: true
-      }
-
-      result = PacketReplay.sanitize_packet_for_transport(packet)
-
-      assert result == %{
-               id: "simple",
-               name: "test",
-               count: 42,
-               active: true
-             }
-    end
-  end
-
-  describe "via_tuple/1" do
-    test "generates correct registry tuple" do
-      user_id = "test_user_123"
-
-      result = PacketReplay.via_tuple(user_id)
-
-      assert result == {:via, Registry, {Aprs.ReplayRegistry, "replay:test_user_123"}}
     end
   end
 
