@@ -712,7 +712,9 @@ defmodule Parser do
     position_data =
       case rest do
         # Uncompressed position format
-        <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
+  def parse_object(
+        <<";", object_name::binary-size(9), live_killed::binary-size(1), rest::binary>>
+      ) do
           comment::binary>> ->
           %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
 
