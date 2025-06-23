@@ -19,7 +19,6 @@ defmodule Aprs.Workers.PacketCleanupWorker do
   # Import modules needed for database operations
 
   alias Aprs.Packet
-  alias Aprs.Packets
   alias Aprs.Repo
 
   require Logger
@@ -33,7 +32,7 @@ defmodule Aprs.Workers.PacketCleanupWorker do
     _total_before = count_total_packets()
 
     # Perform the cleanup of old packets with custom age
-    deleted_count = Packets.clean_packets_older_than(days)
+    deleted_count = packets_module().clean_packets_older_than(days)
 
     # Log results
     Logger.info("APRS packet cleanup complete: removed #{deleted_count} packets older than #{days} days")
@@ -54,6 +53,7 @@ defmodule Aprs.Workers.PacketCleanupWorker do
 
     # Log results
     retention_days = Application.get_env(:aprs, :packet_retention_days, 365)
+
     Logger.info("APRS packet cleanup complete: removed #{deleted_count} packets older than #{retention_days} days")
 
     # Return success
@@ -66,7 +66,7 @@ defmodule Aprs.Workers.PacketCleanupWorker do
 
   defp cleanup_old_packets do
     # Use the existing function from Packets context
-    Packets.clean_old_packets()
+    packets_module().clean_old_packets()
   end
 
   @doc """
@@ -84,10 +84,14 @@ defmodule Aprs.Workers.PacketCleanupWorker do
   def cleanup_packets_older_than(days) when is_integer(days) and days > 0 do
     Logger.info("Starting APRS packet cleanup for packets older than #{days} days")
 
-    deleted_count = Packets.clean_packets_older_than(days)
+    deleted_count = packets_module().clean_packets_older_than(days)
 
     Logger.info("APRS packet cleanup complete: removed #{deleted_count} packets older than #{days} days")
 
     deleted_count
+  end
+
+  defp packets_module do
+    Application.get_env(:aprs, :packets_module, Aprs.Packets)
   end
 end

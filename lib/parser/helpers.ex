@@ -108,17 +108,21 @@ defmodule Parser.Helpers do
   def parse_df_strength(s), do: {nil, "Unknown strength: #{<<s>>}"}
 
   # Compressed position helpers
-  @spec convert_compressed_lat(binary()) :: float()
-  def convert_compressed_lat(lat) do
+  @spec convert_compressed_lat(binary()) :: {:ok, float()} | {:error, String.t()}
+  def convert_compressed_lat(lat) when is_binary(lat) and byte_size(lat) == 4 do
     [l1, l2, l3, l4] = to_charlist(lat)
-    90 - ((l1 - 33) * 91 ** 3 + (l2 - 33) * 91 ** 2 + (l3 - 33) * 91 + l4 - 33) / 380_926
+    {:ok, 90 - ((l1 - 33) * 91 ** 3 + (l2 - 33) * 91 ** 2 + (l3 - 33) * 91 + l4 - 33) / 380_926}
   end
 
-  @spec convert_compressed_lon(binary()) :: float()
-  def convert_compressed_lon(lon) do
+  def convert_compressed_lat(_), do: {:error, "Invalid compressed latitude"}
+
+  @spec convert_compressed_lon(binary()) :: {:ok, float()} | {:error, String.t()}
+  def convert_compressed_lon(lon) when is_binary(lon) and byte_size(lon) == 4 do
     [l1, l2, l3, l4] = to_charlist(lon)
-    -180 + ((l1 - 33) * 91 ** 3 + (l2 - 33) * 91 ** 2 + (l3 - 33) * 91 + l4 - 33) / 190_463
+    {:ok, -180 + ((l1 - 33) * 91 ** 3 + (l2 - 33) * 91 ** 2 + (l3 - 33) * 91 + l4 - 33) / 190_463}
   end
+
+  def convert_compressed_lon(_), do: {:error, "Invalid compressed longitude"}
 
   # PEET Logging parsing
   @spec parse_peet_logging(binary()) :: map()

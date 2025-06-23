@@ -275,6 +275,7 @@ defmodule Aprs.Packets do
       * `:limit` - Maximum number of packets to return
       * `:page` - Page number for pagination
   """
+  @impl true
   def get_packets_for_replay(opts \\ %{}) do
     base_query = from(p in Packet, order_by: [asc: p.received_at], where: p.has_position == true)
 
@@ -293,6 +294,7 @@ defmodule Aprs.Packets do
   @doc """
   Gets historical packet count for a map area.
   """
+  @impl true
   @spec get_historical_packet_count(map()) :: non_neg_integer()
   def get_historical_packet_count(opts \\ %{}) do
     base_query = from(p in Packet, select: count(p.id), where: p.has_position == true)
@@ -343,6 +345,7 @@ defmodule Aprs.Packets do
   Gets recent packets for the map view.
   This is used for initial map loading to show only recent packets.
   """
+  @impl true
   @spec get_recent_packets(map()) :: [struct()]
   def get_recent_packets(opts \\ %{}) do
     # Always limit to the last hour
@@ -367,6 +370,7 @@ defmodule Aprs.Packets do
   ## Returns
     * Stream of packets with timing information
   """
+  @impl true
   def stream_packets_for_replay(opts \\ %{}) do
     packets = get_packets_for_replay(opts)
     playback_speed = Map.get(opts, :playback_speed, 1.0)
@@ -440,6 +444,7 @@ defmodule Aprs.Packets do
   - Default retention is 365 days (1 year) (configurable via :packet_retention_days)
   - Returns the number of packets deleted
   """
+  @impl true
   def clean_old_packets do
     retention_days = Application.get_env(:aprs, :packet_retention_days, 365)
     cutoff_time = DateTime.add(DateTime.utc_now(), -retention_days * 86_400, :second)
@@ -463,6 +468,7 @@ defmodule Aprs.Packets do
   ## Returns
   - Number of packets deleted
   """
+  @impl true
   @spec clean_packets_older_than(pos_integer()) :: non_neg_integer()
   def clean_packets_older_than(days) when is_integer(days) and days > 0 do
     cutoff_time = DateTime.add(DateTime.utc_now(), -days * 86_400, :second)
