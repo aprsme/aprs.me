@@ -28,21 +28,22 @@ defmodule Aprs.Packets do
         |> normalize_packet_attrs()
         |> set_received_at()
         |> patch_lat_lon_from_data_extended()
-        |> (fn attrs ->
+        |> then(fn attrs ->
           {lat, lon} = extract_position(attrs)
           set_lat_lon(attrs, lat, lon)
-        end).()
+        end)
         |> normalize_ssid()
-        |> (fn attrs ->
+        |> then(fn attrs ->
           device_identifier = Parser.DeviceParser.extract_device_identifier(packet_data)
           matched_device = Aprs.DeviceIdentification.lookup_device_by_identifier(device_identifier)
           canonical_identifier = if matched_device, do: matched_device.identifier, else: device_identifier
           Map.put(attrs, :device_identifier, canonical_identifier)
-        end).()
+        end)
         |> sanitize_packet_strings()
+
       # require Logger
       # Logger.debug("Sanitized packet_attrs before insert: #{inspect(packet_attrs)}")
-      packet_attrs = Enum.into(packet_attrs, %{}, fn {k, v} -> {k, sanitize_packet_strings(v)} end)
+      packet_attrs = Map.new(packet_attrs, fn {k, v} -> {k, sanitize_packet_strings(v)} end)
       insert_packet(packet_attrs, packet_data)
     rescue
       error ->
@@ -530,10 +531,12 @@ defmodule Aprs.Packets do
   defp sanitize_packet_strings(%NaiveDateTime{} = ndt), do: ndt
   defp sanitize_packet_strings(%_struct{} = struct), do: struct |> Map.from_struct() |> sanitize_packet_strings()
   defp sanitize_packet_strings(list) when is_list(list), do: Enum.map(list, &sanitize_packet_strings/1)
+
   defp sanitize_packet_strings(binary) when is_binary(binary) do
     s = Aprs.EncodingUtils.sanitize_string(binary)
     if is_binary(s), do: s, else: ""
   end
+
   defp sanitize_packet_strings(other), do: other
 
   # Get packets from last hour only - used to initialize the map

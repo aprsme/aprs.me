@@ -58,10 +58,12 @@ defmodule AprsWeb.PacketsLive.CallsignView do
     # Handle incoming live packets - only process if they match our callsign
     if packet_matches_callsign?(payload, socket.assigns.callsign) do
       sanitized_payload = EncodingUtils.sanitize_packet(payload)
+
       device_identifier =
         Map.get(sanitized_payload, :device_identifier) ||
-        Map.get(sanitized_payload, "device_identifier") ||
-        DeviceParser.extract_device_identifier(sanitized_payload)
+          Map.get(sanitized_payload, "device_identifier") ||
+          DeviceParser.extract_device_identifier(sanitized_payload)
+
       canonical_identifier =
         if is_binary(device_identifier) do
           matched_device = Aprs.DeviceIdentification.lookup_device_by_identifier(device_identifier)
@@ -69,6 +71,7 @@ defmodule AprsWeb.PacketsLive.CallsignView do
         else
           device_identifier
         end
+
       sanitized_payload = Map.put(sanitized_payload, :device_identifier, canonical_identifier)
       # Enrich with model/vendor
       enriched_payload = enrich_packet_with_device_info(sanitized_payload)
@@ -205,9 +208,10 @@ defmodule AprsWeb.PacketsLive.CallsignView do
 
   defp enrich_packet_with_device_info(packet) do
     device_identifier = Map.get(packet, :device_identifier) || Map.get(packet, "device_identifier")
-    device = if is_binary(device_identifier), do: Aprs.DeviceIdentification.lookup_device_by_identifier(device_identifier), else: nil
-    model = if device, do: device.model, else: nil
-    vendor = if device, do: device.vendor, else: nil
+    device = if is_binary(device_identifier), do: Aprs.DeviceIdentification.lookup_device_by_identifier(device_identifier)
+    model = if device, do: device.model
+    vendor = if device, do: device.vendor
+
     packet
     |> Map.put(:device_model, model)
     |> Map.put(:device_vendor, vendor)

@@ -1,8 +1,11 @@
 defmodule Aprs.DeviceIdentificationTest do
   use Aprs.DataCase, async: false
 
-  alias Aprs.DeviceIdentification
   import DevicesSeeder
+
+  alias Aprs.DeviceIdentification
+
+  doctest Aprs.DeviceIdentification
 
   describe "identify_device/1" do
     test "identifies Original MIC-E devices" do
@@ -100,6 +103,18 @@ defmodule Aprs.DeviceIdentificationTest do
       found = Aprs.DeviceIdentification.lookup_device_by_identifier("APSK21")
       assert found != nil
       assert found.identifier == "APS???"
+      assert found.model != nil
+      assert found.vendor != nil
+    end
+
+    test "matches Mic-E device identifier from raw packet" do
+      # Seed the devices table from the JSON
+      seed_from_json()
+
+      # The device identifier extracted from the raw packet is "]="
+      found = Aprs.DeviceIdentification.lookup_device_by_identifier("]=")
+      assert found != nil
+      assert found.identifier == "]="
       assert found.model != nil
       assert found.vendor != nil
     end

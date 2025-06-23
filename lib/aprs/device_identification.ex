@@ -3,6 +3,11 @@ defmodule Aprs.DeviceIdentification do
   Handles APRS device identification based on the APRS device identification database.
   """
 
+  import Ecto.Query
+
+  alias Aprs.Devices
+  alias Aprs.Repo
+
   @device_patterns [
     {~r/^ \x00\x00$/, "Original MIC-E"},
     {~r/^>\x00\^$/, "Kenwood TH-D74"},
@@ -33,6 +38,17 @@ defmodule Aprs.DeviceIdentification do
   @doc """
   Identifies the manufacturer and model of an APRS device based on its symbol pattern.
   Returns a tuple of {manufacturer, model} or "Unknown" if the device cannot be identified.
+
+  ## Examples
+
+      iex> Aprs.DeviceIdentification.identify_device(">" <> <<0>> <> "^")
+      "Kenwood TH-D74"
+
+      iex> Aprs.DeviceIdentification.identify_device("`_#")
+      "Yaesu VX-8G"
+
+      iex> Aprs.DeviceIdentification.identify_device("not-a-match")
+      "Unknown"
   """
   @spec identify_device(String.t()) :: String.t()
   def identify_device(symbols) do
@@ -45,6 +61,14 @@ defmodule Aprs.DeviceIdentification do
 
   @doc """
   Returns a list of all known device manufacturers.
+
+  ## Examples
+
+      iex> "Kenwood" in Aprs.DeviceIdentification.known_manufacturers()
+      true
+
+      iex> Enum.member?(Aprs.DeviceIdentification.known_manufacturers(), "AP510")
+      true
   """
   @spec known_manufacturers() :: [String.t()]
   def known_manufacturers do
@@ -66,6 +90,14 @@ defmodule Aprs.DeviceIdentification do
 
   @doc """
   Returns a list of all known device models for a given manufacturer.
+
+  ## Examples
+
+      iex> Aprs.DeviceIdentification.known_models("Kenwood")
+      ["TH-D74", "TH-D74A", "DM-710", "DM-700"]
+
+      iex> Aprs.DeviceIdentification.known_models("Unknown")
+      []
   """
   @spec known_models(String.t()) :: [String.t()]
   def known_models("Kenwood"), do: ["TH-D74", "TH-D74A", "DM-710", "DM-700"]
@@ -76,20 +108,19 @@ defmodule Aprs.DeviceIdentification do
   def known_models("SCS GmbH & Co."), do: ["P4dragon DR-7400 modems", "P4dragon DR-7800 modems"]
   def known_models(_), do: []
 
-  alias Aprs.{Devices, Repo}
-  import Ecto.Query
-
   @url "https://aprs-deviceid.aprsfoundation.org/tocalls.dense.json"
   @week_seconds 7 * 24 * 60 * 60
 
   def maybe_refresh_devices do
     last = Repo.one(from d in Devices, order_by: [desc: d.updated_at], limit: 1)
+
     last_time =
       case last && last.updated_at do
         %NaiveDateTime{} = naive -> DateTime.from_naive!(naive, "Etc/UTC")
         %DateTime{} = dt -> dt
         _ -> nil
       end
+
     if last == nil or (last_time && DateTime.diff(DateTime.utc_now(), last_time) > @week_seconds) do
       fetch_and_upsert_devices()
     else
@@ -99,10 +130,12 @@ defmodule Aprs.DeviceIdentification do
 
   def fetch_and_upsert_devices do
     req = Finch.build(:get, @url)
+
     case Finch.request(req, Aprs.Finch) do
       {:ok, %Finch.Response{status: 200, body: body}} ->
         {:ok, json} = Jason.decode(body)
         upsert_devices(json)
+
       err ->
         err
     end
@@ -116,6 +149,7 @@ defmodule Aprs.DeviceIdentification do
 
     Repo.transaction(fn ->
       Repo.delete_all(Devices)
+
       Enum.each([tocalls, mice, micelegacy], fn group ->
         Enum.each(group, fn {identifier, attrs} ->
           attrs =
@@ -125,10 +159,12 @@ defmodule Aprs.DeviceIdentification do
               if is_list(f), do: f, else: [f]
             end)
             |> Map.put("updated_at", now)
+
           %Devices{} |> Devices.changeset(attrs) |> Repo.insert!()
         end)
       end)
     end)
+
     :ok
   end
 
@@ -140,12 +176,16 @@ defmodule Aprs.DeviceIdentification do
   @doc """
   Looks up a device by identifier, using ? as a single-character wildcard.
   Returns the device struct if found, or nil.
+
+  Note: This function requires the devices table to be seeded and a running Repo context.
   """
   def lookup_device_by_identifier(identifier) when is_binary(identifier) do
     # Fetch all device patterns from DB
     devices = Repo.all(Devices)
+
     Enum.find(devices, fn device ->
       pattern = device.identifier
+
       cond do
         String.contains?(pattern, "?") ->
           try do
@@ -155,9 +195,11 @@ defmodule Aprs.DeviceIdentification do
             _e in Regex.CompileError ->
               false
           end
+
         String.contains?(pattern, "*") ->
           # Compare literally if pattern contains * but not ?
           pattern == identifier
+
         true ->
           pattern == identifier
       end
@@ -177,6 +219,7 @@ defmodule Aprs.DeviceIdentification do
 end
 
 defmodule Aprs.DeviceIdentification.Worker do
+  @moduledoc false
   use Oban.Worker, queue: :default, max_attempts: 1
 
   @impl true

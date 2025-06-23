@@ -1,9 +1,9 @@
 # test/support/devices_seeder.exs
-
-alias Aprs.Repo
 alias Aprs.Devices
+alias Aprs.Repo
 
 defmodule DevicesSeeder do
+  @moduledoc false
   def seed_from_json(path \\ "test/support/test_devices.json") do
     {:ok, body} = File.read(path)
     {:ok, json} = Jason.decode(body)
@@ -14,8 +14,7 @@ defmodule DevicesSeeder do
 
     Repo.delete_all(Devices)
 
-    [tocalls, mice, micelegacy]
-    |> Enum.each(fn group ->
+    Enum.each([tocalls, mice, micelegacy], fn group ->
       Enum.each(group, fn {identifier, attrs} ->
         attrs =
           attrs
@@ -24,6 +23,7 @@ defmodule DevicesSeeder do
             if is_list(f), do: f, else: [f]
           end)
           |> Map.put("updated_at", now)
+
         %Devices{}
         |> Devices.changeset(attrs)
         |> Ecto.Changeset.apply_changes()

@@ -1,5 +1,7 @@
 defmodule Aprs.Devices do
+  @moduledoc false
   use Ecto.Schema
+
   import Ecto.Changeset
 
   schema "devices" do
