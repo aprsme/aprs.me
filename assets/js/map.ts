@@ -1035,6 +1035,72 @@ let MapAPRSMap = {
   },
 
   createMarkerIcon(data: MarkerData): L.DivIcon {
+    const self = this as unknown as LiveViewHookContext;
+    // If this is the most recent for the callsign, always show the APRS icon
+    if (data.is_most_recent_for_callsign) {
+      // Remove any historical dot at the same position for this callsign
+      if (self.markers && self.markerStates) {
+        self.markers.forEach((marker: any, id: string) => {
+          const state = self.markerStates!.get(String(id));
+          if (
+            state &&
+            state.historical &&
+            state.callsign_group === data.callsign_group &&
+            Math.abs(state.lat - data.lat) < 0.00001 &&
+            Math.abs(state.lng - data.lng) < 0.00001
+          ) {
+            self.removeMarkerWithoutTrail(id);
+          }
+        });
+      }
+      // For current packets or most recent historical packets, show the full APRS symbol icon
+      const symbolTableId = data.symbol_table_id || "/";
+      const symbolCode = getValidSymbolCode(data.symbol_code, symbolTableId);
+
+      // Map symbol table identifier to correct table index per hessu/aprs-symbols
+      // Primary table: / (0)
+      // Alternate table: \ (1)
+      // Overlay table: ] (2)
+      // Any other character is treated as alternate table (1)
+      const tableMap: Record<string, string> = {
+        "/": "0", // Primary table
+        "\\": "1", // Alternate table
+        "]": "2", // Overlay table
+      };
+      const tableId = symbolTableId === "/" ? "0" : symbolTableId === "]" ? "2" : "1";
+      const spriteFile = `/aprs-symbols/aprs-symbols-128-${tableId}@2x.png`;
+
+      // Calculate sprite position per hessu/aprs-symbols
+      const charCode = symbolCode.charCodeAt(0);
+      const index = charCode - 33; // ASCII printable characters start at 33 (!)
+      // Clamp to valid range (0-93 for printable ASCII 33-126)
+      const safeIndex = Math.max(0, Math.min(index, 93));
+      const column = safeIndex % 16;
+      const row = Math.floor(safeIndex / 16);
+      const x = -column * 128;
+      const y = -row * 128;
+
+      // Create the HTML string directly to ensure proper style application
+      const iconHtml = `<div style="
+        width: 32px;
+        height: 32px;
+        background-image: url(${spriteFile});
+        background-position: ${x / 4}px ${y / 4}px;
+        background-size: 512px 192px;
+        background-repeat: no-repeat;
+        image-rendering: pixelated;
+        opacity: 1.0;
+        overflow: hidden;
+      " data-symbol-table="${symbolTableId}" data-symbol-code="${symbolCode}" data-sprite-position="${x},${y}" data-expected-index="${index}" title="Symbol: ${symbolCode} (${charCode}) at row ${row}, col ${column}"></div>`;
+
+      return L.divIcon({
+        html: iconHtml,
+        className: "",
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+    }
+
     // For historical packets that are not the most recent for their callsign,
     // show a simple red dot (only positions where lat/lon actually changed)
     if (data.historical && !data.is_most_recent_for_callsign) {
