@@ -43,6 +43,7 @@
         alt="APRS symbol"
       />
     <% end %>
+    <.link navigate={~p"/packets/#{@callsign}"} class="ml-2 text-sm text-blue-600 hover:underline">View packets</.link>
   </h1>
   <%= if @packet do %>
     <div class="text-sm text-gray-500 mb-6">

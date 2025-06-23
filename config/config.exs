@@ -33,7 +33,8 @@ config :aprs, Oban,
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     {Oban.Plugins.Cron,
      crontab: [
-       {"0 0 * * *", Aprs.Workers.PacketCleanupWorker}
+       {"0 0 * * *", Aprs.Workers.PacketCleanupWorker},
+       {"0 3 * * 1", Aprs.DeviceIdentification.Worker}
      ]}
   ],
   queues: [default: 10, maintenance: 2]

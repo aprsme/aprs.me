@@ -41,7 +41,12 @@ defmodule Aprs.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Aprs.Supervisor]
-    Supervisor.start_link(children, opts)
+    {:ok, sup} = Supervisor.start_link(children, opts)
+
+    # Now that the Repo is started, run the refresh in a background task
+    Task.start(fn -> Aprs.DeviceIdentification.maybe_refresh_devices() end)
+
+    {:ok, sup}
   end
 
   # Tell Phoenix to update the endpoint configuration

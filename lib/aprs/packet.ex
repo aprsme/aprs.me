@@ -15,7 +15,7 @@ defmodule Aprs.Packet do
     field(:path, :string)
     field(:sender, :string)
     field(:ssid, :string)
-    field(:received_at, :utc_datetime_usec)
+    field(:received_at, :utc_datetime)
     field(:region, :string)
     field(:lat, :decimal)
     field(:lon, :decimal)
@@ -55,9 +55,11 @@ defmodule Aprs.Packet do
     field(:message_text, :string)
     field(:message_number, :string)
 
+    field(:device_identifier, :string)
+
     embeds_one(:data_extended, DataExtended)
 
-    timestamps()
+    timestamps(type: :utc_datetime)
   end
 
   @type t :: %__MODULE__{}
@@ -105,7 +107,8 @@ defmodule Aprs.Packet do
       :altitude,
       :addressee,
       :message_text,
-      :message_number
+      :message_number,
+      :device_identifier
     ])
     |> validate_required([
       :base_callsign,

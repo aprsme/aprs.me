@@ -8,7 +8,6 @@ defmodule Aprs.Packets do
   import Ecto.Query, warn: false
 
   alias Aprs.BadPacket
-  alias Aprs.EncodingUtils
   alias Aprs.Packet
   alias Aprs.Repo
   alias Parser.Types.MicE
@@ -24,12 +23,26 @@ defmodule Aprs.Packets do
     require Logger
 
     try do
-      packet_attrs = normalize_packet_attrs(packet_data)
-      packet_attrs = set_received_at(packet_attrs)
-      packet_attrs = patch_lat_lon_from_data_extended(packet_attrs)
-      {lat, lon} = extract_position(packet_attrs)
-      packet_attrs = set_lat_lon(packet_attrs, lat, lon)
-      packet_attrs = normalize_ssid(packet_attrs)
+      packet_attrs =
+        packet_data
+        |> normalize_packet_attrs()
+        |> set_received_at()
+        |> patch_lat_lon_from_data_extended()
+        |> (fn attrs ->
+          {lat, lon} = extract_position(attrs)
+          set_lat_lon(attrs, lat, lon)
+        end).()
+        |> normalize_ssid()
+        |> (fn attrs ->
+          device_identifier = Parser.DeviceParser.extract_device_identifier(packet_data)
+          matched_device = Aprs.DeviceIdentification.lookup_device_by_identifier(device_identifier)
+          canonical_identifier = if matched_device, do: matched_device.identifier, else: device_identifier
+          Map.put(attrs, :device_identifier, canonical_identifier)
+        end).()
+        |> sanitize_packet_strings()
+      # require Logger
+      # Logger.debug("Sanitized packet_attrs before insert: #{inspect(packet_attrs)}")
+      packet_attrs = Enum.into(packet_attrs, %{}, fn {k, v} -> {k, sanitize_packet_strings(v)} end)
       insert_packet(packet_attrs, packet_data)
     rescue
       error ->
@@ -513,63 +526,15 @@ defmodule Aprs.Packets do
   defp to_decimal(_), do: nil
 
   # Helper to sanitize all string fields in packet data before database storage
-  defp sanitize_packet_strings(packet_attrs) when is_map(packet_attrs) do
-    packet_attrs
-    |> sanitize_field(:base_callsign, &sanitize_and_ensure_string/1)
-    |> sanitize_field(:data_type, &sanitize_and_ensure_string/1)
-    |> sanitize_field(:destination, &sanitize_and_ensure_string/1)
-    |> sanitize_required_field(:information_field)
-    |> sanitize_required_field(:path)
-    |> sanitize_field(:sender, &sanitize_and_ensure_string/1)
-    |> sanitize_field(:ssid, &sanitize_and_ensure_string/1)
-    |> sanitize_field(:region, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:raw_packet, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:symbol_code, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:symbol_table_id, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:comment, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:timestamp, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:manufacturer, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:equipment_type, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:addressee, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:message_text, &EncodingUtils.sanitize_string/1)
-    |> sanitize_field(:message_number, &EncodingUtils.sanitize_string/1)
-    |> sanitize_data_extended_field()
+  defp sanitize_packet_strings(%DateTime{} = dt), do: dt
+  defp sanitize_packet_strings(%NaiveDateTime{} = ndt), do: ndt
+  defp sanitize_packet_strings(%_struct{} = struct), do: struct |> Map.from_struct() |> sanitize_packet_strings()
+  defp sanitize_packet_strings(list) when is_list(list), do: Enum.map(list, &sanitize_packet_strings/1)
+  defp sanitize_packet_strings(binary) when is_binary(binary) do
+    s = Aprs.EncodingUtils.sanitize_string(binary)
+    if is_binary(s), do: s, else: ""
   end
-
-  # Helper to sanitize a field if it exists
-  defp sanitize_field(map, key, sanitizer_func) do
-    case Map.get(map, key) do
-      nil -> map
-      value -> Map.put(map, key, sanitizer_func.(value))
-    end
-  end
-
-  # Helper to sanitize required fields, ensuring they exist and are not nil
-  defp sanitize_required_field(map, key) do
-    value = Map.get(map, key)
-    sanitized_value = sanitize_required_string(value)
-    Map.put(map, key, sanitized_value)
-  end
-
-  # Helper to sanitize and ensure required string fields are never nil
-  defp sanitize_required_string(nil), do: ""
-  defp sanitize_required_string(value), do: EncodingUtils.sanitize_string(value)
-
-  # Helper to sanitize and ensure non-required string fields
-  defp sanitize_and_ensure_string(nil), do: nil
-  defp sanitize_and_ensure_string(value), do: EncodingUtils.sanitize_string(value)
-
-  # Helper to sanitize the data_extended field
-  defp sanitize_data_extended_field(packet_attrs) do
-    case packet_attrs do
-      %{data_extended: data_extended} when not is_nil(data_extended) ->
-        sanitized_data_extended = EncodingUtils.sanitize_data_extended(data_extended)
-        Map.put(packet_attrs, :data_extended, sanitized_data_extended)
-
-      _ ->
-        packet_attrs
-    end
-  end
+  defp sanitize_packet_strings(other), do: other
 
   # Get packets from last hour only - used to initialize the map
   @spec get_last_hour_packets() :: [struct()]

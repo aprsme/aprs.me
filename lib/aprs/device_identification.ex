@@ -75,4 +75,113 @@ defmodule Aprs.DeviceIdentification do
   def known_models("Byonics"), do: ["TinyTrack3", "TinyTrack4"]
   def known_models("SCS GmbH & Co."), do: ["P4dragon DR-7400 modems", "P4dragon DR-7800 modems"]
   def known_models(_), do: []
+
+  alias Aprs.{Devices, Repo}
+  import Ecto.Query
+
+  @url "https://aprs-deviceid.aprsfoundation.org/tocalls.dense.json"
+  @week_seconds 7 * 24 * 60 * 60
+
+  def maybe_refresh_devices do
+    last = Repo.one(from d in Devices, order_by: [desc: d.updated_at], limit: 1)
+    last_time =
+      case last && last.updated_at do
+        %NaiveDateTime{} = naive -> DateTime.from_naive!(naive, "Etc/UTC")
+        %DateTime{} = dt -> dt
+        _ -> nil
+      end
+    if last == nil or (last_time && DateTime.diff(DateTime.utc_now(), last_time) > @week_seconds) do
+      fetch_and_upsert_devices()
+    else
+      :ok
+    end
+  end
+
+  def fetch_and_upsert_devices do
+    req = Finch.build(:get, @url)
+    case Finch.request(req, Aprs.Finch) do
+      {:ok, %Finch.Response{status: 200, body: body}} ->
+        {:ok, json} = Jason.decode(body)
+        upsert_devices(json)
+      err ->
+        err
+    end
+  end
+
+  def upsert_devices(json) do
+    tocalls = Map.get(json, "tocalls", %{})
+    mice = Map.get(json, "mice", %{})
+    micelegacy = Map.get(json, "micelegacy", %{})
+    now = DateTime.utc_now()
+
+    Repo.transaction(fn ->
+      Repo.delete_all(Devices)
+      Enum.each([tocalls, mice, micelegacy], fn group ->
+        Enum.each(group, fn {identifier, attrs} ->
+          attrs =
+            attrs
+            |> Map.put("identifier", identifier)
+            |> Map.update("features", nil, fn f ->
+              if is_list(f), do: f, else: [f]
+            end)
+            |> Map.put("updated_at", now)
+          %Devices{} |> Devices.changeset(attrs) |> Repo.insert!()
+        end)
+      end)
+    end)
+    :ok
+  end
+
+  # Helper to enqueue the job
+  def enqueue_refresh_job do
+    Oban.insert!(Aprs.DeviceIdentification.Worker.new(%{}))
+  end
+
+  @doc """
+  Looks up a device by identifier, using ? as a single-character wildcard.
+  Returns the device struct if found, or nil.
+  """
+  def lookup_device_by_identifier(identifier) when is_binary(identifier) do
+    # Fetch all device patterns from DB
+    devices = Repo.all(Devices)
+    Enum.find(devices, fn device ->
+      pattern = device.identifier
+      cond do
+        String.contains?(pattern, "?") ->
+          try do
+            regex = wildcard_pattern_to_regex(pattern)
+            Regex.match?(regex, identifier)
+          rescue
+            _e in Regex.CompileError ->
+              false
+          end
+        String.contains?(pattern, "*") ->
+          # Compare literally if pattern contains * but not ?
+          pattern == identifier
+        true ->
+          pattern == identifier
+      end
+    end)
+  end
+
+  # Converts a pattern with ? wildcards to a regex
+  defp wildcard_pattern_to_regex(pattern) when is_binary(pattern) do
+    # Replace ? with a placeholder, escape all regex metacharacters except the placeholder, then replace placeholder with .
+    pattern
+    |> String.replace("?", "__WILDCARD__")
+    # Escape all regex metacharacters
+    |> String.replace(~r/([\\.\+\*\?\[\^\]\$\(\)\{\}=!<>\|:\-])/, "\\\\\1")
+    |> String.replace("__WILDCARD__", ".")
+    |> then(&~r/^#{&1}$/)
+  end
+end
+
+defmodule Aprs.DeviceIdentification.Worker do
+  use Oban.Worker, queue: :default, max_attempts: 1
+
+  @impl true
+  def perform(_job) do
+    Aprs.DeviceIdentification.maybe_refresh_devices()
+    :ok
+  end
 end

@@ -22,13 +22,24 @@ defmodule Aprs.EncodingUtils do
       "Hello World"
 
       iex> Aprs.EncodingUtils.sanitize_string(<<72, 101, 108, 108, 111, 211, 87, 111, 114, 108, 100>>)
-      "HelloWorld"
+      "HelloÓWorld"
   """
   @spec sanitize_string(binary() | nil | any()) :: binary() | nil | any()
   def sanitize_string(binary) when is_binary(binary) do
-    # Always scrub problematic bytes, even from valid UTF-8 strings
-    # PostgreSQL rejects null bytes and other control characters even if they're valid UTF-8
-    scrub_problematic_bytes(binary)
+    cleaned =
+      if String.valid?(binary) do
+        binary
+      else
+        :unicode.characters_to_binary(binary, :latin1, :utf8)
+      end
+
+    cleaned
+    |> String.replace(<<0>>, "")
+    |> String.replace(~r/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/, "")
+    |> String.graphemes()
+    |> Enum.filter(&String.valid?/1)
+    |> Enum.join()
+    |> String.trim()
   end
 
   def sanitize_string(nil), do: nil
@@ -80,65 +91,6 @@ defmodule Aprs.EncodingUtils do
   defp sanitize_map_value(val), do: val
 
   # Private helper functions
-
-  @spec scrub_problematic_bytes(binary()) :: String.t()
-  defp scrub_problematic_bytes(binary) do
-    # Handle both invalid UTF-8 sequences and problematic control characters
-    cleaned = clean_binary_by_validity(binary, String.valid?(binary))
-    String.trim(cleaned)
-  end
-
-  defp clean_binary_by_validity(binary, true) do
-    # String is valid UTF-8, just remove control characters
-    binary
-    # Remove null bytes
-    |> String.replace(<<0>>, "")
-    # Remove other control chars
-    |> String.replace(~r/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/, "")
-  end
-
-  defp clean_binary_by_validity(binary, false) do
-    # String has invalid UTF-8, filter byte by byte
-    binary
-    |> :binary.bin_to_list()
-    |> Enum.filter(&valid_utf8_byte?/1)
-    |> :binary.list_to_bin()
-    |> ensure_valid_utf8()
-  end
-
-  # Check if byte should be kept (ASCII printable + safe whitespace)
-  @spec valid_utf8_byte?(integer()) :: boolean()
-  defp valid_utf8_byte?(byte) when byte >= 32 and byte <= 126, do: true
-  defp valid_utf8_byte?(byte) when byte in [9, 10, 13], do: true
-  defp valid_utf8_byte?(_), do: false
-
-  # Ensure the final result is valid UTF-8
-  @spec ensure_valid_utf8(binary()) :: binary()
-  defp ensure_valid_utf8(binary) do
-    if String.valid?(binary) do
-      binary
-    else
-      try_convert_utf8(binary)
-    end
-  end
-
-  defp try_convert_utf8(binary) do
-    case :unicode.characters_to_binary(binary, :latin1, :utf8) do
-      result when is_binary(result) ->
-        result
-
-      _ ->
-        # Last resort: keep only ASCII
-        fallback_to_ascii(binary)
-    end
-  end
-
-  defp fallback_to_ascii(binary) do
-    binary
-    |> :binary.bin_to_list()
-    |> Enum.filter(fn byte -> byte >= 32 and byte <= 126 end)
-    |> :binary.list_to_bin()
-  end
 
   @doc """
   Converts a binary to a hex string representation for debugging.

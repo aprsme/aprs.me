@@ -16,3 +16,5 @@ Application.put_env(:aprs, :aprs_is_default_filter, "r/0/0/1")
 Application.put_env(:aprs, :packets_module, Aprs.PacketsMock)
 
 # AprsIsMock is automatically loaded from test/support via elixirc_paths
+
+Code.require_file("support/devices_seeder.exs", __DIR__)

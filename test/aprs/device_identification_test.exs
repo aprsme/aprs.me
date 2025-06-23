@@ -1,7 +1,8 @@
 defmodule Aprs.DeviceIdentificationTest do
-  use ExUnit.Case
+  use Aprs.DataCase, async: false
 
   alias Aprs.DeviceIdentification
+  import DevicesSeeder
 
   describe "identify_device/1" do
     test "identifies Original MIC-E devices" do
@@ -87,6 +88,20 @@ defmodule Aprs.DeviceIdentificationTest do
 
     test "returns empty list for unknown manufacturer" do
       assert DeviceIdentification.known_models("Unknown") == []
+    end
+  end
+
+  describe "lookup_device_by_identifier/1" do
+    test "matches APSK21 to APS??? pattern" do
+      # Seed the devices table from the JSON
+      seed_from_json()
+
+      # Should match
+      found = Aprs.DeviceIdentification.lookup_device_by_identifier("APSK21")
+      assert found != nil
+      assert found.identifier == "APS???"
+      assert found.model != nil
+      assert found.vendor != nil
     end
   end
 end

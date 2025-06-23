@@ -63,6 +63,17 @@
             {packet.path}
           </span>
         </:col>
+        <:col :let={packet} label="Device">
+          <span class="text-xs text-gray-700 font-mono">
+            <%= if packet.device_model || packet.device_vendor do %>
+              <%= [packet.device_model, packet.device_vendor]
+                  |> Enum.reject(&is_nil/1)
+                  |> Enum.join(" ") %>
+            <% else %>
+              {Map.get(packet, :device_identifier, Map.get(packet, "device_identifier", ""))}
+            <% end %>
+          </span>
+        </:col>
       </.table>
     </div>
 

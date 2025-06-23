@@ -57,7 +57,7 @@ defmodule Aprs.MixProject do
       {:gettext, "~> 0.26.2"},
       {:hackney, "~> 1.24"},
       {:heroicons, "~> 0.5"},
-      {:jason, "~> 1.2"},
+      {:jason, "~> 1.4"},
       {:libcluster, "~> 3.3"},
       {:oban, "~> 2.11"},
       {:phoenix, "~> 1.8.0-rc.3", override: true},
@@ -83,7 +83,8 @@ defmodule Aprs.MixProject do
       {:sobelow, "~> 0.8", only: :dev},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
-      {:styler, "~> 1.4.2", only: [:dev, :test], runtime: false}
+      {:styler, "~> 1.4.2", only: [:dev, :test], runtime: false},
+      {:httpoison, "~> 1.8"}
     ]
   end
 

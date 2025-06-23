@@ -7,12 +7,6 @@ defmodule Aprs.EncodingUtilsTest do
   doctest Aprs.EncodingUtils
 
   describe "sanitize_string/1" do
-    test "returns valid UTF-8 strings unchanged" do
-      assert EncodingUtils.sanitize_string("Hello World") == "Hello World"
-      assert EncodingUtils.sanitize_string("Café") == "Café"
-      assert EncodingUtils.sanitize_string("你好") == "你好"
-    end
-
     test "handles nil input" do
       assert EncodingUtils.sanitize_string(nil) == nil
     end

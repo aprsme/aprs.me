@@ -87,6 +87,11 @@
             else: ""}
         </span>
       </:col>
+      <:col :let={packet} label="Device">
+        <span class="text-xs text-gray-700 font-mono">
+          {Map.get(packet, :device_identifier, Map.get(packet, "device_identifier", ""))}
+        </span>
+      </:col>
     </.table>
   </div>
 

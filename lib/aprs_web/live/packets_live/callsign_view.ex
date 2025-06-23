@@ -8,6 +8,7 @@ defmodule AprsWeb.PacketsLive.CallsignView do
   alias Aprs.Packet
   alias Aprs.Repo
   alias AprsWeb.Endpoint
+  alias Parser.DeviceParser
 
   @impl true
   def mount(%{"callsign" => callsign}, _session, socket) do
@@ -57,11 +58,25 @@ defmodule AprsWeb.PacketsLive.CallsignView do
     # Handle incoming live packets - only process if they match our callsign
     if packet_matches_callsign?(payload, socket.assigns.callsign) do
       sanitized_payload = EncodingUtils.sanitize_packet(payload)
+      device_identifier =
+        Map.get(sanitized_payload, :device_identifier) ||
+        Map.get(sanitized_payload, "device_identifier") ||
+        DeviceParser.extract_device_identifier(sanitized_payload)
+      canonical_identifier =
+        if is_binary(device_identifier) do
+          matched_device = Aprs.DeviceIdentification.lookup_device_by_identifier(device_identifier)
+          if matched_device, do: matched_device.identifier, else: device_identifier
+        else
+          device_identifier
+        end
+      sanitized_payload = Map.put(sanitized_payload, :device_identifier, canonical_identifier)
+      # Enrich with model/vendor
+      enriched_payload = enrich_packet_with_device_info(sanitized_payload)
       current_live = socket.assigns.live_packets
       current_stored = socket.assigns.packets
 
       {updated_stored, updated_live} =
-        update_packet_lists(current_stored, current_live, sanitized_payload)
+        update_packet_lists(current_stored, current_live, enriched_payload)
 
       all_packets = get_all_packets_list(updated_stored, updated_live)
       latest_packet = List.first(all_packets)
@@ -101,6 +116,7 @@ defmodule AprsWeb.PacketsLive.CallsignView do
     filtered_query
     |> Repo.all()
     |> Enum.map(&EncodingUtils.sanitize_packet/1)
+    |> Enum.map(&enrich_packet_with_device_info/1)
   rescue
     error ->
       require Logger
@@ -185,5 +201,15 @@ defmodule AprsWeb.PacketsLive.CallsignView do
     table = Map.get(data, :symbol_table_id) || Map.get(data, "symbol_table_id") || "/"
     code = Map.get(data, :symbol_code) || Map.get(data, "symbol_code") || ">"
     {table, code}
+  end
+
+  defp enrich_packet_with_device_info(packet) do
+    device_identifier = Map.get(packet, :device_identifier) || Map.get(packet, "device_identifier")
+    device = if is_binary(device_identifier), do: Aprs.DeviceIdentification.lookup_device_by_identifier(device_identifier), else: nil
+    model = if device, do: device.model, else: nil
+    vendor = if device, do: device.vendor, else: nil
+    packet
+    |> Map.put(:device_model, model)
+    |> Map.put(:device_vendor, vendor)
   end
 end
