@@ -20,6 +20,24 @@ defmodule Parser.PositionTest do
         assert result == nil or match?(%PositionStruct{latitude: nil, longitude: nil}, result)
       end
     end
+
+    test "parses position with DAO extension in comment" do
+      result = Position.parse("4903.50N/07201.75W>Test!ABZ! position")
+      assert %PositionStruct{} = result
+      assert result.dao == %{lat_dao: "A", lon_dao: "B", datum: "WGS84"}
+    end
+
+    test "parses ambiguous position (spaces in lat/lon)" do
+      result = Position.parse("49 3.50N/07201.7 W>Ambiguous")
+      assert %PositionStruct{} = result
+      assert result.position_ambiguity == 1
+    end
+
+    test "returns struct with nil lat/lon for structurally valid but invalid lat/lon" do
+      # Valid length but not matching regex
+      result = Position.parse("abcdefgh/ijklmnopq>Invalid")
+      assert %PositionStruct{latitude: nil, longitude: nil} = result
+    end
   end
 
   property "returns nil or struct with nil lat/lon for random invalid strings" do
@@ -44,6 +62,17 @@ defmodule Parser.PositionTest do
 
     test "returns nils for invalid strings" do
       assert %{latitude: nil, longitude: nil} = Position.parse_aprs_position("bad", "data")
+    end
+
+    test "parses southern and eastern hemispheres" do
+      result = Position.parse_aprs_position("1234.56S", "04540.70E")
+      assert Decimal.compare(result.latitude, Decimal.new(0)) == :lt
+      assert Decimal.compare(result.longitude, Decimal.new(0)) == :gt
+    end
+
+    test "returns nil for malformed but structurally valid input" do
+      result = Position.parse_aprs_position("12345678", "123456789")
+      assert %{latitude: nil, longitude: nil} = result
     end
   end
 
