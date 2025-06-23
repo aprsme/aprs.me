@@ -11,7 +11,12 @@ defmodule Aprs.MixProject do
       aliases: aliases(),
       deps: deps(),
       releases: releases(),
-      test_coverage: [tool: ExCoveralls],
+      test_coverage: [tool: ExCoveralls]
+    ]
+  end
+
+  def cli do
+    [
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
