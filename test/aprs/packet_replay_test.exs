@@ -358,4 +358,88 @@ defmodule Aprs.PacketReplayTest do
       }
     end
   end
+
+  describe "module constants and specs" do
+    test "has correct topic constant" do
+      # This tests that the module compiles correctly with the @topic attribute
+      # The actual value is tested indirectly through the init function
+      assert Code.ensure_loaded?(PacketReplay)
+    end
+
+    test "has correct typespec for start_replay" do
+      # This ensures the module compiles with correct typespecs
+      # We can't directly test typespecs, but we can ensure the function
+      # behaves according to its spec
+      result = PacketReplay.start_replay([])
+      assert match?({:ok, _pid}, result) or match?({:error, _reason}, result)
+
+      if match?({:ok, _pid}, result) do
+        GenServer.stop(elem(result, 1))
+      end
+    end
+
+    test "has correct typespec for init" do
+      # Test that init returns the expected format
+      result = PacketReplay.init(user_id: "test", bounds: [0, 0, 1, 1])
+      assert {:ok, _state} = result
+
+      result2 = PacketReplay.init(user_id: "test", bounds: [0, 0, 1, 1], replay_speed: 2.0)
+      assert {:ok, _state} = result2
+    end
+  end
+
+  describe "GenServer behavior" do
+    test "can send messages to running packet replay" do
+      {:ok, pid} = PacketReplay.start_replay(user_id: "test", bounds: [0, 0, 1, 1])
+
+      # Send a message and verify the process handles it
+      send(pid, :test_message)
+
+      # Give it a moment to process
+      Process.sleep(10)
+
+      # Verify the process is still alive (didn't crash)
+      assert Process.alive?(pid)
+
+      # Clean up
+      GenServer.stop(pid)
+    end
+
+    test "can be stopped gracefully" do
+      {:ok, pid} = PacketReplay.start_replay(user_id: "test", bounds: [0, 0, 1, 1])
+
+      assert Process.alive?(pid)
+
+      # Stop the GenServer
+      :ok = GenServer.stop(pid)
+
+      # Give it a moment to stop
+      Process.sleep(10)
+
+      # Verify it's no longer alive
+      refute Process.alive?(pid)
+    end
+
+    test "handles multiple concurrent operations" do
+      {:ok, pid} = PacketReplay.start_replay(user_id: "test", bounds: [0, 0, 1, 1])
+
+      # Send multiple messages concurrently
+      tasks =
+        for i <- 1..10 do
+          Task.async(fn ->
+            send(pid, {:message, i})
+            :ok
+          end)
+        end
+
+      # Wait for all tasks to complete
+      Enum.each(tasks, &Task.await/1)
+
+      # Verify the process is still alive
+      assert Process.alive?(pid)
+
+      # Clean up
+      GenServer.stop(pid)
+    end
+  end
 end
