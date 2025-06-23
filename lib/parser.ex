@@ -1146,34 +1146,37 @@ defmodule Parser do
   defp parse_tunneled_header(header) do
     case String.split(header, ">", parts: 2) do
       [sender, path] ->
-        case parse_callsign(sender) do
-          {:ok, callsign_parts} ->
-            base_callsign = List.first(callsign_parts)
-            ssid = extract_ssid(List.last(callsign_parts))
-
-            case split_path_for_tunnel(path) do
-              {:ok, [destination, digi_path]} ->
-                {:ok,
-                 %{
-                   sender: sender,
-                   base_callsign: base_callsign,
-                   ssid: ssid,
-                   destination: destination,
-                   digi_path: digi_path
-                 }}
-
-              {:error, reason} ->
-                {:error, "Invalid path: #{reason}"}
-            end
-
-          {:error, reason} ->
-            {:error, "Invalid callsign: #{reason}"}
-        end
+        parse_sender_and_path(sender, path)
 
       _ ->
         {:error, "Invalid header format"}
     end
   end
+
+  defp parse_sender_and_path(sender, path) do
+    case parse_callsign(sender) do
+      {:ok, callsign_parts} ->
+        base_callsign = List.first(callsign_parts)
+        ssid = extract_ssid(List.last(callsign_parts))
+
+        case split_path_for_tunnel(path) do
+          {:ok, [destination, digi_path]} ->
+            {:ok,
+             %{
+               sender: sender,
+               base_callsign: base_callsign,
+               ssid: ssid,
+               destination: destination,
+               digi_path: digi_path
+             }}
+
+          {:error, reason} ->
+            {:error, "Invalid path: #{reason}"}
+        end
+
+      {:error, reason} ->
+        {:error, "Invalid callsign: #{reason}"}
+    end
 
   defp extract_ssid(nil), do: nil
 
