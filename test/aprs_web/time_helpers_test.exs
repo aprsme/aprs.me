@@ -10,52 +10,52 @@ defmodule AprsWeb.TimeHelpersTest do
     end
 
     test "returns '1 minute ago' for times a minute ago" do
-      one_minute_ago = DateTime.utc_now() |> DateTime.add(-61, :second)
+      one_minute_ago = DateTime.add(DateTime.utc_now(), -61, :second)
       assert TimeHelpers.time_ago_in_words(one_minute_ago) == "1 minute ago"
     end
 
     test "returns 'X minutes ago' for times a few minutes ago" do
-      five_minutes_ago = DateTime.utc_now() |> DateTime.add(-300, :second)
+      five_minutes_ago = DateTime.add(DateTime.utc_now(), -300, :second)
       assert TimeHelpers.time_ago_in_words(five_minutes_ago) == "5 minutes ago"
     end
 
     test "returns '1 hour ago' for times an hour ago" do
-      one_hour_ago = DateTime.utc_now() |> DateTime.add(-3601, :second)
+      one_hour_ago = DateTime.add(DateTime.utc_now(), -3601, :second)
       assert TimeHelpers.time_ago_in_words(one_hour_ago) == "1 hour ago"
     end
 
     test "returns 'X hours ago' for times a few hours ago" do
-      five_hours_ago = DateTime.utc_now() |> DateTime.add(-18_000, :second)
+      five_hours_ago = DateTime.add(DateTime.utc_now(), -18_000, :second)
       assert TimeHelpers.time_ago_in_words(five_hours_ago) == "5 hours ago"
     end
 
     test "returns '1 day ago' for times a day ago" do
-      one_day_ago = DateTime.utc_now() |> DateTime.add(-86_401, :second)
+      one_day_ago = DateTime.add(DateTime.utc_now(), -86_401, :second)
       assert TimeHelpers.time_ago_in_words(one_day_ago) == "1 day ago"
     end
 
     test "returns 'X days ago' for times a few days ago" do
-      five_days_ago = DateTime.utc_now() |> DateTime.add(-432_000, :second)
+      five_days_ago = DateTime.add(DateTime.utc_now(), -432_000, :second)
       assert TimeHelpers.time_ago_in_words(five_days_ago) == "5 days ago"
     end
 
     test "returns '1 month ago' for times a month ago" do
-      one_month_ago = DateTime.utc_now() |> DateTime.add(-2_592_001, :second)
+      one_month_ago = DateTime.add(DateTime.utc_now(), -2_592_001, :second)
       assert TimeHelpers.time_ago_in_words(one_month_ago) == "1 month ago"
     end
 
     test "returns 'X months ago' for times a few months ago" do
-      five_months_ago = DateTime.utc_now() |> DateTime.add(-12_960_000, :second)
+      five_months_ago = DateTime.add(DateTime.utc_now(), -12_960_000, :second)
       assert TimeHelpers.time_ago_in_words(five_months_ago) == "5 months ago"
     end
 
     test "returns '1 year ago' for times a year ago" do
-      one_year_ago = DateTime.utc_now() |> DateTime.add(-31_536_001, :second)
+      one_year_ago = DateTime.add(DateTime.utc_now(), -31_536_001, :second)
       assert TimeHelpers.time_ago_in_words(one_year_ago) == "1 year ago"
     end
 
     test "returns 'X years ago' for times a few years ago" do
-      two_years_ago = DateTime.utc_now() |> DateTime.add(-63_072_002, :second)
+      two_years_ago = DateTime.add(DateTime.utc_now(), -63_072_002, :second)
       assert TimeHelpers.time_ago_in_words(two_years_ago) == "2 years ago"
     end
   end
