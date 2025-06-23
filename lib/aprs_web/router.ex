@@ -38,6 +38,7 @@ defmodule AprsWeb.Router do
       live "/weather/:callsign", WeatherLive.CallsignView, :index
       live "/about", AboutLive, :index
       live "/api", ApiDocsLive, :index
+      live "/info/:callsign", InfoLive.Show, :show
     end
 
     live_session :map_pages, layout: {AprsWeb.Layouts, :map} do
