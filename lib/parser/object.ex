@@ -33,8 +33,7 @@ defmodule Parser.Object do
             _ -> %{latitude: nil, longitude: nil, comment: comment, position_format: :compressed}
           end
 
-        <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), symbol_code::binary-size(1),
-          comment::binary>> ->
+        <<latitude::binary-size(8), sym_table_id::binary-size(1), longitude::binary-size(9), comment::binary>> ->
           %{latitude: lat, longitude: lon} =
             Parser.Position.parse_aprs_position(latitude, longitude)
 
