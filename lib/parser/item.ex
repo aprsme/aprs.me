@@ -61,9 +61,13 @@ defmodule Parser.Item do
 
       <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
         cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
-        converted_lat = Parser.Helpers.convert_compressed_lat(latitude_compressed)
-        converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
-        compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
+        converted_lat =
+          Parser.CompressedPositionHelpers.convert_compressed_lat(latitude_compressed)
+
+        converted_lon =
+          Parser.CompressedPositionHelpers.convert_compressed_lon(longitude_compressed)
+
+        compressed_cs = Parser.CompressedPositionHelpers.convert_compressed_cs(cs)
 
         base_data = %{
           latitude: converted_lat,

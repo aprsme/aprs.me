@@ -14,9 +14,9 @@ defmodule Parser.Telemetry do
         digital_values = values |> Enum.drop(5) |> Enum.take(8)
 
         %{
-          sequence_number: Parser.Helpers.parse_telemetry_sequence(seq),
-          analog_values: Parser.Helpers.parse_analog_values(analog_values),
-          digital_values: Parser.Helpers.parse_digital_values(digital_values),
+          sequence_number: Parser.TelemetryHelpers.parse_telemetry_sequence(seq),
+          analog_values: Parser.TelemetryHelpers.parse_analog_values(analog_values),
+          digital_values: Parser.TelemetryHelpers.parse_digital_values(digital_values),
           data_type: :telemetry,
           raw_data: rest
         }
@@ -44,9 +44,9 @@ defmodule Parser.Telemetry do
       |> Enum.chunk_every(3)
       |> Enum.map(fn [a, b, c] ->
         %{
-          a: Parser.Helpers.parse_coefficient(a),
-          b: Parser.Helpers.parse_coefficient(b),
-          c: Parser.Helpers.parse_coefficient(c)
+          a: Parser.TelemetryHelpers.parse_coefficient(a),
+          b: Parser.TelemetryHelpers.parse_coefficient(b),
+          c: Parser.TelemetryHelpers.parse_coefficient(c)
         }
       end)
 

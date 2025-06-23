@@ -22,21 +22,21 @@ defmodule Parser.Weather do
   """
   @spec parse_weather_data(String.t()) :: map()
   def parse_weather_data(weather_data) do
-    timestamp = Parser.Helpers.extract_timestamp(weather_data)
-    weather_data = Parser.Helpers.remove_timestamp(weather_data)
+    timestamp = Parser.WeatherHelpers.extract_timestamp(weather_data)
+    weather_data = Parser.WeatherHelpers.remove_timestamp(weather_data)
 
     weather_values = %{
-      wind_direction: Parser.Helpers.parse_wind_direction(weather_data),
-      wind_speed: Parser.Helpers.parse_wind_speed(weather_data),
-      wind_gust: Parser.Helpers.parse_wind_gust(weather_data),
-      temperature: Parser.Helpers.parse_temperature(weather_data),
-      rain_1h: Parser.Helpers.parse_rainfall_1h(weather_data),
-      rain_24h: Parser.Helpers.parse_rainfall_24h(weather_data),
-      rain_since_midnight: Parser.Helpers.parse_rainfall_since_midnight(weather_data),
-      humidity: Parser.Helpers.parse_humidity(weather_data),
-      pressure: Parser.Helpers.parse_pressure(weather_data),
-      luminosity: Parser.Helpers.parse_luminosity(weather_data),
-      snow: Parser.Helpers.parse_snow(weather_data)
+      wind_direction: Parser.WeatherHelpers.parse_wind_direction(weather_data),
+      wind_speed: Parser.WeatherHelpers.parse_wind_speed(weather_data),
+      wind_gust: Parser.WeatherHelpers.parse_wind_gust(weather_data),
+      temperature: Parser.WeatherHelpers.parse_temperature(weather_data),
+      rain_1h: Parser.WeatherHelpers.parse_rainfall_1h(weather_data),
+      rain_24h: Parser.WeatherHelpers.parse_rainfall_24h(weather_data),
+      rain_since_midnight: Parser.WeatherHelpers.parse_rainfall_since_midnight(weather_data),
+      humidity: Parser.WeatherHelpers.parse_humidity(weather_data),
+      pressure: Parser.WeatherHelpers.parse_pressure(weather_data),
+      luminosity: Parser.WeatherHelpers.parse_luminosity(weather_data),
+      snow: Parser.WeatherHelpers.parse_snow(weather_data)
     }
 
     result = %{timestamp: timestamp, data_type: :weather, raw_weather_data: weather_data}

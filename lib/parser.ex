@@ -271,12 +271,13 @@ defmodule Parser do
   def parse_data(:query, _destination, data), do: parse_query(data)
   def parse_data(:user_defined, _destination, data), do: parse_user_defined(data)
   def parse_data(:third_party_traffic, _destination, data), do: parse_third_party_traffic(data)
-  def parse_data(:peet_logging, _destination, data), do: Parser.Helpers.parse_peet_logging(data)
 
-  def parse_data(:invalid_test_data, _destination, data), do: Parser.Helpers.parse_invalid_test_data(data)
+  def parse_data(:peet_logging, _destination, data), do: Parser.SpecialDataHelpers.parse_peet_logging(data)
+
+  def parse_data(:invalid_test_data, _destination, data), do: Parser.SpecialDataHelpers.parse_invalid_test_data(data)
 
   def parse_data(:raw_gps_ultimeter, _destination, data) do
-    case Parser.Helpers.parse_nmea_sentence(data) do
+    case Parser.NMEAHelpers.parse_nmea_sentence(data) do
       {:error, error} ->
         %{
           data_type: :raw_gps_ultimeter,
@@ -294,10 +295,10 @@ defmodule Parser do
       <<"DFS", s, h, g, d, rest::binary>> = data
 
       %{
-        df_strength: Parser.Helpers.parse_df_strength(s),
-        height: Parser.Helpers.parse_phg_height(h),
-        gain: Parser.Helpers.parse_phg_gain(g),
-        directivity: Parser.Helpers.parse_phg_directivity(d),
+        df_strength: Parser.PHGHelpers.parse_df_strength(s),
+        height: Parser.PHGHelpers.parse_phg_height(h),
+        gain: Parser.PHGHelpers.parse_phg_gain(g),
+        directivity: Parser.PHGHelpers.parse_phg_directivity(d),
         comment: rest,
         data_type: :df_report
       }
@@ -359,8 +360,8 @@ defmodule Parser do
         <<"/", latitude::binary-size(4), longitude::binary-size(4), symbol_code::binary-size(1), _cs::binary-size(2),
           _compression_type::binary-size(2), _rest::binary>>
       ) do
-    lat = Parser.Helpers.convert_to_base91(latitude)
-    lon = Parser.Helpers.convert_to_base91(longitude)
+    lat = Parser.CompressedPositionHelpers.convert_to_base91(latitude)
+    lon = Parser.CompressedPositionHelpers.convert_to_base91(longitude)
 
     %{
       latitude: lat,
@@ -414,7 +415,7 @@ defmodule Parser do
 
   defp parse_position_uncompressed(latitude, sym_table_id, longitude, symbol_code, comment) do
     %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-    ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
+    ambiguity = Parser.UtilityHelpers.calculate_position_ambiguity(latitude, longitude)
     dao_data = parse_dao_extension(comment)
     {course, speed} = extract_course_and_speed(comment)
 
@@ -448,7 +449,7 @@ defmodule Parser do
 
   defp parse_position_short_uncompressed(latitude, sym_table_id, longitude) do
     %{latitude: lat, longitude: lon} = parse_aprs_position(latitude, longitude)
-    ambiguity = Parser.Helpers.calculate_position_ambiguity(latitude, longitude)
+    ambiguity = Parser.UtilityHelpers.calculate_position_ambiguity(latitude, longitude)
 
     has_position =
       (is_number(lat) or is_struct(lat, Decimal)) and (is_number(lon) or is_struct(lon, Decimal))
@@ -471,10 +472,10 @@ defmodule Parser do
   end
 
   defp parse_position_compressed(latitude_compressed, longitude_compressed, symbol_code, cs, compression_type, comment) do
-    converted_lat = Parser.Helpers.convert_compressed_lat(latitude_compressed)
-    converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
-    compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
-    ambiguity = Parser.Helpers.calculate_compressed_ambiguity(compression_type)
+    converted_lat = Parser.CompressedPositionHelpers.convert_compressed_lat(latitude_compressed)
+    converted_lon = Parser.CompressedPositionHelpers.convert_compressed_lon(longitude_compressed)
+    compressed_cs = Parser.CompressedPositionHelpers.convert_compressed_cs(cs)
+    ambiguity = Parser.CompressedPositionHelpers.calculate_compressed_ambiguity(compression_type)
 
     has_position =
       (is_number(converted_lat) or is_struct(converted_lat, Decimal)) and
@@ -508,7 +509,7 @@ defmodule Parser do
         compression_type: compression_type,
         data_type: :position,
         compressed?: true,
-        position_ambiguity: Parser.Helpers.calculate_compressed_ambiguity(compression_type),
+        position_ambiguity: Parser.CompressedPositionHelpers.calculate_compressed_ambiguity(compression_type),
         dao: nil,
         course: nil,
         speed: nil,
@@ -549,7 +550,7 @@ defmodule Parser do
           symbol_code::binary-size(1), comment::binary>>,
         _data_type
       ) do
-    case Parser.Helpers.validate_position_data(latitude, longitude) do
+    case Parser.UtilityHelpers.validate_position_data(latitude, longitude) do
       {:ok, {lat, lon}} ->
         position = parse_aprs_position(latitude, longitude)
         {course, speed} = extract_course_and_speed(comment)
@@ -558,7 +559,7 @@ defmodule Parser do
           latitude: lat,
           longitude: lon,
           position: position,
-          time: Parser.Helpers.validate_timestamp(time),
+          time: Parser.UtilityHelpers.validate_timestamp(time),
           symbol_table_id: sym_table_id,
           symbol_code: symbol_code,
           comment: comment,
@@ -726,11 +727,14 @@ defmodule Parser do
         <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
           cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
           try do
-            converted_lat = Parser.Helpers.convert_compressed_lat(latitude_compressed)
-            converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
+            converted_lat =
+              Parser.CompressedPositionHelpers.convert_compressed_lat(latitude_compressed)
+
+            converted_lon =
+              Parser.CompressedPositionHelpers.convert_compressed_lon(longitude_compressed)
 
             if is_number(converted_lat) and is_number(converted_lon) do
-              compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
+              compressed_cs = Parser.CompressedPositionHelpers.convert_compressed_cs(cs)
 
               base_data = %{
                 latitude: converted_lat,
@@ -826,9 +830,13 @@ defmodule Parser do
       # Compressed position format
       <<"/", latitude_compressed::binary-size(4), longitude_compressed::binary-size(4), symbol_code::binary-size(1),
         cs::binary-size(2), compression_type::binary-size(1), comment::binary>> ->
-        converted_lat = Parser.Helpers.convert_compressed_lat(latitude_compressed)
-        converted_lon = Parser.Helpers.convert_compressed_lon(longitude_compressed)
-        compressed_cs = Parser.Helpers.convert_compressed_cs(cs)
+        converted_lat =
+          Parser.CompressedPositionHelpers.convert_compressed_lat(latitude_compressed)
+
+        converted_lon =
+          Parser.CompressedPositionHelpers.convert_compressed_lon(longitude_compressed)
+
+        compressed_cs = Parser.CompressedPositionHelpers.convert_compressed_cs(cs)
 
         base_data = %{
           latitude: converted_lat,
@@ -878,22 +886,22 @@ defmodule Parser do
   # Comprehensive weather data parsing
   defp parse_weather_data(weather_data) do
     # Extract timestamp if present
-    timestamp = Parser.Helpers.extract_timestamp(weather_data)
-    weather_data = Parser.Helpers.remove_timestamp(weather_data)
+    timestamp = Parser.WeatherHelpers.extract_timestamp(weather_data)
+    weather_data = Parser.WeatherHelpers.remove_timestamp(weather_data)
 
     # Parse each weather component
     weather_values = %{
-      wind_direction: Parser.Helpers.parse_wind_direction(weather_data),
-      wind_speed: Parser.Helpers.parse_wind_speed(weather_data),
-      wind_gust: Parser.Helpers.parse_wind_gust(weather_data),
-      temperature: Parser.Helpers.parse_temperature(weather_data),
-      rain_1h: Parser.Helpers.parse_rainfall_1h(weather_data),
-      rain_24h: Parser.Helpers.parse_rainfall_24h(weather_data),
-      rain_since_midnight: Parser.Helpers.parse_rainfall_since_midnight(weather_data),
-      humidity: Parser.Helpers.parse_humidity(weather_data),
-      pressure: Parser.Helpers.parse_pressure(weather_data),
-      luminosity: Parser.Helpers.parse_luminosity(weather_data),
-      snow: Parser.Helpers.parse_snow(weather_data)
+      wind_direction: Parser.WeatherHelpers.parse_wind_direction(weather_data),
+      wind_speed: Parser.WeatherHelpers.parse_wind_speed(weather_data),
+      wind_gust: Parser.WeatherHelpers.parse_wind_gust(weather_data),
+      temperature: Parser.WeatherHelpers.parse_temperature(weather_data),
+      rain_1h: Parser.WeatherHelpers.parse_rainfall_1h(weather_data),
+      rain_24h: Parser.WeatherHelpers.parse_rainfall_24h(weather_data),
+      rain_since_midnight: Parser.WeatherHelpers.parse_rainfall_since_midnight(weather_data),
+      humidity: Parser.WeatherHelpers.parse_humidity(weather_data),
+      pressure: Parser.WeatherHelpers.parse_pressure(weather_data),
+      luminosity: Parser.WeatherHelpers.parse_luminosity(weather_data),
+      snow: Parser.WeatherHelpers.parse_snow(weather_data)
     }
 
     # Build base result map
@@ -917,9 +925,9 @@ defmodule Parser do
         digital_values = values |> Enum.drop(5) |> Enum.take(8)
 
         %{
-          sequence_number: Parser.Helpers.parse_telemetry_sequence(seq),
-          analog_values: Parser.Helpers.parse_analog_values(analog_values),
-          digital_values: Parser.Helpers.parse_digital_values(digital_values),
+          sequence_number: Parser.TelemetryHelpers.parse_telemetry_sequence(seq),
+          analog_values: Parser.TelemetryHelpers.parse_analog_values(analog_values),
+          digital_values: Parser.TelemetryHelpers.parse_digital_values(digital_values),
           data_type: :telemetry,
           raw_data: rest
         }
@@ -949,9 +957,9 @@ defmodule Parser do
       |> Enum.chunk_every(3)
       |> Enum.map(fn [a, b, c] ->
         %{
-          a: Parser.Helpers.parse_coefficient(a),
-          b: Parser.Helpers.parse_coefficient(b),
-          c: Parser.Helpers.parse_coefficient(c)
+          a: Parser.TelemetryHelpers.parse_coefficient(a),
+          b: Parser.TelemetryHelpers.parse_coefficient(b),
+          c: Parser.TelemetryHelpers.parse_coefficient(c)
         }
       end)
 
@@ -1065,7 +1073,7 @@ defmodule Parser do
 
   # Third Party Traffic parsing
   def parse_third_party_traffic(packet) do
-    if Parser.Helpers.count_leading_braces(packet) + 1 > 3 do
+    if Parser.UtilityHelpers.count_leading_braces(packet) + 1 > 3 do
       %{
         error: "Maximum tunnel depth exceeded"
       }
@@ -1244,10 +1252,10 @@ defmodule Parser do
 
   def parse_phg_data(<<"PHG", p, h, g, d, rest::binary>>) do
     %{
-      power: Parser.Helpers.parse_phg_power(p),
-      height: Parser.Helpers.parse_phg_height(h),
-      gain: Parser.Helpers.parse_phg_gain(g),
-      directivity: Parser.Helpers.parse_phg_directivity(d),
+      power: Parser.PHGHelpers.parse_phg_power(p),
+      height: Parser.PHGHelpers.parse_phg_height(h),
+      gain: Parser.PHGHelpers.parse_phg_gain(g),
+      directivity: Parser.PHGHelpers.parse_phg_directivity(d),
       comment: rest,
       data_type: :phg_data
     }
