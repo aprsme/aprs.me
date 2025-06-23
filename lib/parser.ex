@@ -1,5 +1,3 @@
-# @dialyzer {:nowarn_function, parse_data: 3}
-# @dialyzer {:nowarn_function, parse_object: 1}
 defmodule Parser do
   @moduledoc """
   Main parsing library
@@ -710,9 +708,7 @@ defmodule Parser do
   end
 
   # Object Report parsing
-  def parse_object(
-        <<";", object_name::binary-size(9), live_killed::binary-size(1),
-      ) do
+  def parse_object(<<";", object_name::binary-size(9), live_killed::binary-size(1), rest::binary>>) do
     position_data =
       case rest do
         # Uncompressed position format
@@ -765,7 +761,7 @@ defmodule Parser do
       %{
         object_name: String.trim(object_name),
         live_killed: live_killed,
-        timestamp: timestamp,
+        timestamp: nil,
         data_type: :object
       },
       position_data
@@ -784,7 +780,7 @@ defmodule Parser do
   @spec parse_item(binary()) :: map()
   def parse_item(<<item_indicator, item_name_and_data::binary>>) when item_indicator in [?%, ?)] do
     # Items can have up to 9 character names, followed by ! for position or _ for killed
-    case Regex.run(~r/^(.{1,9})([\!\_])(.*)$/, item_name_and_data) do
+    case Regex.run(~r/^(.{1,9})([!\_])(.*)$/, item_name_and_data) do
       [_, item_name, status_char, position_data] ->
         parsed_position = parse_item_position(position_data)
 
