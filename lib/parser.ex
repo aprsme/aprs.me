@@ -711,7 +711,7 @@ defmodule Parser do
 
   # Object Report parsing
   def parse_object(
-        <<";", object_name::binary-size(9), live_killed::binary-size(1), timestamp::binary-size(7), rest::binary>>
+        <<";", object_name::binary-size(9), live_killed::binary-size(1),
       ) do
     position_data =
       case rest do
