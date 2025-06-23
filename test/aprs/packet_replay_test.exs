@@ -3,6 +3,11 @@ defmodule Aprs.PacketReplayTest do
 
   alias Aprs.PacketReplay
 
+  setup do
+    start_supervised!({Registry, keys: :unique, name: Aprs.ReplayRegistry})
+    :ok
+  end
+
   describe "start_replay/1" do
     test "raises error when bounds are missing" do
       user_id = "test_user"
