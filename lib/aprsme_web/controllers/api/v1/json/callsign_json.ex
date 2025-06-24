@@ -38,7 +38,7 @@ defmodule AprsmeWeb.Api.V1.CallsignJSON do
       symbol: symbol_json(packet),
       comment: packet.comment,
       timestamp: packet.timestamp,
-      aprs_messaging: packet.aprsme_messaging,
+      aprs_messaging: packet.aprs_messaging,
       weather: weather_json(packet),
       equipment: equipment_json(packet),
       message: message_json(packet),

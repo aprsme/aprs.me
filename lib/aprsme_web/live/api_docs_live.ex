@@ -112,7 +112,7 @@ defmodule AprsmeWeb.ApiDocsLive do
             "symbol" => format_symbol(packet),
             "comment" => packet.comment,
             "timestamp" => packet.timestamp,
-            "aprsme_messaging" => packet.aprsme_messaging,
+            "aprs_messaging" => packet.aprs_messaging,
             "weather" => format_weather(packet),
             "equipment" => format_equipment(packet),
             "message" => format_message(packet),
@@ -224,7 +224,7 @@ defmodule AprsmeWeb.ApiDocsLive do
           RESTful JSON API for accessing APRS packet data and station information.
         </p>
       </div>
-      
+
     <!-- API Overview -->
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
         <div class="px-6 py-4 border-b border-gray-200">
@@ -263,7 +263,7 @@ defmodule AprsmeWeb.ApiDocsLive do
           </div>
         </div>
       </div>
-      
+
     <!-- API Endpoints -->
       <div class="space-y-8">
         <!-- Callsign Endpoint -->
@@ -373,7 +373,7 @@ defmodule AprsmeWeb.ApiDocsLive do
     },
     "comment": "Mobile Station",
     "timestamp": null,
-    "aprsme_messaging": false,
+    "aprs_messaging": false,
     "weather": null,
     "equipment": {
       "manufacturer": "Kenwood",
@@ -407,7 +407,7 @@ defmodule AprsmeWeb.ApiDocsLive do
             </div>
           </div>
         </div>
-        
+
     <!-- Response Fields Documentation -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200">
           <div class="px-6 py-4 border-b border-gray-200">
@@ -527,7 +527,7 @@ defmodule AprsmeWeb.ApiDocsLive do
             </div>
           </div>
         </div>
-        
+
     <!-- HTTP Status Codes -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200">
           <div class="px-6 py-4 border-b border-gray-200">
@@ -591,7 +591,7 @@ defmodule AprsmeWeb.ApiDocsLive do
             </div>
           </div>
         </div>
-        
+
     <!-- Future Endpoints -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200">
           <div class="px-6 py-4 border-b border-gray-200">
@@ -638,7 +638,7 @@ defmodule AprsmeWeb.ApiDocsLive do
             </div>
           </div>
         </div>
-        
+
     <!-- Interactive API Testing -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200">
           <div class="px-6 py-4 border-b border-gray-200">
@@ -703,7 +703,7 @@ defmodule AprsmeWeb.ApiDocsLive do
                   </div>
                 </div>
               </form>
-              
+
     <!-- Error Display -->
               <%= if @error do %>
                 <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
@@ -723,7 +723,7 @@ defmodule AprsmeWeb.ApiDocsLive do
                   </div>
                 </div>
               <% end %>
-              
+
     <!-- Results Display -->
               <%= if @api_result do %>
                 <div class="mt-4">
@@ -750,7 +750,7 @@ defmodule AprsmeWeb.ApiDocsLive do
             </div>
           </div>
         </div>
-        
+
     <!-- Contact and Support -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200">
           <div class="px-6 py-4 border-b border-gray-200">

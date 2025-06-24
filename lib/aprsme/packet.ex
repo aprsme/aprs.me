@@ -30,7 +30,7 @@ defmodule Aprsme.Packet do
     # Additional packet data
     field(:comment, :string)
     field(:timestamp, :string)
-    field(:aprsme_messaging, :boolean, default: false)
+    field(:aprs_messaging, :boolean, default: false)
 
     # Weather data
     field(:temperature, :float)
@@ -90,7 +90,7 @@ defmodule Aprsme.Packet do
       :symbol_table_id,
       :comment,
       :timestamp,
-      :aprsme_messaging,
+      :aprs_messaging,
       :temperature,
       :humidity,
       :wind_speed,
@@ -277,8 +277,8 @@ defmodule Aprsme.Packet do
     |> maybe_put(:comment, data_extended[:comment] || data_extended["comment"])
     |> maybe_put(:timestamp, data_extended[:timestamp] || data_extended["timestamp"])
     |> maybe_put(
-      :aprsme_messaging,
-      data_extended[:aprsme_messaging?] || data_extended["aprs_messaging?"]
+      :aprs_messaging,
+      data_extended[:aprs_messaging?] || data_extended["aprs_messaging?"]
     )
   end
 

@@ -6,7 +6,7 @@ defmodule Aprsme.DataExtendedTest do
   describe "changeset/2" do
     test "valid changeset with all required fields" do
       attrs = %{
-        aprsme_messaging: true,
+        aprs_messaging: true,
         comment: "Test comment",
         data_type: "position",
         symbol_code: "/",
@@ -16,7 +16,7 @@ defmodule Aprsme.DataExtendedTest do
       changeset = DataExtended.changeset(%DataExtended{}, attrs)
 
       assert changeset.valid?
-      assert get_change(changeset, :aprsme_messaging) == true
+      assert get_change(changeset, :aprs_messaging) == true
       assert get_change(changeset, :comment) == "Test comment"
       assert get_change(changeset, :data_type) == "position"
       assert get_change(changeset, :symbol_code) == "/"
@@ -25,7 +25,7 @@ defmodule Aprsme.DataExtendedTest do
 
     test "valid changeset with coordinates" do
       attrs = %{
-        aprsme_messaging: false,
+        aprs_messaging: false,
         comment: "Position report",
         data_type: "position",
         latitude: Decimal.new("40.123456"),
@@ -43,7 +43,7 @@ defmodule Aprsme.DataExtendedTest do
 
     test "valid changeset with string coordinates gets converted to decimal" do
       attrs = %{
-        aprsme_messaging: false,
+        aprs_messaging: false,
         comment: "Position report",
         data_type: "position",
         latitude: "40.123456",
@@ -61,7 +61,7 @@ defmodule Aprsme.DataExtendedTest do
 
     test "valid changeset with only required fields (no coordinates)" do
       attrs = %{
-        aprsme_messaging: false,
+        aprs_messaging: false,
         comment: "Status update",
         data_type: "status",
         symbol_code: ">",
@@ -90,7 +90,7 @@ defmodule Aprsme.DataExtendedTest do
 
     test "invalid changeset with empty required fields" do
       attrs = %{
-        aprsme_messaging: nil,
+        aprs_messaging: nil,
         comment: "",
         data_type: "",
         symbol_code: "",
@@ -109,7 +109,7 @@ defmodule Aprsme.DataExtendedTest do
 
     test "changeset with only latitude provided (should be invalid)" do
       attrs = %{
-        aprsme_messaging: false,
+        aprs_messaging: false,
         comment: "Partial position",
         data_type: "position",
         latitude: "40.123456",
@@ -128,7 +128,7 @@ defmodule Aprsme.DataExtendedTest do
 
     test "changeset with only longitude provided (should be invalid)" do
       attrs = %{
-        aprsme_messaging: false,
+        aprs_messaging: false,
         comment: "Partial position",
         data_type: "position",
         longitude: "-74.654321",
@@ -144,10 +144,10 @@ defmodule Aprsme.DataExtendedTest do
       refute get_change(changeset, :latitude)
     end
 
-    test "changeset handles boolean aprsme_messaging properly" do
+    test "changeset handles boolean aprs_messaging properly" do
       # Test true
       attrs_true = %{
-        aprsme_messaging: true,
+        aprs_messaging: true,
         comment: "Message enabled",
         data_type: "message",
         symbol_code: ">",
@@ -156,11 +156,11 @@ defmodule Aprsme.DataExtendedTest do
 
       changeset_true = DataExtended.changeset(%DataExtended{}, attrs_true)
       assert changeset_true.valid?
-      assert get_change(changeset_true, :aprsme_messaging) == true
+      assert get_change(changeset_true, :aprs_messaging) == true
 
       # Test false
       attrs_false = %{
-        aprsme_messaging: false,
+        aprs_messaging: false,
         comment: "Message disabled",
         data_type: "status",
         symbol_code: ">",
@@ -169,7 +169,7 @@ defmodule Aprsme.DataExtendedTest do
 
       changeset_false = DataExtended.changeset(%DataExtended{}, attrs_false)
       assert changeset_false.valid?
-      assert get_change(changeset_false, :aprsme_messaging) == false || changeset_false.data.aprsme_messaging == false
+      assert get_change(changeset_false, :aprs_messaging) == false || changeset_false.data.aprs_messaging == false
     end
 
     test "changeset with various symbol codes and table IDs" do
@@ -182,7 +182,7 @@ defmodule Aprsme.DataExtendedTest do
 
       for {symbol_code, symbol_table_id, description} <- test_cases do
         attrs = %{
-          aprsme_messaging: false,
+          aprs_messaging: false,
           comment: description,
           data_type: "position",
           symbol_code: symbol_code,
@@ -202,7 +202,7 @@ defmodule Aprsme.DataExtendedTest do
 
       for data_type <- data_types do
         attrs = %{
-          aprsme_messaging: false,
+          aprs_messaging: false,
           comment: "Testing #{data_type}",
           data_type: data_type,
           symbol_code: ">",
@@ -220,7 +220,7 @@ defmodule Aprsme.DataExtendedTest do
       long_comment = String.duplicate("A", 1000)
 
       attrs = %{
-        aprsme_messaging: false,
+        aprs_messaging: false,
         comment: long_comment,
         data_type: "status",
         symbol_code: ">",
@@ -235,7 +235,7 @@ defmodule Aprsme.DataExtendedTest do
 
     test "changeset preserves existing data when updating" do
       existing_data = %DataExtended{
-        aprsme_messaging: true,
+        aprs_messaging: true,
         comment: "Original comment",
         data_type: "position",
         latitude: Decimal.new("30.0"),
@@ -255,7 +255,7 @@ defmodule Aprsme.DataExtendedTest do
       assert get_change(changeset, :comment) == "Updated comment"
       assert get_change(changeset, :latitude) == Decimal.new("31.0")
       # Other fields should remain unchanged
-      assert changeset.data.aprsme_messaging == true
+      assert changeset.data.aprs_messaging == true
       assert changeset.data.data_type == "position"
     end
   end
@@ -263,7 +263,7 @@ defmodule Aprsme.DataExtendedTest do
   describe "validate_required_if_present/2" do
     test "validates field when it's present in changes" do
       attrs = %{
-        aprsme_messaging: false,
+        aprs_messaging: false,
         comment: "Test",
         data_type: "position",
         # Explicitly setting to nil should trigger validation
@@ -285,7 +285,7 @@ defmodule Aprsme.DataExtendedTest do
     test "creates struct with default values" do
       data_extended = %DataExtended{}
 
-      assert data_extended.aprsme_messaging == false
+      assert data_extended.aprs_messaging == false
       assert is_nil(data_extended.comment)
       assert is_nil(data_extended.data_type)
       assert is_nil(data_extended.latitude)
@@ -296,7 +296,7 @@ defmodule Aprsme.DataExtendedTest do
 
     test "creates struct with explicit values" do
       data_extended = %DataExtended{
-        aprsme_messaging: true,
+        aprs_messaging: true,
         comment: "Test comment",
         data_type: "position",
         latitude: Decimal.new("40.0"),
@@ -305,7 +305,7 @@ defmodule Aprsme.DataExtendedTest do
         symbol_table_id: "/"
       }
 
-      assert data_extended.aprsme_messaging == true
+      assert data_extended.aprs_messaging == true
       assert data_extended.comment == "Test comment"
       assert data_extended.data_type == "position"
       assert data_extended.latitude == Decimal.new("40.0")

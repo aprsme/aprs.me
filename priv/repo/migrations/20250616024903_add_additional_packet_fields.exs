@@ -13,7 +13,7 @@ defmodule Aprsme.Repo.Migrations.AddAdditionalPacketFields do
       # Additional useful fields that may be in the parsed data
       add :comment, :text
       add :timestamp, :string
-      add :aprsme_messaging, :boolean, default: false
+      add :aprs_messaging, :boolean, default: false
 
       # Weather data fields (for weather packets)
       add :temperature, :float

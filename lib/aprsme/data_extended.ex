@@ -7,7 +7,7 @@ defmodule Aprsme.DataExtended do
   alias Aprsme.DataExtended
 
   embedded_schema do
-    field :aprsme_messaging, :boolean, default: false
+    field :aprs_messaging, :boolean, default: false
     field :comment, :string
     field :data_type, :string
     field :latitude, :decimal
@@ -23,7 +23,7 @@ defmodule Aprsme.DataExtended do
   def changeset(%DataExtended{} = data_extended, attrs) do
     data_extended
     |> cast(attrs, [
-      :aprsme_messaging,
+      :aprs_messaging,
       :comment,
       :data_type,
       :latitude,
@@ -32,7 +32,7 @@ defmodule Aprsme.DataExtended do
       :symbol_table_id
     ])
     |> validate_required([
-      :aprsme_messaging,
+      :aprs_messaging,
       :comment,
       :data_type,
       :symbol_code,
