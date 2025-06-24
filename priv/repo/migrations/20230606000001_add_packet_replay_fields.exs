@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.AddPacketReplayFields do
+defmodule Aprsme.Repo.Migrations.AddPacketReplayFields do
   use Ecto.Migration
 
   def change do

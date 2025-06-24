@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.UpdateDevicesTimestampsToUtcUsec do
+defmodule Aprsme.Repo.Migrations.UpdateDevicesTimestampsToUtcUsec do
   use Ecto.Migration
 
   def change do

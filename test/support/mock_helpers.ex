@@ -1,15 +1,21 @@
-defmodule Aprs.MockHelpers do
+defmodule Aprsme.MockHelpers do
   @moduledoc """
-  Provides mocks and stubs for tests.
+  Helper functions for setting up mocks in tests.
   """
 
   def stub_packets_mock do
-    Mox.stub(PacketsMock, :get_historical_packet_count, fn _opts -> 0 end)
-    Mox.stub(PacketsMock, :stream_packets_for_replay, fn _opts -> [] end)
-    Mox.stub(PacketsMock, :get_packets_for_replay, fn _opts -> [] end)
-    Mox.stub(PacketsMock, :get_recent_packets, fn _opts -> [] end)
-    Mox.stub(PacketsMock, :clean_old_packets, fn -> {:ok, 0} end)
-    Mox.stub(PacketsMock, :clean_packets_older_than, fn _days -> {:ok, 0} end)
+    # Stub the packets module to prevent external calls
+    Mox.stub(Aprsme.PacketsMock, :get_packets_for_callsign, fn _callsign ->
+      {:ok, []}
+    end)
+
+    Mox.stub(Aprsme.PacketsMock, :get_packets_for_callsign_with_limit, fn _callsign, _limit ->
+      {:ok, []}
+    end)
+
+    Mox.stub(Aprsme.PacketsMock, :get_packets_for_callsign_with_date_range, fn _callsign, _start_date, _end_date ->
+      {:ok, []}
+    end)
   end
 
   def stub_badpackets_mock do

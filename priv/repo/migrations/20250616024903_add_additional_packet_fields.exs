@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.AddAdditionalPacketFields do
+defmodule Aprsme.Repo.Migrations.AddAdditionalPacketFields do
   use Ecto.Migration
 
   def change do
@@ -13,7 +13,7 @@ defmodule Aprs.Repo.Migrations.AddAdditionalPacketFields do
       # Additional useful fields that may be in the parsed data
       add :comment, :text
       add :timestamp, :string
-      add :aprs_messaging, :boolean, default: false
+      add :aprsme_messaging, :boolean, default: false
 
       # Weather data fields (for weather packets)
       add :temperature, :float

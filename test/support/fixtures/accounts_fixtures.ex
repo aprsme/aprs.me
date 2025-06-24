@@ -1,7 +1,7 @@
-defmodule Aprs.AccountsFixtures do
+defmodule Aprsme.AccountsFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `Aprs.Accounts` context.
+  entities via the `Aprsme.Accounts` context.
   """
 
   def unique_user_email, do: "user#{System.unique_integer()}@example.com"
@@ -18,7 +18,7 @@ defmodule Aprs.AccountsFixtures do
     {:ok, user} =
       attrs
       |> valid_user_attributes()
-      |> Aprs.Accounts.register_user()
+      |> Aprsme.Accounts.register_user()
 
     user
   end

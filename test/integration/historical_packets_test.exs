@@ -1,11 +1,12 @@
-defmodule Aprs.Integration.HistoricalPacketsTest do
-  use AprsWeb.ConnCase
+defmodule Aprsme.Integration.HistoricalPacketsTest do
+  use AprsmeWeb.ConnCase
 
+  import Phoenix.ConnTest
   import Phoenix.LiveViewTest
 
   setup do
     Mox.set_mox_global()
-    Application.put_env(:aprs, :packets_module, PacketsMock)
+    Application.put_env(:aprsme, :packets_module, PacketsMock)
     on_exit(fn -> Mox.set_mox_private() end)
     :ok
   end
@@ -19,7 +20,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
       ten_minutes_ago = DateTime.add(now, -600, :second)
 
       # Mock packet data for the same callsign at different times
-      packet1 = %Aprs.Packet{
+      packet1 = %Aprsme.Packet{
         id: 1,
         base_callsign: "TEST1",
         ssid: 0,
@@ -34,7 +35,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
         }
       }
 
-      packet2 = %Aprs.Packet{
+      packet2 = %Aprsme.Packet{
         id: 2,
         base_callsign: "TEST1",
         ssid: 0,
@@ -49,7 +50,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
         }
       }
 
-      packet3 = %Aprs.Packet{
+      packet3 = %Aprsme.Packet{
         id: 3,
         base_callsign: "TEST1",
         ssid: 0,
@@ -65,7 +66,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
       }
 
       # Mock packet for different callsign
-      packet4 = %Aprs.Packet{
+      packet4 = %Aprsme.Packet{
         id: 4,
         base_callsign: "TEST2",
         ssid: 0,
@@ -260,7 +261,7 @@ defmodule Aprs.Integration.HistoricalPacketsTest do
       now = DateTime.utc_now()
       thirty_minutes_ago = DateTime.add(now, -1800, :second)
 
-      historical_packet = %Aprs.Packet{
+      historical_packet = %Aprsme.Packet{
         id: 100,
         base_callsign: "LIVE1",
         ssid: 0,

@@ -121,7 +121,7 @@ WORKDIR /app
 
 # Copy the Elixir release from builder stage
 # The distroless nonroot user has UID 65532, so we use that
-COPY --from=builder --chown=65532:65532 /app/_build/prod/rel/aprs ./
+COPY --from=builder --chown=65532:65532 /app/_build/prod/rel/aprsme ./
 
 # Create required directories with proper permissions
 USER 0

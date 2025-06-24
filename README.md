@@ -83,19 +83,19 @@ The workflow is defined in `.github/workflows/deploy-k3s.yaml`. It will:
 
 *   **Database Migrations:** The Kubernetes deployment for the application includes an init container that automatically runs database migrations (`/app/bin/migrate`) before the main application container starts.
 *   **Health Check Endpoint:** The application deployment (`k8s/app-deployment.yaml`) is configured with readiness and liveness probes that expect a health check endpoint at `/health` (returning HTTP 200). You may need to add this to your Phoenix application's router and controller:
-    *   In `lib/aprs_web/router.ex`:
+    *   In `lib/aprsme_web/router.ex`:
         ```elixir
-        scope "/", AprsWeb do
+        scope "/", AprsmeWeb do
           pipe_through :browser
           # ... other routes
           get "/health", PageController, :health
         end
         ```
-    *   In `lib/aprs_web/controllers/page_controller.ex` (or another suitable controller):
+    *   In `lib/aprsme_web/controllers/page_controller.ex` (or another suitable controller):
         ```elixir
         def health(conn, _params) do
           # You can add more sophisticated checks here if needed
-          json(conn, %{status: "ok", version: Application.spec(:aprs, :vsn)})
+          json(conn, %{status: "ok", version: Application.spec(:aprsme, :vsn)})
         end
         ```
 *   **Image Name:** The application deployment manifest (`k8s/app-deployment.yaml`) uses a placeholder image name `your-ghcr-username/aprs-app:latest`. The CI/CD pipeline automatically replaces this with the correct image name from GHCR (e.g., `ghcr.io/your-github-owner/your-repo-name:<git-sha>`).

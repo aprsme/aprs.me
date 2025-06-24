@@ -1,20 +1,18 @@
 ExUnit.start()
-Ecto.Adapters.SQL.Sandbox.mode(Aprs.Repo, :manual)
+Ecto.Adapters.SQL.Sandbox.mode(Aprsme.Repo, :manual)
 
 # Configure Mox
-Mox.defmock(Aprs.PacketsMock, for: Aprs.PacketsBehaviour)
-Mox.defmock(Aprs.PacketReplayMock, for: Aprs.PacketReplayBehaviour)
-Mox.defmock(PacketsMock, for: Aprs.PacketsBehaviour)
+Mox.defmock(Aprsme.PacketsMock, for: Aprsme.PacketsBehaviour)
+Mox.defmock(Aprsme.PacketReplayMock, for: Aprsme.PacketReplayBehaviour)
+Mox.defmock(PacketsMock, for: Aprsme.PacketsBehaviour)
 
 # Ensure no external APRS connections during tests
-Application.put_env(:aprs, :disable_aprs_connection, true)
-Application.put_env(:aprs, :aprs_is_server, "mock.aprs.test")
-Application.put_env(:aprs, :aprs_is_port, 14_580)
-Application.put_env(:aprs, :aprs_is_login_id, "TEST")
-Application.put_env(:aprs, :aprs_is_password, "-1")
-Application.put_env(:aprs, :aprs_is_default_filter, "r/0/0/1")
-Application.put_env(:aprs, :packets_module, Aprs.PacketsMock)
+Application.put_env(:aprsme, :disable_aprs_connection, true)
+Application.put_env(:aprsme, :aprs_is_server, "mock.aprs.test")
+Application.put_env(:aprsme, :aprsme_is_port, 14_580)
+Application.put_env(:aprsme, :aprsme_is_login_id, "TEST")
+Application.put_env(:aprsme, :aprsme_is_password, "-1")
+Application.put_env(:aprsme, :aprsme_is_default_filter, "r/0/0/1")
+Application.put_env(:aprsme, :packets_module, Aprsme.PacketsMock)
 
 # AprsIsMock is automatically loaded from test/support via elixirc_paths
-
-Code.require_file("support/devices_seeder.exs", __DIR__)

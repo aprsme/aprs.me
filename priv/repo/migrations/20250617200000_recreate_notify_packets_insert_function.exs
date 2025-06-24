@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.RecreateNotifyPacketsInsertFunction do
+defmodule Aprsme.Repo.Migrations.RecreateNotifyPacketsInsertFunction do
   use Ecto.Migration
 
   def up do

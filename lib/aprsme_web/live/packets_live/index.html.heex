@@ -1,0 +1,142 @@
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-8">
+  <div class="mt-6 bg-white shadow-sm rounded-lg overflow-hidden">
+    <.table id="packets" rows={@packets}>
+      <:col :let={packet} label="Sender">
+        <.link
+          navigate={
+            ~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"
+          }
+          class="text-blue-600 hover:text-blue-800 font-medium"
+        >
+          {Map.get(packet, :sender, Map.get(packet, "sender", ""))}
+        </.link>
+      </:col>
+      <:col :let={packet} label="SSID">
+        <span class="text-sm text-gray-900">
+          {Map.get(packet, :ssid, Map.get(packet, "ssid", ""))}
+        </span>
+      </:col>
+      <:col :let={packet} label="Base Callsign">
+        <.link
+          navigate={
+            ~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"
+          }
+          class="text-blue-600 hover:text-blue-800 font-medium"
+        >
+          {Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}
+        </.link>
+      </:col>
+      <:col :let={packet} label="Data Type">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          {Map.get(packet, :data_type, Map.get(packet, "data_type", ""))}
+        </span>
+      </:col>
+      <:col :let={packet} label="Symbol">
+        <span class="text-xs text-gray-700 font-mono">
+          <% data = Map.get(packet, :data_extended) || %{}
+          raw_table = Map.get(data, :symbol_table_id) || Map.get(data, "symbol_table_id") || "/"
+          table = if raw_table in ["/", "\\", "]"], do: raw_table, else: "/"
+          code = Map.get(data, :symbol_code) || Map.get(data, "symbol_code") || ">" %>
+          {table}{code}
+        </span>
+      </:col>
+      <:col :let={packet} label="Path">
+        <span class="text-xs text-gray-500 font-mono">
+          {Map.get(packet, :path, Map.get(packet, "path", ""))}
+        </span>
+      </:col>
+      <:col :let={packet} label="Latitude">
+        <span class="text-xs text-gray-700 font-mono">
+          <% lat =
+            Map.get(packet, :lat) ||
+              if(
+                Map.has_key?(packet, :location) and not is_nil(packet.location) and
+                  function_exported?(Aprsme.Packet, :lat, 1),
+                do: Aprsme.Packet.lat(packet),
+                else: nil
+              ) ||
+              case Map.get(packet, :data_extended) do
+                %{} = data_ext ->
+                  case Map.get(data_ext, :latitude) || Map.get(data_ext, "latitude") do
+                    {:ok, value} -> value
+                    value -> value
+                  end
+
+                _ ->
+                  nil
+              end %>
+          <%= if not is_nil(lat) do %>
+            <%= if is_float(lat) do %>
+              {:io_lib.format("~.6f", [lat]) |> List.to_string()}
+            <% else %>
+              <%= if is_binary(lat) do %>
+                {Regex.replace(~r/(\d+\.\d{1,6})\d*/, lat, "\\1")}
+              <% else %>
+                {lat}
+              <% end %>
+            <% end %>
+          <% else %>
+            ""
+          <% end %>
+        </span>
+      </:col>
+      <:col :let={packet} label="Longitude">
+        <span class="text-xs text-gray-700 font-mono">
+          <% lon =
+            Map.get(packet, :lon) ||
+              if(
+                Map.has_key?(packet, :location) and not is_nil(packet.location) and
+                  function_exported?(Aprsme.Packet, :lon, 1),
+                do: Aprsme.Packet.lon(packet),
+                else: nil
+              ) ||
+              case Map.get(packet, :data_extended) do
+                %{} = data_ext ->
+                  case Map.get(data_ext, :longitude) || Map.get(data_ext, "longitude") do
+                    {:ok, value} -> value
+                    value -> value
+                  end
+
+                _ ->
+                  nil
+              end %>
+          <%= if not is_nil(lon) do %>
+            <%= if is_float(lon) do %>
+              {:io_lib.format("~.6f", [lon]) |> List.to_string()}
+            <% else %>
+              <%= if is_binary(lon) do %>
+                {Regex.replace(~r/(\d+\.\d{1,6})\d*/, lon, "\\1")}
+              <% else %>
+                {lon}
+              <% end %>
+            <% end %>
+          <% else %>
+            ""
+          <% end %>
+        </span>
+      </:col>
+      <:col :let={packet} label="Device">
+        <span class="text-xs text-gray-700 font-mono">
+          {Map.get(packet, :device_identifier, Map.get(packet, "device_identifier", ""))}
+        </span>
+      </:col>
+    </.table>
+  </div>
+
+  <%= if length(@packets) == 0 do %>
+    <div class="mt-8 text-center">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100">
+        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+          />
+        </svg>
+      </div>
+      <h3 class="mt-2 text-sm font-medium text-gray-900">No packets</h3>
+      <p class="mt-1 text-sm text-gray-500">Packets will appear here as they are received.</p>
+    </div>
+  <% end %>
+</div>

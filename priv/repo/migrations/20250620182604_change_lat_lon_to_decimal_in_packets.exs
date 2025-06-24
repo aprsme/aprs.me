@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.ChangeLatLonToDecimalInPackets do
+defmodule Aprsme.Repo.Migrations.ChangeLatLonToDecimalInPackets do
   use Ecto.Migration
 
   def change do

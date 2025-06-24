@@ -1,7 +1,7 @@
-defmodule Parser.Types.PositionTest do
-  use ExUnit.Case
+defmodule Aprs.Types.PositionTest do
+  use ExUnit.Case, async: true
 
-  alias Parser.Types.Position
+  alias Aprs.Types.Position
 
   describe "from_aprs/2" do
     test "1" do

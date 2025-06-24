@@ -1,16 +1,16 @@
-defmodule Aprs.DataCase do
+defmodule Aprsme.DataCase do
   @moduledoc """
-  This module defines the setup for tests requiring
-  access to the application's data layer.
+  This module defines the test case to be used by
+  data tests.
 
   You may define functions here to be used as helpers in
-  your tests.
+  your data tests. See `errors_on/2`'s definition as an example.
 
   Finally, if the test case interacts with the database,
   we enable the SQL sandbox, so changes done to the database
-  are reverted at the end of every test. If you are using
-  PostgreSQL, you can even run database tests asynchronously
-  by setting `use Aprs.DataCase, async: true`, although
+  are reverted at the end of every test. If you use PostgreSQL, you
+  can even run database tests asynchronously by setting
+  `use Aprsme.DataCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -20,44 +20,59 @@ defmodule Aprs.DataCase do
 
   using do
     quote do
-      import Aprs.DataCase
+      import Aprsme.DataCase
+      # Import conveniences for testing with connections
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import Mox
 
-      alias Aprs.Repo
+      # and other functionality to make calls such as:
+      #     import Aprsme.DataCase
+      #     Aprsme.DataCase.errors_on(MySchema.changeset(%MySchema{}, %{}))
 
-      setup :verify_on_exit!
+      # The default import for Repo
+      alias Aprsme.Repo
     end
   end
 
   setup tags do
-    Aprs.DataCase.setup_sandbox(tags)
+    Aprsme.DataCase.setup_sandbox(tags)
+    Aprsme.DevicesSeeder.seed_from_json()
     :ok
-  end
-
-  @doc """
-  Sets up the sandbox based on the test tags.
-  """
-  def setup_sandbox(tags) do
-    pid = Sandbox.start_owner!(Aprs.Repo, shared: not tags[:async])
-    on_exit(fn -> Sandbox.stop_owner(pid) end)
   end
 
   @doc """
   A helper that transforms changeset errors into a map of messages.
 
-      assert {:error, changeset} = Accounts.create_user(%{password: "short"})
-      assert "password is too short" in errors_on(changeset).password
-      assert %{password: ["password is too short"]} = errors_on(changeset)
+      iex> errors_on(MySchema.changeset(%MySchema{}, %{field: bad_value}))
+      %{field: ["has invalid value"]}
 
   """
   def errors_on(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
-      Regex.replace(~r"%{(\w+)}", message, fn _, key ->
-        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
-      end)
+    Ecto.Changeset.traverse_errors(changeset, &translate_error/1)
+  end
+
+  @doc """
+  Sets up the sandbox and allows the test case
+  to be run asynchronously.
+  """
+  def setup_sandbox(tags) do
+    pid = Sandbox.start_owner!(Aprsme.Repo, shared: not tags[:async])
+    on_exit(fn -> Sandbox.stop_owner(pid) end)
+  end
+
+  defp translate_error({msg, opts}) do
+    # You can make use of gettext to translate error messages by
+    # uncommenting and adjusting the following code:
+
+    # if count = opts[:count] do
+    #   Gettext.dngettext(AprsmeWeb.Gettext, "errors", msg, msg, count, opts)
+    # else
+    #   Gettext.dgettext(AprsmeWeb.Gettext, "errors", msg, opts)
+    # end
+
+    Enum.reduce(opts, msg, fn {key, value}, acc ->
+      String.replace(acc, "%{#{key}}", fn _ -> to_string(value) end)
     end)
   end
 end

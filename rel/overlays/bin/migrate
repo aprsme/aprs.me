@@ -2,4 +2,4 @@
 set -eu
 
 cd -P -- "$(dirname -- "$0")"
-exec ./aprs eval Aprs.Release.migrate
+exec ./aprsme eval Aprsme.Release.migrate

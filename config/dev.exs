@@ -1,7 +1,7 @@
 import Config
 
 # Configure your database
-config :aprs, Aprs.Repo,
+config :aprsme, Aprsme.Repo,
   # For development, we disable any cache and enable
   # debugging and code reloading.
   #
@@ -11,14 +11,14 @@ config :aprs, Aprs.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
-  database: "aprs_dev",
+  database: "aprsme_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10,
   log: false,
-  types: Aprs.PostgresTypes
+  types: Aprsme.PostgresTypes
 
-config :aprs, AprsWeb.Endpoint,
+config :aprsme, AprsmeWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: 4000],
@@ -37,13 +37,13 @@ config :aprs, AprsWeb.Endpoint,
   ]
 
 # Watch static and templates for browser reloading.
-config :aprs, AprsWeb.Endpoint,
+config :aprsme, AprsmeWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/aprs_web/(live|views)/.*(ex)$",
-      ~r"lib/aprs_web/templates/.*(eex)$",
+      ~r"lib/aprsme_web/(live|views)/.*(ex)$",
+      ~r"lib/aprsme_web/templates/.*(eex)$",
       ~r"assets/vendor/.*(js|css)$"
     ]
   ]
@@ -53,7 +53,7 @@ config :aprs, AprsWeb.Endpoint,
 #     mix phx.gen.cert
 #
 # Run `mix help phx.gen.cert` for more information.
-config :aprs, dev_routes: true
+config :aprsme, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 #

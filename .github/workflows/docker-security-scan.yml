@@ -45,7 +45,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          tags: aprs:${{ github.sha }}
+          tags: aprsme:${{ github.sha }}
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -53,7 +53,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: aprs:${{ github.sha }}
+          image-ref: aprsme:${{ github.sha }}
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"
@@ -70,7 +70,7 @@ jobs:
       - name: Run Trivy for outdated OS packages
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: aprs:${{ github.sha }}
+          image-ref: aprsme:${{ github.sha }}
           format: "table"
           output: "os-packages.txt"
           severity: "HIGH,CRITICAL"
@@ -79,7 +79,7 @@ jobs:
       - name: Run Trivy for outdated application dependencies
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: aprs:${{ github.sha }}
+          image-ref: aprsme:${{ github.sha }}
           format: "table"
           output: "app-packages.txt"
           severity: "HIGH,CRITICAL"
@@ -99,7 +99,7 @@ jobs:
         uses: docker/scout-action@v1
         with:
           command: quickview,cves
-          image: aprs:${{ github.sha }}
+          image: aprsme:${{ github.sha }}
           output-format: sarif
           only-severities: critical,high
           sarif-file: scout-results.sarif
@@ -116,7 +116,7 @@ jobs:
         if: always()
         run: |
           echo "# Docker Image Security Report" > security-summary.md
-          echo "## Image: aprs:${{ github.sha }}" >> security-summary.md
+          echo "## Image: aprsme:${{ github.sha }}" >> security-summary.md
           echo "## Date: $(date)" >> security-summary.md
 
           echo "### OS Package Vulnerabilities" >> security-summary.md

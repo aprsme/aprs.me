@@ -12,13 +12,13 @@ import Config
 # If you use `mix release`, you need to explicitly enable the server
 # by passing the PHX_SERVER=true when you start it:
 #
-#     PHX_SERVER=true bin/aprs start
+#     PHX_SERVER=true bin/aprsme start
 #
 # Alternatively, you can use `mix phx.gen.release` to generate a `bin/server`
 # script that automatically sets the env var above.
 # Always start the server in production/docker environments
 if System.get_env("PHX_SERVER") || config_env() == :prod do
-  config :aprs, AprsWeb.Endpoint, server: true
+  config :aprsme, AprsmeWeb.Endpoint, server: true
 end
 
 if config_env() == :prod do
@@ -46,14 +46,14 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
-  config :aprs, Aprs.Repo,
+  config :aprsme, Aprsme.Repo,
     # ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
     socket_options: maybe_ipv6,
-    types: Aprs.PostgresTypes
+    types: Aprsme.PostgresTypes
 
-  config :aprs, AprsWeb.Endpoint,
+  config :aprsme, AprsmeWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       # Bind on all IPv4 interfaces for better container compatibility
@@ -66,10 +66,10 @@ if config_env() == :prod do
     secret_key_base: secret_key_base,
     server: true
 
-  # config :aprs, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+  # config :aprsme, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :aprs,
-    ecto_repos: [Aprs.Repo],
+  config :aprsme,
+    ecto_repos: [Aprsme.Repo],
     aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
     aprs_is_port: 14_580,
     aprs_is_default_filter: System.get_env("APRS_FILTER"),
@@ -94,7 +94,7 @@ if config_env() == :prod do
   # To get SSL working, you will need to add the `https` key
   # to your endpoint configuration:
   #
-  #     config :aprs, AprsWeb.Endpoint,
+  #     config :aprsme, AprsmeWeb.Endpoint,
   #       https: [
   #         ...,
   #         port: 443,
@@ -116,7 +116,7 @@ if config_env() == :prod do
   # We also recommend setting `force_ssl` in your endpoint, ensuring
   # no data is ever sent via http, always redirecting to https:
   #
-  #     config :aprs, AprsWeb.Endpoint,
+  #     config :aprsme, AprsmeWeb.Endpoint,
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
@@ -127,7 +127,7 @@ if config_env() == :prod do
   # Also, you may need to configure the Swoosh API client of your choice if you
   # are not using SMTP. Here is an example of the configuration:
   #
-  #     config :aprs, Aprs.Mailer,
+  #     config :aprsme, Aprsme.Mailer,
   #       adapter: Swoosh.Adapters.Mailgun,
   #       api_key: System.get_env("MAILGUN_API_KEY"),
   #       domain: System.get_env("MAILGUN_DOMAIN")

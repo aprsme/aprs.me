@@ -1,20 +1,20 @@
-defmodule AprsWeb do
+defmodule AprsmeWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.
 
   This can be used in your application as:
 
-      use AprsWeb, :controller
-      use AprsWeb, :html
+      use AprsmeWeb, :controller
+      use AprsmeWeb, :html
 
-  The definitions below will be executed for every controller,
+  The definitions below will be executed for every view,
   component, etc, so keep them short and clean, focused
   on imports, uses and aliases.
 
   Do NOT define functions inside the quoted expressions
-  below. Instead, define additional modules and import
-  those modules here.
+  below. Instead, define additional functions and do the
+  imports in your modules.
   """
 
   def static_paths, do: ~w(assets fonts images aprs-symbols favicon.ico robots.txt)
@@ -23,9 +23,10 @@ defmodule AprsWeb do
     quote do
       use Phoenix.Router, helpers: false
 
-      # Import common connection and controller functions to use in pipelines
       import Phoenix.Controller
       import Phoenix.LiveView.Router
+
+      # Import common connection and controller functions to use in pipelines
       import Plug.Conn
     end
   end
@@ -33,17 +34,18 @@ defmodule AprsWeb do
   def channel do
     quote do
       use Phoenix.Channel
+
+      import AprsmeWeb.Gettext
     end
   end
 
   def controller do
     quote do
       use Phoenix.Controller,
-        namespace: AprsWeb,
         formats: [:html, :json],
-        layouts: [html: AprsWeb.Layouts]
+        layouts: [html: AprsmeWeb.Layouts]
 
-      import AprsWeb.Gettext
+      import AprsmeWeb.Gettext
       import Plug.Conn
 
       unquote(verified_routes())
@@ -53,7 +55,7 @@ defmodule AprsWeb do
   def live_view do
     quote do
       use Phoenix.LiveView,
-        layout: {AprsWeb.Layouts, :app}
+        layout: {AprsmeWeb.Layouts, :app}
 
       unquote(html_helpers())
     end
@@ -82,11 +84,11 @@ defmodule AprsWeb do
 
   defp html_helpers do
     quote do
+      import AprsmeWeb.CoreComponents
+      import AprsmeWeb.Gettext
       # HTML escaping functionality
-      # Core UI components and translation
-      import AprsWeb.CoreComponents
-      import AprsWeb.Gettext
       import Phoenix.HTML
+      # Core UI components and translation
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
@@ -99,9 +101,9 @@ defmodule AprsWeb do
   def verified_routes do
     quote do
       use Phoenix.VerifiedRoutes,
-        endpoint: AprsWeb.Endpoint,
-        router: AprsWeb.Router,
-        statics: AprsWeb.static_paths()
+        endpoint: AprsmeWeb.Endpoint,
+        router: AprsmeWeb.Router,
+        statics: AprsmeWeb.static_paths()
     end
   end
 

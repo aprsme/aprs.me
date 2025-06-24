@@ -49,5 +49,5 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 15
 # Note: For the health endpoint, you might need to create a simple one in your Phoenix router
-# e.g., scope "/", AprsWeb do; get "/health", PageController, :health; end
+# e.g., scope "/", AprsmeWeb do; get "/health", PageController, :health; end
 # and a `def health(conn, _params), do: json(conn, %{status: "ok"})` in PageController.

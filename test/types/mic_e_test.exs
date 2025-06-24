@@ -1,8 +1,8 @@
-defmodule Parser.Types.MicETest do
+defmodule Aprs.Types.MicETest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  alias Parser.Types.MicE
+  alias Aprs.Types.MicE
 
   describe "Access behavior" do
     test "fetch/2 returns calculated latitude and longitude" do

@@ -1,1 +1,1 @@
-call "%~dp0\aprs" eval Aprs.Release.migrate
+call "%~dp0\aprsme" eval Aprsme.Release.migrate

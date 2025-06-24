@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.CreateDevices do
+defmodule Aprsme.Repo.Migrations.CreateDevices do
   use Ecto.Migration
 
   def change do

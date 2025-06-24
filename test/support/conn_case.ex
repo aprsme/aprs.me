@@ -1,4 +1,4 @@
-defmodule AprsWeb.ConnCase do
+defmodule AprsmeWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -9,9 +9,9 @@ defmodule AprsWeb.ConnCase do
 
   Finally, if the test case interacts with the database,
   we enable the SQL sandbox, so changes done to the database
-  are reverted at the end of every test. If you are using
-  PostgreSQL, you can even run database tests asynchronously
-  by setting `use AprsWeb.ConnCase, async: true`, although
+  are reverted at the end of every test. If you use PostgreSQL, you
+  can even run database tests asynchronously by setting
+  `use AprsmeWeb.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -19,57 +19,53 @@ defmodule AprsWeb.ConnCase do
 
   using do
     quote do
-      # The default endpoint for testing
-      use AprsWeb, :verified_routes
+      # The default import for connections
+      use AprsmeWeb, :verified_routes
 
-      import Aprs.MockHelpers
-
-      # Import conveniences for testing with connections
-      import AprsWeb.ConnCase
-      import Mox
+      import Aprsme.MockHelpers
+      import AprsmeWeb.ConnCase
       import Phoenix.ConnTest
       import Plug.Conn
+      alias Aprsme.Repo
 
-      @endpoint AprsWeb.Endpoint
+      # The default endpoint for testing
+      @endpoint AprsmeWeb.Endpoint
 
-      setup :verify_on_exit!
+      # Import conveniences for testing with connections
+
+      # The default import for Repo
     end
   end
 
   setup tags do
-    Aprs.DataCase.setup_sandbox(tags)
-
-    # Stub PacketsMock by default for tests that use MapLive but don't test historical packets
-    if !tags[:skip_packets_mock] do
-      Aprs.MockHelpers.stub_packets_mock()
-    end
-
+    Aprsme.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 
   @doc """
-  Setup helper that registers and logs in users.
+  A helper that sets up the test case.
 
-      setup :register_and_log_in_user
+      use AprsmeWeb.ConnCase, async: true
 
-  It stores an updated connection and a registered user in the
-  test context.
   """
-  def register_and_log_in_user(%{conn: conn}) do
-    user = Aprs.AccountsFixtures.user_fixture()
-    %{conn: log_in_user(conn, user), user: user}
+  def setup_sandbox(_tags) do
+    Aprsme.MockHelpers.stub_packets_mock()
+    :ok
   end
 
   @doc """
-  Logs the given `user` into the `conn`.
+  A helper that logs in a user.
 
-  It returns an updated `conn`.
+      setup %{conn: conn} do
+        conn = log_in_user(conn, user)
+        {:ok, conn: conn}
+      end
+
   """
-  def log_in_user(conn, user) do
-    token = Aprs.Accounts.generate_user_session_token(user)
+  def log_in_user(conn, _user) do
+    user = Aprsme.AccountsFixtures.user_fixture()
+    token = Aprsme.Accounts.generate_user_session_token(user)
 
-    conn
-    |> Phoenix.ConnTest.init_test_session(%{})
-    |> Plug.Conn.put_session(:user_token, token)
+    Plug.Conn.put_req_header(conn, "authorization", "Bearer #{token}")
   end
 end

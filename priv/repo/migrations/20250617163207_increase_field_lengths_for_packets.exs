@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.IncreaseFieldLengthsForPackets do
+defmodule Aprsme.Repo.Migrations.IncreaseFieldLengthsForPackets do
   use Ecto.Migration
 
   def change do

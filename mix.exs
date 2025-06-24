@@ -1,9 +1,9 @@
-defmodule Aprs.MixProject do
+defmodule Aprsme.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :aprs,
+      app: :aprsme,
       version: "0.1.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -32,7 +32,7 @@ defmodule Aprs.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {Aprs.Application, []},
+      mod: {Aprsme.Application, []},
       extra_applications: [:hackney, :logger, :runtime_tools, :os_mon]
     ]
   end
@@ -71,6 +71,8 @@ defmodule Aprs.MixProject do
       {:swoosh, "~> 1.3"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
+      # {:aprs, github: "aprsme/aprs", branch: "main"},
+      {:aprs, "~> 0.1.3"},
       {:esbuild, "~> 0.5", runtime: Mix.env() == :dev, config: "assets/esbuild.config.js"},
       {:tailwind, "~> 0.3.1", runtime: Mix.env() == :dev},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -106,8 +108,8 @@ defmodule Aprs.MixProject do
 
   defp releases do
     [
-      aprs: [
-        cookie: "aprs"
+      aprsme: [
+        cookie: "aprsme"
       ]
     ]
   end

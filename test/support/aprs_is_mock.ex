@@ -155,7 +155,7 @@ defmodule AprsIsMock do
     # connecting to external servers.
 
     # Broadcast to live clients like the real implementation would
-    AprsWeb.Endpoint.broadcast("aprs_messages", "packet", packet_data)
+    AprsmeWeb.Endpoint.broadcast("aprs_messages", "packet", packet_data)
 
     :ok
   end

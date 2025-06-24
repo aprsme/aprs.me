@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.AddDeviceIdentifierToPackets do
+defmodule Aprsme.Repo.Migrations.AddDeviceIdentifierToPackets do
   use Ecto.Migration
 
   def change do

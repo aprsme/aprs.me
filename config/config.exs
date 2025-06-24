@@ -14,36 +14,36 @@ import Config
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :aprs, Aprs.Mailer, adapter: Swoosh.Adapters.Local
+config :aprsme, Aprsme.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configures the endpoint
-config :aprs, AprsWeb.Endpoint,
+config :aprsme, AprsmeWeb.Endpoint,
   url: [host: "localhost"],
   render_errors: [
-    formats: [html: AprsWeb.ErrorHTML, json: AprsWeb.ErrorJSON],
+    formats: [html: AprsmeWeb.ErrorHTML, json: AprsmeWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: Aprs.PubSub,
+  pubsub_server: Aprsme.PubSub,
   live_view: [signing_salt: "ees098qG"]
 
 # Configure Oban for background jobs
-config :aprs, Oban,
-  repo: Aprs.Repo,
+config :aprsme, Oban,
+  repo: Aprsme.Repo,
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     {Oban.Plugins.Cron,
      crontab: [
-       {"0 0 * * *", Aprs.Workers.PacketCleanupWorker},
-       {"0 3 * * 1", Aprs.DeviceIdentification.Worker}
+       {"0 0 * * *", Aprsme.Workers.PacketCleanupWorker},
+       {"0 3 * * 1", Aprsme.DeviceIdentification.Worker}
      ]}
   ],
   queues: [default: 10, maintenance: 2]
 
-config :aprs,
-  ecto_repos: [Aprs.Repo]
+config :aprsme,
+  ecto_repos: [Aprsme.Repo]
 
-config :aprs,
-  ecto_repos: [Aprs.Repo],
+config :aprsme,
+  ecto_repos: [Aprsme.Repo],
   aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
   aprs_is_port: 10_152,
   aprs_is_default_filter: System.get_env("APRS_FILTER"),

@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.UpdatePacketsTimestampsToUtc do
+defmodule Aprsme.Repo.Migrations.UpdatePacketsTimestampsToUtc do
   use Ecto.Migration
 
   def change do

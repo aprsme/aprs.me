@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.CreatePackets do
+defmodule Aprsme.Repo.Migrations.CreatePackets do
   use Ecto.Migration
 
   def change do

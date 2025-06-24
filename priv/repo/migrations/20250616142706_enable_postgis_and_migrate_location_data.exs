@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.EnablePostgisAndMigrateLocationData do
+defmodule Aprsme.Repo.Migrations.EnablePostgisAndMigrateLocationData do
   use Ecto.Migration
 
   def up do

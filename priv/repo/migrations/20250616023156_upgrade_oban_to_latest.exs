@@ -1,4 +1,4 @@
-defmodule Aprs.Repo.Migrations.UpgradeObanToLatest do
+defmodule Aprsme.Repo.Migrations.UpgradeObanToLatest do
   use Ecto.Migration
 
   def up do

@@ -1,0 +1,130 @@
+<% {symbol_table_id, symbol_code} = AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@packet || %{}) %>
+<% symbol_table = if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
+<% symbol_code = symbol_code || ">" %>
+<% symbol_table_num =
+  case symbol_table do
+    "/" -> 0
+    "\\" -> 1
+    "]" -> 2
+    _ -> 0
+  end %>
+<% symbol_code_ord =
+  symbol_code
+  |> String.to_charlist()
+  |> List.first()
+  |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
+<% _symbol_img = "/aprs-symbols/aprs-symbols-24-#{symbol_table_num}@2x.png" %>
+<% _symbol_index = symbol_code_ord - 33 %>
+
+<div class="max-w-3xl mx-auto mt-10 p-8 bg-white rounded-xl shadow-lg">
+  <h1 class="text-3xl font-bold mb-2 flex items-center gap-2">
+    APRS station <span class="text-blue-700">{@callsign}</span>
+    <%= if @packet do %>
+      <% {symbol_table_id, symbol_code} = AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@packet) %>
+      <% symbol_table = if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
+      <% symbol_code = symbol_code || ">" %>
+      <% symbol_table_num =
+        case symbol_table do
+          "/" -> 0
+          "\\" -> 1
+          "]" -> 2
+          _ -> 0
+        end %>
+      <% symbol_code_ord =
+        symbol_code
+        |> String.to_charlist()
+        |> List.first()
+        |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
+      <% symbol_img = "/aprs-symbols/aprs-symbols-24-#{symbol_table_num}@2x.png" %>
+      <% symbol_index = symbol_code_ord - 33 %>
+      <img
+        src={symbol_img}
+        style={"object-fit: none; object-position: -#{symbol_index * 48}px 0; width: 48px; height: 48px; transform: scale(0.5); transform-origin: top left; display: inline-block; vertical-align: middle; margin-bottom: -6px; image-rendering: pixelated;"}
+        alt="APRS symbol"
+      />
+    <% end %>
+    <.link navigate={~p"/packets/#{@callsign}"} class="ml-2 text-sm text-blue-600 hover:underline">
+      View packets
+    </.link>
+  </h1>
+  <%= if @packet do %>
+    <div class="text-sm text-gray-500 mb-6">
+      {@packet.comment}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div>
+        <div class="mb-2">
+          <span class="font-semibold">Location:</span> {@packet.lat}, {@packet.lon}
+        </div>
+        <div class="mb-2">
+          <span class="font-semibold">Last position:</span> {AprsmeWeb.MapLive.PacketUtils.get_timestamp(
+            @packet
+          )}
+        </div>
+        <div class="mb-2"><span class="font-semibold">Altitude:</span> {@packet.altitude} ft</div>
+        <div class="mb-2"><span class="font-semibold">Course:</span> {@packet.course}°</div>
+        <div class="mb-2"><span class="font-semibold">Speed:</span> {@packet.speed} MPH</div>
+      </div>
+      <div>
+        <div class="mb-2">
+          <span class="font-semibold">Device:</span> {@packet.manufacturer} {@packet.equipment_type}
+        </div>
+        <div class="mb-2"><span class="font-semibold">Path:</span> {@packet.path}</div>
+        <div class="mb-2"><span class="font-semibold">Raw:</span> {@packet.raw_packet}</div>
+      </div>
+    </div>
+    <h2 class="text-xl font-semibold mt-8 mb-2">Stations near current position</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm border rounded-lg">
+        <thead>
+          <tr class="bg-gray-100">
+            <th class="px-4 py-2 text-left">Callsign</th>
+            <th class="px-4 py-2 text-left">Distance</th>
+            <th class="px-4 py-2 text-left">Last heard</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for neighbor <- @neighbors do %>
+            <tr class="border-t">
+              <td class="px-4 py-2 font-mono text-blue-700 flex items-center gap-2">
+                <.link navigate={~p"/info/#{neighbor.callsign}"} class="hover:underline">
+                  {neighbor.callsign}
+                </.link>
+                <%= if neighbor.packet do %>
+                  <% {symbol_table_id, symbol_code} =
+                    AprsmeWeb.MapLive.PacketUtils.get_symbol_info(neighbor.packet) %>
+                  <% symbol_table =
+                    if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
+                  <% symbol_code = symbol_code || ">" %>
+                  <% symbol_table_num =
+                    case symbol_table do
+                      "/" -> 0
+                      "\\" -> 1
+                      "]" -> 2
+                      _ -> 0
+                    end %>
+                  <% symbol_code_ord =
+                    symbol_code
+                    |> String.to_charlist()
+                    |> List.first()
+                    |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
+                  <% symbol_img = "/aprs-symbols/aprs-symbols-24-#{symbol_table_num}@2x.png" %>
+                  <% symbol_index = symbol_code_ord - 33 %>
+                  <img
+                    src={symbol_img}
+                    style={"object-fit: none; object-position: -#{symbol_index * 48}px 0; width: 48px; height: 48px; transform: scale(0.5); transform-origin: top left; display: inline-block; vertical-align: middle; margin-bottom: -6px; image-rendering: pixelated;"}
+                    alt="APRS symbol"
+                  />
+                <% end %>
+              </td>
+              <td class="px-4 py-2">{neighbor.distance}</td>
+              <td class="px-4 py-2">{neighbor.last_heard}</td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="text-gray-600">No recent packet data available for this callsign.</div>
+  <% end %>
+</div>
