@@ -56,14 +56,28 @@
                 else: nil
               ) ||
               case Map.get(packet, :data_extended) do
-                %{} = data_ext -> Map.get(data_ext, :latitude) || Map.get(data_ext, "latitude")
-                _ -> nil
+                %{} = data_ext ->
+                  case Map.get(data_ext, :latitude) || Map.get(data_ext, "latitude") do
+                    {:ok, value} -> value
+                    value -> value
+                  end
+
+                _ ->
+                  nil
               end %>
-          {if not is_nil(lat),
-            do:
-              (is_float(lat) and :io_lib.format("~.6f", [lat]) |> List.to_string()) or
-                (is_binary(lat) and Regex.replace(~r/(\d+\.\d{1,6})\d*/, lat, "\\1")) or lat,
-            else: ""}
+          <%= if not is_nil(lat) do %>
+            <%= if is_float(lat) do %>
+              {:io_lib.format("~.6f", [lat]) |> List.to_string()}
+            <% else %>
+              <%= if is_binary(lat) do %>
+                {Regex.replace(~r/(\d+\.\d{1,6})\d*/, lat, "\\1")}
+              <% else %>
+                {lat}
+              <% end %>
+            <% end %>
+          <% else %>
+            ""
+          <% end %>
         </span>
       </:col>
       <:col :let={packet} label="Longitude">
@@ -77,14 +91,28 @@
                 else: nil
               ) ||
               case Map.get(packet, :data_extended) do
-                %{} = data_ext -> Map.get(data_ext, :longitude) || Map.get(data_ext, "longitude")
-                _ -> nil
+                %{} = data_ext ->
+                  case Map.get(data_ext, :longitude) || Map.get(data_ext, "longitude") do
+                    {:ok, value} -> value
+                    value -> value
+                  end
+
+                _ ->
+                  nil
               end %>
-          {if not is_nil(lon),
-            do:
-              (is_float(lon) and :io_lib.format("~.6f", [lon]) |> List.to_string()) or
-                (is_binary(lon) and Regex.replace(~r/(\d+\.\d{1,6})\d*/, lon, "\\1")) or lon,
-            else: ""}
+          <%= if not is_nil(lon) do %>
+            <%= if is_float(lon) do %>
+              {:io_lib.format("~.6f", [lon]) |> List.to_string()}
+            <% else %>
+              <%= if is_binary(lon) do %>
+                {Regex.replace(~r/(\d+\.\d{1,6})\d*/, lon, "\\1")}
+              <% else %>
+                {lon}
+              <% end %>
+            <% end %>
+          <% else %>
+            ""
+          <% end %>
         </span>
       </:col>
       <:col :let={packet} label="Device">
