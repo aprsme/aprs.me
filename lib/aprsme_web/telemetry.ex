@@ -79,7 +79,16 @@ defmodule AprsmeWeb.Telemetry do
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
       summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io")
+      summary("vm.total_run_queue_lengths.io"),
+
+      # GenStage Packet Pipeline Metrics
+      summary("aprsme.packet_pipeline.batch.count", unit: :event, description: "Number of packets in each batch"),
+      summary("aprsme.packet_pipeline.batch.success",
+        unit: :event,
+        description: "Number of successful inserts per batch"
+      ),
+      summary("aprsme.packet_pipeline.batch.error", unit: :event, description: "Number of errors per batch"),
+      summary("aprsme.packet_pipeline.batch.duration_ms", unit: :millisecond, description: "Batch insert duration (ms)")
     ]
   end
 

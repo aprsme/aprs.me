@@ -906,6 +906,22 @@ defmodule AprsmeWeb.MapLive.Index do
           </p>
         </div>
         
+    <!-- Navigation -->
+        <div class="pt-4 border-t border-slate-200 space-y-3">
+          <div class="flex items-center space-x-2 text-sm text-slate-600 mb-3">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"
+              />
+            </svg>
+            <span class="font-medium">Navigation</span>
+          </div>
+          <.navigation variant={:vertical} class="text-sm" />
+        </div>
+        
     <!-- Deployment Information -->
         <div class="pt-4 border-t border-slate-200 space-y-3">
           <div class="flex items-center space-x-2 text-sm text-slate-600">

@@ -108,7 +108,7 @@ defmodule Aprsme.Packets do
     end
   end
 
-  defp extract_lat_from_ext_map(ext_map) do
+  defp extract_lat_from_ext_map(ext_map) when is_map(ext_map) and not is_struct(ext_map) do
     ext_map[:latitude] || ext_map["latitude"] ||
       (Map.has_key?(ext_map, :position) &&
          (ext_map[:position][:latitude] || ext_map[:position]["latitude"])) ||
@@ -116,13 +116,17 @@ defmodule Aprsme.Packets do
          (ext_map["position"][:latitude] || ext_map["position"]["latitude"]))
   end
 
-  defp extract_lon_from_ext_map(ext_map) do
+  defp extract_lat_from_ext_map(_), do: nil
+
+  defp extract_lon_from_ext_map(ext_map) when is_map(ext_map) and not is_struct(ext_map) do
     ext_map[:longitude] || ext_map["longitude"] ||
       (Map.has_key?(ext_map, :position) &&
          (ext_map[:position][:longitude] || ext_map[:position]["longitude"])) ||
       (Map.has_key?(ext_map, "position") &&
          (ext_map["position"][:longitude] || ext_map["position"]["longitude"]))
   end
+
+  defp extract_lon_from_ext_map(_), do: nil
 
   defp set_lat_lon(attrs, lat, lon) do
     round6 = fn
@@ -230,25 +234,34 @@ defmodule Aprsme.Packets do
 
   defp extract_position_from_data_extended(_), do: {nil, nil}
 
-  defp has_standard_position?(data_extended) do
+  defp has_standard_position?(data_extended) when is_map(data_extended) and not is_struct(data_extended) do
     not is_nil(data_extended[:latitude]) and not is_nil(data_extended[:longitude])
   end
 
-  defp extract_standard_position(data_extended) do
+  defp has_standard_position?(_), do: false
+
+  defp extract_standard_position(data_extended) when is_map(data_extended) and not is_struct(data_extended) do
     {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
   end
+
+  defp extract_standard_position(_), do: {nil, nil}
 
   defp extract_position_from_data_extended_case(data_extended) do
     case data_extended do
       %{__struct__: MicE} = mic_e ->
         extract_position_from_mic_e_struct(mic_e)
 
+      %{__struct__: Aprs.Types.ParseError} ->
+        # ParseError structs don't contain position data and don't implement Access behavior
+        {nil, nil}
+
       _ ->
         extract_position_from_mic_e(data_extended)
     end
   end
 
-  defp extract_position_from_mic_e_struct(mic_e) do
+  defp extract_position_from_mic_e_struct(%{__struct__: MicE} = mic_e) do
+    # Use Access behavior for MicE struct which implements it
     lat = mic_e[:latitude]
     lon = mic_e[:longitude]
 
@@ -258,6 +271,8 @@ defmodule Aprsme.Packets do
       {nil, nil}
     end
   end
+
+  defp extract_position_from_mic_e_struct(_), do: {nil, nil}
 
   defp extract_position_from_mic_e(data_extended) do
     if is_number(data_extended[:lat_degrees]) and is_number(data_extended[:lat_minutes]) and

@@ -26,6 +26,7 @@ defmodule AprsmeWeb.ConnCase do
       import AprsmeWeb.ConnCase
       import Phoenix.ConnTest
       import Plug.Conn
+
       alias Aprsme.Repo
 
       # The default endpoint for testing

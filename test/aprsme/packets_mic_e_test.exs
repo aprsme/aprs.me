@@ -210,5 +210,39 @@ defmodule Aprsme.PacketsMicETest do
       # The fix prevented the KeyError - that's what we're testing
       # Invalid coordinates are handled gracefully by the validation logic
     end
+
+    test "handles ParseError struct in data_extended gracefully" do
+      # This test covers the specific error case from the user's report
+      # where data_extended contains a ParseError struct instead of MicE
+      parse_error_data = %Aprs.Types.ParseError{
+        error_code: :not_implemented,
+        error_message: "PHG/DFS parsing not yet implemented",
+        raw_data: nil
+      }
+
+      packet_data = %{
+        base_callsign: "LU9DCE",
+        ssid: "4",
+        sender: "LU9DCE-4",
+        destination: "ID",
+        data_type: "phg_data",
+        path: "qAR,N3HYM-9",
+        information_field: "###################",
+        data_extended: parse_error_data
+      }
+
+      # This should NOT raise an UndefinedFunctionError for ParseError.fetch/2
+      # The fix ensures we check the struct type before using Access behavior
+      assert {:ok, stored_packet} = Packets.store_packet(packet_data)
+
+      # Verify the packet was stored correctly
+      assert stored_packet.sender == "LU9DCE-4"
+      assert stored_packet.data_type == "phg_data"
+
+      # Should not have position data since ParseError doesn't contain coordinates
+      assert stored_packet.has_position != true || stored_packet.has_position == nil
+      assert is_nil(stored_packet.lat) || stored_packet.lat == nil
+      assert is_nil(stored_packet.lon) || stored_packet.lon == nil
+    end
   end
 end

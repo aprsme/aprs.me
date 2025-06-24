@@ -54,6 +54,7 @@ defmodule Aprsme.MixProject do
       {:geo, "~> 4.0.1"},
       {:geo_postgis, "~> 3.4"},
       {:geocalc, "~> 0.8"},
+      {:gen_stage, "~> 1.2"},
       {:gettext, "~> 0.26.2"},
       {:hackney, "~> 1.24"},
       {:heroicons, "~> 0.5"},

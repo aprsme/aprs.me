@@ -33,7 +33,11 @@ defmodule Aprsme.Application do
       {Oban, :aprsme |> Application.get_env(Oban, []) |> Keyword.put(:queues, default: 10, maintenance: 2)},
       Aprsme.Presence,
       Aprsme.AprsIsConnection,
-      Aprsme.PostgresNotifier
+      Aprsme.PostgresNotifier,
+      # Start the packet processing pipeline
+      Aprsme.PacketPipelineSupervisor,
+      # Start the packet pipeline setup
+      Aprsme.PacketPipelineSetup
     ]
 
     children = maybe_add_is_supervisor(children, Application.get_env(:aprsme, :env))

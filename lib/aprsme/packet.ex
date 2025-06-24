@@ -147,7 +147,8 @@ defmodule Aprsme.Packet do
 
   defp extract_coordinates_from_data_extended(nil), do: {nil, nil}
 
-  defp extract_coordinates_from_data_extended(data_extended) when is_map(data_extended) do
+  defp extract_coordinates_from_data_extended(data_extended)
+       when is_map(data_extended) and not is_struct(data_extended) do
     {data_extended[:latitude], data_extended[:longitude]}
   end
 

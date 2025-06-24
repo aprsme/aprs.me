@@ -14,6 +14,13 @@ defmodule Aprsme.DataExtended do
     field :longitude, :decimal
     field :symbol_code, :string
     field :symbol_table_id, :string
+    field :timestamp, :string
+    field :speed, :float
+    field :course, :integer
+    field :has_position, :boolean, default: false
+    field :compressed, :boolean, default: false
+    field :dao, :string
+    field :position_ambiguity, :integer, default: 0
   end
 
   @type t :: %__MODULE__{}
@@ -29,7 +36,14 @@ defmodule Aprsme.DataExtended do
       :latitude,
       :longitude,
       :symbol_code,
-      :symbol_table_id
+      :symbol_table_id,
+      :timestamp,
+      :speed,
+      :course,
+      :has_position,
+      :compressed,
+      :dao,
+      :position_ambiguity
     ])
     |> validate_required([
       :aprs_messaging,

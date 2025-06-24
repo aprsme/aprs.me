@@ -53,11 +53,11 @@ defmodule Aprsme.Is do
     Process.sleep(2000)
 
     # Get startup parameters
-    server = Application.get_env(:aprsme, :aprsme_is_server, ~c"rotate.aprs2.net")
-    port = Application.get_env(:aprsme, :aprsme_is_port, 14_580)
-    default_filter = Application.get_env(:aprsme, :aprsme_is_default_filter, "r/33/-96/100")
-    aprs_user_id = Application.get_env(:aprsme, :aprsme_is_login_id, "W5ISP")
-    aprs_passcode = Application.get_env(:aprsme, :aprsme_is_password, "-1")
+    server = Application.get_env(:aprsme, :aprs_is_server, ~c"dallas.aprs2.net")
+    port = Application.get_env(:aprsme, :aprs_is_port, 14_580)
+    default_filter = Application.get_env(:aprsme, :aprs_is_default_filter, "r/33/-96/100")
+    aprs_user_id = Application.get_env(:aprsme, :aprs_is_login_id, "W5ISP")
+    aprs_passcode = Application.get_env(:aprsme, :aprs_is_password, "-1")
 
     # Record connection start time
     connected_at = DateTime.utc_now()
@@ -412,48 +412,31 @@ defmodule Aprsme.Is do
     case Aprs.parse(message) do
       {:ok, parsed_message} ->
         # Store the packet in the database for future replay
-        # Use Task to avoid slowing down the main process
-        Task.start(fn ->
-          require Logger
+        # Use GenStage pipeline for efficient batch processing
+        try do
+          # Always set received_at timestamp to ensure consistency
+          current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
+          packet_data = Map.put(parsed_message, :received_at, current_time)
 
-          try do
-            # Always set received_at timestamp to ensure consistency
-            current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
-            packet_data = Map.put(parsed_message, :received_at, current_time)
+          # Convert to map before storing to avoid struct conversion issues
+          attrs = struct_to_map(packet_data)
 
-            # Convert to map before storing to avoid struct conversion issues
-            attrs = struct_to_map(packet_data)
+          # Extract additional data from the parsed packet including raw packet
+          attrs = Aprsme.Packet.extract_additional_data(attrs, message)
 
-            # Extract additional data from the parsed packet including raw packet
-            attrs = Aprsme.Packet.extract_additional_data(attrs, message)
+          # Normalize data_type to string if it's an atom
+          attrs = normalize_data_type(attrs)
 
-            # Normalize data_type to string if it's an atom
-            attrs = normalize_data_type(attrs)
+          # Submit to GenStage pipeline for batch processing
+          Aprsme.PacketProducer.submit_packet(attrs)
+        rescue
+          error ->
+            require Logger
 
-            # Store in database through the Packets context
-            case Aprsme.Packets.store_packet(attrs) do
-              {:ok, _packet} ->
-                # Packet stored successfully
-                :ok
-
-              {:error, :storage_exception} ->
-                Logger.error("Storage exception while storing packet from #{inspect(parsed_message.sender)}")
-
-                Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
-
-              {:error, :validation_error} ->
-                Logger.error("Validation error while storing packet from #{inspect(parsed_message.sender)}")
-
-                Logger.debug("Packet attributes that failed: #{inspect(attrs)}")
-            end
-          rescue
-            error ->
-              Logger.error("Exception while storing packet from #{inspect(parsed_message.sender)}: #{inspect(error)}")
-
-              Logger.debug("Raw message: #{inspect(message)}")
-              Logger.debug("Parsed message: #{inspect(parsed_message)}")
-          end
-        end)
+            Logger.error("Exception while submitting packet from #{inspect(parsed_message.sender)}: #{inspect(error)}")
+            Logger.debug("Raw message: #{inspect(message)}")
+            Logger.debug("Parsed message: #{inspect(parsed_message)}")
+        end
 
         # Broadcast to live clients
         AprsmeWeb.Endpoint.broadcast("aprs_messages", "packet", parsed_message)

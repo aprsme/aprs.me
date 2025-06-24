@@ -409,15 +409,7 @@ defmodule AprsmeWeb.CoreComponents do
             aprs.me
           </a>
         </div>
-        <div class="flex items-center space-x-6">
-          <a href="/" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">Home</a>
-          <a href="/api" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">
-            API
-          </a>
-          <a href="/about" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">
-            About
-          </a>
-        </div>
+        <.navigation variant={:horizontal} />
       </nav>
     </header>
     """
@@ -635,5 +627,29 @@ defmodule AprsmeWeb.CoreComponents do
 
   defp input_equals?(val1, val2) do
     Phoenix.HTML.html_escape(val1) == Phoenix.HTML.html_escape(val2)
+  end
+
+  @doc """
+  Renders a navigation menu component that can be used in both regular pages and map sidebars.
+  """
+  attr :class, :string, default: ""
+  attr :variant, :atom, values: [:horizontal, :vertical], default: :horizontal
+
+  def navigation(assigns) do
+    ~H"""
+    <nav class={[
+      "flex items-center space-x-6",
+      @variant == :vertical && "flex-col space-x-0 space-y-3 items-start",
+      @class
+    ]}>
+      <a href="/" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">Home</a>
+      <a href="/api" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">
+        API
+      </a>
+      <a href="/about" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">
+        About
+      </a>
+    </nav>
+    """
   end
 end

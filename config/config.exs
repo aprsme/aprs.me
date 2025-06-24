@@ -50,7 +50,14 @@ config :aprsme,
   aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
   aprs_is_password: System.get_env("APRS_PASSCODE"),
   auto_migrate: true,
-  env: config_env()
+  env: config_env(),
+  # GenStage packet processing configuration
+  packet_pipeline: [
+    max_buffer_size: 1000,
+    batch_size: 100,
+    batch_timeout: 1000,
+    max_demand: 50
+  ]
 
 # Configure esbuild (the version is required)
 config :esbuild,
