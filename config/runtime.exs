@@ -49,11 +49,13 @@ if config_env() == :prod do
   config :aprsme, Aprsme.Repo,
     # ssl: true,
     url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "20"),
     pool_timeout: String.to_integer(System.get_env("POOL_TIMEOUT") || "5000"),
     timeout: String.to_integer(System.get_env("DB_TIMEOUT") || "15000"),
     socket_options: maybe_ipv6,
-    types: Aprsme.PostgresTypes
+    types: Aprsme.PostgresTypes,
+    queue_target: 10_000,
+    queue_interval: 20_000
 
   config :aprsme, AprsmeWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
