@@ -260,6 +260,10 @@ defmodule Aprsme.Packet do
 
   # Extract data from standard map-based data_extended
   defp extract_from_map(data_extended) do
+    # Remove raw_weather_data before processing
+    data_extended = Map.delete(data_extended, :raw_weather_data)
+    data_extended = Map.delete(data_extended, "raw_weather_data")
+
     %{}
     |> put_symbol_fields(data_extended)
     |> put_weather_fields(data_extended)
@@ -364,6 +368,7 @@ defmodule Aprsme.Packet do
         parse_weather_string(attrs, weather)
 
       weather when is_map(weather) ->
+        weather = Map.drop(weather, [:raw_weather_data, "raw_weather_data"])
         Map.merge(attrs, weather)
 
       _ ->
