@@ -78,51 +78,6 @@ if config_env() == :prod do
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
     aprs_is_password: System.get_env("APRS_PASSCODE")
 
-  # config :libcluster,
-  #   debug: true,
-  #   topologies: [
-  #     fly6pn: [
-  #       strategy: Cluster.Strategy.DNSPoll,
-  #       config: [
-  #         polling_interval: 5_000,
-  #         query: "#{app_name}.internal",
-  #         node_basename: app_name
-  #       ]
-  #     ]
-  #   ]
-
-  # ## SSL Support
-  #
-  # To get SSL working, you will need to add the `https` key
-  # to your endpoint configuration:
-  #
-  #     config :aprsme, AprsmeWeb.Endpoint,
-  #       https: [
-  #         ...,
-  #         port: 443,
-  #         cipher_suite: :strong,
-  #         keyfile: System.get_env("SOME_APP_SSL_KEY_PATH"),
-  #         certfile: System.get_env("SOME_APP_SSL_CERT_PATH")
-  #       ]
-  #
-  # The `cipher_suite` is set to `:strong` to support only the
-  # latest and more secure SSL ciphers. This means old browsers
-  # and clients may not be supported. You can set it to
-  # `:compatible` for wider support.
-  #
-  # `:keyfile` and `:certfile` expect an absolute path to the key
-  # and cert in disk or a relative path inside priv, for example
-  # "priv/ssl/server.key". For all supported SSL configuration
-  # options, see https://hexdocs.pm/plug/Plug.SSL.html#configure/1
-  #
-  # We also recommend setting `force_ssl` in your endpoint, ensuring
-  # no data is ever sent via http, always redirecting to https:
-  #
-  #     config :aprsme, AprsmeWeb.Endpoint,
-  #       force_ssl: [hsts: true]
-  #
-  # Check `Plug.SSL` for all available options in `force_ssl`.
-
   # ## Configuring the mailer
   #
   # In production you need to configure the mailer to use a different adapter.
