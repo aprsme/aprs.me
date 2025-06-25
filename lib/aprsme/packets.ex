@@ -463,7 +463,19 @@ defmodule Aprsme.Packets do
   """
   @spec get_total_packet_count() :: non_neg_integer()
   def get_total_packet_count do
-    Repo.one(from p in Packet, select: count(p.id))
+    Repo.one(from p in Packet, select: count(p.id)) || 0
+  rescue
+    DBConnection.ConnectionError ->
+      require Logger
+
+      Logger.warning("Database connection error in get_total_packet_count, returning 0")
+      0
+
+    error ->
+      require Logger
+
+      Logger.error("Error getting total packet count: #{inspect(error)}")
+      0
   end
 
   @doc """

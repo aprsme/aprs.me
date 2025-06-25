@@ -328,6 +328,27 @@ defmodule AprsmeWeb.StatusLive.Index do
 
   defp get_aprs_status do
     Aprsme.Is.get_status()
+  rescue
+    error ->
+      require Logger
+
+      Logger.error("Error getting APRS status: #{inspect(error)}")
+      # Return a default status when database is unavailable
+      %{
+        connected: false,
+        server: "unknown",
+        port: 0,
+        connected_at: nil,
+        uptime_seconds: 0,
+        login_id: "unknown",
+        filter: "unknown",
+        packet_stats: %{
+          total_packets: 0,
+          packets_per_second: 0,
+          last_packet_at: nil
+        },
+        stored_packet_count: 0
+      }
   end
 
   defp get_app_version do

@@ -50,6 +50,8 @@ if config_env() == :prod do
     # ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    pool_timeout: String.to_integer(System.get_env("POOL_TIMEOUT") || "5000"),
+    timeout: String.to_integer(System.get_env("DB_TIMEOUT") || "15000"),
     socket_options: maybe_ipv6,
     types: Aprsme.PostgresTypes
 

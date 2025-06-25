@@ -15,6 +15,8 @@ config :aprsme, Aprsme.Repo,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10,
+  pool_timeout: 5000,
+  timeout: 15_000,
   log: false,
   types: Aprsme.PostgresTypes
 
