@@ -66,14 +66,13 @@ defmodule Aprsme.MixProject do
       {:phoenix_html, "~> 4.0"},
       {:phoenix_live_dashboard, "~> 0.8"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "~> 1.0.2"},
+      {:phoenix_live_view, "~> 1.0.17"},
       {:plug_cowboy, "~> 2.5"},
       {:postgrex, ">= 0.0.0"},
       {:swoosh, "~> 1.3"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      # {:aprs, github: "aprsme/aprs", branch: "main"},
-      {:aprs, "~> 0.1.3"},
+      aprs_dep(),
       {:esbuild, "~> 0.5", runtime: Mix.env() == :dev, config: "assets/esbuild.config.js"},
       {:tailwind, "~> 0.3.1", runtime: Mix.env() == :dev},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -113,5 +112,13 @@ defmodule Aprsme.MixProject do
         cookie: "aprsme"
       ]
     ]
+  end
+
+  defp aprs_dep do
+    if Mix.env() in [:dev, :test] do
+      {:aprs, path: "vendor/aprs"}
+    else
+      {:aprs, github: "aprsme/aprs", branch: "main"}
+    end
   end
 end

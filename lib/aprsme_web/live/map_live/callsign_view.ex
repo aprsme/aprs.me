@@ -2,6 +2,8 @@ defmodule AprsmeWeb.MapLive.CallsignView do
   @moduledoc false
   use AprsmeWeb, :live_view
 
+  import Phoenix.LiveView, only: [connected?: 1, push_event: 3]
+
   alias Aprsme.Packets
   alias AprsmeWeb.Endpoint
   alias AprsmeWeb.MapLive.MapHelpers
@@ -576,6 +578,22 @@ defmodule AprsmeWeb.MapLive.CallsignView do
         font-weight: bold;
         margin-bottom: 4px;
         color: #333;
+      }
+
+      .aprs-info-link {
+        font-size: 11px;
+        color: #007cba;
+        text-decoration: none;
+        font-weight: normal;
+        margin-left: 8px;
+        padding: 2px 4px;
+        border-radius: 3px;
+        transition: background-color 0.2s;
+      }
+
+      .aprs-info-link:hover {
+        background-color: rgba(0, 124, 186, 0.1);
+        text-decoration: none;
       }
 
       .aprs-comment {

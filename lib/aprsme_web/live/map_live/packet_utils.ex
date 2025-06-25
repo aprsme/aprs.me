@@ -130,7 +130,7 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   """
   @spec get_weather_field(map(), atom()) :: String.t()
   def get_weather_field(packet, key) do
-    data_extended = Map.get(packet, "data_extended", %{}) || %{}
+    data_extended = Map.get(packet, :data_extended, Map.get(packet, "data_extended", %{})) || %{}
 
     Map.get(packet, key) ||
       Map.get(packet, to_string(key)) ||
@@ -202,7 +202,7 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
 
     """
     <div class="aprs-popup">
-      <div class="aprs-callsign"><strong><a href="/#{packet_info.callsign}">#{packet_info.callsign}</a></strong></div>
+      <div class="aprs-callsign"><strong><a href="/#{packet_info.callsign}">#{packet_info.callsign}</a></strong> <a href="/info/#{packet_info.callsign}" class="aprs-info-link">info</a></div>
       #{comment_html}
       #{timestamp_html}
     </div>
@@ -225,17 +225,23 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
         ""
       end
 
+    # Add a unique timestamp to prevent caching
+    cache_buster = System.system_time(:millisecond)
+
     """
-    <strong>#{sender} - Weather Report</strong>
-    #{timestamp_html}
-    <hr style="margin-top: 4px; margin-bottom: 4px;">
-    Temperature: #{get_weather_field(packet, :temperature)}°F<br>
-    Humidity: #{get_weather_field(packet, :humidity)}%<br>
-    Wind: #{get_weather_field(packet, :wind_direction)}° at #{get_weather_field(packet, :wind_speed)} mph, gusts to #{get_weather_field(packet, :wind_gust)} mph<br>
-    Pressure: #{get_weather_field(packet, :pressure)} hPa<br>
-    Rain (1h): #{get_weather_field(packet, :rain_1h)} in.<br>
-    Rain (24h): #{get_weather_field(packet, :rain_24h)} in.<br>
-    Rain (since midnight): #{get_weather_field(packet, :rain_since_midnight)} in.<br>
+    <div class="aprs-popup" data-timestamp="#{cache_buster}">
+      <div class="aprs-callsign"><strong><a href="/#{sender}">#{sender}</a></strong> <a href="/info/#{sender}" class="aprs-info-link">info</a></div>
+      <div class="aprs-comment">Weather Report</div>
+      #{timestamp_html}
+      <hr style="margin-top: 4px; margin-bottom: 4px;">
+      Temperature: #{get_weather_field(packet, :temperature)}°F<br>
+      Humidity: #{get_weather_field(packet, :humidity)}%<br>
+      Wind: #{get_weather_field(packet, :wind_direction)}° at #{get_weather_field(packet, :wind_speed)} mph, gusts to #{get_weather_field(packet, :wind_gust)} mph<br>
+      Pressure: #{get_weather_field(packet, :pressure)} hPa<br>
+      Rain (1h): #{get_weather_field(packet, :rain_1h)} in.<br>
+      Rain (24h): #{get_weather_field(packet, :rain_24h)} in.<br>
+      Rain (since midnight): #{get_weather_field(packet, :rain_since_midnight)} in.<br>
+    </div>
     """
   end
 

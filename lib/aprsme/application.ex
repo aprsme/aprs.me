@@ -32,7 +32,6 @@ defmodule Aprsme.Application do
       # Start Oban for background jobs
       {Oban, :aprsme |> Application.get_env(Oban, []) |> Keyword.put(:queues, default: 10, maintenance: 2)},
       Aprsme.Presence,
-      Aprsme.AprsIsConnection,
       Aprsme.PostgresNotifier,
       # Start the packet processing pipeline
       Aprsme.PacketPipelineSupervisor,
@@ -41,6 +40,7 @@ defmodule Aprsme.Application do
     ]
 
     children = maybe_add_is_supervisor(children, Application.get_env(:aprsme, :env))
+    children = maybe_add_aprs_connection(children, Application.get_env(:aprsme, :env))
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -78,11 +78,25 @@ defmodule Aprsme.Application do
       :ok
   end
 
-  defp maybe_add_is_supervisor(children, env) when env in [:prod, :dev] do
-    children ++ [Aprsme.Is.IsSupervisor]
+  defp maybe_add_is_supervisor(children, env) do
+    disable_connection = Application.get_env(:aprsme, :disable_aprs_connection, false)
+
+    if env in [:prod, :dev] and not disable_connection do
+      children ++ [Aprsme.Is.IsSupervisor]
+    else
+      children
+    end
   end
 
-  defp maybe_add_is_supervisor(children, _env), do: children
+  defp maybe_add_aprs_connection(children, _env) do
+    disable_connection = Application.get_env(:aprsme, :disable_aprs_connection, false)
+
+    if disable_connection do
+      children
+    else
+      children ++ [Aprsme.AprsIsConnection]
+    end
+  end
 
   defp do_migrate(true) do
     require Logger

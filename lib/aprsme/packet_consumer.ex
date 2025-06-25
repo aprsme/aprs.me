@@ -152,6 +152,9 @@ defmodule Aprsme.PacketConsumer do
     |> sanitize_raw_packet()
     |> then(fn attrs -> Map.new(attrs, fn {k, v} -> {k, sanitize_packet_strings(v)} end) end)
     |> truncate_datetimes_to_second()
+    # Explicitly remove raw_weather_data to prevent insert_all errors
+    |> Map.delete(:raw_weather_data)
+    |> Map.delete("raw_weather_data")
   rescue
     error ->
       Logger.error("Failed to prepare packet for batch insert: #{inspect(error)}")
@@ -350,6 +353,7 @@ defmodule Aprsme.PacketConsumer do
       :rain_1h,
       :rain_24h,
       :rain_since_midnight,
+      :snow,
       :speed,
       :altitude
     ]

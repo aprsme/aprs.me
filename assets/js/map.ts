@@ -919,6 +919,9 @@ let MapAPRSMap = {
       // Update popup if provided
       if (data.popup) {
         existingMarker.setPopupContent(data.popup);
+        // Force popup to refresh by unbinding and rebinding
+        existingMarker.unbindPopup();
+        existingMarker.bindPopup(data.popup);
       }
     } else {
       // Marker doesn't exist, create it
@@ -1178,7 +1181,7 @@ let MapAPRSMap = {
     // const symbolDesc = data.symbol_description || `Symbol: ${symbolTableId}${symbolCode}`;
 
     let content = `<div class="aprs-popup">
-      <div class="aprs-callsign"><strong><a href="/${callsign}">${callsign}</a></strong></div>`;
+      <div class="aprs-callsign"><strong><a href="/${callsign}">${callsign}</a></strong> <a href="/info/${callsign}" class="aprs-info-link">info</a></div>`;
     // Removed symbol info from popup
     // content += `<div class="aprs-symbol-info">${symbolDesc}</div>`;
 

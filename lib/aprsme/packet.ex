@@ -42,8 +42,10 @@ defmodule Aprsme.Packet do
     field(:rain_1h, :float)
     field(:rain_24h, :float)
     field(:rain_since_midnight, :float)
+    field(:snow, :float)
 
     # Equipment/status information
+    field(:luminosity, :integer)
     field(:manufacturer, :string)
     field(:equipment_type, :string)
     field(:course, :integer)
@@ -100,6 +102,8 @@ defmodule Aprsme.Packet do
       :rain_1h,
       :rain_24h,
       :rain_since_midnight,
+      :snow,
+      :luminosity,
       :manufacturer,
       :equipment_type,
       :course,
@@ -239,6 +243,10 @@ defmodule Aprsme.Packet do
     # Start with the base attributes and add the raw packet
     base_attrs = Map.put(attrs, :raw_packet, raw_packet)
 
+    # Remove raw_weather_data from base attributes
+    base_attrs = Map.delete(base_attrs, :raw_weather_data)
+    base_attrs = Map.delete(base_attrs, "raw_weather_data")
+
     # Extract data based on the type of data_extended
     additional_data =
       case data_extended do
@@ -247,6 +255,10 @@ defmodule Aprsme.Packet do
 
         %{__original_struct__: MicE} = mic_e_map ->
           extract_from_mic_e_map(mic_e_map)
+
+        # Handle ParseError structs gracefully
+        %{__struct__: Aprs.Types.ParseError} ->
+          %{}
 
         %{} when is_map(data_extended) ->
           extract_from_map(data_extended)
@@ -259,18 +271,40 @@ defmodule Aprsme.Packet do
   end
 
   # Extract data from standard map-based data_extended
-  defp extract_from_map(data_extended) do
+  # Convert struct to map if possible, otherwise return empty map
+  defp extract_from_map(data_extended) when is_struct(data_extended) do
+    data_extended
+    |> Map.from_struct()
+    |> extract_from_map()
+  rescue
+    _ -> %{}
+  end
+
+  defp extract_from_map(data_extended) when is_map(data_extended) do
     # Remove raw_weather_data before processing
     data_extended = Map.delete(data_extended, :raw_weather_data)
     data_extended = Map.delete(data_extended, "raw_weather_data")
 
+    # Handle nested data_extended structures
+    nested_data_extended = data_extended[:data_extended] || data_extended["data_extended"]
+
+    # Merge data from both levels
+    combined_data =
+      if nested_data_extended do
+        Map.merge(data_extended, nested_data_extended)
+      else
+        data_extended
+      end
+
     %{}
-    |> put_symbol_fields(data_extended)
-    |> put_weather_fields(data_extended)
-    |> put_equipment_fields(data_extended)
-    |> put_message_fields(data_extended)
-    |> extract_weather_data(data_extended)
+    |> put_symbol_fields(combined_data)
+    |> extract_weather_data(combined_data)
+    |> put_weather_fields(combined_data)
+    |> put_equipment_fields(combined_data)
+    |> put_message_fields(combined_data)
   end
+
+  defp extract_from_map(_), do: %{}
 
   defp put_symbol_fields(map, data_extended) do
     map
@@ -297,7 +331,8 @@ defmodule Aprsme.Packet do
       :pressure,
       :rain_1h,
       :rain_24h,
-      :rain_since_midnight
+      :rain_since_midnight,
+      :snow
     ]
 
     Enum.reduce(weather_fields, map, fn field, acc ->
@@ -361,55 +396,47 @@ defmodule Aprsme.Packet do
     # Look for weather report in different possible locations
     weather_data =
       data_extended[:weather] || data_extended["weather"] ||
-        data_extended[:weather_report] || data_extended["weather_report"]
+        data_extended[:weather_report] || data_extended["weather_report"] ||
+        data_extended[:raw_weather_data] || data_extended["raw_weather_data"]
+
+    # Also check the comment field for weather data
+    comment_weather = attrs[:comment] || attrs["comment"]
 
     case weather_data do
       weather when is_binary(weather) ->
-        parse_weather_string(attrs, weather)
+        case Aprs.Weather.parse(weather) do
+          nil ->
+            attrs
+
+          parsed_weather ->
+            attrs
+            |> Map.merge(parsed_weather)
+            |> Map.put(:data_type, "weather")
+        end
 
       weather when is_map(weather) ->
         weather = Map.drop(weather, [:raw_weather_data, "raw_weather_data"])
-        Map.merge(attrs, weather)
+
+        attrs
+        |> Map.merge(weather)
+        |> Map.put(:data_type, "weather")
 
       _ ->
-        attrs
+        # If no weather data in data_extended, try parsing the comment
+        if is_binary(comment_weather) do
+          case Aprs.Weather.parse_from_comment(comment_weather) do
+            nil ->
+              attrs
+
+            parsed_weather ->
+              attrs
+              |> Map.merge(parsed_weather)
+              |> Map.put(:data_type, "weather")
+          end
+        else
+          attrs
+        end
     end
-  end
-
-  # Parse weather data from string format (basic implementation)
-  defp parse_weather_string(attrs, weather_string) do
-    # This is a simplified parser - a full implementation would handle
-    # the complete APRS weather format specification
-    attrs
-    |> maybe_extract_weather_field(weather_string, ~r/(\d{3})\/(\d{3})/, [
-      :wind_direction,
-      :wind_speed
-    ])
-    |> maybe_extract_weather_field(weather_string, ~r/t(\d{3})/, [:temperature])
-    |> maybe_extract_weather_field(weather_string, ~r/h(\d{2})/, [:humidity])
-    |> maybe_extract_weather_field(weather_string, ~r/b(\d{5})/, [:pressure])
-  end
-
-  # Helper to extract weather fields using regex
-  defp maybe_extract_weather_field(attrs, weather_string, regex, keys) do
-    case Regex.run(regex, weather_string) do
-      [_full | matches] ->
-        update_attrs_with_weather_matches(attrs, keys, matches)
-
-      _ ->
-        attrs
-    end
-  end
-
-  defp update_attrs_with_weather_matches(attrs, keys, matches) do
-    keys
-    |> Enum.zip(matches)
-    |> Enum.reduce(attrs, fn {key, value}, acc ->
-      case Integer.parse(value) do
-        {int_val, _} -> Map.put(acc, key, int_val)
-        :error -> acc
-      end
-    end)
   end
 
   # Helper to put a value only if it's not nil

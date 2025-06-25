@@ -25,6 +25,7 @@ defmodule Aprsme.Packets do
     try do
       packet_attrs =
         packet_data
+        |> Aprsme.Packet.extract_additional_data(packet_data[:raw_packet] || packet_data["raw_packet"] || "")
         |> normalize_packet_attrs()
         |> set_received_at()
         |> patch_lat_lon_from_data_extended()

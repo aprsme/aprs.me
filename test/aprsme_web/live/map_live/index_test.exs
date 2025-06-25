@@ -66,6 +66,10 @@ defmodule AprsmeWeb.MapLive.IndexTest do
     end
 
     test "loads historical packets when map is ready", %{conn: conn} do
+      # Mock the Packets.get_packets_for_replay function to return empty list
+      # since we now load all historical packets at once instead of replaying
+      Mox.stub(Aprsme.PacketsMock, :get_packets_for_replay, fn _opts -> [] end)
+
       {:ok, view, _html} = live(conn, "/")
 
       # Simulate map initialization which should trigger historical packet loading

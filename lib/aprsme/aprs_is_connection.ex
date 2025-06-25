@@ -34,8 +34,16 @@ defmodule Aprsme.AprsIsConnection do
   # GenServer callbacks
   @impl true
   def init(state) do
-    schedule_connect(0)
-    {:ok, Map.merge(%{socket: nil, backoff: @reconnect_initial}, state)}
+    # Check if APRS connection is disabled (e.g., in test mode)
+    disable_connection = Application.get_env(:aprsme, :disable_aprs_connection, false)
+
+    if disable_connection do
+      Logger.info("APRS-IS connection disabled (test mode)")
+      {:ok, Map.merge(%{socket: nil, backoff: @reconnect_initial}, state)}
+    else
+      schedule_connect(0)
+      {:ok, Map.merge(%{socket: nil, backoff: @reconnect_initial}, state)}
+    end
   end
 
   @impl true

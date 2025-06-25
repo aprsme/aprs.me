@@ -5,6 +5,7 @@ defmodule AprsmeWeb.MapLive.Index do
   use AprsmeWeb, :live_view
 
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
+  import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_navigate: 2]
 
   alias AprsmeWeb.Endpoint
   alias AprsmeWeb.MapLive.MapHelpers
@@ -55,11 +56,6 @@ defmodule AprsmeWeb.MapLive.Index do
        historical_hours: "1",
        packet_age_threshold: one_hour_ago,
        slideover_open: true,
-       replay_active: false,
-       replay_start_time: nil,
-       replay_end_time: nil,
-       replay_current_time: nil,
-       replay_speed: 1,
        deployed_at: deployed_at
      )}
   end
@@ -432,7 +428,18 @@ defmodule AprsmeWeb.MapLive.Index do
 
   defp handle_info_initialize_replay(socket) do
     if not socket.assigns.historical_loaded and socket.assigns.map_ready do
-      socket = start_historical_replay(socket)
+      # Use default bounds if map_bounds is not available yet
+      map_bounds =
+        socket.assigns.map_bounds ||
+          %{
+            north: 90.0,
+            south: -90.0,
+            east: 180.0,
+            west: -180.0
+          }
+
+      socket = assign(socket, map_bounds: map_bounds)
+      socket = load_historical_packets_for_bounds(socket, map_bounds)
       {:noreply, socket}
     else
       {:noreply, socket}
@@ -604,6 +611,22 @@ defmodule AprsmeWeb.MapLive.Index do
         font-weight: bold;
         color: #1e40af;
         margin-bottom: 4px;
+      }
+
+      .aprs-info-link {
+        font-size: 11px;
+        color: #007cba;
+        text-decoration: none;
+        font-weight: normal;
+        margin-left: 8px;
+        padding: 2px 4px;
+        border-radius: 3px;
+        transition: background-color 0.2s;
+      }
+
+      .aprs-info-link:hover {
+        background-color: rgba(0, 124, 186, 0.1);
+        text-decoration: none;
       }
 
       .aprs-comment {
@@ -1030,37 +1053,6 @@ defmodule AprsmeWeb.MapLive.Index do
   # Helper functions
 
   # Fetch historical packets from the database
-  # Helper function to start historical replay
-  @spec start_historical_replay(Socket.t()) :: Socket.t()
-  defp start_historical_replay(socket) do
-    if socket.assigns.map_ready and socket.assigns.map_bounds do
-      start_historical_replay_with_bounds(socket)
-    else
-      socket
-    end
-  end
-
-  defp start_historical_replay_with_bounds(socket) do
-    now = DateTime.utc_now()
-    historical_hours = String.to_integer(socket.assigns.historical_hours)
-    start_time = DateTime.add(now, -historical_hours * 3600, :second)
-
-    bounds = [
-      socket.assigns.map_bounds.west,
-      socket.assigns.map_bounds.south,
-      socket.assigns.map_bounds.east,
-      socket.assigns.map_bounds.north
-    ]
-
-    historical_packets = fetch_historical_packets(bounds, start_time, now)
-
-    if Enum.empty?(historical_packets) do
-      socket
-    else
-      process_historical_packets(socket, historical_packets)
-    end
-  end
-
   defp process_historical_packets(socket, historical_packets) do
     socket = push_event(socket, "clear_historical_packets", %{})
 
@@ -1214,7 +1206,7 @@ defmodule AprsmeWeb.MapLive.Index do
     historical_packets = fetch_historical_packets(bounds, start_time, now)
 
     if Enum.empty?(historical_packets) do
-      socket
+      assign(socket, historical_loaded: true)
     else
       process_historical_packets(socket, historical_packets)
     end
