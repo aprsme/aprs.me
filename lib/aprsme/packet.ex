@@ -393,50 +393,40 @@ defmodule Aprsme.Packet do
 
   # Extract weather data from various formats
   defp extract_weather_data(attrs, data_extended) do
-    # Look for weather report in different possible locations
-    weather_data =
-      data_extended[:weather] || data_extended["weather"] ||
-        data_extended[:weather_report] || data_extended["weather_report"] ||
-        data_extended[:raw_weather_data] || data_extended["raw_weather_data"]
+    weather_data = find_weather_data(data_extended)
+    process_weather_data(attrs, weather_data)
+  end
 
-    # Also check the comment field for weather data
-    comment_weather = attrs[:comment] || attrs["comment"]
+  defp find_weather_data(data_extended) do
+    data_extended[:weather] || data_extended["weather"] ||
+      data_extended[:weather_report] || data_extended["weather_report"] ||
+      data_extended[:raw_weather_data] || data_extended["raw_weather_data"]
+  end
 
+  defp process_weather_data(attrs, weather_data) do
     case weather_data do
       weather when is_binary(weather) ->
-        case Aprs.Weather.parse(weather) do
-          nil ->
-            attrs
-
-          parsed_weather ->
-            attrs
-            |> Map.merge(parsed_weather)
-            |> Map.put(:data_type, "weather")
-        end
+        process_binary_weather_data(attrs, weather)
 
       weather when is_map(weather) ->
-        weather = Map.drop(weather, [:raw_weather_data, "raw_weather_data"])
-
-        attrs
-        |> Map.merge(weather)
-        |> Map.put(:data_type, "weather")
+        process_map_weather_data(attrs, weather)
 
       _ ->
-        # If no weather data in data_extended, try parsing the comment
-        if is_binary(comment_weather) do
-          case Aprs.Weather.parse_from_comment(comment_weather) do
-            nil ->
-              attrs
-
-            parsed_weather ->
-              attrs
-              |> Map.merge(parsed_weather)
-              |> Map.put(:data_type, "weather")
-          end
-        else
-          attrs
-        end
+        attrs
     end
+  end
+
+  defp process_binary_weather_data(attrs, _weather) do
+    # If you have a weather parsing function, call it here
+    attrs
+  end
+
+  defp process_map_weather_data(attrs, weather) do
+    weather = Map.drop(weather, [:raw_weather_data, "raw_weather_data"])
+
+    attrs
+    |> Map.merge(weather)
+    |> Map.put(:data_type, "weather")
   end
 
   # Helper to put a value only if it's not nil

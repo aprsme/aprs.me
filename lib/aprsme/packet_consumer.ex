@@ -296,12 +296,6 @@ defmodule Aprsme.PacketConsumer do
 
   defp set_lat_lon(attrs, lat, lon) do
     round6 = fn
-      nil ->
-        nil
-
-      %Decimal{} = d ->
-        Decimal.round(d, 6)
-
       n when is_float(n) ->
         Float.round(n, 6)
 
@@ -313,6 +307,9 @@ defmodule Aprsme.PacketConsumer do
           {f, _} -> Float.round(f, 6)
           :error -> nil
         end
+
+      nil ->
+        nil
 
       _ ->
         nil

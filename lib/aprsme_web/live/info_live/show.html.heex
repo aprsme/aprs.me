@@ -70,7 +70,14 @@
           <span class="font-semibold">Device:</span> {@packet.manufacturer} {@packet.equipment_type}
         </div>
         <div class="mb-2"><span class="font-semibold">Path:</span> {@packet.path}</div>
-        <div class="mb-2"><span class="font-semibold">Raw:</span> {@packet.raw_packet}</div>
+        <div class="mb-2">
+          <span class="font-semibold">Raw:</span>
+          <%= if is_binary(@packet.raw_packet) do %>
+            {Aprsme.EncodingUtils.sanitize_string(@packet.raw_packet)}
+          <% else %>
+            {@packet.raw_packet}
+          <% end %>
+        </div>
       </div>
     </div>
     <h2 class="text-xl font-semibold mt-8 mb-2">Stations near current position</h2>

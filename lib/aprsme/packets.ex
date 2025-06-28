@@ -188,7 +188,7 @@ defmodule Aprsme.Packets do
   """
   @spec store_bad_packet(map() | String.t(), any()) ::
           {:ok, struct()} | {:error, Ecto.Changeset.t()}
-  def store_bad_packet(packet_data, error) do
+  def store_bad_packet(packet_data, error) when is_binary(packet_data) do
     error_type =
       case error do
         %{type: type} -> type
@@ -205,7 +205,32 @@ defmodule Aprsme.Packets do
 
     %BadPacket{}
     |> BadPacket.changeset(%{
-      raw_packet: inspect(packet_data),
+      raw_packet: Aprsme.EncodingUtils.sanitize_string(packet_data),
+      error_message: error_message,
+      error_type: error_type,
+      attempted_at: DateTime.utc_now()
+    })
+    |> Repo.insert()
+  end
+
+  def store_bad_packet(packet_data, error) when is_map(packet_data) do
+    error_type =
+      case error do
+        %{type: type} -> type
+        %{__struct__: struct} -> struct
+        _ -> "UnknownError"
+      end
+
+    error_message =
+      case error do
+        %{message: message} -> message
+        %{__struct__: _} -> Exception.message(error)
+        _ -> inspect(error)
+      end
+
+    %BadPacket{}
+    |> BadPacket.changeset(%{
+      raw_packet: packet_data[:raw_packet] || packet_data["raw_packet"] || inspect(packet_data),
       error_message: error_message,
       error_type: error_type,
       attempted_at: DateTime.utc_now()
@@ -430,20 +455,35 @@ defmodule Aprsme.Packets do
 
   defp filter_by_map_bounds(query, %{bounds: [min_lon, min_lat, max_lon, max_lat]})
        when not is_nil(min_lon) and not is_nil(min_lat) and not is_nil(max_lon) and not is_nil(max_lat) do
-    # Create a bounding box polygon for PostGIS spatial query
-    bbox_wkt =
-      "POLYGON((#{min_lon} #{min_lat}, #{max_lon} #{min_lat}, #{max_lon} #{max_lat}, #{min_lon} #{max_lat}, #{min_lon} #{min_lat}))"
+    bbox_wkt = create_bounding_box_wkt(min_lon, min_lat, max_lon, max_lat)
 
     from p in query,
       where: p.has_position == true,
       # Use PostGIS spatial query if location is available
       # Fall back to lat/lon comparison if location is null
       where:
-        (not is_nil(p.location) and fragment("ST_Within(?, ST_GeomFromText(?, 4326))", p.location, ^bbox_wkt)) or
-          (is_nil(p.location) and p.lat >= ^min_lat and p.lat <= ^max_lat and p.lon >= ^min_lon and p.lon <= ^max_lon)
+        fragment(
+          "(? IS NOT NULL and ST_Within(?, ST_GeomFromText(?, 4326))) or (? IS NULL and ? >= ? and ? <= ? and ? >= ? and ? <= ?)",
+          p.location,
+          p.location,
+          ^bbox_wkt,
+          p.location,
+          p.lat,
+          ^min_lat,
+          p.lat,
+          ^max_lat,
+          p.lon,
+          ^min_lon,
+          p.lon,
+          ^max_lon
+        )
   end
 
   defp filter_by_map_bounds(query, _), do: query
+
+  defp create_bounding_box_wkt(min_lon, min_lat, max_lon, max_lat) do
+    "POLYGON((#{min_lon} #{min_lat}, #{max_lon} #{min_lat}, #{max_lon} #{max_lat}, #{min_lon} #{max_lat}, #{min_lon} #{min_lat}))"
+  end
 
   defp limit_results(query, %{limit: limit, page: page}) when not is_nil(limit) and not is_nil(page) do
     offset = (page - 1) * limit
@@ -508,13 +548,13 @@ defmodule Aprsme.Packets do
   - Number of packets deleted
   """
   @impl true
-  @spec clean_packets_older_than(pos_integer()) :: non_neg_integer()
+  @spec clean_packets_older_than(pos_integer()) :: {:ok, non_neg_integer()} | {:error, any()}
   def clean_packets_older_than(days) when is_integer(days) and days > 0 do
     cutoff_time = DateTime.add(DateTime.utc_now(), -days * 86_400, :second)
 
     {deleted_count, _} = Repo.delete_all(from(p in Packet, where: p.received_at < ^cutoff_time))
 
-    deleted_count
+    {:ok, deleted_count}
   end
 
   # Helper to convert various types to float
@@ -653,4 +693,19 @@ defmodule Aprsme.Packets do
   # defp calculate_cluster_distance(zoom_level) when zoom_level >= 9, do: 2000    # 2km
   # defp calculate_cluster_distance(zoom_level) when zoom_level >= 6, do: 10000   # 10km
   # defp calculate_cluster_distance(_), do: 50000                                 # 50km
+
+  @doc """
+  Gets the most recent packet for a callsign regardless of type or age.
+  This is used for API endpoints that need the latest packet from a source.
+  """
+  @spec get_latest_packet_for_callsign(String.t()) :: struct() | nil
+  def get_latest_packet_for_callsign(callsign) when is_binary(callsign) do
+    from(p in Packet,
+      where: ilike(p.sender, ^callsign),
+      order_by: [desc: p.received_at],
+      limit: 1
+    )
+    |> select_with_virtual_coordinates()
+    |> Repo.one()
+  end
 end

@@ -57,20 +57,13 @@
       </:col>
       <:col :let={bad_packet} label="Raw Packet">
         <div class="max-w-md">
-          <details class="group">
-            <summary class="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
-              <span class="font-mono">
-                {String.slice(bad_packet.raw_packet || "", 0..50)}{if String.length(
-                                                                        bad_packet.raw_packet ||
-                                                                          ""
-                                                                      ) > 50,
-                                                                      do: "..."}
-              </span>
-            </summary>
-            <div class="mt-2 p-2 bg-gray-50 rounded text-xs font-mono text-gray-700 break-all">
+          <div class="text-xs font-mono text-gray-700 break-all">
+            <%= if is_binary(bad_packet.raw_packet) do %>
+              {Aprsme.EncodingUtils.sanitize_string(bad_packet.raw_packet)}
+            <% else %>
               {bad_packet.raw_packet}
-            </div>
-          </details>
+            <% end %>
+          </div>
         </div>
       </:col>
     </.table>

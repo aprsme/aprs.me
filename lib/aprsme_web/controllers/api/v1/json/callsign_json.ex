@@ -31,7 +31,7 @@ defmodule AprsmeWeb.Api.V1.CallsignJSON do
       path: packet.path,
       data_type: packet.data_type,
       information_field: packet.information_field,
-      raw_packet: packet.raw_packet,
+      raw_packet: sanitize_raw_packet(packet.raw_packet),
       received_at: packet.received_at,
       region: packet.region,
       position: position_json(packet),
@@ -124,4 +124,10 @@ defmodule AprsmeWeb.Api.V1.CallsignJSON do
   defp to_float(%Decimal{} = decimal), do: Decimal.to_float(decimal)
   defp to_float(value) when is_number(value), do: value
   defp to_float(_), do: nil
+
+  defp sanitize_raw_packet(raw_packet) when is_binary(raw_packet) do
+    Aprsme.EncodingUtils.sanitize_string(raw_packet)
+  end
+
+  defp sanitize_raw_packet(raw_packet), do: raw_packet
 end

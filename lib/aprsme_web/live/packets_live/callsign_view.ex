@@ -57,50 +57,54 @@ defmodule AprsmeWeb.PacketsLive.CallsignView do
   def handle_info(%{event: "packet", payload: payload}, socket) do
     # Handle incoming live packets - only process if they match our callsign
     if packet_matches_callsign?(payload, socket.assigns.callsign) do
-      sanitized_payload = EncodingUtils.sanitize_packet(payload)
-
-      device_identifier =
-        Map.get(sanitized_payload, :device_identifier) ||
-          Map.get(sanitized_payload, "device_identifier") ||
-          DeviceParser.extract_device_identifier(sanitized_payload)
-
-      canonical_identifier =
-        if is_binary(device_identifier) do
-          matched_device = Aprsme.DeviceIdentification.lookup_device_by_identifier(device_identifier)
-          if matched_device, do: matched_device.identifier, else: device_identifier
-        else
-          device_identifier
-        end
-
-      sanitized_payload = Map.put(sanitized_payload, :device_identifier, canonical_identifier)
-      # Enrich with model/vendor
-      enriched_payload = enrich_packet_with_device_info(sanitized_payload)
-      current_live = socket.assigns.live_packets
-      current_stored = socket.assigns.packets
-
-      {updated_stored, updated_live} =
-        update_packet_lists(current_stored, current_live, enriched_payload)
-
-      all_packets = get_all_packets_list(updated_stored, updated_live)
-      latest_packet = List.first(all_packets)
-      {symbol_table_id, symbol_code} = extract_symbol_info(latest_packet)
-
-      socket =
-        socket
-        |> assign(:packets, updated_stored)
-        |> assign(:live_packets, updated_live)
-        |> assign(:all_packets, all_packets)
-        |> assign(:latest_symbol_table_id, symbol_table_id)
-        |> assign(:latest_symbol_code, symbol_code)
-
-      {:noreply, socket}
+      process_matching_packet(payload, socket)
     else
       {:noreply, socket}
     end
   end
 
-  @impl true
   def handle_info(_message, socket), do: {:noreply, socket}
+
+  defp process_matching_packet(payload, socket) do
+    sanitized_payload = EncodingUtils.sanitize_packet(payload)
+    enriched_payload = enrich_packet_with_device_identifier(sanitized_payload)
+    enriched_payload = enrich_packet_with_device_info(enriched_payload)
+
+    current_live = socket.assigns.live_packets
+    current_stored = socket.assigns.packets
+
+    {updated_stored, updated_live} = update_packet_lists(current_stored, current_live, enriched_payload)
+    all_packets = get_all_packets_list(updated_stored, updated_live)
+    latest_packet = List.first(all_packets)
+    {symbol_table_id, symbol_code} = extract_symbol_info(latest_packet)
+
+    socket =
+      socket
+      |> assign(:packets, updated_stored)
+      |> assign(:live_packets, updated_live)
+      |> assign(:all_packets, all_packets)
+      |> assign(:latest_symbol_table_id, symbol_table_id)
+      |> assign(:latest_symbol_code, symbol_code)
+
+    {:noreply, socket}
+  end
+
+  defp enrich_packet_with_device_identifier(sanitized_payload) do
+    device_identifier =
+      Map.get(sanitized_payload, :device_identifier) ||
+        Map.get(sanitized_payload, "device_identifier") ||
+        DeviceParser.extract_device_identifier(sanitized_payload)
+
+    canonical_identifier =
+      if is_binary(device_identifier) do
+        matched_device = Aprsme.DeviceIdentification.lookup_device_by_identifier(device_identifier)
+        if matched_device, do: matched_device.identifier, else: device_identifier
+      else
+        device_identifier
+      end
+
+    Map.put(sanitized_payload, :device_identifier, canonical_identifier)
+  end
 
   # Private helper functions
 

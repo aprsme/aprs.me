@@ -66,26 +66,13 @@ defmodule AprsmeWeb.Api.V1.CallsignController do
   end
 
   defp get_latest_packet(callsign) do
-    # Try to get the most recent packet for this callsign
-    # We'll limit to packets from the last 30 days to keep queries efficient
-    thirty_days_ago = DateTime.add(DateTime.utc_now(), -30, :day)
-
-    # Use get_recent_packets which orders by desc received_at
-    opts = %{
-      callsign: callsign,
-      start_time: thirty_days_ago,
-      limit: 1
-    }
-
-    case Packets.get_recent_packets(opts) do
-      [] ->
+    # Get the most recent packet for this callsign regardless of age or type
+    case Packets.get_latest_packet_for_callsign(callsign) do
+      nil ->
         {:error, :not_found}
 
-      [packet | _] ->
+      packet ->
         {:ok, packet}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   rescue
     Ecto.QueryError ->

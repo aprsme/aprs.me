@@ -1099,26 +1099,27 @@ defmodule AprsmeWeb.MapLive.Index do
   defp filter_unique_positions(packets) do
     packets
     |> Enum.reduce([], fn packet, acc ->
-      {lat, lon, _} = MapHelpers.get_coordinates(packet)
-
-      if lat && lon do
-        case acc do
-          [] ->
-            # First packet, always include
-            [packet | acc]
-
-          [last_packet | _] ->
-            if position_changed?(packet, last_packet) do
-              [packet | acc]
-            else
-              acc
-            end
-        end
-      else
-        acc
-      end
+      add_if_unique_position(packet, acc)
     end)
     |> Enum.reverse()
+  end
+
+  defp add_if_unique_position(packet, []), do: if_position_present(packet, [])
+  defp add_if_unique_position(packet, [last_packet | _] = acc), do: if_position_changed(packet, last_packet, acc)
+
+  defp if_position_present(packet, acc) do
+    {lat, lon, _} = MapHelpers.get_coordinates(packet)
+    if lat && lon, do: [packet | acc], else: acc
+  end
+
+  defp if_position_changed(packet, last_packet, acc) do
+    {lat, lon, _} = MapHelpers.get_coordinates(packet)
+
+    if lat && lon do
+      if position_changed?(packet, last_packet), do: [packet | acc], else: acc
+    else
+      acc
+    end
   end
 
   # Check if position changed significantly between two packets (more than ~1 meter)

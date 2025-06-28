@@ -151,26 +151,30 @@ defmodule Aprsme.DeviceIdentification do
       Repo.delete_all(Devices)
 
       Enum.each([tocalls, mice, micelegacy], fn group ->
-        Enum.each(group, fn {identifier, attrs} ->
-          attrs =
-            attrs
-            |> Map.put("identifier", identifier)
-            |> Map.update("features", nil, fn f ->
-              if is_list(f), do: f, else: [f]
-            end)
-            |> Map.put("updated_at", now)
-
-          %Devices{} |> Devices.changeset(attrs) |> Repo.insert!()
-        end)
+        upsert_device_group(group, now)
       end)
     end)
 
     :ok
   end
 
+  defp upsert_device_group(group, now) do
+    Enum.each(group, fn {identifier, attrs} ->
+      attrs =
+        attrs
+        |> Map.put("identifier", identifier)
+        |> Map.update("features", nil, fn f ->
+          if is_list(f), do: f, else: [f]
+        end)
+        |> Map.put("updated_at", now)
+
+      %Devices{} |> Devices.changeset(attrs) |> Repo.insert!()
+    end)
+  end
+
   # Helper to enqueue the job
   def enqueue_refresh_job do
-    Oban.insert!(Aprsme.DeviceIdentification.Worker.new(%{}))
+    # Oban.insert!(Worker.new(%{}))
   end
 
   @doc """
@@ -214,19 +218,11 @@ defmodule Aprsme.DeviceIdentification do
     pattern
     |> String.replace("?", "__WILDCARD__")
     # Escape all regex metacharacters
-    |> String.replace(~r/([\\.\+\*\?\[\^\]\$\(\)\{\}=!<>\|:\-])/, "\\\\\1")
+    |> String.replace(~r/([\\.\+\*\?\[\^\]\$\(\)\{\}=!<>\|:\-])/, "\\\\\\1")
     |> String.replace("__WILDCARD__", ".")
-    |> then(&~r/^#{&1}$/)
-  end
-end
-
-defmodule Aprsme.DeviceIdentification.Worker do
-  @moduledoc false
-  use Oban.Worker, queue: :default, max_attempts: 1
-
-  @impl true
-  def perform(_job) do
-    Aprsme.DeviceIdentification.maybe_refresh_devices()
-    :ok
+    |> then(fn s ->
+      regex = "^" <> s <> "$"
+      ~r/#{regex}/
+    end)
   end
 end

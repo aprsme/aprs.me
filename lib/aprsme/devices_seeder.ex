@@ -15,27 +15,35 @@ defmodule Aprsme.DevicesSeeder do
     Repo.delete_all(Devices)
 
     Enum.each([tocalls, mice, micelegacy], fn group ->
-      Enum.each(group, fn {identifier, attrs} ->
-        attrs =
-          attrs
-          |> Map.put("identifier", identifier)
-          |> Map.update("features", nil, fn f ->
-            if is_list(f), do: f, else: [f]
-          end)
-          |> Map.put("updated_at", now)
+      seed_device_group(group, now)
+    end)
+  end
 
-        %Devices{}
-        |> Devices.changeset(attrs)
-        |> Ecto.Changeset.apply_changes()
-        |> Map.from_struct()
-        |> then(fn map ->
-          Repo.insert!(
-            Devices.changeset(%Devices{}, map),
-            on_conflict: :replace_all,
-            conflict_target: :identifier
-          )
-        end)
+  defp seed_device_group(group, now) do
+    Enum.each(group, fn {identifier, attrs} ->
+      insert_device(identifier, attrs, now)
+    end)
+  end
+
+  defp insert_device(identifier, attrs, now) do
+    attrs =
+      attrs
+      |> Map.put("identifier", identifier)
+      |> Map.update("features", nil, fn f ->
+        if is_list(f), do: f, else: [f]
       end)
+      |> Map.put("updated_at", now)
+
+    %Devices{}
+    |> Devices.changeset(attrs)
+    |> Ecto.Changeset.apply_changes()
+    |> Map.from_struct()
+    |> then(fn map ->
+      Repo.insert!(
+        Devices.changeset(%Devices{}, map),
+        on_conflict: :replace_all,
+        conflict_target: :identifier
+      )
     end)
   end
 end

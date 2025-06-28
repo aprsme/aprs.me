@@ -34,18 +34,27 @@ defmodule AprsmeWeb.MapLive.MapHelpers do
     lat = Map.get(packet, :lat) || Map.get(packet, "lat")
     lon = Map.get(packet, :lon) || Map.get(packet, "lon")
 
-    if not is_nil(lat) and not is_nil(lon) do
+    if has_direct_coordinates?(lat, lon) do
       true
     else
-      data_extended = Map.get(packet, :data_extended) || Map.get(packet, "data_extended")
-
-      case data_extended do
-        %MicE{} -> true
-        %{latitude: lat, longitude: lon} when not is_nil(lat) and not is_nil(lon) -> true
-        _ -> false
-      end
+      has_position_in_data_extended?(packet)
     end
   end
+
+  defp has_direct_coordinates?(lat, lon) when not is_nil(lat) and not is_nil(lon), do: true
+  defp has_direct_coordinates?(_, _), do: false
+
+  defp has_position_in_data_extended?(packet) do
+    data_extended = Map.get(packet, :data_extended) || Map.get(packet, "data_extended")
+    has_position_in_data_extended_case?(data_extended)
+  end
+
+  defp has_position_in_data_extended_case?(%MicE{}), do: true
+
+  defp has_position_in_data_extended_case?(%{latitude: lat, longitude: lon}) when not is_nil(lat) and not is_nil(lon),
+    do: true
+
+  defp has_position_in_data_extended_case?(_), do: false
 
   @spec within_bounds?(map() | tuple(), map()) :: boolean()
   def within_bounds?(packet_or_coords, bounds) do

@@ -450,7 +450,7 @@ defmodule Aprsme.Is do
         })
 
       {:error, error} ->
-        Logger.debug("PARSE ERROR: " <> error)
+        Logger.debug("PARSE ERROR: " <> to_string(error))
         Aprsme.Packets.store_bad_packet(message, %{message: error, type: "ParseError"})
     end
   end
