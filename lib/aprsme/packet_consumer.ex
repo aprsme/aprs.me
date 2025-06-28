@@ -155,11 +155,56 @@ defmodule Aprsme.PacketConsumer do
     # Explicitly remove raw_weather_data to prevent insert_all errors
     |> Map.delete(:raw_weather_data)
     |> Map.delete("raw_weather_data")
+    # Create PostGIS geometry for location field
+    |> create_location_geometry()
   rescue
     error ->
       Logger.error("Failed to prepare packet for batch insert: #{inspect(error)}")
       nil
   end
+
+  # Create PostGIS geometry from lat/lon coordinates
+  defp create_location_geometry(attrs) do
+    lat = attrs[:lat]
+    lon = attrs[:lon]
+
+    if valid_coordinates?(lat, lon) do
+      location = create_point(lat, lon)
+
+      if location do
+        Map.put(attrs, :location, location)
+      else
+        attrs
+      end
+    else
+      attrs
+    end
+  end
+
+  # Helper functions for coordinate validation and point creation
+  defp valid_coordinates?(lat, lon) do
+    lat = normalize_coordinate(lat)
+    lon = normalize_coordinate(lon)
+
+    is_number(lat) && is_number(lon) &&
+      lat >= -90 && lat <= 90 &&
+      lon >= -180 && lon <= 180
+  end
+
+  defp normalize_coordinate(%Decimal{} = decimal), do: Decimal.to_float(decimal)
+  defp normalize_coordinate(coord), do: coord
+
+  defp create_point(lat, lon)
+       when (is_number(lat) or is_struct(lat, Decimal)) and (is_number(lon) or is_struct(lon, Decimal)) do
+    lat = normalize_coordinate(lat)
+    lon = normalize_coordinate(lon)
+
+    if valid_coordinates?(lat, lon) do
+      %Geo.Point{coordinates: {lon, lat}, srid: 4326}
+    end
+  end
+
+  defp create_point(_, _), do: nil
 
   defp valid_packet?(nil), do: false
   defp valid_packet?(%{sender: sender}) when is_binary(sender) and byte_size(sender) > 0, do: true

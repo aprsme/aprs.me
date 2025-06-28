@@ -348,14 +348,8 @@ defmodule Aprsme.Packets do
   # Query building helpers
   # Handle both start_time and end_time
   defp filter_by_time(query, %{start_time: start_time, end_time: end_time}) do
-    # Ensure we prioritize packets from the last hour
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
-
-    effective_start_time =
-      if DateTime.before?(start_time, one_hour_ago), do: one_hour_ago, else: start_time
-
     from p in query,
-      where: p.received_at >= ^effective_start_time and p.received_at <= ^end_time
+      where: p.received_at >= ^start_time and p.received_at <= ^end_time
   end
 
   # Handle only start_time
@@ -442,8 +436,11 @@ defmodule Aprsme.Packets do
 
     from p in query,
       where: p.has_position == true,
-      where: not is_nil(p.location),
-      where: fragment("ST_Within(?, ST_GeomFromText(?, 4326))", p.location, ^bbox_wkt)
+      # Use PostGIS spatial query if location is available
+      # Fall back to lat/lon comparison if location is null
+      where:
+        (not is_nil(p.location) and fragment("ST_Within(?, ST_GeomFromText(?, 4326))", p.location, ^bbox_wkt)) or
+          (is_nil(p.location) and p.lat >= ^min_lat and p.lat <= ^max_lat and p.lon >= ^min_lon and p.lon <= ^max_lon)
   end
 
   defp filter_by_map_bounds(query, _), do: query
