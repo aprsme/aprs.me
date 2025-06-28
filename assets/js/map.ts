@@ -800,7 +800,7 @@ let MapAPRSMap = {
 
     // Add popup if content provided
     if (data.popup) {
-      marker.bindPopup(data.popup);
+      marker.bindPopup(data.popup, { autoPan: false });
     }
 
     // Handle marker click
@@ -921,7 +921,7 @@ let MapAPRSMap = {
         existingMarker.setPopupContent(data.popup);
         // Force popup to refresh by unbinding and rebinding
         existingMarker.unbindPopup();
-        existingMarker.bindPopup(data.popup);
+        existingMarker.bindPopup(data.popup, { autoPan: false });
       }
     } else {
       // Marker doesn't exist, create it
