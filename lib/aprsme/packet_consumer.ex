@@ -308,9 +308,6 @@ defmodule Aprsme.PacketConsumer do
           :error -> nil
         end
 
-      nil ->
-        nil
-
       _ ->
         nil
     end

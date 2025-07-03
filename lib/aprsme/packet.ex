@@ -304,8 +304,6 @@ defmodule Aprsme.Packet do
     |> put_message_fields(combined_data)
   end
 
-  defp extract_from_map(_), do: %{}
-
   defp put_symbol_fields(map, data_extended) do
     map
     |> maybe_put(:symbol_code, data_extended[:symbol_code] || data_extended["symbol_code"])

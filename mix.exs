@@ -12,7 +12,13 @@ defmodule Aprsme.MixProject do
       deps: deps(),
       releases: releases(),
       test_coverage: [tool: ExCoveralls],
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      dialyzer: [
+        ignore_warnings: ".dialyzer_ignore.exs",
+        plt_file:
+          {:no_warn,
+           "_build/dev/dialyxir_erlang-#{:erlang.system_info(:otp_release)}_elixir-#{System.version()}_deps-dev.plt"}
+      ]
     ]
   end
 

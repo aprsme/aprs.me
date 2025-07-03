@@ -1219,4 +1219,80 @@ defmodule AprsmeWeb.MapLive.Index do
       round4.(Map.get(b1, key)) == round4.(Map.get(b2, key))
     end)
   end
+
+  # --- Private bounds update helpers ---
+  @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
+  defp handle_bounds_update(bounds, socket) do
+    # Update the map bounds from the client, converting to atom keys
+    map_bounds = %{
+      north: bounds["north"],
+      south: bounds["south"],
+      east: bounds["east"],
+      west: bounds["west"]
+    }
+
+    # Validate bounds to prevent invalid coordinates
+    if valid_bounds?(map_bounds) do
+      handle_valid_bounds_update(map_bounds, socket)
+    else
+      # Invalid bounds, skip update
+      {:noreply, socket}
+    end
+  end
+
+  defp valid_bounds?(map_bounds) do
+    map_bounds.north <= 90 and map_bounds.south >= -90 and map_bounds.north > map_bounds.south
+  end
+
+  defp handle_valid_bounds_update(map_bounds, socket) do
+    # Only schedule a bounds update if the bounds have actually changed (with rounding)
+    if compare_bounds(map_bounds, socket.assigns.map_bounds) do
+      {:noreply, socket}
+    else
+      schedule_bounds_update(map_bounds, socket)
+    end
+  end
+
+  defp schedule_bounds_update(map_bounds, socket) do
+    if socket.assigns[:bounds_update_timer] do
+      Process.cancel_timer(socket.assigns.bounds_update_timer)
+    end
+
+    timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, 250)
+    socket = assign(socket, bounds_update_timer: timer_ref, pending_bounds: map_bounds)
+    {:noreply, socket}
+  end
+
+  @spec process_bounds_update(map(), Socket.t()) :: Socket.t()
+  defp process_bounds_update(map_bounds, socket) do
+    # Remove out-of-bounds packets and markers immediately
+    new_visible_packets =
+      socket.assigns.visible_packets
+      |> Enum.filter(fn {_k, packet} -> within_bounds?(packet, map_bounds) end)
+      |> Map.new()
+
+    packets_to_remove =
+      socket.assigns.visible_packets
+      |> Enum.reject(fn {_k, packet} -> within_bounds?(packet, map_bounds) end)
+      |> Enum.map(fn {k, _} -> k end)
+
+    # Remove markers for out-of-bounds packets
+    socket =
+      if packets_to_remove == [] do
+        socket
+      else
+        Enum.reduce(packets_to_remove, socket, fn k, acc ->
+          push_event(acc, "remove_marker", %{id: k})
+        end)
+      end
+
+    # Remove only out-of-bounds historical packets instead of clearing all
+    socket = push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
+
+    # Load additional historical packets for the new bounds if needed
+    socket = load_historical_packets_for_bounds(socket, map_bounds)
+
+    # Update map bounds and visible packets
+    assign(socket, map_bounds: map_bounds, visible_packets: new_visible_packets)
+  end
 end

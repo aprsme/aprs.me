@@ -49,12 +49,12 @@
   </h1>
   <%= if @packet do %>
     <div class="text-sm text-gray-500 mb-6">
-      {@packet.comment}
+      {@packet.comment || ""}
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
       <div>
         <div class="mb-2">
-          <span class="font-semibold">Location:</span> {@packet.lat}, {@packet.lon}
+          <span class="font-semibold">Location:</span> {@packet.lat || ""}, {@packet.lon || ""}
         </div>
         <div class="mb-2">
           <span class="font-semibold">Last position:</span> {AprsmeWeb.MapLive.PacketUtils.get_timestamp(
@@ -67,15 +67,16 @@
       </div>
       <div>
         <div class="mb-2">
-          <span class="font-semibold">Device:</span> {@packet.manufacturer} {@packet.equipment_type}
+          <span class="font-semibold">Device:</span> {@packet.manufacturer || ""} {@packet.equipment_type ||
+            ""}
         </div>
-        <div class="mb-2"><span class="font-semibold">Path:</span> {@packet.path}</div>
+        <div class="mb-2"><span class="font-semibold">Path:</span> {@packet.path || ""}</div>
         <div class="mb-2">
           <span class="font-semibold">Raw:</span>
           <%= if is_binary(@packet.raw_packet) do %>
             {Aprsme.EncodingUtils.sanitize_string(@packet.raw_packet)}
           <% else %>
-            {@packet.raw_packet}
+            {@packet.raw_packet || ""}
           <% end %>
         </div>
       </div>
@@ -124,8 +125,8 @@
                   />
                 <% end %>
               </td>
-              <td class="px-4 py-2">{neighbor.distance}</td>
-              <td class="px-4 py-2">{neighbor.last_heard}</td>
+              <td class="px-4 py-2">{neighbor.distance || ""}</td>
+              <td class="px-4 py-2">{neighbor.last_heard || ""}</td>
             </tr>
           <% end %>
         </tbody>

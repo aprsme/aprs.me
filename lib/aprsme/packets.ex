@@ -298,8 +298,6 @@ defmodule Aprsme.Packets do
     end
   end
 
-  defp extract_position_from_mic_e_struct(_), do: {nil, nil}
-
   defp extract_position_from_mic_e(data_extended) do
     if is_number(data_extended[:lat_degrees]) and is_number(data_extended[:lat_minutes]) and
          is_number(data_extended[:lon_degrees]) and is_number(data_extended[:lon_minutes]) do
