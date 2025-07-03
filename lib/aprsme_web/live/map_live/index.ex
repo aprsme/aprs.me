@@ -302,70 +302,6 @@ defmodule AprsmeWeb.MapLive.Index do
     {:noreply, socket}
   end
 
-  @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
-  defp handle_bounds_update(bounds, socket) do
-    # Update the map bounds from the client, converting to atom keys
-    map_bounds = %{
-      north: bounds["north"],
-      south: bounds["south"],
-      east: bounds["east"],
-      west: bounds["west"]
-    }
-
-    # Validate bounds to prevent invalid coordinates
-    if map_bounds.north > 90 or map_bounds.south < -90 or
-         map_bounds.north <= map_bounds.south do
-      # Invalid bounds, skip update
-      {:noreply, socket}
-    else
-      # Only schedule a bounds update if the bounds have actually changed (with rounding)
-      if compare_bounds(map_bounds, socket.assigns.map_bounds) do
-        {:noreply, socket}
-      else
-        if socket.assigns[:bounds_update_timer] do
-          Process.cancel_timer(socket.assigns.bounds_update_timer)
-        end
-
-        timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, 250)
-        socket = assign(socket, bounds_update_timer: timer_ref, pending_bounds: map_bounds)
-        {:noreply, socket}
-      end
-    end
-  end
-
-  @spec process_bounds_update(map(), Socket.t()) :: Socket.t()
-  defp process_bounds_update(map_bounds, socket) do
-    # Remove out-of-bounds packets and markers immediately
-    new_visible_packets =
-      socket.assigns.visible_packets
-      |> Enum.filter(fn {_k, packet} -> within_bounds?(packet, map_bounds) end)
-      |> Map.new()
-
-    packets_to_remove =
-      socket.assigns.visible_packets
-      |> Enum.reject(fn {_k, packet} -> within_bounds?(packet, map_bounds) end)
-      |> Enum.map(fn {k, _} -> k end)
-
-    # Remove markers for out-of-bounds packets
-    socket =
-      if packets_to_remove == [] do
-        socket
-      else
-        Enum.reduce(packets_to_remove, socket, fn k, acc ->
-          push_event(acc, "remove_marker", %{id: k})
-        end)
-      end
-
-    # Remove only out-of-bounds historical packets instead of clearing all
-    socket = push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
-
-    # Load additional historical packets for the new bounds if needed
-    socket = load_historical_packets_for_bounds(socket, map_bounds)
-
-    # Update map bounds and visible packets
-    assign(socket, map_bounds: map_bounds, visible_packets: new_visible_packets)
-  end
-
   @impl true
   def handle_info({:process_bounds_update, map_bounds}, socket), do: handle_info_process_bounds_update(map_bounds, socket)
 
@@ -1015,34 +951,36 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   # Check if a packet is within the time threshold (not too old)
-  @spec packet_within_time_threshold?(map(), DateTime.t()) :: boolean()
+  @spec packet_within_time_threshold?(struct(), any()) :: boolean()
   defp packet_within_time_threshold?(packet, threshold) do
     case packet do
       %{received_at: received_at} when not is_nil(received_at) ->
-        threshold_dt =
-          cond do
-            is_integer(threshold) ->
-              # Assume seconds since epoch
-              DateTime.from_unix!(threshold)
-
-            is_binary(threshold) ->
-              case DateTime.from_iso8601(threshold) do
-                {:ok, dt, _} -> dt
-                _ -> DateTime.utc_now()
-              end
-
-            match?(%DateTime{}, threshold) ->
-              threshold
-
-            true ->
-              DateTime.utc_now()
-          end
-
+        threshold_dt = convert_threshold_to_datetime(threshold)
         DateTime.compare(received_at, threshold_dt) in [:gt, :eq]
 
       _ ->
         # If no timestamp, treat as current
         true
+    end
+  end
+
+  defp convert_threshold_to_datetime(threshold) do
+    cond do
+      is_integer(threshold) ->
+        # Assume seconds since epoch
+        DateTime.from_unix!(threshold)
+
+      is_binary(threshold) ->
+        case DateTime.from_iso8601(threshold) do
+          {:ok, dt, _} -> dt
+          _ -> DateTime.utc_now()
+        end
+
+      match?(%DateTime{}, threshold) ->
+        threshold
+
+      true ->
+        DateTime.utc_now()
     end
   end
 
@@ -1052,47 +990,56 @@ defmodule AprsmeWeb.MapLive.Index do
   defp process_historical_packets(socket, historical_packets) do
     socket = push_event(socket, "clear_historical_packets", %{})
 
-    packet_data_list =
-      historical_packets
-      |> Enum.group_by(&PacketUtils.generate_callsign/1)
-      |> Enum.flat_map(fn {callsign, packets} ->
-        sorted_packets =
-          Enum.sort_by(
-            packets,
-            fn packet ->
-              case packet.inserted_at do
-                %NaiveDateTime{} = naive_dt -> DateTime.from_naive!(naive_dt, "Etc/UTC")
-                %DateTime{} = dt -> dt
-                _other -> DateTime.utc_now()
-              end
-            end,
-            {:desc, DateTime}
-          )
-
-        unique_position_packets = filter_unique_positions(sorted_packets)
-
-        unique_position_packets
-        |> Enum.with_index()
-        |> Enum.map(fn {packet, index} ->
-          # The first packet (index 0) is the most recent for this callsign
-          # Only show as red dot if it's not the most recent position
-          is_most_recent = index == 0
-
-          packet_data = PacketUtils.build_packet_data(packet, is_most_recent)
-
-          if packet_data do
-            packet_data
-            |> Map.put(:callsign, callsign)
-            |> Map.put(:historical, true)
-          end
-        end)
-        |> Enum.filter(& &1)
-      end)
+    packet_data_list = build_packet_data_list(historical_packets)
 
     if Enum.any?(packet_data_list) do
       push_event(socket, "add_historical_packets", %{packets: packet_data_list})
     else
       socket
+    end
+  end
+
+  defp build_packet_data_list(historical_packets) do
+    historical_packets
+    |> Enum.group_by(&PacketUtils.generate_callsign/1)
+    |> Enum.flat_map(&process_callsign_packets/1)
+  end
+
+  defp process_callsign_packets({callsign, packets}) do
+    sorted_packets = sort_packets_by_inserted_at(packets)
+    unique_position_packets = filter_unique_positions(sorted_packets)
+
+    unique_position_packets
+    |> Enum.with_index()
+    |> Enum.map(&build_packet_data_with_index(&1, callsign))
+    |> Enum.filter(& &1)
+  end
+
+  defp sort_packets_by_inserted_at(packets) do
+    Enum.sort_by(
+      packets,
+      fn packet ->
+        case packet.inserted_at do
+          %NaiveDateTime{} = naive_dt -> DateTime.from_naive!(naive_dt, "Etc/UTC")
+          %DateTime{} = dt -> dt
+          _other -> DateTime.utc_now()
+        end
+      end,
+      {:desc, DateTime}
+    )
+  end
+
+  defp build_packet_data_with_index({packet, index}, callsign) do
+    # The first packet (index 0) is the most recent for this callsign
+    # Only show as red dot if it's not the most recent position
+    is_most_recent = index == 0
+
+    packet_data = PacketUtils.build_packet_data(packet, is_most_recent)
+
+    if packet_data do
+      packet_data
+      |> Map.put(:callsign, callsign)
+      |> Map.put(:historical, true)
     end
   end
 

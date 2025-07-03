@@ -66,23 +66,30 @@ defmodule AprsmeWeb.MapLive.MapHelpers do
       if is_nil(lat) or is_nil(lon) do
         false
       else
-        lat = to_float(lat)
-        lon = to_float(lon)
-        south = to_float(bounds.south)
-        north = to_float(bounds.north)
-        west = to_float(bounds.west)
-        east = to_float(bounds.east)
-        lat_in_bounds = lat >= south && lat <= north
-
-        lng_in_bounds =
-          if west <= east do
-            lon >= west && lon <= east
-          else
-            lon >= west || lon <= east
-          end
-
-        lat_in_bounds && lng_in_bounds
+        check_bounds(lat, lon, bounds)
       end
+    end
+  end
+
+  defp check_bounds(lat, lon, bounds) do
+    lat = to_float(lat)
+    lon = to_float(lon)
+    south = to_float(bounds.south)
+    north = to_float(bounds.north)
+    west = to_float(bounds.west)
+    east = to_float(bounds.east)
+
+    lat_in_bounds = lat >= south && lat <= north
+    lng_in_bounds = check_longitude_bounds(lon, west, east)
+
+    lat_in_bounds && lng_in_bounds
+  end
+
+  defp check_longitude_bounds(lon, west, east) do
+    if west <= east do
+      lon >= west && lon <= east
+    else
+      lon >= west || lon <= east
     end
   end
 

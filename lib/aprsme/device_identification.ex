@@ -160,16 +160,18 @@ defmodule Aprsme.DeviceIdentification do
 
   defp upsert_device_group(group, now) do
     Enum.each(group, fn {identifier, attrs} ->
-      attrs =
-        attrs
-        |> Map.put("identifier", identifier)
-        |> Map.update("features", nil, fn f ->
-          if is_list(f), do: f, else: [f]
-        end)
-        |> Map.put("updated_at", now)
-
-      %Devices{} |> Devices.changeset(attrs) |> Repo.insert!()
+      processed_attrs = process_device_attrs(attrs, identifier, now)
+      %Devices{} |> Devices.changeset(processed_attrs) |> Repo.insert!()
     end)
+  end
+
+  defp process_device_attrs(attrs, identifier, now) do
+    attrs
+    |> Map.put("identifier", identifier)
+    |> Map.update("features", nil, fn f ->
+      if is_list(f), do: f, else: [f]
+    end)
+    |> Map.put("updated_at", now)
   end
 
   # Helper to enqueue the job
@@ -214,7 +216,8 @@ defmodule Aprsme.DeviceIdentification do
 
   # Converts a pattern with ? wildcards to a regex
   defp wildcard_pattern_to_regex(pattern) when is_binary(pattern) do
-    # Replace ? with a placeholder, escape all regex metacharacters except the placeholder, then replace placeholder with .
+    # Replace ? with a placeholder, escape all regex metacharacters except the placeholder,
+    # then replace placeholder with .
     pattern
     |> String.replace("?", "__WILDCARD__")
     # Escape all regex metacharacters

@@ -149,26 +149,25 @@ defmodule AprsmeWeb.PacketsLive.CallsignView do
   defp get_all_packets_list(stored, live) do
     # Combine and sort by received_at timestamp (newest first)
     (live ++ stored)
-    |> Enum.sort_by(
-      fn packet ->
-        case packet.received_at do
-          %DateTime{} = dt ->
-            DateTime.to_unix(dt, :microsecond)
-
-          dt when is_binary(dt) ->
-            case DateTime.from_iso8601(dt) do
-              {:ok, parsed_dt, _} -> DateTime.to_unix(parsed_dt, :microsecond)
-              _ -> 0
-            end
-
-          _ ->
-            0
-        end
-      end,
-      :desc
-    )
+    |> Enum.sort_by(&get_timestamp_microseconds/1, :desc)
     # Ensure we never exceed 100 total
     |> Enum.take(100)
+  end
+
+  defp get_timestamp_microseconds(packet) do
+    case packet.received_at do
+      %DateTime{} = dt ->
+        DateTime.to_unix(dt, :microsecond)
+
+      dt when is_binary(dt) ->
+        case DateTime.from_iso8601(dt) do
+          {:ok, parsed_dt, _} -> DateTime.to_unix(parsed_dt, :microsecond)
+          _ -> 0
+        end
+
+      _ ->
+        0
+    end
   end
 
   # Helper to update stored and live packet lists, keeping total <= 100
