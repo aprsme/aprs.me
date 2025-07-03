@@ -26,11 +26,11 @@
           <span class="text-sm text-gray-600 font-mono">
             <%= case packet.received_at do %>
               <% %DateTime{} = dt -> %>
-                {Calendar.strftime(dt, "%H:%M:%S")}
+                {Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S")}
               <% dt when is_binary(dt) -> %>
                 <%= case DateTime.from_iso8601(dt) do %>
                   <% {:ok, parsed_dt, _} -> %>
-                    {Calendar.strftime(parsed_dt, "%H:%M:%S")}
+                    {Calendar.strftime(parsed_dt, "%Y-%m-%d %H:%M:%S")}
                   <% _ -> %>
                     {dt}
                 <% end %>

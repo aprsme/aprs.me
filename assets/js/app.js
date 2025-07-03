@@ -21,6 +21,7 @@ import "phoenix_html";
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
+import "../vendor/oms.min.js";
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
@@ -74,6 +75,139 @@ let Hooks = {};
 Hooks.APRSMap = MapAPRSMap;
 Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
 
+Hooks.PlotlyTempChart = {
+  mounted() { this.renderChart(); },
+  updated() { this.renderChart(); },
+  renderChart() {
+    const data = JSON.parse(this.el.dataset.weatherHistory);
+    const times = data.map(d => d.timestamp);
+    const temps = data.map(d => d.temperature);
+    const dews = data.map(d => d.dew_point);
+    Plotly.newPlot(this.el, [
+      { x: times, y: temps, name: "Temperature", type: "scatter", line: { color: "red" } },
+      { x: times, y: dews, name: "Dew Point", type: "scatter", line: { color: "blue" } }
+    ], {
+      title: "Temperature & Dew Point (°F)",
+      xaxis: { title: "Time" },
+      yaxis: { title: "°F" }
+    }, {
+      responsive: true,
+      staticPlot: true,
+      displayModeBar: false
+    });
+  }
+};
+
+Hooks.PlotlyHumidityChart = {
+  mounted() { this.renderChart(); },
+  updated() { this.renderChart(); },
+  renderChart() {
+    const data = JSON.parse(this.el.dataset.weatherHistory);
+    const times = data.map(d => d.timestamp);
+    const hums = data.map(d => d.humidity);
+    Plotly.newPlot(this.el, [
+      { x: times, y: hums, name: "Humidity", type: "scatter", line: { color: "blue" } }
+    ], {
+      title: "Humidity (%)",
+      xaxis: { title: "Time" },
+      yaxis: { title: "%" }
+    }, {
+      responsive: true,
+      staticPlot: true,
+      displayModeBar: false
+    });
+  }
+};
+
+Hooks.PlotlyPressureChart = {
+  mounted() { this.renderChart(); },
+  updated() { this.renderChart(); },
+  renderChart() {
+    const data = JSON.parse(this.el.dataset.weatherHistory);
+    const times = data.map(d => d.timestamp);
+    const pressures = data.map(d => d.pressure);
+    Plotly.newPlot(this.el, [
+      { x: times, y: pressures, name: "Pressure", type: "scatter", line: { color: "green" } }
+    ], {
+      title: "Pressure (hPa)",
+      xaxis: { title: "Time" },
+      yaxis: { title: "hPa" }
+    }, {responsive: true, staticPlot: true, displayModeBar: false});
+  }
+};
+
+Hooks.PlotlyWindDirectionChart = {
+  mounted() { this.renderChart(); },
+  updated() { this.renderChart(); },
+  renderChart() {
+    const data = JSON.parse(this.el.dataset.weatherHistory);
+    const times = data.map(d => d.timestamp);
+    const dirs = data.map(d => d.wind_direction);
+    Plotly.newPlot(this.el, [
+      { x: times, y: dirs, name: "Wind Direction", type: "scatter", line: { color: "orange" } }
+    ], {
+      title: "Wind Direction (°)",
+      xaxis: { title: "Time" },
+      yaxis: { title: "°" }
+    }, {responsive: true, staticPlot: true, displayModeBar: false});
+  }
+};
+
+Hooks.PlotlyWindSpeedChart = {
+  mounted() { this.renderChart(); },
+  updated() { this.renderChart(); },
+  renderChart() {
+    const data = JSON.parse(this.el.dataset.weatherHistory);
+    const times = data.map(d => d.timestamp);
+    const speeds = data.map(d => d.wind_speed);
+    Plotly.newPlot(this.el, [
+      { x: times, y: speeds, name: "Wind Speed", type: "scatter", line: { color: "purple" } }
+    ], {
+      title: "Wind Speed (mph)",
+      xaxis: { title: "Time" },
+      yaxis: { title: "mph" }
+    }, {responsive: true, staticPlot: true, displayModeBar: false});
+  }
+};
+
+Hooks.PlotlyRainChart = {
+  mounted() { this.renderChart(); },
+  updated() { this.renderChart(); },
+  renderChart() {
+    const data = JSON.parse(this.el.dataset.weatherHistory);
+    const times = data.map(d => d.timestamp);
+    const rain1h = data.map(d => d.rain_1h);
+    const rain24h = data.map(d => d.rain_24h);
+    const rainMid = data.map(d => d.rain_since_midnight);
+    Plotly.newPlot(this.el, [
+      { x: times, y: rain1h, name: "Rain (1h)", type: "scatter", line: { color: "blue" } },
+      { x: times, y: rain24h, name: "Rain (24h)", type: "scatter", line: { color: "navy" } },
+      { x: times, y: rainMid, name: "Rain (since midnight)", type: "scatter", line: { color: "teal" } }
+    ], {
+      title: "Rain (inches)",
+      xaxis: { title: "Time" },
+      yaxis: { title: "in" }
+    }, {responsive: true, staticPlot: true, displayModeBar: false});
+  }
+};
+
+Hooks.PlotlyLuminosityChart = {
+  mounted() { this.renderChart(); },
+  updated() { this.renderChart(); },
+  renderChart() {
+    const data = JSON.parse(this.el.dataset.weatherHistory);
+    const times = data.map(d => d.timestamp);
+    const lum = data.map(d => d.luminosity);
+    Plotly.newPlot(this.el, [
+      { x: times, y: lum, name: "Luminosity", type: "scatter", line: { color: "gold" } }
+    ], {
+      title: "Luminosity",
+      xaxis: { title: "Time" },
+      yaxis: { title: "" }
+    }, {responsive: true, staticPlot: true, displayModeBar: false});
+  }
+};
+
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
@@ -93,3 +227,6 @@ liveSocket.connect();
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket;
+
+window.Hooks = Hooks;
+export default Hooks;

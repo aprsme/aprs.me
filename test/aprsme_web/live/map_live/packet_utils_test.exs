@@ -51,6 +51,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
       assert popup =~ "TEST-1"
       assert popup =~ "/TEST-1"
       assert popup =~ "/info/TEST-1"
+      assert popup =~ "/weather/TEST-1"
+      assert popup =~ "weather charts"
     end
 
     test "generates weather popup with N/A for missing weather data" do
@@ -290,6 +292,17 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
       }
 
       refute PacketUtils.weather_packet?(regular_packet)
+    end
+
+    test "has_weather_packets? returns false for non-existent callsign" do
+      # This should return false since the database call will fail in test context
+      refute PacketUtils.has_weather_packets?("NONEXISTENT")
+    end
+
+    test "has_weather_packets? handles invalid input gracefully" do
+      refute PacketUtils.has_weather_packets?(nil)
+      refute PacketUtils.has_weather_packets?("")
+      refute PacketUtils.has_weather_packets?(123)
     end
   end
 

@@ -1,5 +1,6 @@
 // Declare Leaflet as a global variable
 declare const L: any;
+declare const OverlappingMarkerSpiderfier: any;
 
 // Import trail management functionality
 import { TrailManager } from "./features/trail_manager";
@@ -23,6 +24,7 @@ type LiveViewHookContext = {
   maxInitializationAttempts?: number;
   lastZoom?: number;
   currentPopupMarkerId?: string | null;
+  oms?: any;
   [key: string]: any;
 };
 
@@ -351,6 +353,10 @@ let MapAPRSMap = {
 
     // LiveView event handlers
     self.setupLiveViewHandlers();
+
+    if (typeof OverlappingMarkerSpiderfier !== "undefined") {
+      self.oms = new OverlappingMarkerSpiderfier(self.map);
+    }
   },
 
   handleFatalError(message: string) {
@@ -861,6 +867,10 @@ let MapAPRSMap = {
     if (data.openPopup && marker.openPopup) {
       marker.openPopup();
     }
+
+    if (self.oms && marker) {
+      self.oms.addMarker(marker);
+    }
   },
 
   removeMarker(id: string | any) {
@@ -881,6 +891,10 @@ let MapAPRSMap = {
     if (self.trailManager) {
       const trailId = markerState?.callsign_group || markerState?.callsign || markerId;
       self.trailManager.removeTrail(trailId);
+    }
+
+    if (self.oms && marker) {
+      self.oms.removeMarker(marker);
     }
   },
 
