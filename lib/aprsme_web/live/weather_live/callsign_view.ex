@@ -2,8 +2,6 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   @moduledoc false
   use AprsmeWeb, :live_view
 
-  import Jason
-
   alias Aprsme.Packets
   alias AprsmeWeb.MapLive.PacketUtils
 
@@ -57,59 +55,12 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   end
 
   defp get_weather_history(callsign, start_time, end_time) do
-    opts = %{callsign: callsign, start_time: start_time, end_time: end_time, limit: 1000}
-
-    opts
-    |> Packets.get_packets_for_replay()
-    |> Enum.filter(&PacketUtils.weather_packet?/1)
-    |> Enum.sort_by(& &1.received_at)
+    Packets.get_weather_packets(callsign, start_time, end_time, %{limit: 500})
   end
 
   defp default_time_range do
     now = DateTime.utc_now()
-    {DateTime.add(now, -48 * 3600, :second), now}
-  end
-
-  defp build_temp_chart_svg(history) do
-    data =
-      history
-      |> Enum.map(fn pkt ->
-        [pkt.received_at, pkt.temperature, pkt.dew_point]
-      end)
-      |> Enum.filter(fn [_, t, d] -> not is_nil(t) and not is_nil(d) end)
-
-    if data == [] do
-      "<svg width=\"600\" height=\"300\"><text x=\"50\" y=\"150\">No data</text></svg>"
-    else
-      dataset = Dataset.new(data, ["Time", "Temperature", "Dew Point"])
-
-      dataset
-      |> Plot.new(LinePlot, 600, 300, smoothed: false)
-      |> Plot.titles("Temperature & Dew Point (°F)", nil)
-      |> Plot.axis_labels("Time", "°F")
-      |> Plot.to_svg()
-    end
-  end
-
-  defp build_humidity_chart_svg(history) do
-    data =
-      history
-      |> Enum.map(fn pkt ->
-        [pkt.received_at, pkt.humidity]
-      end)
-      |> Enum.filter(fn [_, h] -> not is_nil(h) end)
-
-    if data == [] do
-      "<svg width=\"600\" height=\"300\"><text x=\"50\" y=\"150\">No data</text></svg>"
-    else
-      dataset = Dataset.new(data, ["Time", "Humidity"])
-
-      dataset
-      |> Plot.new(LinePlot, 600, 300, smoothed: false)
-      |> Plot.titles("Humidity (%)", nil)
-      |> Plot.axis_labels("Time", "%")
-      |> Plot.to_svg()
-    end
+    {DateTime.add(now, -24 * 3600, :second), now}
   end
 
   defp calc_dew_point(temp, humidity) when is_number(temp) and is_number(humidity) do

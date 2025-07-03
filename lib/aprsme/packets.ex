@@ -405,6 +405,34 @@ defmodule Aprsme.Packets do
   end
 
   @doc """
+  Gets weather packets for a specific callsign within a time range.
+  This is optimized for weather queries by filtering at the database level.
+  """
+  @impl true
+  @spec get_weather_packets(String.t(), DateTime.t(), DateTime.t(), map()) :: [struct()]
+  def get_weather_packets(callsign, start_time, end_time, opts \\ %{}) do
+    limit = Map.get(opts, :limit, 500)
+
+    base_query = from(p in Packet, order_by: [asc: p.received_at])
+
+    query =
+      base_query
+      |> filter_by_time(%{start_time: start_time, end_time: end_time})
+      |> filter_by_callsign(%{callsign: callsign})
+      |> filter_weather_packets()
+      |> limit_results(%{limit: limit})
+      |> select_with_virtual_coordinates()
+
+    Repo.all(query)
+  end
+
+  # Filter for weather packets at the database level
+  defp filter_weather_packets(query) do
+    from p in query,
+      where: p.data_type == "weather" or (p.symbol_table_id == "/" and p.symbol_code == "_")
+  end
+
+  @doc """
   Retrieves a continuous stream of stored packets for replay in chronological order.
 
   This function returns a Stream that can be used to process packets in chronological
