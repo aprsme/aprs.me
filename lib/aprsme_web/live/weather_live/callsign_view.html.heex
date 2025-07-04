@@ -152,7 +152,7 @@
               <dd class="mt-1 text-sm font-semibold text-gray-900">
                 {get_weather_field_zero(@weather_packet, :rain_since_midnight)} in
               </dd>
-                                    </div>
+            </div>
             <div class="col-span-2">
               <dt class="text-xs font-medium text-gray-500">Raw Packet</dt>
               <dd class="mt-1 text-xs font-mono text-gray-900 break-all">
@@ -163,7 +163,7 @@
                 <% end %>
               </dd>
             </div>
-            </dl>
+          </dl>
           <div class="mt-2 text-xs text-gray-500">
             <strong>Raw comment:</strong> {@weather_packet.comment || @weather_packet["comment"]}
           </div>

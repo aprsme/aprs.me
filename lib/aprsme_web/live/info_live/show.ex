@@ -11,6 +11,12 @@ defmodule AprsmeWeb.InfoLive.Show do
   @impl true
   def mount(%{"callsign" => callsign}, _session, socket) do
     normalized_callsign = String.upcase(String.trim(callsign))
+
+    # Subscribe to Postgres notifications for live updates
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
+    end
+
     packet = get_latest_packet(normalized_callsign)
     neighbors = get_neighbors(packet, normalized_callsign)
 
@@ -22,6 +28,32 @@ defmodule AprsmeWeb.InfoLive.Show do
       |> assign(:page_title, "APRS station #{normalized_callsign}")
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_info({:postgres_packet, packet}, socket) do
+    # Only update if the packet is for our callsign
+    if packet_matches_callsign?(packet, socket.assigns.callsign) do
+      # Refresh data when new packet arrives
+      packet = get_latest_packet(socket.assigns.callsign)
+      neighbors = get_neighbors(packet, socket.assigns.callsign)
+
+      socket =
+        socket
+        |> assign(:packet, packet)
+        |> assign(:neighbors, neighbors)
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(_message, socket), do: {:noreply, socket}
+
+  defp packet_matches_callsign?(packet, callsign) do
+    packet_sender = Map.get(packet, "sender") || Map.get(packet, :sender, "")
+    String.upcase(packet_sender) == String.upcase(callsign)
   end
 
   defp get_latest_packet(callsign) do
