@@ -46,7 +46,170 @@ defmodule Aprsme.EncodingUtils do
   def sanitize_string(other), do: other
 
   @doc """
+  Converts various types to float for consistent display.
+
+  ## Examples
+
+      iex> Aprsme.EncodingUtils.to_float(1)
+      1.0
+      iex> Aprsme.EncodingUtils.to_float(1.5)
+      1.5
+      iex> Aprsme.EncodingUtils.to_float("2.3")
+      2.3
+      iex> Aprsme.EncodingUtils.to_float("bad")
+      nil
+      iex> Aprsme.EncodingUtils.to_float(nil)
+      nil
+  """
+  @spec to_float(any()) :: float() | nil
+  def to_float(value) when is_float(value), do: value
+  def to_float(value) when is_integer(value), do: value * 1.0
+  def to_float(%Decimal{} = value), do: Decimal.to_float(value)
+
+  def to_float(value) when is_binary(value) do
+    case Float.parse(value) do
+      {float, _} -> float
+      :error -> nil
+    end
+  end
+
+  def to_float(_), do: nil
+
+  @doc """
+  Converts various types to Decimal for database storage.
+
+  ## Examples
+
+      iex> is_struct(Aprsme.EncodingUtils.to_decimal(1), Decimal)
+      true
+      iex> is_struct(Aprsme.EncodingUtils.to_decimal(1.5), Decimal)
+      true
+      iex> is_struct(Aprsme.EncodingUtils.to_decimal("2.3"), Decimal)
+      true
+      iex> Aprsme.EncodingUtils.to_decimal("bad")
+      nil
+      iex> Aprsme.EncodingUtils.to_decimal(nil)
+      nil
+  """
+  @spec to_decimal(any()) :: Decimal.t() | nil
+  def to_decimal(%Decimal{} = d), do: d
+  def to_decimal(f) when is_float(f), do: Decimal.from_float(f)
+  def to_decimal(i) when is_integer(i), do: Decimal.new(i)
+
+  def to_decimal(s) when is_binary(s) do
+    case Decimal.parse(s) do
+      {d, _} ->
+        d
+
+      :error ->
+        case Float.parse(s) do
+          {f, _} -> Decimal.from_float(f)
+          :error -> nil
+        end
+    end
+  end
+
+  def to_decimal(_), do: nil
+
+  @doc """
+  Sanitizes all string fields in packet data before database storage.
+
+  ## Examples
+
+      iex> Aprsme.EncodingUtils.sanitize_packet_strings(["abc", <<255>>])
+      ["abc", "ÿ"]
+      iex> Aprsme.EncodingUtils.sanitize_packet_strings(%{"foo" => <<0, 65, 66, 67>>})
+      %{"foo" => "\0ABC"}
+      iex> Aprsme.EncodingUtils.sanitize_packet_strings(nil)
+      nil
+  """
+  @spec sanitize_packet_strings(any()) :: any()
+  def sanitize_packet_strings(%DateTime{} = dt), do: dt
+  def sanitize_packet_strings(%NaiveDateTime{} = ndt), do: ndt
+  def sanitize_packet_strings(%_struct{} = struct), do: struct |> Map.from_struct() |> sanitize_packet_strings()
+  def sanitize_packet_strings(list) when is_list(list), do: Enum.map(list, &sanitize_packet_strings/1)
+
+  def sanitize_packet_strings(binary) when is_binary(binary) do
+    s = sanitize_string(binary)
+    if is_binary(s), do: s, else: ""
+  end
+
+  def sanitize_packet_strings(other), do: other
+
+  @doc """
+  Normalizes data_type field to ensure it's always a string.
+
+  ## Examples
+
+      iex> Aprsme.EncodingUtils.normalize_data_type(%{data_type: :weather})
+      %{data_type: "weather"}
+      iex> Aprsme.EncodingUtils.normalize_data_type(%{"data_type" => :foo})
+      %{"data_type" => "foo"}
+      iex> Aprsme.EncodingUtils.normalize_data_type(%{data_type: "bar"})
+      %{data_type: "bar"}
+      iex> Aprsme.EncodingUtils.normalize_data_type(%{"data_type" => "baz"})
+      %{"data_type" => "baz"}
+      iex> Aprsme.EncodingUtils.normalize_data_type(%{foo: 1})
+      %{foo: 1}
+  """
+  @spec normalize_data_type(map()) :: map()
+  def normalize_data_type(%{data_type: data_type} = attrs) when is_atom(data_type) do
+    %{attrs | data_type: to_string(data_type)}
+  end
+
+  def normalize_data_type(%{"data_type" => data_type} = attrs) when is_atom(data_type) do
+    %{attrs | "data_type" => to_string(data_type)}
+  end
+
+  def normalize_data_type(attrs) when is_map(attrs) do
+    case {Map.has_key?(attrs, :data_type), Map.get(attrs, :data_type)} do
+      {true, data_type} when is_atom(data_type) ->
+        %{attrs | data_type: to_string(data_type)}
+
+      _ ->
+        attrs
+    end
+  end
+
+  def normalize_data_type(attrs), do: attrs
+
+  @doc """
+  List of weather-related fields used for packet classification.
+
+  ## Examples
+
+      iex> Aprsme.EncodingUtils.weather_fields() |> Enum.member?(:temperature)
+      true
+      iex> :foo in Aprsme.EncodingUtils.weather_fields()
+      false
+  """
+  @spec weather_fields() :: [atom()]
+  def weather_fields do
+    [
+      :temperature,
+      :humidity,
+      :wind_speed,
+      :wind_direction,
+      :wind_gust,
+      :pressure,
+      :rain_1h,
+      :rain_24h,
+      :rain_since_midnight,
+      :snow,
+      :luminosity
+    ]
+  end
+
+  @doc """
   Sanitizes all string fields in an APRS packet to ensure safe JSON encoding.
+
+  ## Examples
+
+      iex> result = Aprsme.EncodingUtils.sanitize_packet(%{"information_field" => <<0, 65, 66, 67>>, "data_extended" => %{"comment" => <<0, 68, 69, 70>>}})
+      iex> result["information_field"] == "\0ABC"
+      true
+      iex> result["data_extended"]["comment"] == "\0DEF"
+      true
   """
   @spec sanitize_packet(struct() | map()) :: struct() | map()
   def sanitize_packet(%Aprsme.Packet{} = packet) do
@@ -65,6 +228,13 @@ defmodule Aprsme.EncodingUtils do
 
   @doc """
   Sanitizes string fields in the data_extended structure.
+
+  ## Examples
+
+      iex> Aprsme.EncodingUtils.sanitize_data_extended(%{"comment" => <<0, 65, 66, 67>>})
+      %{"comment" => "ABC"}
+      iex> Aprsme.EncodingUtils.sanitize_data_extended(nil)
+      nil
   """
   @spec sanitize_data_extended(nil | map() | MicE.t() | any()) :: nil | map() | MicE.t() | any()
   def sanitize_data_extended(nil), do: nil
@@ -106,6 +276,7 @@ defmodule Aprsme.EncodingUtils do
     |> :binary.bin_to_list()
     |> Enum.map(&Integer.to_string(&1, 16))
     |> Enum.map_join("", &String.pad_leading(&1, 2, "0"))
+    |> String.upcase()
   end
 
   @doc """
@@ -115,7 +286,6 @@ defmodule Aprsme.EncodingUtils do
 
       iex> Aprsme.EncodingUtils.encoding_info("Hello")
       %{valid_utf8: true, byte_count: 5, char_count: 5}
-
       iex> Aprsme.EncodingUtils.encoding_info(<<72, 101, 211, 108, 111>>)
       %{valid_utf8: false, byte_count: 5, invalid_at: 2}
   """

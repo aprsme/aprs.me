@@ -347,20 +347,7 @@ defmodule Aprsme.Packet do
   end
 
   defp put_weather_fields(map, data_extended) do
-    weather_fields = [
-      :temperature,
-      :humidity,
-      :wind_speed,
-      :wind_direction,
-      :wind_gust,
-      :pressure,
-      :rain_1h,
-      :rain_24h,
-      :rain_since_midnight,
-      :snow
-    ]
-
-    Enum.reduce(weather_fields, map, fn field, acc ->
+    Enum.reduce(Aprsme.EncodingUtils.weather_fields(), map, fn field, acc ->
       value = data_extended[field] || data_extended[to_string(field)]
       maybe_put(acc, field, value)
     end)

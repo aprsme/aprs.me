@@ -325,36 +325,11 @@ defmodule Aprsme.PacketConsumer do
     end
   end
 
-  defp sanitize_packet_strings(%DateTime{} = dt), do: dt
-  defp sanitize_packet_strings(%NaiveDateTime{} = ndt), do: ndt
-  defp sanitize_packet_strings(%_struct{} = struct), do: struct |> Map.from_struct() |> sanitize_packet_strings()
-  defp sanitize_packet_strings(list) when is_list(list), do: Enum.map(list, &sanitize_packet_strings/1)
+  defp sanitize_packet_strings(value), do: Aprsme.EncodingUtils.sanitize_packet_strings(value)
 
-  defp sanitize_packet_strings(binary) when is_binary(binary) do
-    s = Aprsme.EncodingUtils.sanitize_string(binary)
-    if is_binary(s), do: s, else: ""
-  end
+  defp to_float(value), do: Aprsme.EncodingUtils.to_float(value)
 
-  defp sanitize_packet_strings(other), do: other
-
-  defp to_float(value) when is_float(value), do: value
-  defp to_float(value) when is_integer(value), do: value * 1.0
-  defp to_float(%Decimal{} = value), do: Decimal.to_float(value)
-
-  defp to_float(value) when is_binary(value) do
-    case Float.parse(value) do
-      {float, _} -> float
-      :error -> nil
-    end
-  end
-
-  defp to_float(_), do: nil
-
-  defp normalize_data_type(%{data_type: data_type} = attrs) when is_atom(data_type) do
-    %{attrs | data_type: to_string(data_type)}
-  end
-
-  defp normalize_data_type(attrs), do: attrs
+  defp normalize_data_type(attrs), do: Aprsme.EncodingUtils.normalize_data_type(attrs)
 
   defp struct_to_map(%{__struct__: struct_type} = struct) do
     converted_map =

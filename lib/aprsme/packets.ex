@@ -79,13 +79,7 @@ defmodule Aprsme.Packets do
   end
 
   defp normalize_data_type(attrs) do
-    case attrs do
-      %{data_type: data_type} when is_atom(data_type) ->
-        Map.put(attrs, :data_type, to_string(data_type))
-
-      _ ->
-        attrs
-    end
+    Aprsme.EncodingUtils.normalize_data_type(attrs)
   end
 
   defp set_received_at(attrs) do
@@ -566,12 +560,10 @@ defmodule Aprsme.Packets do
   end
 
   @doc """
-    Clean packets older than a specific number of days.
+  Clean packets older than a specific number of days.
 
-    This function allows for more granular cleanup operations by specifying
-    the exact age threshold for packet deletion.
-  @doc \"""
-  Removes packets older than the specified number of days.
+  This function allows for more granular cleanup operations by specifying
+  the exact age threshold for packet deletion.
 
   ## Parameters
   - `days` - Number of days to keep (packets older than this will be deleted)
@@ -590,51 +582,13 @@ defmodule Aprsme.Packets do
   end
 
   # Helper to convert various types to float
-  defp to_float(value) when is_float(value), do: value
-  defp to_float(value) when is_integer(value), do: value * 1.0
-  defp to_float(%Decimal{} = value), do: Decimal.to_float(value)
-
-  defp to_float(value) when is_binary(value) do
-    case Float.parse(value) do
-      {float, _} -> float
-      :error -> nil
-    end
-  end
-
-  defp to_float(_), do: nil
+  defp to_float(value), do: Aprsme.EncodingUtils.to_float(value)
 
   # Helper to convert various types to Decimal
-  defp to_decimal(%Decimal{} = d), do: d
-  defp to_decimal(f) when is_float(f), do: Decimal.from_float(f)
-  defp to_decimal(i) when is_integer(i), do: Decimal.new(i)
-
-  defp to_decimal(s) when is_binary(s) do
-    case Decimal.parse(s) do
-      {d, _} ->
-        d
-
-      :error ->
-        case Float.parse(s) do
-          {f, _} -> Decimal.from_float(f)
-          :error -> nil
-        end
-    end
-  end
-
-  defp to_decimal(_), do: nil
+  defp to_decimal(value), do: Aprsme.EncodingUtils.to_decimal(value)
 
   # Helper to sanitize all string fields in packet data before database storage
-  defp sanitize_packet_strings(%DateTime{} = dt), do: dt
-  defp sanitize_packet_strings(%NaiveDateTime{} = ndt), do: ndt
-  defp sanitize_packet_strings(%_struct{} = struct), do: struct |> Map.from_struct() |> sanitize_packet_strings()
-  defp sanitize_packet_strings(list) when is_list(list), do: Enum.map(list, &sanitize_packet_strings/1)
-
-  defp sanitize_packet_strings(binary) when is_binary(binary) do
-    s = Aprsme.EncodingUtils.sanitize_string(binary)
-    if is_binary(s), do: s, else: ""
-  end
-
-  defp sanitize_packet_strings(other), do: other
+  defp sanitize_packet_strings(value), do: Aprsme.EncodingUtils.sanitize_packet_strings(value)
 
   # Get packets from last hour only - used to initialize the map
   @spec get_last_hour_packets() :: [struct()]

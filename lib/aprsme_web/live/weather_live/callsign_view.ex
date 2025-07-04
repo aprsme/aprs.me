@@ -9,9 +9,10 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   def mount(%{"callsign" => callsign}, _session, socket) do
     normalized_callsign = String.upcase(String.trim(callsign))
 
-    # Subscribe to Postgres notifications for live updates
+    # Subscribe to weather-specific topic for targeted updates
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
+      weather_topic = "weather:#{normalized_callsign}"
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, weather_topic)
     end
 
     weather_packet = get_latest_weather_packet(normalized_callsign)
@@ -54,6 +55,46 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   end
 
   @impl true
+  def handle_info({:weather_packet, _packet}, socket) do
+    # Update weather data when new weather packet arrives for this callsign
+    weather_packet = get_latest_weather_packet(socket.assigns.callsign)
+    {start_time, end_time} = default_time_range()
+    weather_history = get_weather_history(socket.assigns.callsign, start_time, end_time)
+
+    weather_history_json =
+      weather_history
+      |> Enum.map(fn pkt ->
+        dew_point =
+          if is_number(pkt.temperature) and is_number(pkt.humidity) do
+            calc_dew_point(pkt.temperature, pkt.humidity)
+          end
+
+        %{
+          timestamp: pkt.received_at,
+          temperature: pkt.temperature,
+          dew_point: dew_point,
+          humidity: pkt.humidity,
+          pressure: pkt.pressure,
+          wind_direction: pkt.wind_direction,
+          wind_speed: pkt.wind_speed,
+          rain_1h: pkt.rain_1h,
+          rain_24h: pkt.rain_24h,
+          rain_since_midnight: pkt.rain_since_midnight,
+          luminosity: pkt.luminosity
+        }
+      end)
+      |> Jason.encode!()
+
+    socket =
+      socket
+      |> assign(:weather_packet, weather_packet)
+      |> assign(:weather_history, weather_history)
+      |> assign(:weather_history_json, weather_history_json)
+
+    {:noreply, socket}
+  end
+
+  # Keep the old handler for backward compatibility
   def handle_info({:postgres_packet, packet}, socket) do
     # Only update if the packet is for our callsign and contains weather data
     if packet_matches_callsign?(packet, socket.assigns.callsign) and has_weather_data?(packet) do
@@ -107,20 +148,8 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
 
   defp has_weather_data?(packet) do
     # Check if packet contains any weather-related fields
-    weather_fields = [
-      "temperature",
-      "humidity",
-      "pressure",
-      "wind_speed",
-      "wind_direction",
-      "rain_1h",
-      "rain_24h",
-      "rain_since_midnight",
-      "luminosity"
-    ]
-
-    Enum.any?(weather_fields, fn field ->
-      value = Map.get(packet, field) || Map.get(packet, String.to_atom(field))
+    Enum.any?(Aprsme.EncodingUtils.weather_fields(), fn field ->
+      value = Map.get(packet, field) || Map.get(packet, to_string(field))
       not is_nil(value)
     end)
   end

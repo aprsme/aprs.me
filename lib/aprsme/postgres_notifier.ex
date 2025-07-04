@@ -31,7 +31,11 @@ defmodule Aprsme.PostgresNotifier do
   def handle_info({:notification, _conn, _pid, @packet_channel, payload}, state) do
     case Jason.decode(payload) do
       {:ok, packet} ->
+        # Broadcast to the general packet topic
         Phoenix.PubSub.broadcast(Aprsme.PubSub, @packet_topic, {:postgres_packet, packet})
+
+        # Also broadcast to callsign-specific weather topic if it's a weather packet
+        broadcast_weather_packet_if_relevant(packet)
 
       _ ->
         :noop
@@ -41,4 +45,25 @@ defmodule Aprsme.PostgresNotifier do
   end
 
   def handle_info(_msg, state), do: {:noreply, state}
+
+  defp broadcast_weather_packet_if_relevant(packet) do
+    # Check if this is a weather packet using centralized weather fields
+    has_weather_data =
+      Enum.any?(Aprsme.EncodingUtils.weather_fields(), fn field ->
+        value = Map.get(packet, to_string(field))
+        not is_nil(value)
+      end)
+
+    if has_weather_data do
+      # Extract callsign from packet
+      callsign = Map.get(packet, "sender") || Map.get(packet, :sender)
+
+      if is_binary(callsign) and callsign != "" do
+        # Normalize callsign and broadcast to weather-specific topic
+        normalized_callsign = String.upcase(String.trim(callsign))
+        weather_topic = "weather:#{normalized_callsign}"
+        Phoenix.PubSub.broadcast(Aprsme.PubSub, weather_topic, {:weather_packet, packet})
+      end
+    end
+  end
 end

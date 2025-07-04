@@ -457,11 +457,7 @@ defmodule Aprsme.Is do
 
   # Normalize data_type to ensure proper storage
   @spec normalize_data_type(map()) :: map()
-  defp normalize_data_type(%{data_type: data_type} = attrs) when is_atom(data_type) do
-    %{attrs | data_type: to_string(data_type)}
-  end
-
-  defp normalize_data_type(attrs), do: attrs
+  defp normalize_data_type(attrs), do: Aprsme.EncodingUtils.normalize_data_type(attrs)
 
   @spec update_packet_stats(map(), integer()) :: map()
   defp update_packet_stats(stats, current_time) do

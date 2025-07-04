@@ -54,25 +54,7 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   """
   @spec to_float(any()) :: float()
   def to_float(value) do
-    case value do
-      %Decimal{} = d ->
-        Decimal.to_float(d)
-
-      n when is_float(n) ->
-        n
-
-      n when is_integer(n) ->
-        n * 1.0
-
-      n when is_binary(n) ->
-        case Float.parse(n) do
-          {f, _} -> f
-          :error -> 0.0
-        end
-
-      _ ->
-        0.0
-    end
+    Aprsme.EncodingUtils.to_float(value) || 0.0
   end
 
   @doc """
