@@ -45,6 +45,11 @@ defmodule Aprsme.Packets do
       # require Logger
       # Logger.debug("Sanitized packet_attrs before insert: #{inspect(packet_attrs)}")
       packet_attrs = Map.new(packet_attrs, fn {k, v} -> {k, sanitize_packet_strings(v)} end)
+      # Set device_identifier to parsed value, fallback to destination if nil
+      parsed_device_id = Aprsme.DeviceParser.extract_device_identifier(packet_data)
+      device_id = parsed_device_id || Map.get(packet_attrs, :destination)
+      packet_attrs = Map.put(packet_attrs, :device_identifier, device_id)
+      # Logger.debug("Inserting packet with device_identifier=#{inspect(device_id)}, destination=#{inspect(Map.get(packet_attrs, :destination))}")
       insert_packet(packet_attrs, packet_data)
     rescue
       error ->

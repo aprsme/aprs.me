@@ -55,10 +55,12 @@ defmodule AprsmeWeb.InfoLive.Show do
       |> uniq_by(& &1.sender)
       |> Enum.map(fn p ->
         dist = haversine(lat, lon, p.lat, p.lon)
+        course = calculate_course(lat, lon, p.lat, p.lon)
 
         %{
           callsign: p.sender,
           distance: format_distance(dist),
+          course: course,
           last_heard: PacketUtils.get_timestamp(p),
           packet: p
         }
@@ -104,5 +106,20 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   defp format_distance(km) do
     "#{Float.round(km, 2)} km"
+  end
+
+  defp calculate_course(lat1, lon1, lat2, lon2) do
+    # Calculate bearing from point 1 to point 2
+    dlon = :math.pi() / 180 * (lon2 - lon1)
+
+    lat1_rad = :math.pi() / 180 * lat1
+    lat2_rad = :math.pi() / 180 * lat2
+
+    y = :math.sin(dlon) * :math.cos(lat2_rad)
+    x = :math.cos(lat1_rad) * :math.sin(lat2_rad) - :math.sin(lat1_rad) * :math.cos(lat2_rad) * :math.cos(dlon)
+
+    bearing = :math.atan2(y, x) * 180 / :math.pi()
+    # Convert to 0-360 range
+    if bearing < 0, do: bearing + 360, else: bearing
   end
 end

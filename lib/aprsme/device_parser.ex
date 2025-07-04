@@ -9,12 +9,17 @@ defmodule Aprsme.DeviceParser do
   """
   @spec extract_device_identifier(map()) :: String.t() | nil
   def extract_device_identifier(packet_data) do
-    # Try to extract from various possible locations
-    packet_data
-    |> Map.get(:device_identifier)
-    |> case do
-      nil -> extract_from_data_extended(packet_data)
-      identifier -> identifier
+    cond do
+      Map.has_key?(packet_data, :destination) and not is_nil(packet_data[:destination]) ->
+        packet_data[:destination]
+      Map.has_key?(packet_data, "destination") and not is_nil(packet_data["destination"]) ->
+        packet_data["destination"]
+      Map.has_key?(packet_data, :device_identifier) and not is_nil(packet_data[:device_identifier]) ->
+        packet_data[:device_identifier]
+      Map.has_key?(packet_data, "device_identifier") and not is_nil(packet_data["device_identifier"]) ->
+        packet_data["device_identifier"]
+      true ->
+        extract_from_data_extended(packet_data)
     end
   end
 
