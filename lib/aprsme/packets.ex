@@ -413,7 +413,7 @@ defmodule Aprsme.Packets do
   def get_weather_packets(callsign, start_time, end_time, opts \\ %{}) do
     limit = Map.get(opts, :limit, 500)
 
-    base_query = from(p in Packet, order_by: [asc: p.received_at])
+    base_query = from(p in Packet, order_by: [desc: p.received_at])
 
     query =
       base_query

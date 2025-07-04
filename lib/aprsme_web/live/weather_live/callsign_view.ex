@@ -48,10 +48,13 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   end
 
   defp get_latest_weather_packet(callsign) do
-    # Get the most recent packet for this callsign that is a weather report
-    %{callsign: callsign, limit: 10}
-    |> Packets.get_recent_packets()
-    |> Enum.find(&PacketUtils.weather_packet?/1)
+    # Get weather packets from the last 7 days to find the most recent one
+    end_time = DateTime.utc_now()
+    start_time = DateTime.add(end_time, -7 * 24 * 3600, :second)
+
+    callsign
+    |> Packets.get_weather_packets(start_time, end_time, %{limit: 1})
+    |> List.first()
   end
 
   defp get_weather_history(callsign, start_time, end_time) do

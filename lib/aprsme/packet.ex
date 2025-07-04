@@ -296,12 +296,39 @@ defmodule Aprsme.Packet do
         data_extended
       end
 
-    %{}
-    |> put_symbol_fields(combined_data)
-    |> extract_weather_data(combined_data)
-    |> put_weather_fields(combined_data)
-    |> put_equipment_fields(combined_data)
-    |> put_message_fields(combined_data)
+    result =
+      %{}
+      |> put_symbol_fields(combined_data)
+      |> extract_weather_data(combined_data)
+      |> put_weather_fields(combined_data)
+      |> put_equipment_fields(combined_data)
+      |> put_message_fields(combined_data)
+
+    # If any weather fields are present, set data_type to "weather"
+    weather_fields = [
+      :temperature,
+      :humidity,
+      :wind_speed,
+      :wind_direction,
+      :wind_gust,
+      :pressure,
+      :rain_1h,
+      :rain_24h,
+      :rain_since_midnight,
+      :snow
+    ]
+
+    has_weather =
+      Enum.any?(weather_fields, fn field ->
+        v = result[field] || result[to_string(field)]
+        not is_nil(v)
+      end)
+
+    if has_weather and (result[:data_type] != "weather" and result["data_type"] != "weather") do
+      Map.put(result, :data_type, "weather")
+    else
+      result
+    end
   end
 
   defp put_symbol_fields(map, data_extended) do

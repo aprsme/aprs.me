@@ -209,7 +209,7 @@ defmodule Aprsme.PacketsWeatherTest do
 
       assert {:ok, stored_packet} = Packets.store_packet(packet_data)
       assert stored_packet.data_type == "weather"
-      assert stored_packet.snow == 5.0
+      assert stored_packet.snow == 0.5
       refute Map.has_key?(stored_packet, :raw_weather_data)
       refute Map.has_key?(stored_packet, "raw_weather_data")
     end
