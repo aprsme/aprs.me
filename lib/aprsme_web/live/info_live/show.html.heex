@@ -16,133 +16,334 @@
 <% _symbol_img = "/aprs-symbols/aprs-symbols-24-#{symbol_table_num}@2x.png" %>
 <% _symbol_index = symbol_code_ord - 33 %>
 
-<div class="max-w-3xl mx-auto mt-10 p-8 bg-white rounded-xl shadow-lg">
-  <h1 class="text-3xl font-bold mb-2 flex items-center gap-2">
-    APRS station <span class="text-blue-700">{@callsign}</span>
+<div class="min-h-screen bg-gray-50">
+  <!-- Page header -->
+  <div class="bg-white shadow-sm border-b">
+    <div class="px-4 sm:px-6 lg:px-8">
+      <div class="py-4 md:flex md:items-center md:justify-between">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center">
+            <h1 class="text-xl font-bold leading-7 text-gray-900 sm:truncate sm:text-2xl">
+              APRS Station
+            </h1>
+            <div class="ml-3 flex items-center space-x-3">
+              <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-sm font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                {@callsign}
+              </span>
+              <%= if @packet do %>
+                <% {symbol_table_id, symbol_code} =
+                  AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@packet) %>
+                <% symbol_table =
+                  if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
+                <% symbol_code = symbol_code || ">" %>
+                <% table_id =
+                  if symbol_table == "/",
+                    do: "0",
+                    else: if(symbol_table == "]", do: "2", else: "1") %>
+                <% symbol_code_ord =
+                  symbol_code
+                  |> String.to_charlist()
+                  |> List.first()
+                  |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
+                <% index = symbol_code_ord - 33 %>
+                <% safe_index = max(0, min(index, 93)) %>
+                <% column = rem(safe_index, 16) %>
+                <% row = div(safe_index, 16) %>
+                <% x = -column * 128 %>
+                <% y = -row * 128 %>
+                <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
+                <div
+                  style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
+                  title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
+                >
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3 flex md:ml-4 md:mt-0">
+          <div class="flex space-x-2">
+            <.link
+              navigate={~p"/packets/#{@callsign}"}
+              class="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            >
+              View packets
+            </.link>
+            <%= if AprsmeWeb.MapLive.PacketUtils.has_weather_packets?(@callsign) do %>
+              <.link
+                navigate={~p"/weather/#{@callsign}"}
+                class="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              >
+                Weather charts
+              </.link>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
     <%= if @packet do %>
-      <% {symbol_table_id, symbol_code} = AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@packet) %>
-      <% symbol_table = if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
-      <% symbol_code = symbol_code || ">" %>
-      <% table_id =
-        if symbol_table == "/", do: "0", else: if(symbol_table == "]", do: "2", else: "1") %>
-      <% symbol_code_ord =
-        symbol_code
-        |> String.to_charlist()
-        |> List.first()
-        |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
-      <% index = symbol_code_ord - 33 %>
-      <% safe_index = max(0, min(index, 93)) %>
-      <% column = rem(safe_index, 16) %>
-      <% row = div(safe_index, 16) %>
-      <% x = -column * 128 %>
-      <% y = -row * 128 %>
-      <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
-      <div
-        style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; overflow: hidden; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
-        title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
-      >
+      <!-- Comment section -->
+      <%= if @packet.comment && @packet.comment != "" do %>
+        <div class="mb-4">
+          <div class="rounded-lg bg-blue-50 p-3">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg
+                  class="h-4 w-4 text-blue-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.75.75 0 00.736-.686L11.477 4.5a.75.75 0 00-1.491-.154L9.477 9.5H9z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div class="ml-2">
+                <p class="text-sm text-blue-700">
+                  {@packet.comment}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+      
+<!-- Station details -->
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 mb-6">
+        <!-- Position information -->
+        <div class="bg-white overflow-hidden shadow-sm rounded-lg border">
+          <div class="px-4 py-3">
+            <div class="flex items-center mb-3">
+              <div class="flex-shrink-0">
+                <svg
+                  class="h-4 w-4 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                  />
+                </svg>
+              </div>
+              <div class="ml-2">
+                <h3 class="text-sm font-medium text-gray-900">Position Information</h3>
+              </div>
+            </div>
+            <dl class="grid grid-cols-2 gap-3">
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Location</dt>
+                <dd class="mt-1 text-sm font-semibold text-gray-900">
+                  {@packet.lat || ""}, {@packet.lon || ""}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Last Position</dt>
+                <dd class="mt-1 text-sm font-semibold text-gray-900">
+                  {AprsmeWeb.MapLive.PacketUtils.get_timestamp(@packet)}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Altitude</dt>
+                <dd class="mt-1 text-sm font-semibold text-gray-900">{@packet.altitude} ft</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Course</dt>
+                <dd class="mt-1 text-sm font-semibold text-gray-900">{@packet.course}°</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Speed</dt>
+                <dd class="mt-1 text-sm font-semibold text-gray-900">{@packet.speed} MPH</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        
+<!-- Device information -->
+        <div class="bg-white overflow-hidden shadow-sm rounded-lg border">
+          <div class="px-4 py-3">
+            <div class="flex items-center mb-3">
+              <div class="flex-shrink-0">
+                <svg
+                  class="h-4 w-4 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0020.75 3H3.75A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
+                  />
+                </svg>
+              </div>
+              <div class="ml-2">
+                <h3 class="text-sm font-medium text-gray-900">Device Information</h3>
+              </div>
+            </div>
+            <dl class="grid grid-cols-2 gap-3">
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Device</dt>
+                <dd class="mt-1 text-sm font-semibold text-gray-900">
+                  {@packet.manufacturer || ""} {@packet.equipment_type || ""}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Path</dt>
+                <dd class="mt-1 text-sm font-semibold text-gray-900">{@packet.path || ""}</dd>
+              </div>
+              <div class="col-span-2">
+                <dt class="text-xs font-medium text-gray-500">Raw Packet</dt>
+                <dd class="mt-1 text-xs font-mono text-gray-900 break-all">
+                  <%= if is_binary(@packet.raw_packet) do %>
+                    {Aprsme.EncodingUtils.sanitize_string(@packet.raw_packet)}
+                  <% else %>
+                    {@packet.raw_packet || ""}
+                  <% end %>
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
       </div>
-    <% end %>
-    <.link navigate={~p"/packets/#{@callsign}"} class="ml-2 text-sm text-blue-600 hover:underline">
-      View packets
-    </.link>
-    <%= if AprsmeWeb.MapLive.PacketUtils.has_weather_packets?(@callsign) do %>
-      <.link
-        navigate={~p"/weather/#{@callsign}"}
-        class="ml-2 text-sm text-blue-600 hover:underline"
-      >
-        Weather charts
-      </.link>
-    <% end %>
-  </h1>
-  <%= if @packet do %>
-    <div class="text-sm text-gray-500 mb-6">
-      {@packet.comment || ""}
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-      <div>
-        <div class="mb-2">
-          <span class="font-semibold">Location:</span> {@packet.lat || ""}, {@packet.lon || ""}
-        </div>
-        <div class="mb-2">
-          <span class="font-semibold">Last position:</span> {AprsmeWeb.MapLive.PacketUtils.get_timestamp(
-            @packet
-          )}
-        </div>
-        <div class="mb-2"><span class="font-semibold">Altitude:</span> {@packet.altitude} ft</div>
-        <div class="mb-2"><span class="font-semibold">Course:</span> {@packet.course}°</div>
-        <div class="mb-2"><span class="font-semibold">Speed:</span> {@packet.speed} MPH</div>
-      </div>
-      <div>
-        <div class="mb-2">
-          <span class="font-semibold">Device:</span> {@packet.manufacturer || ""} {@packet.equipment_type ||
-            ""}
-        </div>
-        <div class="mb-2"><span class="font-semibold">Path:</span> {@packet.path || ""}</div>
-        <div class="mb-2">
-          <span class="font-semibold">Raw:</span>
-          <%= if is_binary(@packet.raw_packet) do %>
-            {Aprsme.EncodingUtils.sanitize_string(@packet.raw_packet)}
-          <% else %>
-            {@packet.raw_packet || ""}
-          <% end %>
-        </div>
-      </div>
-    </div>
-    <h2 class="text-xl font-semibold mt-8 mb-2">Stations near current position</h2>
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm border rounded-lg">
-        <thead>
-          <tr class="bg-gray-100">
-            <th class="px-4 py-2 text-left">Callsign</th>
-            <th class="px-4 py-2 text-left">Distance</th>
-            <th class="px-4 py-2 text-left">Last heard</th>
-          </tr>
-        </thead>
-        <tbody>
-          <%= for neighbor <- @neighbors do %>
-            <tr class="border-t">
-              <td class="px-4 py-2 font-mono text-blue-700 flex items-center gap-2">
-                <.link navigate={~p"/info/#{neighbor.callsign}"} class="hover:underline">
-                  {neighbor.callsign}
-                </.link>
-                <%= if neighbor.packet do %>
-                  <% {symbol_table_id, symbol_code} =
-                    AprsmeWeb.MapLive.PacketUtils.get_symbol_info(neighbor.packet) %>
-                  <% symbol_table =
-                    if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
-                  <% symbol_code = symbol_code || ">" %>
-                  <% table_id =
-                    if symbol_table == "/",
-                      do: "0",
-                      else: if(symbol_table == "]", do: "2", else: "1") %>
-                  <% symbol_code_ord =
-                    symbol_code
-                    |> String.to_charlist()
-                    |> List.first()
-                    |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
-                  <% index = symbol_code_ord - 33 %>
-                  <% safe_index = max(0, min(index, 93)) %>
-                  <% column = rem(safe_index, 16) %>
-                  <% row = div(safe_index, 16) %>
-                  <% x = -column * 128 %>
-                  <% y = -row * 128 %>
-                  <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
-                  <div
-                    style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; overflow: hidden; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
-                    title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
+      
+<!-- Neighboring stations -->
+      <div class="bg-white shadow-sm rounded-lg border">
+        <div class="px-4 py-3">
+          <div class="flex items-center mb-3">
+            <div class="flex-shrink-0">
+              <svg
+                class="h-4 w-4 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
+                />
+              </svg>
+            </div>
+            <div class="ml-2">
+              <h3 class="text-sm font-medium text-gray-900">Stations Near Current Position</h3>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th
+                    scope="col"
+                    class="py-2 pl-3 pr-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
-                  </div>
+                    Callsign
+                  </th>
+                  <th
+                    scope="col"
+                    class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Distance
+                  </th>
+                  <th
+                    scope="col"
+                    class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Last Heard
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <%= for neighbor <- @neighbors do %>
+                  <tr>
+                    <td class="whitespace-nowrap py-2 pl-3 pr-2 text-sm font-medium text-gray-900">
+                      <div class="flex items-center space-x-2">
+                        <.link
+                          navigate={~p"/info/#{neighbor.callsign}"}
+                          class="text-blue-600 hover:text-blue-900"
+                        >
+                          {neighbor.callsign}
+                        </.link>
+                        <%= if neighbor.packet do %>
+                          <% {symbol_table_id, symbol_code} =
+                            AprsmeWeb.MapLive.PacketUtils.get_symbol_info(neighbor.packet) %>
+                          <% symbol_table =
+                            if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
+                          <% symbol_code = symbol_code || ">" %>
+                          <% table_id =
+                            if symbol_table == "/",
+                              do: "0",
+                              else: if(symbol_table == "]", do: "2", else: "1") %>
+                          <% symbol_code_ord =
+                            symbol_code
+                            |> String.to_charlist()
+                            |> List.first()
+                            |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
+                          <% index = symbol_code_ord - 33 %>
+                          <% safe_index = max(0, min(index, 93)) %>
+                          <% column = rem(safe_index, 16) %>
+                          <% row = div(safe_index, 16) %>
+                          <% x = -column * 128 %>
+                          <% y = -row * 128 %>
+                          <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
+                          <div
+                            style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
+                            title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
+                          >
+                          </div>
+                        <% end %>
+                      </div>
+                    </td>
+                    <td class="whitespace-nowrap px-2 py-2 text-sm text-gray-500">
+                      {neighbor.distance || ""}
+                    </td>
+                    <td class="whitespace-nowrap px-2 py-2 text-sm text-gray-500">
+                      {neighbor.last_heard || ""}
+                    </td>
+                  </tr>
                 <% end %>
-              </td>
-              <td class="px-4 py-2">{neighbor.distance || ""}</td>
-              <td class="px-4 py-2">{neighbor.last_heard || ""}</td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-  <% else %>
-    <div class="text-gray-600">No recent packet data available for this callsign.</div>
-  <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <div class="text-center py-8">
+        <svg
+          class="mx-auto h-8 w-8 text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.5"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423L16.5 15.75l.394 1.183a2.25 2.25 0 001.423 1.423L19.5 18.75l-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+          />
+        </svg>
+        <h3 class="mt-2 text-sm font-semibold text-gray-900">No data available</h3>
+        <p class="mt-1 text-sm text-gray-500">
+          No recent packet data available for this callsign.
+        </p>
+      </div>
+    <% end %>
+  </div>
 </div>

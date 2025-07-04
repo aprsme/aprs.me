@@ -1,160 +1,164 @@
 <%= if @weather_packet do %>
-  <div class="max-w-lg mx-auto mt-8 p-6 bg-white rounded shadow">
-    <h1 class="text-2xl font-bold mb-2 flex items-center gap-2">
-      Weather for {@callsign}
-      <%= if @weather_packet do %>
-        <% {symbol_table_id, symbol_code} =
-          AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@weather_packet) %>
-        <% symbol_table = if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
-        <% symbol_code = symbol_code || ">" %>
-        <% table_id =
-          if symbol_table == "/", do: "0", else: if(symbol_table == "]", do: "2", else: "1") %>
-        <% symbol_code_ord =
-          symbol_code
-          |> String.to_charlist()
-          |> List.first()
-          |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
-        <% index = symbol_code_ord - 33 %>
-        <% safe_index = max(0, min(index, 93)) %>
-        <% column = rem(safe_index, 16) %>
-        <% row = div(safe_index, 16) %>
-        <% x = -column * 128 %>
-        <% y = -row * 128 %>
-        <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
+  <div class="w-full min-h-screen bg-slate-50 py-8 px-2 md:px-8">
+    <section class="w-full bg-white rounded-xl shadow-lg p-6 md:p-10 mb-8">
+      <h1 class="text-3xl font-bold mb-6 flex flex-wrap items-center gap-4">
+        Weather for {@callsign}
+        <%= if @weather_packet do %>
+          <% {symbol_table_id, symbol_code} =
+            AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@weather_packet) %>
+          <% symbol_table = if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
+          <% symbol_code = symbol_code || ">" %>
+          <% table_id =
+            if symbol_table == "/", do: "0", else: if(symbol_table == "]", do: "2", else: "1") %>
+          <% symbol_code_ord =
+            symbol_code
+            |> String.to_charlist()
+            |> List.first()
+            |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
+          <% index = symbol_code_ord - 33 %>
+          <% safe_index = max(0, min(index, 93)) %>
+          <% column = rem(safe_index, 16) %>
+          <% row = div(safe_index, 16) %>
+          <% x = -column * 128 %>
+          <% y = -row * 128 %>
+          <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
+          <div
+            style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
+            title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
+          >
+          </div>
+        <% end %>
+        <.link
+          navigate={~p"/info/#{@callsign}"}
+          class="ml-2 text-blue-600 hover:underline text-base font-normal"
+        >
+          info
+        </.link>
+        <.link
+          navigate={~p"/#{@callsign}"}
+          class="ml-2 text-blue-600 hover:underline text-base font-normal"
+        >
+          view on map
+        </.link>
+      </h1>
+      <div class="text-base text-gray-600 mb-8">
+        {PacketUtils.get_timestamp(@weather_packet)}
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+        <div>
+          <strong>Temperature:</strong>
+          {PacketUtils.get_weather_field(@weather_packet, :temperature)}°F
+        </div>
+        <div>
+          <strong>Humidity:</strong>
+          {PacketUtils.get_weather_field(@weather_packet, :humidity)}%
+        </div>
+        <div>
+          <strong>Wind:</strong>
+          {PacketUtils.get_weather_field(@weather_packet, :wind_direction)}° @ {PacketUtils.get_weather_field(
+            @weather_packet,
+            :wind_speed
+          )} mph
+        </div>
+        <div>
+          <strong>Gusts:</strong>
+          {PacketUtils.get_weather_field(@weather_packet, :wind_gust)} mph
+        </div>
+        <div>
+          <strong>Pressure:</strong>
+          {PacketUtils.get_weather_field(@weather_packet, :pressure)} hPa
+        </div>
+        <div>
+          <strong>Rain (1h):</strong>
+          {get_weather_field_zero(@weather_packet, :rain_1h)} in
+        </div>
+        <div>
+          <strong>Rain (24h):</strong>
+          {get_weather_field_zero(@weather_packet, :rain_24h)} in
+        </div>
+        <div>
+          <strong>Rain (since midnight):</strong>
+          {get_weather_field_zero(@weather_packet, :rain_since_midnight)} in
+        </div>
+      </div>
+      <div class="mt-4 text-sm text-gray-500">
+        <strong>Raw comment:</strong> {@weather_packet.comment || @weather_packet["comment"]}
+      </div>
+    </section>
+    <section class="w-full bg-white rounded-xl shadow p-6 md:p-8 mt-8">
+      <h2 class="text-xl font-semibold mb-4">Weather History Graphs</h2>
+      <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :temperature, nil)))) do %>
         <div
-          style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; overflow: hidden; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
-          title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
+          id="temp-chart"
+          phx-hook="PlotlyTempChart"
+          data-weather-history={@weather_history_json}
+          style="height:350px;"
         >
         </div>
       <% end %>
-      <.link
-        navigate={~p"/info/#{@callsign}"}
-        class="ml-2 text-blue-600 hover:underline text-base font-normal"
-      >
-        info
-      </.link>
-      <.link
-        navigate={~p"/#{@callsign}"}
-        class="ml-2 text-blue-600 hover:underline text-base font-normal"
-      >
-        view on map
-      </.link>
-    </h1>
-    <div class="text-gray-600 mb-4">
-      {PacketUtils.get_timestamp(@weather_packet)}
-    </div>
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <strong>Temperature:</strong>
-        {PacketUtils.get_weather_field(@weather_packet, :temperature)}°F
-      </div>
-      <div>
-        <strong>Humidity:</strong>
-        {PacketUtils.get_weather_field(@weather_packet, :humidity)}%
-      </div>
-      <div>
-        <strong>Wind:</strong>
-        {PacketUtils.get_weather_field(@weather_packet, :wind_direction)}° @ {PacketUtils.get_weather_field(
-          @weather_packet,
-          :wind_speed
-        )} mph
-      </div>
-      <div>
-        <strong>Gusts:</strong>
-        {PacketUtils.get_weather_field(@weather_packet, :wind_gust)} mph
-      </div>
-      <div>
-        <strong>Pressure:</strong>
-        {PacketUtils.get_weather_field(@weather_packet, :pressure)} hPa
-      </div>
-      <div>
-        <strong>Rain (1h):</strong>
-        {PacketUtils.get_weather_field(@weather_packet, :rain_1h)} in
-      </div>
-      <div>
-        <strong>Rain (24h):</strong>
-        {PacketUtils.get_weather_field(@weather_packet, :rain_24h)} in
-      </div>
-      <div>
-        <strong>Rain (since midnight):</strong>
-        {PacketUtils.get_weather_field(@weather_packet, :rain_since_midnight)} in
-      </div>
-    </div>
-    <div class="mt-4 text-sm text-gray-500">
-      <strong>Raw comment:</strong> {@weather_packet.comment || @weather_packet["comment"]}
-    </div>
-  </div>
-  <div class="max-w-3xl mx-auto mt-8 p-6 bg-white rounded shadow">
-    <h2 class="text-xl font-bold mb-4">Weather History Graphs</h2>
-    <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :temperature, nil)))) do %>
-      <div
-        id="temp-chart"
-        phx-hook="PlotlyTempChart"
-        data-weather-history={@weather_history_json}
-        style="height:350px;"
-      >
-      </div>
-    <% end %>
-    <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :humidity, nil)))) do %>
-      <div
-        id="humidity-chart"
-        phx-hook="PlotlyHumidityChart"
-        data-weather-history={@weather_history_json}
-        style="height:350px;"
-      >
-      </div>
-    <% end %>
-    <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :pressure, nil)))) do %>
-      <div
-        id="pressure-chart"
-        phx-hook="PlotlyPressureChart"
-        data-weather-history={@weather_history_json}
-        style="height:350px;"
-      >
-      </div>
-    <% end %>
-    <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :wind_direction, nil)))) do %>
-      <div
-        id="wind-direction-chart"
-        phx-hook="PlotlyWindDirectionChart"
-        data-weather-history={@weather_history_json}
-        style="height:350px;"
-      >
-      </div>
-    <% end %>
-    <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :wind_speed, nil)))) do %>
-      <div
-        id="wind-speed-chart"
-        phx-hook="PlotlyWindSpeedChart"
-        data-weather-history={@weather_history_json}
-        style="height:350px;"
-      >
-      </div>
-    <% end %>
-    <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :rain_1h, nil)))) or Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :rain_24h, nil)))) or Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :rain_since_midnight, nil)))) do %>
-      <div
-        id="rain-chart"
-        phx-hook="PlotlyRainChart"
-        data-weather-history={@weather_history_json}
-        style="height:350px;"
-      >
-      </div>
-    <% end %>
-    <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :luminosity, nil)))) do %>
-      <div
-        id="luminosity-chart"
-        phx-hook="PlotlyLuminosityChart"
-        data-weather-history={@weather_history_json}
-        style="height:350px;"
-      >
-      </div>
-    <% end %>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js">
-    </script>
+      <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :humidity, nil)))) do %>
+        <div
+          id="humidity-chart"
+          phx-hook="PlotlyHumidityChart"
+          data-weather-history={@weather_history_json}
+          style="height:350px;"
+        >
+        </div>
+      <% end %>
+      <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :pressure, nil)))) do %>
+        <div
+          id="pressure-chart"
+          phx-hook="PlotlyPressureChart"
+          data-weather-history={@weather_history_json}
+          style="height:350px;"
+        >
+        </div>
+      <% end %>
+      <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :wind_direction, nil)))) do %>
+        <div
+          id="wind-direction-chart"
+          phx-hook="PlotlyWindDirectionChart"
+          data-weather-history={@weather_history_json}
+          style="height:350px;"
+        >
+        </div>
+      <% end %>
+      <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :wind_speed, nil)))) do %>
+        <div
+          id="wind-speed-chart"
+          phx-hook="PlotlyWindSpeedChart"
+          data-weather-history={@weather_history_json}
+          style="height:350px;"
+        >
+        </div>
+      <% end %>
+      <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :rain_1h, nil)))) or Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :rain_24h, nil)))) or Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :rain_since_midnight, nil)))) do %>
+        <div
+          id="rain-chart"
+          phx-hook="PlotlyRainChart"
+          data-weather-history={@weather_history_json}
+          style="height:350px;"
+        >
+        </div>
+      <% end %>
+      <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :luminosity, nil)))) do %>
+        <div
+          id="luminosity-chart"
+          phx-hook="PlotlyLuminosityChart"
+          data-weather-history={@weather_history_json}
+          style="height:350px;"
+        >
+        </div>
+      <% end %>
+      <script src="https://cdn.plot.ly/plotly-latest.min.js">
+      </script>
+    </section>
   </div>
 <% else %>
-  <div class="max-w-lg mx-auto mt-8 p-6 bg-white rounded shadow text-center">
-    <h1 class="text-2xl font-bold mb-2">Weather for {@callsign}</h1>
-    <div class="text-gray-600">No recent weather data available for this callsign.</div>
+  <div class="w-full min-h-screen bg-slate-50 py-8 px-2 md:px-8 flex items-center justify-center">
+    <div class="w-full max-w-lg bg-white rounded-xl shadow-lg p-8 text-center">
+      <h1 class="text-2xl font-bold mb-2">Weather for {@callsign}</h1>
+      <div class="text-gray-600">No recent weather data available for this callsign.</div>
+    </div>
   </div>
 <% end %>

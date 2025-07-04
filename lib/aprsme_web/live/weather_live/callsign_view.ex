@@ -68,4 +68,18 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   end
 
   defp calc_dew_point(_, _), do: nil
+
+  @doc """
+  Gets weather field value, returning "0" instead of "N/A" for missing numeric data.
+  """
+  def get_weather_field_zero(packet, key) do
+    value = PacketUtils.get_weather_field(packet, key)
+
+    # Return "0" for missing numeric fields, keep other values as-is
+    case value do
+      "N/A" -> "0"
+      nil -> "0"
+      _ -> value
+    end
+  end
 end
