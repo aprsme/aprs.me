@@ -75,136 +75,486 @@ let Hooks = {};
 Hooks.APRSMap = MapAPRSMap;
 Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
 
-Hooks.PlotlyTempChart = {
+Hooks.ChartJSTempChart = {
   mounted() { this.renderChart(); },
   updated() { this.renderChart(); },
   renderChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    
     const data = JSON.parse(this.el.dataset.weatherHistory);
-    const times = data.map(d => d.timestamp);
+    const times = data.map(d => new Date(d.timestamp));
     const temps = data.map(d => d.temperature);
     const dews = data.map(d => d.dew_point);
-    Plotly.newPlot(this.el, [
-      { x: times, y: temps, name: "Temperature", type: "scatter", line: { color: "red" } },
-      { x: times, y: dews, name: "Dew Point", type: "scatter", line: { color: "blue" } }
-    ], {
-      title: "Temperature & Dew Point (°F)",
-      xaxis: { title: "Time" },
-      yaxis: { title: "°F" }
-    }, {
-      responsive: true,
-      staticPlot: true,
-      displayModeBar: false
+    
+    const canvas = this.el.querySelector('canvas');
+    if (!canvas) {
+      console.error('Canvas element not found for temperature chart');
+      return;
+    }
+    
+    this.chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: times,
+        datasets: [
+          {
+            label: 'Temperature (°F)',
+            data: temps,
+            borderColor: 'red',
+            backgroundColor: 'rgba(255, 0, 0, 0.1)',
+            tension: 0.1
+          },
+          {
+            label: 'Dew Point (°F)',
+            data: dews,
+            borderColor: 'blue',
+            backgroundColor: 'rgba(0, 0, 255, 0.1)',
+            tension: 0.1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Temperature & Dew Point (°F)'
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                hour: 'HH:mm',
+                minute: 'HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: '°F'
+            }
+          }
+        }
+      }
     });
   }
 };
 
-Hooks.PlotlyHumidityChart = {
+Hooks.ChartJSHumidityChart = {
   mounted() { this.renderChart(); },
   updated() { this.renderChart(); },
   renderChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    
     const data = JSON.parse(this.el.dataset.weatherHistory);
-    const times = data.map(d => d.timestamp);
+    const times = data.map(d => new Date(d.timestamp));
     const hums = data.map(d => d.humidity);
-    Plotly.newPlot(this.el, [
-      { x: times, y: hums, name: "Humidity", type: "scatter", line: { color: "blue" } }
-    ], {
-      title: "Humidity (%)",
-      xaxis: { title: "Time" },
-      yaxis: { title: "%" }
-    }, {
-      responsive: true,
-      staticPlot: true,
-      displayModeBar: false
+    
+    const canvas = this.el.querySelector('canvas');
+    if (!canvas) {
+      console.error('Canvas element not found for humidity chart');
+      return;
+    }
+    
+    this.chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: times,
+        datasets: [{
+          label: 'Humidity (%)',
+          data: hums,
+          borderColor: 'blue',
+          backgroundColor: 'rgba(0, 0, 255, 0.1)',
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Humidity (%)'
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                hour: 'HH:mm',
+                minute: 'HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: '%'
+            }
+          }
+        }
+      }
     });
   }
 };
 
-Hooks.PlotlyPressureChart = {
+Hooks.ChartJSPressureChart = {
   mounted() { this.renderChart(); },
   updated() { this.renderChart(); },
   renderChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    
     const data = JSON.parse(this.el.dataset.weatherHistory);
-    const times = data.map(d => d.timestamp);
+    const times = data.map(d => new Date(d.timestamp));
     const pressures = data.map(d => d.pressure);
-    Plotly.newPlot(this.el, [
-      { x: times, y: pressures, name: "Pressure", type: "scatter", line: { color: "green" } }
-    ], {
-      title: "Pressure (hPa)",
-      xaxis: { title: "Time" },
-      yaxis: { title: "hPa" }
-    }, {responsive: true, staticPlot: true, displayModeBar: false});
+    
+    const canvas = this.el.querySelector('canvas');
+    if (!canvas) {
+      console.error('Canvas element not found for pressure chart');
+      return;
+    }
+    
+    this.chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: times,
+        datasets: [{
+          label: 'Pressure (hPa)',
+          data: pressures,
+          borderColor: 'green',
+          backgroundColor: 'rgba(0, 128, 0, 0.1)',
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Pressure (hPa)'
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                hour: 'HH:mm',
+                minute: 'HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'hPa'
+            }
+          }
+        }
+      }
+    });
   }
 };
 
-Hooks.PlotlyWindDirectionChart = {
+Hooks.ChartJSWindDirectionChart = {
   mounted() { this.renderChart(); },
   updated() { this.renderChart(); },
   renderChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    
     const data = JSON.parse(this.el.dataset.weatherHistory);
-    const times = data.map(d => d.timestamp);
+    const times = data.map(d => new Date(d.timestamp));
     const dirs = data.map(d => d.wind_direction);
-    Plotly.newPlot(this.el, [
-      { x: times, y: dirs, name: "Wind Direction", type: "scatter", line: { color: "orange" } }
-    ], {
-      title: "Wind Direction (°)",
-      xaxis: { title: "Time" },
-      yaxis: { title: "°" }
-    }, {responsive: true, staticPlot: true, displayModeBar: false});
+    
+    const canvas = this.el.querySelector('canvas');
+    if (!canvas) {
+      console.error('Canvas element not found for wind direction chart');
+      return;
+    }
+    
+    this.chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: times,
+        datasets: [{
+          label: 'Wind Direction (°)',
+          data: dirs,
+          borderColor: 'orange',
+          backgroundColor: 'rgba(255, 165, 0, 0.1)',
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Wind Direction (°)'
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                hour: 'HH:mm',
+                minute: 'HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: '°'
+            }
+          }
+        }
+      }
+    });
   }
 };
 
-Hooks.PlotlyWindSpeedChart = {
+Hooks.ChartJSWindSpeedChart = {
   mounted() { this.renderChart(); },
   updated() { this.renderChart(); },
   renderChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    
     const data = JSON.parse(this.el.dataset.weatherHistory);
-    const times = data.map(d => d.timestamp);
+    const times = data.map(d => new Date(d.timestamp));
     const speeds = data.map(d => d.wind_speed);
-    Plotly.newPlot(this.el, [
-      { x: times, y: speeds, name: "Wind Speed", type: "scatter", line: { color: "purple" } }
-    ], {
-      title: "Wind Speed (mph)",
-      xaxis: { title: "Time" },
-      yaxis: { title: "mph" }
-    }, {responsive: true, staticPlot: true, displayModeBar: false});
+    
+    const canvas = this.el.querySelector('canvas');
+    if (!canvas) {
+      console.error('Canvas element not found for wind speed chart');
+      return;
+    }
+    
+    this.chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: times,
+        datasets: [{
+          label: 'Wind Speed (mph)',
+          data: speeds,
+          borderColor: 'purple',
+          backgroundColor: 'rgba(128, 0, 128, 0.1)',
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Wind Speed (mph)'
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                hour: 'HH:mm',
+                minute: 'HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'mph'
+            }
+          }
+        }
+      }
+    });
   }
 };
 
-Hooks.PlotlyRainChart = {
+Hooks.ChartJSRainChart = {
   mounted() { this.renderChart(); },
   updated() { this.renderChart(); },
   renderChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    
     const data = JSON.parse(this.el.dataset.weatherHistory);
-    const times = data.map(d => d.timestamp);
+    const times = data.map(d => new Date(d.timestamp));
     const rain1h = data.map(d => d.rain_1h);
     const rain24h = data.map(d => d.rain_24h);
     const rainMid = data.map(d => d.rain_since_midnight);
-    Plotly.newPlot(this.el, [
-      { x: times, y: rain1h, name: "Rain (1h)", type: "scatter", line: { color: "blue" } },
-      { x: times, y: rain24h, name: "Rain (24h)", type: "scatter", line: { color: "navy" } },
-      { x: times, y: rainMid, name: "Rain (since midnight)", type: "scatter", line: { color: "teal" } }
-    ], {
-      title: "Rain (inches)",
-      xaxis: { title: "Time" },
-      yaxis: { title: "in" }
-    }, {responsive: true, staticPlot: true, displayModeBar: false});
+    
+    const canvas = this.el.querySelector('canvas');
+    if (!canvas) {
+      console.error('Canvas element not found for rain chart');
+      return;
+    }
+    
+    this.chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: times,
+        datasets: [
+          {
+            label: 'Rain (1h)',
+            data: rain1h,
+            borderColor: 'blue',
+            backgroundColor: 'rgba(0, 0, 255, 0.1)',
+            tension: 0.1
+          },
+          {
+            label: 'Rain (24h)',
+            data: rain24h,
+            borderColor: 'navy',
+            backgroundColor: 'rgba(0, 0, 128, 0.1)',
+            tension: 0.1
+          },
+          {
+            label: 'Rain (since midnight)',
+            data: rainMid,
+            borderColor: 'teal',
+            backgroundColor: 'rgba(0, 128, 128, 0.1)',
+            tension: 0.1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Rain (inches)'
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                hour: 'HH:mm',
+                minute: 'HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'in'
+            }
+          }
+        }
+      }
+    });
   }
 };
 
-Hooks.PlotlyLuminosityChart = {
+Hooks.ChartJSLuminosityChart = {
   mounted() { this.renderChart(); },
   updated() { this.renderChart(); },
   renderChart() {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    
     const data = JSON.parse(this.el.dataset.weatherHistory);
-    const times = data.map(d => d.timestamp);
+    const times = data.map(d => new Date(d.timestamp));
     const lum = data.map(d => d.luminosity);
-    Plotly.newPlot(this.el, [
-      { x: times, y: lum, name: "Luminosity", type: "scatter", line: { color: "gold" } }
-    ], {
-      title: "Luminosity",
-      xaxis: { title: "Time" },
-      yaxis: { title: "" }
-    }, {responsive: true, staticPlot: true, displayModeBar: false});
+    
+    const canvas = this.el.querySelector('canvas');
+    if (!canvas) {
+      console.error('Canvas element not found for luminosity chart');
+      return;
+    }
+    
+    this.chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: times,
+        datasets: [{
+          label: 'Luminosity',
+          data: lum,
+          borderColor: 'gold',
+          backgroundColor: 'rgba(255, 215, 0, 0.1)',
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Luminosity'
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                hour: 'HH:mm',
+                minute: 'HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: 'Time'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: ''
+            }
+          }
+        }
+      }
+    });
   }
 };
 

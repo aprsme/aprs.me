@@ -175,67 +175,76 @@
           <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :temperature, nil)))) do %>
             <div
               id="temp-chart"
-              phx-hook="PlotlyTempChart"
+              phx-hook="ChartJSTempChart"
               data-weather-history={@weather_history_json}
               style="height:250px;"
             >
+              <canvas></canvas>
             </div>
           <% end %>
           <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :humidity, nil)))) do %>
             <div
               id="humidity-chart"
-              phx-hook="PlotlyHumidityChart"
+              phx-hook="ChartJSHumidityChart"
               data-weather-history={@weather_history_json}
               style="height:250px;"
             >
+              <canvas></canvas>
             </div>
           <% end %>
           <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :pressure, nil)))) do %>
             <div
               id="pressure-chart"
-              phx-hook="PlotlyPressureChart"
+              phx-hook="ChartJSPressureChart"
               data-weather-history={@weather_history_json}
               style="height:250px;"
             >
+              <canvas></canvas>
             </div>
           <% end %>
           <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :wind_direction, nil)))) do %>
             <div
               id="wind-direction-chart"
-              phx-hook="PlotlyWindDirectionChart"
+              phx-hook="ChartJSWindDirectionChart"
               data-weather-history={@weather_history_json}
               style="height:250px;"
             >
+              <canvas></canvas>
             </div>
           <% end %>
           <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :wind_speed, nil)))) do %>
             <div
               id="wind-speed-chart"
-              phx-hook="PlotlyWindSpeedChart"
+              phx-hook="ChartJSWindSpeedChart"
               data-weather-history={@weather_history_json}
               style="height:250px;"
             >
+              <canvas></canvas>
             </div>
           <% end %>
           <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :rain_1h, nil)))) or Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :rain_24h, nil)))) or Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :rain_since_midnight, nil)))) do %>
             <div
               id="rain-chart"
-              phx-hook="PlotlyRainChart"
+              phx-hook="ChartJSRainChart"
               data-weather-history={@weather_history_json}
               style="height:250px;"
             >
+              <canvas></canvas>
             </div>
           <% end %>
           <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :luminosity, nil)))) do %>
             <div
               id="luminosity-chart"
-              phx-hook="PlotlyLuminosityChart"
+              phx-hook="ChartJSLuminosityChart"
               data-weather-history={@weather_history_json}
               style="height:250px;"
             >
+              <canvas></canvas>
             </div>
           <% end %>
-          <script src="https://cdn.plot.ly/plotly-2.29.1.min.js">
+          <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js">
+          </script>
+          <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js">
           </script>
         </div>
       </div>
