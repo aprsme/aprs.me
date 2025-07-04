@@ -270,7 +270,7 @@ defmodule AprsmeWeb.MapLive.Index do
       {:noreply, socket}
     else
       # Navigate to the callsign-specific route
-      {:noreply, push_navigate(socket, to: "/map/callsign/#{trimmed_callsign}")}
+      {:noreply, push_navigate(socket, to: "/#{trimmed_callsign}")}
     end
   end
 
@@ -695,7 +695,7 @@ defmodule AprsmeWeb.MapLive.Index do
           </svg>
           <h2 class="text-xl font-bold">APRS.me</h2>
         </div>
-        
+
     <!-- Close button for mobile -->
         <button
           class="lg:hidden text-white hover:text-slate-200 transition-colors"
@@ -718,7 +718,7 @@ defmodule AprsmeWeb.MapLive.Index do
           </svg>
         </button>
       </div>
-      
+
     <!-- Content -->
       <div class="p-6 space-y-6 bg-slate-50 flex-1 overflow-y-auto">
         <!-- Callsign Search -->
@@ -751,7 +751,7 @@ defmodule AprsmeWeb.MapLive.Index do
             </button>
           </form>
         </div>
-        
+
     <!-- Trail Duration -->
         <div class="space-y-4">
           <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
@@ -810,7 +810,7 @@ defmodule AprsmeWeb.MapLive.Index do
             <span>How long should position trails be displayed</span>
           </p>
         </div>
-        
+
     <!-- Historical Data -->
         <div class="space-y-4">
           <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
@@ -863,7 +863,7 @@ defmodule AprsmeWeb.MapLive.Index do
             <span>How many hours of historical packets to load</span>
           </p>
         </div>
-        
+
     <!-- Navigation -->
         <div class="pt-4 border-t border-slate-200 space-y-3">
           <div class="flex items-center space-x-2 text-sm text-slate-600 mb-3">
@@ -879,7 +879,7 @@ defmodule AprsmeWeb.MapLive.Index do
           </div>
           <.navigation variant={:vertical} class="text-sm" />
         </div>
-        
+
     <!-- Deployment Information -->
         <div class="pt-4 border-t border-slate-200 space-y-3">
           <div class="flex items-center space-x-2 text-sm text-slate-600">
