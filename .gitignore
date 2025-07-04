@@ -41,4 +41,4 @@ k8s/secrets.yaml
 /.horusec
 
 /vendor
-
+/temp
