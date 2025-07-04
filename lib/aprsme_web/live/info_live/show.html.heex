@@ -200,7 +200,11 @@
               <div>
                 <dt class="text-xs font-medium text-gray-500">Device</dt>
                 <dd class="mt-1 text-sm font-semibold text-gray-900">
-                  {@packet.manufacturer || ""} {@packet.equipment_type || ""}
+                  <%= if @packet.manufacturer && @packet.manufacturer != "" do %>
+                    {@packet.manufacturer} {@packet.equipment_type || ""}
+                  <% else %>
+                    <span class="text-gray-500 font-mono">{@packet.device_identifier || "Unknown"}</span>
+                  <% end %>
                 </dd>
               </div>
               <div>
