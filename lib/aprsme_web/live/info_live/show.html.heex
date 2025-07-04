@@ -23,25 +23,25 @@
       <% {symbol_table_id, symbol_code} = AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@packet) %>
       <% symbol_table = if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
       <% symbol_code = symbol_code || ">" %>
-      <% symbol_table_num =
-        case symbol_table do
-          "/" -> 0
-          "\\" -> 1
-          "]" -> 2
-          _ -> 0
-        end %>
+      <% table_id =
+        if symbol_table == "/", do: "0", else: if(symbol_table == "]", do: "2", else: "1") %>
       <% symbol_code_ord =
         symbol_code
         |> String.to_charlist()
         |> List.first()
         |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
-      <% symbol_img = "/aprs-symbols/aprs-symbols-24-#{symbol_table_num}@2x.png" %>
-      <% symbol_index = symbol_code_ord - 33 %>
-      <img
-        src={symbol_img}
-        style={"object-fit: none; object-position: -#{symbol_index * 48}px 0; width: 48px; height: 48px; transform: scale(0.5); transform-origin: top left; display: inline-block; vertical-align: middle; margin-bottom: -6px; image-rendering: pixelated;"}
-        alt="APRS symbol"
-      />
+      <% index = symbol_code_ord - 33 %>
+      <% safe_index = max(0, min(index, 93)) %>
+      <% column = rem(safe_index, 16) %>
+      <% row = div(safe_index, 16) %>
+      <% x = -column * 128 %>
+      <% y = -row * 128 %>
+      <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
+      <div
+        style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; overflow: hidden; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
+        title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
+      >
+      </div>
     <% end %>
     <.link navigate={~p"/packets/#{@callsign}"} class="ml-2 text-sm text-blue-600 hover:underline">
       View packets
@@ -112,25 +112,27 @@
                   <% symbol_table =
                     if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
                   <% symbol_code = symbol_code || ">" %>
-                  <% symbol_table_num =
-                    case symbol_table do
-                      "/" -> 0
-                      "\\" -> 1
-                      "]" -> 2
-                      _ -> 0
-                    end %>
+                  <% table_id =
+                    if symbol_table == "/",
+                      do: "0",
+                      else: if(symbol_table == "]", do: "2", else: "1") %>
                   <% symbol_code_ord =
                     symbol_code
                     |> String.to_charlist()
                     |> List.first()
                     |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
-                  <% symbol_img = "/aprs-symbols/aprs-symbols-24-#{symbol_table_num}@2x.png" %>
-                  <% symbol_index = symbol_code_ord - 33 %>
-                  <img
-                    src={symbol_img}
-                    style={"object-fit: none; object-position: -#{symbol_index * 48}px 0; width: 48px; height: 48px; transform: scale(0.5); transform-origin: top left; display: inline-block; vertical-align: middle; margin-bottom: -6px; image-rendering: pixelated;"}
-                    alt="APRS symbol"
-                  />
+                  <% index = symbol_code_ord - 33 %>
+                  <% safe_index = max(0, min(index, 93)) %>
+                  <% column = rem(safe_index, 16) %>
+                  <% row = div(safe_index, 16) %>
+                  <% x = -column * 128 %>
+                  <% y = -row * 128 %>
+                  <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
+                  <div
+                    style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; overflow: hidden; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
+                    title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
+                  >
+                  </div>
                 <% end %>
               </td>
               <td class="px-4 py-2">{neighbor.distance || ""}</td>

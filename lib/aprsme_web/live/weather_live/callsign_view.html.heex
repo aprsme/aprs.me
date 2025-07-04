@@ -2,9 +2,40 @@
   <div class="max-w-lg mx-auto mt-8 p-6 bg-white rounded shadow">
     <h1 class="text-2xl font-bold mb-2 flex items-center gap-2">
       Weather for {@callsign}
+      <%= if @weather_packet do %>
+        <% {symbol_table_id, symbol_code} =
+          AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@weather_packet) %>
+        <% symbol_table = if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
+        <% symbol_code = symbol_code || ">" %>
+        <% table_id =
+          if symbol_table == "/", do: "0", else: if(symbol_table == "]", do: "2", else: "1") %>
+        <% symbol_code_ord =
+          symbol_code
+          |> String.to_charlist()
+          |> List.first()
+          |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
+        <% index = symbol_code_ord - 33 %>
+        <% safe_index = max(0, min(index, 93)) %>
+        <% column = rem(safe_index, 16) %>
+        <% row = div(safe_index, 16) %>
+        <% x = -column * 128 %>
+        <% y = -row * 128 %>
+        <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
+        <div
+          style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; overflow: hidden; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
+          title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
+        >
+        </div>
+      <% end %>
+      <.link
+        navigate={~p"/info/#{@callsign}"}
+        class="ml-2 text-blue-600 hover:underline text-base font-normal"
+      >
+        info
+      </.link>
       <.link
         navigate={~p"/#{@callsign}"}
-        class="ml-4 text-blue-600 hover:underline text-base font-normal"
+        class="ml-2 text-blue-600 hover:underline text-base font-normal"
       >
         view on map
       </.link>
