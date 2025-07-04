@@ -9,21 +9,22 @@ defmodule Aprsme.DeviceParser do
   """
   @spec extract_device_identifier(map()) :: String.t() | nil
   def extract_device_identifier(packet_data) do
-    cond do
-      Map.has_key?(packet_data, :destination) and not is_nil(packet_data[:destination]) ->
-        packet_data[:destination]
+    extract_from_destination(packet_data) ||
+      extract_from_device_identifier(packet_data) ||
+      extract_from_data_extended(packet_data)
+  end
 
-      Map.has_key?(packet_data, "destination") and not is_nil(packet_data["destination"]) ->
-        packet_data["destination"]
+  defp extract_from_destination(packet_data) do
+    get_field_value(packet_data, :destination) || get_field_value(packet_data, "destination")
+  end
 
-      Map.has_key?(packet_data, :device_identifier) and not is_nil(packet_data[:device_identifier]) ->
-        packet_data[:device_identifier]
+  defp extract_from_device_identifier(packet_data) do
+    get_field_value(packet_data, :device_identifier) || get_field_value(packet_data, "device_identifier")
+  end
 
-      Map.has_key?(packet_data, "device_identifier") and not is_nil(packet_data["device_identifier"]) ->
-        packet_data["device_identifier"]
-
-      true ->
-        extract_from_data_extended(packet_data)
+  defp get_field_value(packet_data, key) do
+    if Map.has_key?(packet_data, key) and not is_nil(packet_data[key]) do
+      packet_data[key]
     end
   end
 

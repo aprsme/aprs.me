@@ -18,6 +18,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     end
 
     packet = get_latest_packet(normalized_callsign)
+    packet = enrich_packet_with_device_info(packet)
     neighbors = get_neighbors(packet, normalized_callsign)
 
     socket =
@@ -36,6 +37,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     if packet_matches_callsign?(packet, socket.assigns.callsign) do
       # Refresh data when new packet arrives
       packet = get_latest_packet(socket.assigns.callsign)
+      packet = enrich_packet_with_device_info(packet)
       neighbors = get_neighbors(packet, socket.assigns.callsign)
 
       socket =
@@ -60,6 +62,26 @@ defmodule AprsmeWeb.InfoLive.Show do
     %{callsign: callsign, limit: 1}
     |> Packets.get_recent_packets()
     |> List.first()
+  end
+
+  defp enrich_packet_with_device_info(nil), do: nil
+
+  defp enrich_packet_with_device_info(packet) do
+    device_identifier = Map.get(packet, :device_identifier) || Map.get(packet, "device_identifier")
+
+    device =
+      if is_binary(device_identifier), do: Aprsme.DeviceIdentification.lookup_device_by_identifier(device_identifier)
+
+    model = if device, do: device.model
+    vendor = if device, do: device.vendor
+    contact = if device, do: device.contact
+    class = if device, do: device.class
+
+    packet
+    |> Map.put(:device_model, model)
+    |> Map.put(:device_vendor, vendor)
+    |> Map.put(:device_contact, contact)
+    |> Map.put(:device_class, class)
   end
 
   defp get_neighbors(nil, _callsign), do: []
