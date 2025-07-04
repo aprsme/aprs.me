@@ -374,7 +374,9 @@ defmodule AprsmeWeb.MapLive.Index do
           }
 
       socket = assign(socket, map_bounds: map_bounds)
-      socket = load_historical_packets_for_bounds(socket, map_bounds)
+
+      # Use optimized query for initial load
+      socket = load_historical_packets_for_bounds_optimized(socket, map_bounds)
       {:noreply, socket}
     else
       {:noreply, socket}
@@ -695,7 +697,7 @@ defmodule AprsmeWeb.MapLive.Index do
           </svg>
           <h2 class="text-xl font-bold">APRS.me</h2>
         </div>
-
+        
     <!-- Close button for mobile -->
         <button
           class="lg:hidden text-white hover:text-slate-200 transition-colors"
@@ -718,7 +720,7 @@ defmodule AprsmeWeb.MapLive.Index do
           </svg>
         </button>
       </div>
-
+      
     <!-- Content -->
       <div class="p-6 space-y-6 bg-slate-50 flex-1 overflow-y-auto">
         <!-- Callsign Search -->
@@ -751,7 +753,7 @@ defmodule AprsmeWeb.MapLive.Index do
             </button>
           </form>
         </div>
-
+        
     <!-- Trail Duration -->
         <div class="space-y-4">
           <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
@@ -810,7 +812,7 @@ defmodule AprsmeWeb.MapLive.Index do
             <span>How long should position trails be displayed</span>
           </p>
         </div>
-
+        
     <!-- Historical Data -->
         <div class="space-y-4">
           <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
@@ -863,7 +865,7 @@ defmodule AprsmeWeb.MapLive.Index do
             <span>How many hours of historical packets to load</span>
           </p>
         </div>
-
+        
     <!-- Navigation -->
         <div class="pt-4 border-t border-slate-200 space-y-3">
           <div class="flex items-center space-x-2 text-sm text-slate-600 mb-3">
@@ -879,7 +881,7 @@ defmodule AprsmeWeb.MapLive.Index do
           </div>
           <.navigation variant={:vertical} class="text-sm" />
         </div>
-
+        
     <!-- Deployment Information -->
         <div class="pt-4 border-t border-slate-200 space-y-3">
           <div class="flex items-center space-x-2 text-sm text-slate-600">
@@ -1115,6 +1117,32 @@ defmodule AprsmeWeb.MapLive.Index do
     ]
 
     historical_packets = fetch_historical_packets(bounds, start_time, now)
+
+    if Enum.empty?(historical_packets) do
+      assign(socket, historical_loaded: true)
+    else
+      process_historical_packets(socket, historical_packets)
+    end
+  end
+
+  @spec load_historical_packets_for_bounds_optimized(Socket.t(), map()) :: Socket.t()
+  defp load_historical_packets_for_bounds_optimized(socket, map_bounds) do
+    bounds = [
+      map_bounds.west,
+      map_bounds.south,
+      map_bounds.east,
+      map_bounds.north
+    ]
+
+    # Use the optimized query for initial load
+    packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
+
+    historical_packets =
+      packets_module.get_recent_packets_optimized(%{
+        bounds: bounds,
+        # Smaller limit for faster initial load
+        limit: 500
+      })
 
     if Enum.empty?(historical_packets) do
       assign(socket, historical_loaded: true)

@@ -405,6 +405,35 @@ defmodule Aprsme.Packets do
   end
 
   @doc """
+  Gets recent packets optimized for initial map load.
+  This uses a more efficient query pattern for the most common use case.
+  """
+  @spec get_recent_packets_optimized(map()) :: [struct()]
+  def get_recent_packets_optimized(opts \\ %{}) do
+    # Always limit to the last hour for initial load
+    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+    limit = Map.get(opts, :limit, 500)
+
+    # Use a more efficient query that leverages the partial indexes
+    base_query =
+      from(p in Packet,
+        where: p.has_position == true,
+        where: p.received_at >= ^one_hour_ago,
+        order_by: [desc: p.received_at],
+        limit: ^limit
+      )
+
+    query =
+      base_query
+      |> filter_by_region(opts)
+      |> filter_by_callsign(opts)
+      |> filter_by_map_bounds(opts)
+      |> select_with_virtual_coordinates()
+
+    Repo.all(query)
+  end
+
+  @doc """
   Gets weather packets for a specific callsign within a time range.
   This is optimized for weather queries by filtering at the database level.
   """
