@@ -68,7 +68,8 @@ if config_env() == :prod do
       port: port
     ],
     secret_key_base: secret_key_base,
-    server: true
+    server: true,
+    check_origin: ["https://#{host}"]
 
   # config :aprsme, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
