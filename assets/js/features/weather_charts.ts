@@ -94,8 +94,8 @@ export const WeatherChartHooks: Record<string, Hook> = {
                 data: {
                     labels: times,
                     datasets: [
-                        { label: 'Temperature (°F)', data: temps, borderColor: 'red', backgroundColor: 'rgba(255, 0, 0, 0.1)', tension: 0.1 },
-                        { label: 'Dew Point (°F)', data: dews, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.1)', tension: 0.1 }
+                        { label: 'Temperature (°F)', data: temps, borderColor: 'red', backgroundColor: 'rgba(255, 0, 0, 0.1)', tension: 0.1, pointRadius: 0 },
+                        { label: 'Dew Point (°F)', data: dews, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.1)', tension: 0.1, pointRadius: 0 }
                     ]
                 },
                 options: {
@@ -142,7 +142,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             if (!canvas) return;
             self.chart = new window.Chart(canvas, {
                 type: 'line',
-                data: { labels: times, datasets: [{ label: 'Humidity (%)', data: humidity, borderColor: 'green', backgroundColor: 'rgba(0, 255, 0, 0.1)', tension: 0.1 }] },
+                data: { labels: times, datasets: [{ label: 'Humidity (%)', data: humidity, borderColor: 'green', backgroundColor: 'rgba(0, 255, 0, 0.1)', tension: 0.1, pointRadius: 0 }] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -181,7 +181,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             if (!canvas) return;
             self.chart = new window.Chart(canvas, {
                 type: 'line',
-                data: { labels: times, datasets: [{ label: 'Pressure (mb)', data: pressure, borderColor: 'purple', backgroundColor: 'rgba(128, 0, 128, 0.1)', tension: 0.1 }] },
+                data: { labels: times, datasets: [{ label: 'Pressure (mb)', data: pressure, borderColor: 'purple', backgroundColor: 'rgba(128, 0, 128, 0.1)', tension: 0.1, pointRadius: 0 }] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -221,7 +221,12 @@ export const WeatherChartHooks: Record<string, Hook> = {
             if (!canvas) return;
             self.chart = new window.Chart(canvas, {
                 type: 'line',
-                data: { labels: times, datasets: [{ label: 'Wind Speed (mph)', data: windSpeed, borderColor: 'orange', backgroundColor: 'rgba(255, 165, 0, 0.1)', tension: 0.1 }, { label: 'Wind Gust (mph)', data: windGust, borderColor: 'brown', backgroundColor: 'rgba(165, 42, 42, 0.1)', tension: 0.1 }] },
+                data: {
+                    labels: times, datasets: [
+                        { label: 'Wind Speed (mph)', data: windSpeed, borderColor: 'orange', backgroundColor: 'rgba(255, 165, 0, 0.1)', tension: 0.1, pointRadius: 0 },
+                        { label: 'Wind Gust (mph)', data: windGust, borderColor: 'brown', backgroundColor: 'rgba(165, 42, 42, 0.1)', tension: 0.1, pointRadius: 0 }
+                    ]
+                },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -262,7 +267,13 @@ export const WeatherChartHooks: Record<string, Hook> = {
             if (!canvas) return;
             self.chart = new window.Chart(canvas, {
                 type: 'line',
-                data: { labels: times, datasets: [{ label: 'Rain (1h)', data: rain1h, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.1)', tension: 0.1 }, { label: 'Rain (24h)', data: rain24h, borderColor: 'cyan', backgroundColor: 'rgba(0, 255, 255, 0.1)', tension: 0.1 }, { label: 'Rain (since midnight)', data: rainSinceMidnight, borderColor: 'navy', backgroundColor: 'rgba(0, 0, 128, 0.1)', tension: 0.1 }] },
+                data: {
+                    labels: times, datasets: [
+                        { label: 'Rain (1h)', data: rain1h, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.1)', tension: 0.1, pointRadius: 0 },
+                        { label: 'Rain (24h)', data: rain24h, borderColor: 'cyan', backgroundColor: 'rgba(0, 255, 255, 0.1)', tension: 0.1, pointRadius: 0 },
+                        { label: 'Rain (since midnight)', data: rainSinceMidnight, borderColor: 'navy', backgroundColor: 'rgba(0, 0, 128, 0.1)', tension: 0.1, pointRadius: 0 }
+                    ]
+                },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -301,7 +312,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             if (!canvas) return;
             self.chart = new window.Chart(canvas, {
                 type: 'line',
-                data: { labels: times, datasets: [{ label: 'Luminosity', data: luminosity, borderColor: 'yellow', backgroundColor: 'rgba(255, 255, 0, 0.1)', tension: 0.1 }] },
+                data: { labels: times, datasets: [{ label: 'Luminosity', data: luminosity, borderColor: 'yellow', backgroundColor: 'rgba(255, 255, 0, 0.1)', tension: 0.1, pointRadius: 0 }] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
