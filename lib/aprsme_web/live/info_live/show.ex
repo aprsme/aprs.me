@@ -21,6 +21,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     packet = enrich_packet_with_device_info(packet)
     neighbors = get_neighbors(packet, normalized_callsign)
     has_weather_packets = PacketUtils.has_weather_packets?(normalized_callsign)
+    other_ssids = get_other_ssids(normalized_callsign)
 
     socket =
       socket
@@ -29,6 +30,7 @@ defmodule AprsmeWeb.InfoLive.Show do
       |> assign(:neighbors, neighbors)
       |> assign(:page_title, "APRS station #{normalized_callsign}")
       |> assign(:has_weather_packets, has_weather_packets)
+      |> assign(:other_ssids, other_ssids)
 
     {:ok, socket}
   end
@@ -42,12 +44,14 @@ defmodule AprsmeWeb.InfoLive.Show do
       packet = enrich_packet_with_device_info(packet)
       neighbors = get_neighbors(packet, socket.assigns.callsign)
       has_weather_packets = PacketUtils.has_weather_packets?(socket.assigns.callsign)
+      other_ssids = get_other_ssids(socket.assigns.callsign)
 
       socket =
         socket
         |> assign(:packet, packet)
         |> assign(:neighbors, neighbors)
         |> assign(:has_weather_packets, has_weather_packets)
+        |> assign(:other_ssids, other_ssids)
 
       {:noreply, socket}
     else
@@ -63,9 +67,9 @@ defmodule AprsmeWeb.InfoLive.Show do
   end
 
   defp get_latest_packet(callsign) do
-    %{callsign: callsign, limit: 1}
-    |> Packets.get_recent_packets()
-    |> List.first()
+    # Get the most recent packet for this callsign, regardless of type
+    # This ensures we show the most recent activity, not just position packets
+    Packets.get_latest_packet_for_callsign(callsign)
   end
 
   defp enrich_packet_with_device_info(nil), do: nil
@@ -145,6 +149,12 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   defp haversine(lat1, lon1, lat2, lon2) do
     # Returns distance in km
+    # Convert Decimal to float if needed
+    lat1 = to_float(lat1)
+    lon1 = to_float(lon1)
+    lat2 = to_float(lat2)
+    lon2 = to_float(lon2)
+
     r = 6371
     dlat = :math.pi() / 180 * (lat2 - lat1)
     dlon = :math.pi() / 180 * (lon2 - lon1)
@@ -158,6 +168,19 @@ defmodule AprsmeWeb.InfoLive.Show do
     r * c
   end
 
+  defp to_float(%Decimal{} = decimal), do: Decimal.to_float(decimal)
+  defp to_float(value) when is_float(value), do: value
+  defp to_float(value) when is_integer(value), do: value * 1.0
+
+  defp to_float(value) when is_binary(value) do
+    case Float.parse(value) do
+      {f, _} -> f
+      :error -> 0.0
+    end
+  end
+
+  defp to_float(_), do: 0.0
+
   defp format_distance(km) when km < 1.0 do
     "#{Float.round(km * 1000, 0)} m"
   end
@@ -168,6 +191,12 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   defp calculate_course(lat1, lon1, lat2, lon2) do
     # Calculate bearing from point 1 to point 2
+    # Convert Decimal to float if needed
+    lat1 = to_float(lat1)
+    lon1 = to_float(lon1)
+    lat2 = to_float(lat2)
+    lon2 = to_float(lon2)
+
     dlon = :math.pi() / 180 * (lon2 - lon1)
 
     lat1_rad = :math.pi() / 180 * lat1
@@ -179,5 +208,279 @@ defmodule AprsmeWeb.InfoLive.Show do
     bearing = :math.atan2(y, x) * 180 / :math.pi()
     # Convert to 0-360 range
     if bearing < 0, do: bearing + 360, else: bearing
+  end
+
+  defp get_other_ssids(callsign) do
+    import Ecto.Query
+    alias Aprsme.Packet
+    alias Aprsme.Repo
+    # Extract base callsign from the full callsign (remove SSID if present)
+    base_callsign = extract_base_callsign(callsign)
+
+    # Query directly for packets with the same base_callsign
+
+    # Get recent packets for the base callsign to find other SSIDs
+    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+
+    query =
+      from p in Packet,
+        where: p.base_callsign == ^base_callsign,
+        where: p.received_at >= ^one_hour_ago,
+        order_by: [desc: p.received_at],
+        limit: 100
+
+    query
+    |> Repo.all()
+    |> Enum.map(fn p ->
+      %{
+        callsign: p.sender,
+        ssid: p.ssid,
+        last_heard: PacketUtils.get_timestamp(p),
+        packet: p
+      }
+    end)
+    |> uniq_by(& &1.callsign)
+    |> Enum.filter(fn ssid_info -> ssid_info.callsign != callsign end)
+    |> Enum.sort_by(& &1.last_heard, :desc)
+    |> Enum.take(10)
+  end
+
+  defp extract_base_callsign(callsign) do
+    case String.split(callsign, "-") do
+      [base, _ssid] -> base
+      [base] -> base
+    end
+  end
+
+  defp decode_aprs_path(path) when is_binary(path) and path != "" do
+    path_elements = String.split(path, ",")
+
+    decoded_elements = Enum.map(path_elements, &decode_path_element/1)
+
+    # Filter out nil results and join with explanations
+    decoded_elements
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" → ")
+  end
+
+  defp decode_aprs_path(_), do: nil
+
+  defp decode_path_element(element) do
+    element = String.trim(element)
+
+    cond do
+      # WIDE digipeaters
+      String.starts_with?(element, "WIDE") ->
+        case element do
+          "WIDE1-1" -> "WIDE1-1 (Wide area digipeater, 1 hop)"
+          "WIDE2-1" -> "WIDE2-1 (Wide area digipeater, 2 hops)"
+          "WIDE3-1" -> "WIDE3-1 (Wide area digipeater, 3 hops)"
+          "WIDE4-1" -> "WIDE4-1 (Wide area digipeater, 4 hops)"
+          "WIDE5-1" -> "WIDE5-1 (Wide area digipeater, 5 hops)"
+          "WIDE6-1" -> "WIDE6-1 (Wide area digipeater, 6 hops)"
+          "WIDE7-1" -> "WIDE7-1 (WIDE area digipeater, 7 hops)"
+          "WIDE1-2" -> "WIDE1-2 (Wide area digipeater, 1 hop, 2nd attempt)"
+          "WIDE2-2" -> "WIDE2-2 (Wide area digipeater, 2 hops, 2nd attempt)"
+          _ -> "WIDE digipeater (#{element})"
+        end
+
+      # TRACE digipeaters
+      String.starts_with?(element, "TRACE") ->
+        case element do
+          "TRACE1-1" -> "TRACE1-1 (Trace digipeater, 1 hop)"
+          "TRACE2-1" -> "TRACE2-1 (Trace digipeater, 2 hops)"
+          "TRACE3-1" -> "TRACE3-1 (Trace digipeater, 3 hops)"
+          "TRACE4-1" -> "TRACE4-1 (Trace digipeater, 4 hops)"
+          "TRACE5-1" -> "TRACE5-1 (Trace digipeater, 5 hops)"
+          "TRACE6-1" -> "TRACE6-1 (Trace digipeater, 6 hops)"
+          "TRACE7-1" -> "TRACE7-1 (Trace digipeater, 7 hops)"
+          _ -> "TRACE digipeater (#{element})"
+        end
+
+      # RELAY digipeaters
+      String.starts_with?(element, "RELAY") ->
+        case element do
+          "RELAY" -> "RELAY (Relay digipeater)"
+          "RELAY-1" -> "RELAY-1 (Relay digipeater, 1 hop)"
+          "RELAY-2" -> "RELAY-2 (Relay digipeater, 2 hops)"
+          _ -> "RELAY digipeater (#{element})"
+        end
+
+      # qAC (APRS-IS connection)
+      element == "qAC" ->
+        "qAC (APRS-IS connection)"
+
+      # qAO (APRS-IS origin)
+      element == "qAO" ->
+        "qAO (APRS-IS origin)"
+
+      # qAR (APRS-IS relay)
+      element == "qAR" ->
+        "qAR (APRS-IS relay)"
+
+      # qAS (APRS-IS server)
+      element == "qAS" ->
+        "qAS (APRS-IS server)"
+
+      # qAX (APRS-IS client)
+      element == "qAX" ->
+        "qAX (APRS-IS client)"
+
+      # qAY (APRS-IS gateway)
+      element == "qAY" ->
+        "qAY (APRS-IS gateway)"
+
+      # qAZ (APRS-IS zone)
+      element == "qAZ" ->
+        "qAZ (APRS-IS zone)"
+
+      # qBU (APRS-IS user)
+      element == "qBU" ->
+        "qBU (APRS-IS user)"
+
+      # qBV (APRS-IS vendor)
+      element == "qBV" ->
+        "qBV (APRS-IS vendor)"
+
+      # qBW (APRS-IS web)
+      element == "qBW" ->
+        "qBW (APRS-IS web)"
+
+      # qBX (APRS-IS experimental)
+      element == "qBX" ->
+        "qBX (APRS-IS experimental)"
+
+      # qBY (APRS-IS Y2K)
+      element == "qBY" ->
+        "qBY (APRS-IS Y2K)"
+
+      # qBZ (APRS-IS Zulu)
+      element == "qBZ" ->
+        "qBZ (APRS-IS Zulu)"
+
+      # qCA (APRS-IS client application)
+      element == "qCA" ->
+        "qCA (APRS-IS client application)"
+
+      # qCB (APRS-IS client browser)
+      element == "qCB" ->
+        "qCB (APRS-IS client browser)"
+
+      # qCC (APRS-IS client console)
+      element == "qCC" ->
+        "qCC (APRS-IS client console)"
+
+      # qCD (APRS-IS client daemon)
+      element == "qCD" ->
+        "qCD (APRS-IS client daemon)"
+
+      # qCE (APRS-IS client editor)
+      element == "qCE" ->
+        "qCE (APRS-IS client editor)"
+
+      # qCF (APRS-IS client filter)
+      element == "qCF" ->
+        "qCF (APRS-IS client filter)"
+
+      # qCG (APRS-IS client gateway)
+      element == "qCG" ->
+        "qCG (APRS-IS client gateway)"
+
+      # qCH (APRS-IS client host)
+      element == "qCH" ->
+        "qCH (APRS-IS client host)"
+
+      # qCI (APRS-IS client interface)
+      element == "qCI" ->
+        "qCI (APRS-IS client interface)"
+
+      # qCJ (APRS-IS client java)
+      element == "qCJ" ->
+        "qCJ (APRS-IS client java)"
+
+      # qCK (APRS-IS client kernel)
+      element == "qCK" ->
+        "qCK (APRS-IS client kernel)"
+
+      # qCL (APRS-IS client library)
+      element == "qCL" ->
+        "qCL (APRS-IS client library)"
+
+      # qCM (APRS-IS client module)
+      element == "qCM" ->
+        "qCM (APRS-IS client module)"
+
+      # qCN (APRS-IS client network)
+      element == "qCN" ->
+        "qCN (APRS-IS client network)"
+
+      # qCO (APRS-IS client object)
+      element == "qCO" ->
+        "qCO (APRS-IS client object)"
+
+      # qCP (APRS-IS client protocol)
+      element == "qCP" ->
+        "qCP (APRS-IS client protocol)"
+
+      # qCQ (APRS-IS client query)
+      element == "qCQ" ->
+        "qCQ (APRS-IS client query)"
+
+      # qCR (APRS-IS client router)
+      element == "qCR" ->
+        "qCR (APRS-IS client router)"
+
+      # qCS (APRS-IS client server)
+      element == "qCS" ->
+        "qCS (APRS-IS client server)"
+
+      # qCT (APRS-IS client terminal)
+      element == "qCT" ->
+        "qCT (APRS-IS client terminal)"
+
+      # qCU (APRS-IS client user)
+      element == "qCU" ->
+        "qCU (APRS-IS client user)"
+
+      # qCV (APRS-IS client vendor)
+      element == "qCV" ->
+        "qCV (APRS-IS client vendor)"
+
+      # qCW (APRS-IS client web)
+      element == "qCW" ->
+        "qCW (APRS-IS client web)"
+
+      # qCX (APRS-IS client experimental)
+      element == "qCX" ->
+        "qCX (APRS-IS client experimental)"
+
+      # qCY (APRS-IS client Y2K)
+      element == "qCY" ->
+        "qCY (APRS-IS client Y2K)"
+
+      # qCZ (APRS-IS client Zulu)
+      element == "qCZ" ->
+        "qCZ (APRS-IS client Zulu)"
+
+      # TCPIP digipeaters
+      String.starts_with?(element, "TCPIP") ->
+        case element do
+          "TCPIP" -> "TCPIP (Internet gateway)"
+          "TCPIP*" -> "TCPIP* (Internet gateway, no forward)"
+          _ -> "TCPIP gateway (#{element})"
+        end
+
+      # Generic callsign with SSID (likely a digipeater)
+      Regex.match?(~r/^[A-Z0-9]+-\d+$/, element) ->
+        "#{element} (Digipeater)"
+
+      # Generic callsign without SSID
+      Regex.match?(~r/^[A-Z0-9]+$/, element) ->
+        "#{element} (Station)"
+
+      # Default case
+      true ->
+        "#{element} (Unknown)"
+    end
   end
 end

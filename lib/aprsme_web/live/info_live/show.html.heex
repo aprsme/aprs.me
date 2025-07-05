@@ -116,10 +116,32 @@
                   {@packet.lat || ""}, {@packet.lon || ""}
                 </dd>
               </div>
+              <%= if @packet.lat && @packet.lon do %>
+                <div>
+                  <dt class="text-xs font-medium opacity-70">Grid Square</dt>
+                  <dd class="mt-1 text-sm font-semibold">
+                    <%= case Gridsquare.encode(@packet.lon, @packet.lat) do %>
+                      <% %Gridsquare.EncodeResult{grid_reference: grid_ref} -> %>
+                        {grid_ref}
+                      <% _ -> %>
+                        -
+                    <% end %>
+                  </dd>
+                </div>
+              <% end %>
               <div>
                 <dt class="text-xs font-medium opacity-70">Last Position</dt>
-                <dd class="mt-1 text-sm font-semibold">
-                  {AprsmeWeb.MapLive.PacketUtils.get_timestamp(@packet)}
+                <dd class="mt-1 text-sm">
+                  <%= if @packet.received_at do %>
+                    <div class="font-semibold">
+                      {AprsmeWeb.TimeHelpers.time_ago_in_words(@packet.received_at)}
+                    </div>
+                    <div class="text-xs opacity-70 font-mono">
+                      {Calendar.strftime(@packet.received_at, "%Y-%m-%d %H:%M:%S UTC")}
+                    </div>
+                  <% else %>
+                    <span class="opacity-70">Unknown</span>
+                  <% end %>
                 </dd>
               </div>
               <%= if @packet.altitude do %>
@@ -193,6 +215,14 @@
                 <dt class="text-xs font-medium opacity-70">Path</dt>
                 <dd class="mt-1 text-sm font-semibold">{@packet.path || ""}</dd>
               </div>
+              <%= if @packet.path && @packet.path != "" do %>
+                <div class="col-span-2">
+                  <dt class="text-xs font-medium opacity-70">Decoded Path</dt>
+                  <dd class="mt-1 text-sm">
+                    {decode_aprs_path(@packet.path)}
+                  </dd>
+                </div>
+              <% end %>
               <div class="col-span-2">
                 <dt class="text-xs font-medium opacity-70">Raw Packet</dt>
                 <dd class="mt-1 text-xs font-mono break-all">
@@ -207,6 +237,125 @@
           </div>
         </div>
       </div>
+      
+<!-- Other SSIDs -->
+      <%= if length(@other_ssids) > 0 do %>
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <div class="flex items-center mb-3">
+              <div class="flex-shrink-0">
+                <svg
+                  class="h-4 w-4 opacity-70"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                  />
+                </svg>
+              </div>
+              <div class="ml-2">
+                <h3 class="text-sm font-medium">Other SSIDs</h3>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="table table-zebra">
+                <thead>
+                  <tr>
+                    <th class="text-xs font-medium uppercase tracking-wider">
+                      Callsign
+                    </th>
+                    <th class="text-xs font-medium uppercase tracking-wider">
+                      Distance & Direction
+                    </th>
+                    <th class="text-xs font-medium uppercase tracking-wider">
+                      Last Heard
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for ssid_info <- @other_ssids do %>
+                    <tr>
+                      <td class="font-medium">
+                        <div class="flex items-center space-x-2">
+                          <.link
+                            navigate={~p"/info/#{ssid_info.callsign}"}
+                            class="link link-primary"
+                          >
+                            {ssid_info.callsign}
+                          </.link>
+                          <%= if ssid_info.packet do %>
+                            <% {symbol_table_id, symbol_code} =
+                              AprsmeWeb.MapLive.PacketUtils.get_symbol_info(ssid_info.packet) %>
+                            <% symbol_table =
+                              if symbol_table_id in ["/", "\\", "]"],
+                                do: symbol_table_id,
+                                else: "/" %>
+                            <% symbol_code = symbol_code || ">" %>
+                            <% table_id =
+                              if symbol_table == "/",
+                                do: "0",
+                                else: if(symbol_table == "]", do: "2", else: "1") %>
+                            <% symbol_code_ord =
+                              symbol_code
+                              |> String.to_charlist()
+                              |> List.first()
+                              |> (fn c -> if is_integer(c), do: c, else: 63 end).() %>
+                            <% index = symbol_code_ord - 33 %>
+                            <% safe_index = max(0, min(index, 93)) %>
+                            <% column = rem(safe_index, 16) %>
+                            <% row = div(safe_index, 16) %>
+                            <% x = -column * 128 %>
+                            <% y = -row * 128 %>
+                            <% symbol_img = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png" %>
+                            <div
+                              style={"width: 32px; height: 32px; background-image: url(#{symbol_img}); background-position: #{x / 4}px #{y / 4}px; background-size: 512px 192px; background-repeat: no-repeat; image-rendering: pixelated; opacity: 1.0; display: inline-block; vertical-align: middle; margin-bottom: -6px;"}
+                              title={"Symbol: #{symbol_code} (#{symbol_code_ord}) at row #{row}, col #{column}"}
+                            >
+                            </div>
+                          <% end %>
+                        </div>
+                      </td>
+                      <td class="opacity-70">
+                        <%= if ssid_info.packet && ssid_info.packet.lat && ssid_info.packet.lon && @packet && @packet.lat && @packet.lon do %>
+                          <% dist =
+                            haversine(
+                              @packet.lat,
+                              @packet.lon,
+                              ssid_info.packet.lat,
+                              ssid_info.packet.lon
+                            ) %>
+                          <% course =
+                            calculate_course(
+                              @packet.lat,
+                              @packet.lon,
+                              ssid_info.packet.lat,
+                              ssid_info.packet.lon
+                            ) %>
+                          <%= if course do %>
+                            {format_distance(dist)} @ {Float.round(course, 0)}°
+                          <% else %>
+                            {format_distance(dist)}
+                          <% end %>
+                        <% else %>
+                          -
+                        <% end %>
+                      </td>
+                      <td class="opacity-70">
+                        {ssid_info.last_heard || ""}
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      <% end %>
       
 <!-- Neighboring stations -->
       <div class="card bg-base-100 shadow-xl">

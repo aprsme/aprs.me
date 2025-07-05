@@ -82,6 +82,7 @@ defmodule Aprsme.MixProject do
        github: "tailwindlabs/heroicons", tag: "v2.1.1", sparse: "optimized", app: false, compile: false, depth: 1},
       {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
+      {:gridsquare, "~> 0.2.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
       {:exvcr, "~> 0.15", only: :test},

@@ -208,28 +208,6 @@ defmodule AprsmeWeb.StatusLive.Index do
               </div>
             </div>
           </div>
-          
-    <!-- Application Information -->
-          <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">Application Information</h2>
-            <div class="card bg-base-200">
-              <div class="card-body">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">Version:</span>
-                    <span class="text-sm font-mono">{@version}</span>
-                  </div>
-
-                  <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">Current Time:</span>
-                    <span class="text-sm font-mono">
-                      {Calendar.strftime(@current_time, "%Y-%m-%d %H:%M:%S UTC")}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
