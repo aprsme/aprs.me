@@ -20,6 +20,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     packet = get_latest_packet(normalized_callsign)
     packet = enrich_packet_with_device_info(packet)
     neighbors = get_neighbors(packet, normalized_callsign)
+    has_weather_packets = PacketUtils.has_weather_packets?(normalized_callsign)
 
     socket =
       socket
@@ -27,6 +28,7 @@ defmodule AprsmeWeb.InfoLive.Show do
       |> assign(:packet, packet)
       |> assign(:neighbors, neighbors)
       |> assign(:page_title, "APRS station #{normalized_callsign}")
+      |> assign(:has_weather_packets, has_weather_packets)
 
     {:ok, socket}
   end
@@ -39,11 +41,13 @@ defmodule AprsmeWeb.InfoLive.Show do
       packet = get_latest_packet(socket.assigns.callsign)
       packet = enrich_packet_with_device_info(packet)
       neighbors = get_neighbors(packet, socket.assigns.callsign)
+      has_weather_packets = PacketUtils.has_weather_packets?(socket.assigns.callsign)
 
       socket =
         socket
         |> assign(:packet, packet)
         |> assign(:neighbors, neighbors)
+        |> assign(:has_weather_packets, has_weather_packets)
 
       {:noreply, socket}
     else

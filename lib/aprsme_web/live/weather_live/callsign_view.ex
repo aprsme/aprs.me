@@ -2,6 +2,8 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   @moduledoc false
   use AprsmeWeb, :live_view
 
+  import Phoenix.LiveView, only: [push_event: 3, connected?: 1]
+
   alias Aprsme.Packets
   alias AprsmeWeb.MapLive.PacketUtils
 
@@ -91,6 +93,9 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
       |> assign(:weather_history, weather_history)
       |> assign(:weather_history_json, weather_history_json)
 
+    # Push event to update all charts with new data
+    socket = push_event(socket, "update_weather_charts", %{weather_history: weather_history_json})
+
     {:noreply, socket}
   end
 
@@ -132,6 +137,9 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
         |> assign(:weather_packet, weather_packet)
         |> assign(:weather_history, weather_history)
         |> assign(:weather_history_json, weather_history_json)
+
+      # Push event to update all charts with new data
+      socket = push_event(socket, "update_weather_charts", %{weather_history: weather_history_json})
 
       {:noreply, socket}
     else
