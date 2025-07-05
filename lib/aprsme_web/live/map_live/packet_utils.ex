@@ -4,7 +4,9 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   """
 
   alias AprsmeWeb.MapLive.MapHelpers
+  alias AprsmeWeb.MapLive.PopupComponent
   alias AprsmeWeb.TimeHelpers
+  alias Phoenix.HTML.Safe
 
   @doc """
   Safely extracts a value from a packet or data_extended map with fallback support.
@@ -178,75 +180,48 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   end
 
   defp build_standard_popup_html(packet_info, _lat, _lon) do
-    comment_html =
-      if packet_info.comment == "",
-        do: "",
-        else: ~s(<div class="aprs-comment">#{packet_info.comment}</div>)
-
     timestamp_dt = TimeHelpers.to_datetime(packet_info.timestamp)
+    cache_buster = System.system_time(:millisecond)
+    weather_link = has_weather_packets?(packet_info.callsign)
 
-    timestamp_html =
-      if timestamp_dt do
-        """
-        <div class="aprs-timestamp">
-          <div>#{TimeHelpers.time_ago_in_words(timestamp_dt)}</div>
-          <div class="text-slate-400">#{Calendar.strftime(timestamp_dt, "%Y-%m-%d %H:%M:%S UTC")}</div>
-        </div>
-        """
-      else
-        ""
-      end
-
-    weather_link_html =
-      if has_weather_packets?(packet_info.callsign) do
-        ~s( <.link navigate="/weather/#{packet_info.callsign}" class="aprs-info-link">weather charts</.link>)
-      else
-        ""
-      end
-
-    """
-    <div class="aprs-popup">
-      <div class="aprs-callsign"><strong><.link navigate="/#{packet_info.callsign}">#{packet_info.callsign}</.link></strong> <.link navigate="/info/#{packet_info.callsign}" class="aprs-info-link">info</.link>#{weather_link_html}</div>
-      #{comment_html}
-      #{timestamp_html}
-    </div>
-    """
+    %{
+      callsign: packet_info.callsign,
+      comment: packet_info.comment,
+      timestamp_dt: timestamp_dt,
+      cache_buster: cache_buster,
+      weather: false,
+      weather_link: weather_link
+    }
+    |> PopupComponent.popup()
+    |> Safe.to_iodata()
+    |> IO.iodata_to_binary()
   end
 
   defp build_weather_popup_html(packet, sender) do
     received_at = get_received_at(packet)
     timestamp_dt = TimeHelpers.to_datetime(received_at)
-
-    timestamp_html =
-      if timestamp_dt do
-        """
-        <div class="aprs-timestamp">
-          <div>#{TimeHelpers.time_ago_in_words(timestamp_dt)}</div>
-          <div class="text-slate-400">#{Calendar.strftime(timestamp_dt, "%Y-%m-%d %H:%M:%S UTC")}</div>
-        </div>
-        """
-      else
-        ""
-      end
-
-    # Add a unique timestamp to prevent caching
     cache_buster = System.system_time(:millisecond)
 
-    """
-    <div class="aprs-popup" data-timestamp="#{cache_buster}">
-      <div class="aprs-callsign"><strong><.link navigate="/#{sender}">#{sender}</.link></strong> <.link navigate="/info/#{sender}" class="aprs-info-link">info</.link> <.link navigate="/weather/#{sender}" class="aprs-info-link">weather charts</.link></div>
-      <div class="aprs-comment">Weather Report</div>
-      #{timestamp_html}
-      <hr style="margin-top: 4px; margin-bottom: 4px;">
-      Temperature: #{get_weather_field(packet, :temperature)}°F<br>
-      Humidity: #{get_weather_field(packet, :humidity)}%<br>
-      Wind: #{get_weather_field(packet, :wind_direction)}° at #{get_weather_field(packet, :wind_speed)} mph, gusts to #{get_weather_field(packet, :wind_gust)} mph<br>
-      Pressure: #{get_weather_field(packet, :pressure)} hPa<br>
-      Rain (1h): #{get_weather_field(packet, :rain_1h)} in.<br>
-      Rain (24h): #{get_weather_field(packet, :rain_24h)} in.<br>
-      Rain (since midnight): #{get_weather_field(packet, :rain_since_midnight)} in.<br>
-    </div>
-    """
+    %{
+      callsign: sender,
+      comment: nil,
+      timestamp_dt: timestamp_dt,
+      cache_buster: cache_buster,
+      weather: true,
+      weather_link: true,
+      temperature: get_weather_field(packet, :temperature),
+      humidity: get_weather_field(packet, :humidity),
+      wind_direction: get_weather_field(packet, :wind_direction),
+      wind_speed: get_weather_field(packet, :wind_speed),
+      wind_gust: get_weather_field(packet, :wind_gust),
+      pressure: get_weather_field(packet, :pressure),
+      rain_1h: get_weather_field(packet, :rain_1h),
+      rain_24h: get_weather_field(packet, :rain_24h),
+      rain_since_midnight: get_weather_field(packet, :rain_since_midnight)
+    }
+    |> PopupComponent.popup()
+    |> Safe.to_iodata()
+    |> IO.iodata_to_binary()
   end
 
   defp build_packet_result(packet, packet_info, lat, lon, popup) do
