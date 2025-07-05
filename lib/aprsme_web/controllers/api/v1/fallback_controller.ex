@@ -5,6 +5,7 @@ defmodule AprsmeWeb.Api.V1.FallbackController do
   See `Phoenix.Controller.action_fallback/1` for more details.
   """
   use AprsmeWeb, :controller
+  use Gettext, backend: AprsmeWeb.Gettext
 
   alias AprsmeWeb.Api.V1.ErrorJSON
 
@@ -53,7 +54,7 @@ defmodule AprsmeWeb.Api.V1.FallbackController do
     conn
     |> put_status(:request_timeout)
     |> put_view(json: ErrorJSON)
-    |> render(:error, message: "Request timeout")
+    |> render(:error, message: gettext("Request timeout"))
   end
 
   # Default fallback for unexpected errors
@@ -64,9 +65,9 @@ defmodule AprsmeWeb.Api.V1.FallbackController do
     |> render(:"500")
   end
 
-  defp format_error_message(:not_found), do: "Resource not found"
-  defp format_error_message(:unauthorized), do: "Unauthorized access"
-  defp format_error_message(:forbidden), do: "Access forbidden"
-  defp format_error_message(:bad_request), do: "Bad request"
-  defp format_error_message(reason), do: "An error occurred: #{reason}"
+  defp format_error_message(:not_found), do: gettext("Resource not found")
+  defp format_error_message(:unauthorized), do: gettext("Unauthorized access")
+  defp format_error_message(:forbidden), do: gettext("Access forbidden")
+  defp format_error_message(:bad_request), do: gettext("Bad request")
+  defp format_error_message(reason), do: gettext("An error occurred: %{reason}", reason: reason)
 end

@@ -2,6 +2,7 @@ defmodule AprsmeWeb.Api.V1.ChangesetJSON do
   @moduledoc """
   Renders changeset errors for API v1.
   """
+  use Gettext, backend: AprsmeWeb.Gettext
 
   @doc """
   Renders changeset errors.
@@ -9,7 +10,7 @@ defmodule AprsmeWeb.Api.V1.ChangesetJSON do
   def render("error.json", %{changeset: changeset}) do
     %{
       error: %{
-        message: "Validation failed",
+        message: gettext("Validation failed"),
         code: "validation_error",
         details: translate_errors(changeset)
       }

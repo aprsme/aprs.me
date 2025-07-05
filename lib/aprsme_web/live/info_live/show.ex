@@ -1,6 +1,7 @@
 defmodule AprsmeWeb.InfoLive.Show do
   @moduledoc false
   use AprsmeWeb, :live_view
+  use Gettext, backend: AprsmeWeb.Gettext
 
   alias Aprsme.Packets
   alias AprsmeWeb.MapLive.PacketUtils
@@ -273,38 +274,38 @@ defmodule AprsmeWeb.InfoLive.Show do
       # WIDE digipeaters
       String.starts_with?(element, "WIDE") ->
         case element do
-          "WIDE1-1" -> "WIDE1-1 (Wide area digipeater, 1 hop)"
-          "WIDE2-1" -> "WIDE2-1 (Wide area digipeater, 2 hops)"
-          "WIDE3-1" -> "WIDE3-1 (Wide area digipeater, 3 hops)"
-          "WIDE4-1" -> "WIDE4-1 (Wide area digipeater, 4 hops)"
-          "WIDE5-1" -> "WIDE5-1 (Wide area digipeater, 5 hops)"
-          "WIDE6-1" -> "WIDE6-1 (Wide area digipeater, 6 hops)"
-          "WIDE7-1" -> "WIDE7-1 (WIDE area digipeater, 7 hops)"
-          "WIDE1-2" -> "WIDE1-2 (Wide area digipeater, 1 hop, 2nd attempt)"
-          "WIDE2-2" -> "WIDE2-2 (Wide area digipeater, 2 hops, 2nd attempt)"
-          _ -> "WIDE digipeater (#{element})"
+          "WIDE1-1" -> gettext("WIDE1-1 (Wide area digipeater, 1 hop)")
+          "WIDE2-1" -> gettext("WIDE2-1 (Wide area digipeater, 2 hops)")
+          "WIDE3-1" -> gettext("WIDE3-1 (Wide area digipeater, 3 hops)")
+          "WIDE4-1" -> gettext("WIDE4-1 (Wide area digipeater, 4 hops)")
+          "WIDE5-1" -> gettext("WIDE5-1 (Wide area digipeater, 5 hops)")
+          "WIDE6-1" -> gettext("WIDE6-1 (Wide area digipeater, 6 hops)")
+          "WIDE7-1" -> gettext("WIDE7-1 (WIDE area digipeater, 7 hops)")
+          "WIDE1-2" -> gettext("WIDE1-2 (Wide area digipeater, 1 hop, 2nd attempt)")
+          "WIDE2-2" -> gettext("WIDE2-2 (Wide area digipeater, 2 hops, 2nd attempt)")
+          _ -> gettext("WIDE digipeater (%{element})", element: element)
         end
 
       # TRACE digipeaters
       String.starts_with?(element, "TRACE") ->
         case element do
-          "TRACE1-1" -> "TRACE1-1 (Trace digipeater, 1 hop)"
-          "TRACE2-1" -> "TRACE2-1 (Trace digipeater, 2 hops)"
-          "TRACE3-1" -> "TRACE3-1 (Trace digipeater, 3 hops)"
-          "TRACE4-1" -> "TRACE4-1 (Trace digipeater, 4 hops)"
-          "TRACE5-1" -> "TRACE5-1 (Trace digipeater, 5 hops)"
-          "TRACE6-1" -> "TRACE6-1 (Trace digipeater, 6 hops)"
-          "TRACE7-1" -> "TRACE7-1 (Trace digipeater, 7 hops)"
-          _ -> "TRACE digipeater (#{element})"
+          "TRACE1-1" -> gettext("TRACE1-1 (Trace digipeater, 1 hop)")
+          "TRACE2-1" -> gettext("TRACE2-1 (Trace digipeater, 2 hops)")
+          "TRACE3-1" -> gettext("TRACE3-1 (Trace digipeater, 3 hops)")
+          "TRACE4-1" -> gettext("TRACE4-1 (Trace digipeater, 4 hops)")
+          "TRACE5-1" -> gettext("TRACE5-1 (Trace digipeater, 5 hops)")
+          "TRACE6-1" -> gettext("TRACE6-1 (Trace digipeater, 6 hops)")
+          "TRACE7-1" -> gettext("TRACE7-1 (Trace digipeater, 7 hops)")
+          _ -> gettext("TRACE digipeater (%{element})", element: element)
         end
 
       # RELAY digipeaters
       String.starts_with?(element, "RELAY") ->
         case element do
-          "RELAY" -> "RELAY (Relay digipeater)"
-          "RELAY-1" -> "RELAY-1 (Relay digipeater, 1 hop)"
-          "RELAY-2" -> "RELAY-2 (Relay digipeater, 2 hops)"
-          _ -> "RELAY digipeater (#{element})"
+          "RELAY" -> gettext("RELAY (Relay digipeater)")
+          "RELAY-1" -> gettext("RELAY-1 (Relay digipeater, 1 hop)")
+          "RELAY-2" -> gettext("RELAY-2 (Relay digipeater, 2 hops)")
+          _ -> gettext("RELAY digipeater (%{element})", element: element)
         end
 
       # qAC (APRS-IS connection)
@@ -466,22 +467,22 @@ defmodule AprsmeWeb.InfoLive.Show do
       # TCPIP digipeaters
       String.starts_with?(element, "TCPIP") ->
         case element do
-          "TCPIP" -> "TCPIP (Internet gateway)"
-          "TCPIP*" -> "TCPIP* (Internet gateway, no forward)"
-          _ -> "TCPIP gateway (#{element})"
+          "TCPIP" -> gettext("TCPIP (Internet gateway)")
+          "TCPIP*" -> gettext("TCPIP* (Internet gateway, no forward)")
+          _ -> gettext("TCPIP gateway (%{element})", element: element)
         end
 
       # Generic callsign with SSID (likely a digipeater)
       Regex.match?(~r/^[A-Z0-9]+-\d+$/, element) ->
-        "#{element} (Digipeater)"
+        gettext("%{element} (Digipeater)", element: element)
 
       # Generic callsign without SSID
       Regex.match?(~r/^[A-Z0-9]+$/, element) ->
-        "#{element} (Station)"
+        gettext("%{element} (Station)", element: element)
 
       # Default case
       true ->
-        "#{element} (Unknown)"
+        gettext("%{element} (Unknown)", element: element)
     end
   end
 end

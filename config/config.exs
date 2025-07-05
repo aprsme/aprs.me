@@ -26,6 +26,11 @@ config :aprsme, AprsmeWeb.Endpoint,
   pubsub_server: Aprsme.PubSub,
   live_view: [signing_salt: "ees098qG"]
 
+# Configure Gettext
+config :aprsme, AprsmeWeb.Gettext,
+  locales: ~w(en es),
+  default_locale: "en"
+
 # Configure Oban for background jobs
 config :aprsme, Oban,
   repo: Aprsme.Repo,

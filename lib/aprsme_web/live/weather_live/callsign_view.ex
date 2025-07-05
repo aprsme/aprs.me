@@ -1,6 +1,7 @@
 defmodule AprsmeWeb.WeatherLive.CallsignView do
   @moduledoc false
   use AprsmeWeb, :live_view
+  use Gettext, backend: AprsmeWeb.Gettext
 
   import Phoenix.LiveView, only: [push_event: 3, connected?: 1]
 
@@ -45,6 +46,24 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
       end)
       |> Jason.encode!()
 
+    # Add chart labels for translation
+    chart_labels = %{
+      temp_title: gettext("Temperature & Dew Point (°F)"),
+      temp_label: gettext("Temperature (°F)"),
+      dew_label: gettext("Dew Point (°F)"),
+      humidity_title: gettext("Humidity (%)"),
+      humidity_label: gettext("Humidity (%)"),
+      pressure_title: gettext("Pressure (mb)"),
+      pressure_label: gettext("Pressure (mb)"),
+      wind_title: gettext("Wind (mph)"),
+      wind_label: gettext("Wind Speed (mph)"),
+      gust_label: gettext("Wind Gust (mph)"),
+      time: gettext("Time"),
+      degf: gettext("°F"),
+      percent: gettext("%"),
+      mb: gettext("mb")
+    }
+
     socket =
       socket
       |> assign(:callsign, normalized_callsign)
@@ -52,6 +71,7 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
       |> assign(:page_title, "Weather for #{normalized_callsign}")
       |> assign(:weather_history, weather_history)
       |> assign(:weather_history_json, weather_history_json)
+      |> assign(:chart_labels, chart_labels)
 
     {:ok, socket}
   end

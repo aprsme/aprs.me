@@ -2,6 +2,7 @@ defmodule Aprsme.DeviceIdentification do
   @moduledoc """
   Handles APRS device identification based on the APRS device identification database.
   """
+  use Gettext, backend: AprsmeWeb.Gettext
 
   import Ecto.Query
 
@@ -52,7 +53,7 @@ defmodule Aprsme.DeviceIdentification do
   """
   @spec identify_device(String.t()) :: String.t()
   def identify_device(symbols) do
-    Enum.find_value(@device_patterns, "Unknown", fn {regex, name} ->
+    Enum.find_value(@device_patterns, gettext("Unknown"), fn {regex, name} ->
       if Regex.match?(regex, symbols) do
         name
       end

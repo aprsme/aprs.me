@@ -24,7 +24,7 @@
         <div class="min-w-0 flex-1">
           <div class="flex items-center">
             <h1 class="text-xl font-bold leading-7 sm:truncate sm:text-2xl">
-              APRS Station
+              {gettext("APRS Station")}
             </h1>
             <div class="ml-3 flex items-center space-x-3">
               <span class="badge badge-primary">
@@ -64,11 +64,11 @@
         <div class="mt-3 flex md:ml-4 md:mt-0">
           <div class="flex space-x-2">
             <.link navigate={~p"/packets/#{@callsign}"} class="btn btn-outline btn-sm">
-              View packets
+              {gettext("View packets")}
             </.link>
             <%= if @has_weather_packets do %>
               <.link navigate={~p"/weather/#{@callsign}"} class="btn btn-primary btn-sm">
-                Weather charts
+                {gettext("Weather charts")}
               </.link>
             <% end %>
           </div>
@@ -106,19 +106,19 @@
                 </svg>
               </div>
               <div class="ml-2">
-                <h3 class="text-sm font-medium">Position Information</h3>
+                <h3 class="text-sm font-medium">{gettext("Position Information")}</h3>
               </div>
             </div>
             <dl class="grid grid-cols-2 gap-3">
               <div>
-                <dt class="text-xs font-medium opacity-70">Location</dt>
+                <dt class="text-xs font-medium opacity-70">{gettext("Location")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   {@packet.lat || ""}, {@packet.lon || ""}
                 </dd>
               </div>
               <%= if @packet.lat && @packet.lon do %>
                 <div>
-                  <dt class="text-xs font-medium opacity-70">Grid Square</dt>
+                  <dt class="text-xs font-medium opacity-70">{gettext("Grid Square")}</dt>
                   <dd class="mt-1 text-sm font-semibold">
                     <%= case Gridsquare.encode(@packet.lon, @packet.lat) do %>
                       <% %Gridsquare.EncodeResult{grid_reference: grid_ref} -> %>
@@ -130,7 +130,7 @@
                 </div>
               <% end %>
               <div>
-                <dt class="text-xs font-medium opacity-70">Last Position</dt>
+                <dt class="text-xs font-medium opacity-70">{gettext("Last Position")}</dt>
                 <dd class="mt-1 text-sm">
                   <%= if @packet.received_at do %>
                     <div class="font-semibold">
@@ -140,25 +140,25 @@
                       {Calendar.strftime(@packet.received_at, "%Y-%m-%d %H:%M:%S UTC")}
                     </div>
                   <% else %>
-                    <span class="opacity-70">Unknown</span>
+                    <span class="opacity-70">{gettext("Unknown")}</span>
                   <% end %>
                 </dd>
               </div>
               <%= if @packet.altitude do %>
                 <div>
-                  <dt class="text-xs font-medium opacity-70">Altitude</dt>
+                  <dt class="text-xs font-medium opacity-70">{gettext("Altitude")}</dt>
                   <dd class="mt-1 text-sm font-semibold">{@packet.altitude} ft</dd>
                 </div>
               <% end %>
               <%= if @packet.course do %>
                 <div>
-                  <dt class="text-xs font-medium opacity-70">Course</dt>
+                  <dt class="text-xs font-medium opacity-70">{gettext("Course")}</dt>
                   <dd class="mt-1 text-sm font-semibold">{@packet.course}°</dd>
                 </div>
               <% end %>
               <%= if @packet.speed do %>
                 <div>
-                  <dt class="text-xs font-medium opacity-70">Speed</dt>
+                  <dt class="text-xs font-medium opacity-70">{gettext("Speed")}</dt>
                   <dd class="mt-1 text-sm font-semibold">{@packet.speed} MPH</dd>
                 </div>
               <% end %>
@@ -186,12 +186,12 @@
                 </svg>
               </div>
               <div class="ml-2">
-                <h3 class="text-sm font-medium">Device Information</h3>
+                <h3 class="text-sm font-medium">{gettext("Device Information")}</h3>
               </div>
             </div>
             <dl class="grid grid-cols-2 gap-3">
               <div>
-                <dt class="text-xs font-medium opacity-70">Device</dt>
+                <dt class="text-xs font-medium opacity-70">{gettext("Device")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   <%= if @packet.device_model || @packet.device_vendor do %>
                     {[
@@ -206,25 +206,25 @@
                     <% end %>
                   <% else %>
                     <span class="opacity-70 font-mono">
-                      {@packet.device_identifier || "Unknown"}
+                      {@packet.device_identifier || gettext("Unknown")}
                     </span>
                   <% end %>
                 </dd>
               </div>
               <div>
-                <dt class="text-xs font-medium opacity-70">Path</dt>
+                <dt class="text-xs font-medium opacity-70">{gettext("Path")}</dt>
                 <dd class="mt-1 text-sm font-semibold">{@packet.path || ""}</dd>
               </div>
               <%= if @packet.path && @packet.path != "" do %>
                 <div class="col-span-2">
-                  <dt class="text-xs font-medium opacity-70">Decoded Path</dt>
+                  <dt class="text-xs font-medium opacity-70">{gettext("Decoded Path")}</dt>
                   <dd class="mt-1 text-sm">
                     {decode_aprs_path(@packet.path)}
                   </dd>
                 </div>
               <% end %>
               <div class="col-span-2">
-                <dt class="text-xs font-medium opacity-70">Raw Packet</dt>
+                <dt class="text-xs font-medium opacity-70">{gettext("Raw Packet")}</dt>
                 <dd class="mt-1 text-xs font-mono break-all">
                   <%= if is_binary(@packet.raw_packet) do %>
                     {Aprsme.EncodingUtils.sanitize_string(@packet.raw_packet)}
@@ -259,7 +259,7 @@
                 </svg>
               </div>
               <div class="ml-2">
-                <h3 class="text-sm font-medium">Other SSIDs</h3>
+                <h3 class="text-sm font-medium">{gettext("Other SSIDs")}</h3>
               </div>
             </div>
             <div class="overflow-x-auto">
@@ -267,13 +267,13 @@
                 <thead>
                   <tr>
                     <th class="text-xs font-medium uppercase tracking-wider">
-                      Callsign
+                      {gettext("Callsign")}
                     </th>
                     <th class="text-xs font-medium uppercase tracking-wider">
-                      Distance & Direction
+                      {gettext("Distance & Direction")}
                     </th>
                     <th class="text-xs font-medium uppercase tracking-wider">
-                      Last Heard
+                      {gettext("Last Heard")}
                     </th>
                   </tr>
                 </thead>
@@ -377,7 +377,7 @@
               </svg>
             </div>
             <div class="ml-2">
-              <h3 class="text-sm font-medium">Stations Near Current Position</h3>
+              <h3 class="text-sm font-medium">{gettext("Stations Near Current Position")}</h3>
             </div>
           </div>
           <div class="overflow-x-auto">
@@ -385,13 +385,13 @@
               <thead>
                 <tr>
                   <th class="text-xs font-medium uppercase tracking-wider">
-                    Callsign
+                    {gettext("Callsign")}
                   </th>
                   <th class="text-xs font-medium uppercase tracking-wider">
-                    Distance & Course
+                    {gettext("Distance & Course")}
                   </th>
                   <th class="text-xs font-medium uppercase tracking-wider">
-                    Last Heard
+                    {gettext("Last Heard")}
                   </th>
                 </tr>
               </thead>
@@ -466,9 +466,9 @@
             d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423L16.5 15.75l.394 1.183a2.25 2.25 0 001.423 1.423L19.5 18.75l-1.183.394a2.25 2.25 0 00-1.423 1.423z"
           />
         </svg>
-        <h3 class="mt-2 text-sm font-semibold">No data available</h3>
+        <h3 class="mt-2 text-sm font-semibold">{gettext("No data available")}</h3>
         <p class="mt-1 text-sm opacity-70">
-          No recent packet data available for this callsign.
+          {gettext("No recent packet data available for this callsign.")}
         </p>
       </div>
     <% end %>

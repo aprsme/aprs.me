@@ -2,6 +2,7 @@ defmodule AprsmeWeb.Api.V1.ErrorJSON do
   @moduledoc """
   Renders error responses for API v1.
   """
+  use Gettext, backend: AprsmeWeb.Gettext
 
   def render("error.json", %{message: message}) do
     %{
@@ -15,7 +16,7 @@ defmodule AprsmeWeb.Api.V1.ErrorJSON do
   def render("404.json", _assigns) do
     %{
       error: %{
-        message: "Resource not found",
+        message: gettext("Resource not found"),
         code: "not_found"
       }
     }
@@ -24,7 +25,7 @@ defmodule AprsmeWeb.Api.V1.ErrorJSON do
   def render("500.json", _assigns) do
     %{
       error: %{
-        message: "Internal server error",
+        message: gettext("Internal server error"),
         code: "internal_server_error"
       }
     }
@@ -33,7 +34,7 @@ defmodule AprsmeWeb.Api.V1.ErrorJSON do
   def render("422.json", _assigns) do
     %{
       error: %{
-        message: "Unprocessable entity",
+        message: gettext("Unprocessable entity"),
         code: "unprocessable_entity"
       }
     }
@@ -42,7 +43,7 @@ defmodule AprsmeWeb.Api.V1.ErrorJSON do
   def render("400.json", _assigns) do
     %{
       error: %{
-        message: "Bad request",
+        message: gettext("Bad request"),
         code: "bad_request"
       }
     }
@@ -51,7 +52,7 @@ defmodule AprsmeWeb.Api.V1.ErrorJSON do
   def render("401.json", _assigns) do
     %{
       error: %{
-        message: "Unauthorized",
+        message: gettext("Unauthorized"),
         code: "unauthorized"
       }
     }
@@ -60,7 +61,7 @@ defmodule AprsmeWeb.Api.V1.ErrorJSON do
   def render("403.json", _assigns) do
     %{
       error: %{
-        message: "Forbidden",
+        message: gettext("Forbidden"),
         code: "forbidden"
       }
     }
@@ -69,7 +70,7 @@ defmodule AprsmeWeb.Api.V1.ErrorJSON do
   def render("408.json", _assigns) do
     %{
       error: %{
-        message: "Request timeout",
+        message: gettext("Request timeout"),
         code: "request_timeout"
       }
     }

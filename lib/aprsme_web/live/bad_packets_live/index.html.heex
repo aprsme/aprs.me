@@ -6,7 +6,7 @@
   <div class="mt-6 bg-white shadow-sm rounded-lg overflow-hidden">
     <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
       <span class="text-xs text-gray-500">
-        Auto-refreshes every 5 seconds
+        {gettext("Auto-refreshes every 5 seconds")}
       </span>
       <%= if @loading do %>
         <span class="flex items-center text-xs text-blue-600">
@@ -32,12 +32,12 @@
             >
             </path>
           </svg>
-          Updating...
+          {gettext("Updating...")}
         </span>
       <% end %>
     </div>
     <.table id="bad_packets" rows={@bad_packets}>
-      <:col :let={bad_packet} label="Attempted At">
+      <:col :let={bad_packet} label={gettext("Attempted At")}>
         <span class="text-sm text-gray-900">
           {Calendar.strftime(
             bad_packet.attempted_at || bad_packet.inserted_at,
@@ -45,17 +45,17 @@
           )}
         </span>
       </:col>
-      <:col :let={bad_packet} label="Error Type">
+      <:col :let={bad_packet} label={gettext("Error Type")}>
         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-          {bad_packet.error_type || "Unknown"}
+          {bad_packet.error_type || gettext("Unknown")}
         </span>
       </:col>
-      <:col :let={bad_packet} label="Error Message">
+      <:col :let={bad_packet} label={gettext("Error Message")}>
         <span class="text-sm text-red-600 font-mono">
-          {bad_packet.error_message || "No error message"}
+          {bad_packet.error_message || gettext("No error message")}
         </span>
       </:col>
-      <:col :let={bad_packet} label="Raw Packet">
+      <:col :let={bad_packet} label={gettext("Raw Packet")}>
         <div class="max-w-md">
           <div class="text-xs font-mono text-gray-700 break-all">
             <%= if is_binary(bad_packet.raw_packet) do %>
@@ -81,8 +81,8 @@
           />
         </svg>
       </div>
-      <h3 class="mt-2 text-sm font-medium text-gray-900">No bad packets</h3>
-      <p class="mt-1 text-sm text-gray-500">All packets are parsing successfully!</p>
+      <h3 class="mt-2 text-sm font-medium text-gray-900">{gettext("No bad packets")}</h3>
+      <p class="mt-1 text-sm text-gray-500">{gettext("All packets are parsing successfully!")}</p>
     </div>
   <% end %>
 </div>

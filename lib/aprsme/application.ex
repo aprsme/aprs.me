@@ -68,6 +68,8 @@ defmodule Aprsme.Application do
   defp migrate do
     auto_migrate = Application.get_env(:aprsme, :auto_migrate, true)
     do_migrate(auto_migrate)
+
+    # Gettext translations are automatically compiled during Mix compilation
   rescue
     error ->
       require Logger

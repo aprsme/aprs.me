@@ -11,6 +11,8 @@ defmodule Aprsme.Release do
     deployed_at = init()
     Logger.info("Deployment timestamp: #{deployed_at}")
 
+    # Gettext translations are automatically compiled during Mix compilation
+
     # Run migrations
     {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, &Ecto.Migrator.run(&1, :up, all: true))
   end

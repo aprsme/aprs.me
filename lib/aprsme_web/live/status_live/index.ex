@@ -41,9 +41,9 @@ defmodule AprsmeWeb.StatusLive.Index do
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <div class="flex justify-between items-center mb-6">
-            <h1 class="card-title text-3xl">APRS.me System Status</h1>
+            <h1 class="card-title text-3xl">{gettext("APRS.me System Status")}</h1>
             <div class="text-sm opacity-70">
-              Last updated:
+              {gettext("Last updated:")}
               <span class="font-mono">{Calendar.strftime(@current_time, "%H:%M:%S UTC")}</span>
             </div>
           </div>
@@ -65,9 +65,11 @@ defmodule AprsmeWeb.StatusLive.Index do
                 />
               </svg>
               <div>
-                <h3 class="font-bold">APRS-IS Connection Issue</h3>
+                <h3 class="font-bold">{gettext("APRS-IS Connection Issue")}</h3>
                 <div class="text-xs">
-                  The system is currently disconnected from the APRS-IS network. This may be due to network issues or server maintenance.
+                  {gettext(
+                    "The system is currently disconnected from the APRS-IS network. This may be due to network issues or server maintenance."
+                  )}
                 </div>
               </div>
             </div>
@@ -75,50 +77,52 @@ defmodule AprsmeWeb.StatusLive.Index do
           
     <!-- APRS-IS Connection Status -->
           <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">APRS-IS Connection</h2>
+            <h2 class="text-xl font-semibold mb-4">{gettext("APRS-IS Connection")}</h2>
             <div class="card bg-base-200">
               <div class="card-body">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">Status:</span>
+                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Status:")}</span>
                     <%= if @aprs_status.connected do %>
                       <div class="badge badge-success gap-1">
                         <div class="w-2 h-2 bg-current rounded-full"></div>
-                        Connected
+                        {gettext("Connected")}
                       </div>
                     <% else %>
                       <div class="badge badge-error gap-1">
                         <div class="w-2 h-2 bg-current rounded-full"></div>
-                        Disconnected
+                        {gettext("Disconnected")}
                       </div>
                     <% end %>
                   </div>
 
                   <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">Server:</span>
+                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Server:")}</span>
                     <span class="text-sm font-mono">
                       {@aprs_status.server}:{@aprs_status.port}
                     </span>
                   </div>
 
                   <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">Login ID:</span>
+                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Login ID:")}</span>
                     <span class="text-sm font-mono">{@aprs_status.login_id}</span>
                   </div>
 
                   <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">Connected Since:</span>
+                    <span class="text-sm font-medium opacity-70 mr-2">
+                      {gettext("Connected Since:")}
+                    </span>
                     <span class="text-sm">
                       <%= if @aprs_status.connected_at do %>
                         {Calendar.strftime(@aprs_status.connected_at, "%Y-%m-%d %H:%M:%S UTC")}
                       <% else %>
-                        <span class="opacity-50">Not connected</span>
+                        <span class="opacity-50">{gettext("Not connected")}</span>
                       <% end %>
                     </span>
                   </div>
 
                   <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">Uptime:</span>
+                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Uptime:")}</span>
                     <span class={[
                       "text-sm font-medium",
                       if(@aprs_status.connected, do: "text-success", else: "text-error")
@@ -128,7 +132,7 @@ defmodule AprsmeWeb.StatusLive.Index do
                   </div>
 
                   <div class="flex items-center col-span-2">
-                    <span class="text-sm font-medium opacity-70 mr-2">Filter:</span>
+                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Filter:")}</span>
                     <div class="badge badge-outline font-mono">
                       {@aprs_status.filter}
                     </div>
@@ -138,42 +142,52 @@ defmodule AprsmeWeb.StatusLive.Index do
     <!-- Packet Statistics -->
                 <div class="divider"></div>
                 <div>
-                  <h3 class="text-sm font-medium mb-3">Packet Statistics</h3>
+                  <h3 class="text-sm font-medium mb-3">{gettext("Packet Statistics")}</h3>
                   <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">Total Packets:</span>
+                      <span class="text-sm font-medium opacity-70 mr-2">
+                        {gettext("Total Packets:")}
+                      </span>
                       <span class="text-sm font-mono">
                         {format_number(@aprs_status.packet_stats.total_packets)}
                       </span>
                     </div>
 
                     <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">Packets/Sec:</span>
+                      <span class="text-sm font-medium opacity-70 mr-2">
+                        {gettext("Packets/Sec:")}
+                      </span>
                       <span class="text-sm font-mono">
                         {@aprs_status.packet_stats.packets_per_second}
                       </span>
                     </div>
 
                     <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">Packets/Min:</span>
+                      <span class="text-sm font-medium opacity-70 mr-2">
+                        {gettext("Packets/Min:")}
+                      </span>
                       <span class="text-sm font-mono">
                         {@aprs_status.packet_stats.packets_per_second * 60}
                       </span>
                     </div>
 
                     <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">Last Packet:</span>
+                      <span class="text-sm font-medium opacity-70 mr-2">
+                        {gettext("Last Packet:")}
+                      </span>
                       <span class="text-sm">
                         <%= if @aprs_status.packet_stats.last_packet_at do %>
                           {format_time_ago(@aprs_status.packet_stats.last_packet_at)}
                         <% else %>
-                          <span class="opacity-50">None</span>
+                          <span class="opacity-50">{gettext("None")}</span>
                         <% end %>
                       </span>
                     </div>
 
                     <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">Stored Packets:</span>
+                      <span class="text-sm font-medium opacity-70 mr-2">
+                        {gettext("Stored Packets:")}
+                      </span>
                       <span class="text-sm font-mono">
                         {format_number(@aprs_status.stored_packet_count)}
                       </span>
@@ -184,7 +198,7 @@ defmodule AprsmeWeb.StatusLive.Index do
     <!-- Health Score -->
                 <div class="divider"></div>
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium opacity-70">Connection Health:</span>
+                  <span class="text-sm font-medium opacity-70">{gettext("Connection Health:")}</span>
                   <div class="flex items-center">
                     <div class="rating rating-sm mr-2">
                       <%= for i <- 1..5 do %>
@@ -259,7 +273,7 @@ defmodule AprsmeWeb.StatusLive.Index do
     Process.send_after(self(), :refresh_status, @refresh_interval)
   end
 
-  def format_uptime(seconds) when seconds <= 0, do: "Not connected"
+  def format_uptime(seconds) when seconds <= 0, do: gettext("Not connected")
 
   def format_uptime(seconds) do
     days = div(seconds, 86_400)
@@ -291,12 +305,12 @@ defmodule AprsmeWeb.StatusLive.Index do
 
   def get_health_description(score, connected) do
     case {score, connected} do
-      {1, false} -> "Disconnected - Connection issues detected"
-      {2, true} -> "Recently connected - Monitoring stability"
-      {3, true} -> "Good - Connection stable for less than 1 hour"
-      {4, true} -> "Very good - Connection stable for less than 1 day"
-      {5, true} -> "Excellent - Long-term stable connection"
-      _ -> "Unknown status"
+      {1, false} -> gettext("Disconnected - Connection issues detected")
+      {2, true} -> gettext("Recently connected - Monitoring stability")
+      {3, true} -> gettext("Good - Connection stable for less than 1 hour")
+      {4, true} -> gettext("Very good - Connection stable for less than 1 day")
+      {5, true} -> gettext("Excellent - Long-term stable connection")
+      _ -> gettext("Unknown status")
     end
   end
 
@@ -304,10 +318,10 @@ defmodule AprsmeWeb.StatusLive.Index do
     diff_seconds = DateTime.diff(DateTime.utc_now(), datetime)
 
     cond do
-      diff_seconds < 60 -> "#{diff_seconds} seconds ago"
-      diff_seconds < 3600 -> "#{div(diff_seconds, 60)} minutes ago"
-      diff_seconds < 86_400 -> "#{div(diff_seconds, 3600)} hours ago"
-      true -> "#{div(diff_seconds, 86_400)} days ago"
+      diff_seconds < 60 -> gettext("%{count} seconds ago", count: diff_seconds)
+      diff_seconds < 3600 -> gettext("%{count} minutes ago", count: div(diff_seconds, 60))
+      diff_seconds < 86_400 -> gettext("%{count} hours ago", count: div(diff_seconds, 3600))
+      true -> gettext("%{count} days ago", count: div(diff_seconds, 86_400))
     end
   end
 

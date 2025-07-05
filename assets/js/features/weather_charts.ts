@@ -59,6 +59,16 @@ function unregisterChartInstance(el: HTMLElement) {
     }
 }
 
+function getLabels(el: HTMLElement) {
+    const raw = el.getAttribute('data-chart-labels');
+    if (!raw) return {};
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return {};
+    }
+}
+
 // All hooks are typed as 'any' for LiveView context compatibility
 export const WeatherChartHooks: Record<string, Hook> = {
     ChartJSTempChart: {
@@ -83,6 +93,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             const self = this as any;
             if (self.chart) self.chart.destroy();
             const data: WeatherHistoryDatum[] = JSON.parse(self.el.dataset.weatherHistory!);
+            const labels = getLabels(self.el);
             const times = data.map(d => new Date(d.timestamp));
             const temps = data.map(d => d.temperature);
             const dews = data.map(d => d.dew_point);
@@ -94,20 +105,20 @@ export const WeatherChartHooks: Record<string, Hook> = {
                 data: {
                     labels: times,
                     datasets: [
-                        { label: 'Temperature (°F)', data: temps, borderColor: 'red', backgroundColor: 'rgba(255, 0, 0, 0.1)', tension: 0.1, pointRadius: 0 },
-                        { label: 'Dew Point (°F)', data: dews, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.1)', tension: 0.1, pointRadius: 0 }
+                        { label: labels.temp_label || 'Temperature (°F)', data: temps, borderColor: 'red', backgroundColor: 'rgba(255, 0, 0, 0.1)', tension: 0.1, pointRadius: 0 },
+                        { label: labels.dew_label || 'Dew Point (°F)', data: dews, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.1)', tension: 0.1, pointRadius: 0 }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        title: { display: true, text: 'Temperature & Dew Point (°F)', color: colors.text },
+                        title: { display: true, text: labels.temp_title || 'Temperature & Dew Point (°F)', color: colors.text },
                         legend: { labels: { color: colors.text } }
                     },
                     scales: {
-                        x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } },
-                        y: { title: { display: true, text: '°F', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
+                        x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: labels.time || 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } },
+                        y: { title: { display: true, text: labels.degf || '°F', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
                     }
                 }
             });
@@ -135,6 +146,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             const self = this as any;
             if (self.chart) self.chart.destroy();
             const data: WeatherHistoryDatum[] = JSON.parse(self.el.dataset.weatherHistory!);
+            const labels = getLabels(self.el);
             const times = data.map(d => new Date(d.timestamp));
             const humidity = data.map(d => d.humidity);
             const colors = getThemeColors();
@@ -142,12 +154,12 @@ export const WeatherChartHooks: Record<string, Hook> = {
             if (!canvas) return;
             self.chart = new window.Chart(canvas, {
                 type: 'line',
-                data: { labels: times, datasets: [{ label: 'Humidity (%)', data: humidity, borderColor: 'green', backgroundColor: 'rgba(0, 255, 0, 0.1)', tension: 0.1, pointRadius: 0 }] },
+                data: { labels: times, datasets: [{ label: labels.humidity_label || 'Humidity (%)', data: humidity, borderColor: 'green', backgroundColor: 'rgba(0, 255, 0, 0.1)', tension: 0.1, pointRadius: 0 }] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { title: { display: true, text: 'Humidity (%)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: { x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { title: { display: true, text: '%', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } } }
+                    plugins: { title: { display: true, text: labels.humidity_title || 'Humidity (%)', color: colors.text }, legend: { labels: { color: colors.text } } },
+                    scales: { x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: labels.time || 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { title: { display: true, text: labels.percent || '%', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } } }
                 }
             });
         }
@@ -174,6 +186,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             const self = this as any;
             if (self.chart) self.chart.destroy();
             const data: WeatherHistoryDatum[] = JSON.parse(self.el.dataset.weatherHistory!);
+            const labels = getLabels(self.el);
             const times = data.map(d => new Date(d.timestamp));
             const pressure = data.map(d => d.pressure);
             const colors = getThemeColors();
@@ -181,12 +194,12 @@ export const WeatherChartHooks: Record<string, Hook> = {
             if (!canvas) return;
             self.chart = new window.Chart(canvas, {
                 type: 'line',
-                data: { labels: times, datasets: [{ label: 'Pressure (mb)', data: pressure, borderColor: 'purple', backgroundColor: 'rgba(128, 0, 128, 0.1)', tension: 0.1, pointRadius: 0 }] },
+                data: { labels: times, datasets: [{ label: labels.pressure_label || 'Pressure (mb)', data: pressure, borderColor: 'purple', backgroundColor: 'rgba(128, 0, 128, 0.1)', tension: 0.1, pointRadius: 0 }] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { title: { display: true, text: 'Pressure (mb)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: { x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { title: { display: true, text: 'mb', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } } }
+                    plugins: { title: { display: true, text: labels.pressure_title || 'Pressure (mb)', color: colors.text }, legend: { labels: { color: colors.text } } },
+                    scales: { x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: labels.time || 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { title: { display: true, text: labels.mb || 'mb', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } } }
                 }
             });
         }

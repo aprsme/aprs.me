@@ -5,7 +5,7 @@
         <div class="py-4 md:flex md:items-center md:justify-between">
           <div class="flex items-center">
             <h1 class="text-xl font-bold leading-7 sm:truncate sm:text-2xl">
-              Weather Station
+              {gettext("Weather Station")}
             </h1>
             <div class="ml-3 flex items-center space-x-3">
               <span class="badge badge-primary">
@@ -40,13 +40,13 @@
           <div class="mt-3 flex md:ml-4 md:mt-0">
             <div class="flex space-x-2">
               <.link navigate={~p"/info/#{@callsign}"} class="btn btn-outline btn-sm">
-                View info
+                {gettext("View info")}
               </.link>
               <.link navigate={~p"/packets/#{@callsign}"} class="btn btn-outline btn-sm">
-                View packets
+                {gettext("View packets")}
               </.link>
               <.link navigate={~p"/#{@callsign}"} class="btn btn-primary btn-sm">
-                View on map
+                {gettext("View on map")}
               </.link>
             </div>
           </div>
@@ -76,12 +76,12 @@
               </svg>
             </div>
             <div class="ml-2">
-              <h3 class="text-sm font-medium">Weather Details</h3>
+              <h3 class="text-sm font-medium">{gettext("Weather Details")}</h3>
             </div>
           </div>
           <dl class="grid grid-cols-2 gap-3">
             <div>
-              <dt class="text-xs font-medium opacity-70">Last WX report</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Last WX report")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 <%= if dt do %>
                   {Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S UTC")} ({AprsmeWeb.TimeHelpers.time_ago_in_words(
@@ -89,24 +89,24 @@
                   )})<br />
                   <%!-- <span class="text-xs text-gray-500">{Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S %Z")} local time at {Map.get(@weather_packet, :region) || Map.get(@weather_packet, "region") || "Unknown location"} [?]</span> --%>
                 <% else %>
-                  Unknown
+                  {gettext("Unknown")}
                 <% end %>
               </dd>
             </div>
             <div>
-              <dt class="text-xs font-medium opacity-70">Temperature</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Temperature")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 {PacketUtils.get_weather_field(@weather_packet, :temperature)}°F
               </dd>
             </div>
             <div>
-              <dt class="text-xs font-medium opacity-70">Humidity</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Humidity")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 {PacketUtils.get_weather_field(@weather_packet, :humidity)}%
               </dd>
             </div>
             <div>
-              <dt class="text-xs font-medium opacity-70">Wind</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Wind")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 {PacketUtils.get_weather_field(@weather_packet, :wind_direction)}° @ {PacketUtils.get_weather_field(
                   @weather_packet,
@@ -115,37 +115,37 @@
               </dd>
             </div>
             <div>
-              <dt class="text-xs font-medium opacity-70">Gusts</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Gusts")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 {PacketUtils.get_weather_field(@weather_packet, :wind_gust)} mph
               </dd>
             </div>
             <div>
-              <dt class="text-xs font-medium opacity-70">Pressure</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Pressure")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 {PacketUtils.get_weather_field(@weather_packet, :pressure)} hPa
               </dd>
             </div>
             <div>
-              <dt class="text-xs font-medium opacity-70">Rain (1h)</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Rain (1h)")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 {get_weather_field_zero(@weather_packet, :rain_1h)} in
               </dd>
             </div>
             <div>
-              <dt class="text-xs font-medium opacity-70">Rain (24h)</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Rain (24h)")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 {get_weather_field_zero(@weather_packet, :rain_24h)} in
               </dd>
             </div>
             <div>
-              <dt class="text-xs font-medium opacity-70">Rain (since midnight)</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Rain (since midnight)")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 {get_weather_field_zero(@weather_packet, :rain_since_midnight)} in
               </dd>
             </div>
             <div class="col-span-2">
-              <dt class="text-xs font-medium opacity-70">Raw Packet</dt>
+              <dt class="text-xs font-medium opacity-70">{gettext("Raw Packet")}</dt>
               <dd class="mt-1 text-xs font-mono break-all">
                 <%= if is_binary(@weather_packet.raw_packet) do %>
                   {Aprsme.EncodingUtils.sanitize_string(@weather_packet.raw_packet)}
@@ -156,18 +156,20 @@
             </div>
           </dl>
           <div class="mt-2 text-xs opacity-70">
-            <strong>Raw comment:</strong> {@weather_packet.comment || @weather_packet["comment"]}
+            <strong>{gettext("Raw comment")}:</strong> {@weather_packet.comment ||
+              @weather_packet["comment"]}
           </div>
         </div>
       </div>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h3 class="text-sm font-medium mb-2">Weather History Graphs</h3>
+          <h3 class="text-sm font-medium mb-2">{gettext("Weather History Graphs")}</h3>
           <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :temperature, nil)))) do %>
             <div
               id="temp-chart"
               phx-hook="ChartJSTempChart"
               data-weather-history={@weather_history_json}
+              data-chart-labels={Jason.encode!(@chart_labels)}
               class="bg-base-200 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
@@ -179,6 +181,7 @@
               id="humidity-chart"
               phx-hook="ChartJSHumidityChart"
               data-weather-history={@weather_history_json}
+              data-chart-labels={Jason.encode!(@chart_labels)}
               class="bg-base-200 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
@@ -190,6 +193,7 @@
               id="pressure-chart"
               phx-hook="ChartJSPressureChart"
               data-weather-history={@weather_history_json}
+              data-chart-labels={Jason.encode!(@chart_labels)}
               class="bg-base-200 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
@@ -201,6 +205,7 @@
               id="wind-chart"
               phx-hook="ChartJSWindChart"
               data-weather-history={@weather_history_json}
+              data-chart-labels={Jason.encode!(@chart_labels)}
               class="bg-base-200 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
@@ -212,6 +217,7 @@
               id="rain-chart"
               phx-hook="ChartJSRainChart"
               data-weather-history={@weather_history_json}
+              data-chart-labels={Jason.encode!(@chart_labels)}
               class="bg-base-200 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
@@ -223,6 +229,7 @@
               id="luminosity-chart"
               phx-hook="ChartJSLuminosityChart"
               data-weather-history={@weather_history_json}
+              data-chart-labels={Jason.encode!(@chart_labels)}
               class="bg-base-200 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
