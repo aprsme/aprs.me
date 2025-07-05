@@ -1,10 +1,13 @@
-/// <reference types="chart.js" />
-/// <reference types="phoenix_live_view" />
-// The above triple-slash directives help TypeScript find types for Chart.js and Phoenix LiveView.
-// If you use a custom build or alias, ensure types are available in node_modules.
+// Declare global Chart object from CDN
+declare global {
+    interface Window {
+        Chart: any;
+        chartInstances?: Map<string, any>;
+    }
+}
 
-import Chart from 'chart.js/auto';
-import type { Hook } from 'phoenix_live_view';
+// Type for LiveView hooks
+type Hook = any;
 
 // Type for weather history data
 interface WeatherHistoryDatum {
@@ -86,7 +89,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             const colors = getThemeColors();
             const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
             if (!canvas) return;
-            self.chart = new Chart(canvas, {
+            self.chart = new window.Chart(canvas, {
                 type: 'line',
                 data: {
                     labels: times,
@@ -137,7 +140,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             const colors = getThemeColors();
             const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
             if (!canvas) return;
-            self.chart = new Chart(canvas, {
+            self.chart = new window.Chart(canvas, {
                 type: 'line',
                 data: { labels: times, datasets: [{ label: 'Humidity (%)', data: humidity, borderColor: 'green', backgroundColor: 'rgba(0, 255, 0, 0.1)', tension: 0.1 }] },
                 options: {
@@ -176,7 +179,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             const colors = getThemeColors();
             const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
             if (!canvas) return;
-            self.chart = new Chart(canvas, {
+            self.chart = new window.Chart(canvas, {
                 type: 'line',
                 data: { labels: times, datasets: [{ label: 'Pressure (mb)', data: pressure, borderColor: 'purple', backgroundColor: 'rgba(128, 0, 128, 0.1)', tension: 0.1 }] },
                 options: {
@@ -216,7 +219,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             const colors = getThemeColors();
             const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
             if (!canvas) return;
-            self.chart = new Chart(canvas, {
+            self.chart = new window.Chart(canvas, {
                 type: 'line',
                 data: { labels: times, datasets: [{ label: 'Wind Speed (mph)', data: windSpeed, borderColor: 'orange', backgroundColor: 'rgba(255, 165, 0, 0.1)', tension: 0.1 }, { label: 'Wind Gust (mph)', data: windGust, borderColor: 'brown', backgroundColor: 'rgba(165, 42, 42, 0.1)', tension: 0.1 }] },
                 options: {
@@ -257,7 +260,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             const colors = getThemeColors();
             const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
             if (!canvas) return;
-            self.chart = new Chart(canvas, {
+            self.chart = new window.Chart(canvas, {
                 type: 'line',
                 data: { labels: times, datasets: [{ label: 'Rain (1h)', data: rain1h, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.1)', tension: 0.1 }, { label: 'Rain (24h)', data: rain24h, borderColor: 'cyan', backgroundColor: 'rgba(0, 255, 255, 0.1)', tension: 0.1 }, { label: 'Rain (since midnight)', data: rainSinceMidnight, borderColor: 'navy', backgroundColor: 'rgba(0, 0, 128, 0.1)', tension: 0.1 }] },
                 options: {
@@ -296,7 +299,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
             const colors = getThemeColors();
             const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
             if (!canvas) return;
-            self.chart = new Chart(canvas, {
+            self.chart = new window.Chart(canvas, {
                 type: 'line',
                 data: { labels: times, datasets: [{ label: 'Luminosity', data: luminosity, borderColor: 'yellow', backgroundColor: 'rgba(255, 255, 0, 0.1)', tension: 0.1 }] },
                 options: {

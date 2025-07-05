@@ -369,9 +369,9 @@ defmodule AprsmeWeb.StatusLive.Index do
     Process.send_after(self(), :refresh_status, @refresh_interval)
   end
 
-  defp format_uptime(seconds) when seconds <= 0, do: "Not connected"
+  def format_uptime(seconds) when seconds <= 0, do: "Not connected"
 
-  defp format_uptime(seconds) do
+  def format_uptime(seconds) do
     days = div(seconds, 86_400)
     hours = div(rem(seconds, 86_400), 3600)
     minutes = div(rem(seconds, 3600), 60)
@@ -399,7 +399,7 @@ defmodule AprsmeWeb.StatusLive.Index do
     end
   end
 
-  defp get_health_description(score, connected) do
+  def get_health_description(score, connected) do
     case {score, connected} do
       {1, false} -> "Disconnected - Connection issues detected"
       {2, true} -> "Recently connected - Monitoring stability"
@@ -410,7 +410,7 @@ defmodule AprsmeWeb.StatusLive.Index do
     end
   end
 
-  defp format_time_ago(datetime) do
+  def format_time_ago(datetime) do
     diff_seconds = DateTime.diff(DateTime.utc_now(), datetime)
 
     cond do
@@ -421,7 +421,7 @@ defmodule AprsmeWeb.StatusLive.Index do
     end
   end
 
-  defp format_number(number) when is_integer(number) do
+  def format_number(number) when is_integer(number) do
     number
     |> Integer.to_string()
     |> String.reverse()
@@ -429,5 +429,5 @@ defmodule AprsmeWeb.StatusLive.Index do
     |> String.reverse()
   end
 
-  defp format_number(number), do: to_string(number)
+  def format_number(number), do: to_string(number)
 end

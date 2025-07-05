@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "@types/chart.js": "^4.0.1",
-    "chart.js": "^4.5.0",
-    "phoenix_live_view": "^1.0.17"
-  }
-}
