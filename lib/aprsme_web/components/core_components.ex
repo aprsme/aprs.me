@@ -444,19 +444,86 @@ defmodule AprsmeWeb.CoreComponents do
 
   def header(assigns) do
     ~H"""
-    <header class={["bg-white shadow sticky top-0 z-40", @class]}>
-      <nav
-        class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between"
-        aria-label="Main"
-      >
-        <div class="flex items-center space-x-4">
-          <a href="/" class="text-xl font-bold text-blue-700 hover:text-blue-900 transition-colors">
-            aprs.me
-          </a>
-        </div>
+    <div class="navbar bg-base-200 shadow-lg">
+      <div class="navbar-start">
+        <a href="/" class="btn btn-ghost text-xl font-bold text-primary">
+          aprs.me
+        </a>
+      </div>
+      <div class="navbar-center hidden lg:flex">
         <.navigation variant={:horizontal} />
-      </nav>
-    </header>
+      </div>
+      <div class="navbar-end">
+        <.theme_selector />
+        <div class="dropdown dropdown-end">
+          <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </div>
+          <ul
+            tabindex="0"
+            class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52"
+          >
+            <.navigation variant={:vertical} />
+          </ul>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders a theme selector dropdown.
+  """
+  def theme_selector(assigns) do
+    ~H"""
+    <div class="dropdown dropdown-end">
+      <div tabindex="0" role="button" class="btn btn-ghost btn-circle">
+        <svg class="w-5 h-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+          <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
+        </svg>
+      </div>
+      <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+        <li>
+          <button data-set-theme="light" data-act-class="ACTIVECLASS" class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fill-rule="evenodd"
+                d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            Light
+          </button>
+        </li>
+        <li>
+          <button data-set-theme="dark" data-act-class="ACTIVECLASS" class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+            </svg>
+            Dark
+          </button>
+        </li>
+        <li>
+          <button data-set-theme="auto" data-act-class="ACTIVECLASS" class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fill-rule="evenodd"
+                d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            Auto
+          </button>
+        </li>
+      </ul>
+    </div>
     """
   end
 
@@ -682,19 +749,17 @@ defmodule AprsmeWeb.CoreComponents do
 
   def navigation(assigns) do
     ~H"""
-    <nav class={[
-      "flex items-center space-x-6",
-      @variant == :vertical && "flex-col space-x-0 space-y-3 items-start",
-      @class
-    ]}>
-      <a href="/" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">Home</a>
-      <a href="/api" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">
-        API
-      </a>
-      <a href="/about" class="text-gray-700 hover:text-blue-700 font-medium transition-colors">
-        About
-      </a>
-    </nav>
+    <%= if @variant == :horizontal do %>
+      <ul class="menu menu-horizontal px-1">
+        <li><a href="/" class="link link-hover">Home</a></li>
+        <li><a href="/api" class="link link-hover">API</a></li>
+        <li><a href="/about" class="link link-hover">About</a></li>
+      </ul>
+    <% else %>
+      <li><a href="/" class="link link-hover">Home</a></li>
+      <li><a href="/api" class="link link-hover">API</a></li>
+      <li><a href="/about" class="link link-hover">About</a></li>
+    <% end %>
     """
   end
 end

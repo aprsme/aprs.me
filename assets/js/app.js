@@ -76,9 +76,41 @@ Hooks.APRSMap = MapAPRSMap;
 Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
 
 Hooks.ChartJSTempChart = {
-  mounted() { this.renderChart(); },
+  mounted() { 
+    console.log('Temperature chart mounted');
+    
+    // Initialize global chart instances map if it doesn't exist
+    if (!window.chartInstances) {
+      window.chartInstances = new Map();
+    }
+    
+    // Register this chart instance
+    window.chartInstances.set(this.el.id, this);
+    
+    this.renderChart();
+    // Listen for theme changes
+    this.themeChangeHandler = () => {
+      console.log('Temperature chart received themeChanged event');
+      if (this.chart) {
+        console.log('Re-rendering temperature chart');
+        this.renderChart();
+      }
+    };
+    window.addEventListener('themeChanged', this.themeChangeHandler);
+  },
   updated() { this.renderChart(); },
+  destroyed() {
+    // Clean up event listener
+    if (this.themeChangeHandler) {
+      window.removeEventListener('themeChanged', this.themeChangeHandler);
+    }
+    // Remove from global chart instances
+    if (window.chartInstances) {
+      window.chartInstances.delete(this.el.id);
+    }
+  },
   renderChart() {
+    console.log('Temperature chart renderChart called');
     if (this.chart) {
       this.chart.destroy();
     }
@@ -87,6 +119,8 @@ Hooks.ChartJSTempChart = {
     const times = data.map(d => new Date(d.timestamp));
     const temps = data.map(d => d.temperature);
     const dews = data.map(d => d.dew_point);
+    const colors = getThemeColors();
+    console.log('Temperature chart colors:', colors);
     
     const canvas = this.el.querySelector('canvas');
     if (!canvas) {
@@ -121,7 +155,13 @@ Hooks.ChartJSTempChart = {
         plugins: {
           title: {
             display: true,
-            text: 'Temperature & Dew Point (°F)'
+            text: 'Temperature & Dew Point (°F)',
+            color: colors.text
+          },
+          legend: {
+            labels: {
+              color: colors.text
+            }
           }
         },
         scales: {
@@ -135,13 +175,27 @@ Hooks.ChartJSTempChart = {
             },
             title: {
               display: true,
-              text: 'Time'
+              text: 'Time',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           },
           y: {
             title: {
               display: true,
-              text: '°F'
+              text: '°F',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           }
         }
@@ -151,16 +205,50 @@ Hooks.ChartJSTempChart = {
 };
 
 Hooks.ChartJSHumidityChart = {
-  mounted() { this.renderChart(); },
+  mounted() { 
+    console.log('Humidity chart mounted');
+    
+    // Initialize global chart instances map if it doesn't exist
+    if (!window.chartInstances) {
+      window.chartInstances = new Map();
+    }
+    
+    // Register this chart instance
+    window.chartInstances.set(this.el.id, this);
+    
+    this.renderChart();
+    // Listen for theme changes
+    this.themeChangeHandler = () => {
+      console.log('Humidity chart received themeChanged event');
+      if (this.chart) {
+        console.log('Re-rendering humidity chart');
+        this.renderChart();
+      }
+    };
+    window.addEventListener('themeChanged', this.themeChangeHandler);
+  },
   updated() { this.renderChart(); },
+  destroyed() {
+    // Clean up event listener
+    if (this.themeChangeHandler) {
+      window.removeEventListener('themeChanged', this.themeChangeHandler);
+    }
+    // Remove from global chart instances
+    if (window.chartInstances) {
+      window.chartInstances.delete(this.el.id);
+    }
+  },
   renderChart() {
+    console.log('Humidity chart renderChart called');
     if (this.chart) {
       this.chart.destroy();
     }
     
     const data = JSON.parse(this.el.dataset.weatherHistory);
     const times = data.map(d => new Date(d.timestamp));
-    const hums = data.map(d => d.humidity);
+    const humidity = data.map(d => d.humidity);
+    const colors = getThemeColors();
+    console.log('Humidity chart colors:', colors);
     
     const canvas = this.el.querySelector('canvas');
     if (!canvas) {
@@ -174,9 +262,9 @@ Hooks.ChartJSHumidityChart = {
         labels: times,
         datasets: [{
           label: 'Humidity (%)',
-          data: hums,
-          borderColor: 'blue',
-          backgroundColor: 'rgba(0, 0, 255, 0.1)',
+          data: humidity,
+          borderColor: 'green',
+          backgroundColor: 'rgba(0, 255, 0, 0.1)',
           tension: 0.1
         }]
       },
@@ -186,7 +274,13 @@ Hooks.ChartJSHumidityChart = {
         plugins: {
           title: {
             display: true,
-            text: 'Humidity (%)'
+            text: 'Humidity (%)',
+            color: colors.text
+          },
+          legend: {
+            labels: {
+              color: colors.text
+            }
           }
         },
         scales: {
@@ -200,13 +294,27 @@ Hooks.ChartJSHumidityChart = {
             },
             title: {
               display: true,
-              text: 'Time'
+              text: 'Time',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           },
           y: {
             title: {
               display: true,
-              text: '%'
+              text: '%',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           }
         }
@@ -216,16 +324,50 @@ Hooks.ChartJSHumidityChart = {
 };
 
 Hooks.ChartJSPressureChart = {
-  mounted() { this.renderChart(); },
+  mounted() { 
+    console.log('Pressure chart mounted');
+    
+    // Initialize global chart instances map if it doesn't exist
+    if (!window.chartInstances) {
+      window.chartInstances = new Map();
+    }
+    
+    // Register this chart instance
+    window.chartInstances.set(this.el.id, this);
+    
+    this.renderChart();
+    // Listen for theme changes
+    this.themeChangeHandler = () => {
+      console.log('Pressure chart received themeChanged event');
+      if (this.chart) {
+        console.log('Re-rendering pressure chart');
+        this.renderChart();
+      }
+    };
+    window.addEventListener('themeChanged', this.themeChangeHandler);
+  },
   updated() { this.renderChart(); },
+  destroyed() {
+    // Clean up event listener
+    if (this.themeChangeHandler) {
+      window.removeEventListener('themeChanged', this.themeChangeHandler);
+    }
+    // Remove from global chart instances
+    if (window.chartInstances) {
+      window.chartInstances.delete(this.el.id);
+    }
+  },
   renderChart() {
+    console.log('Pressure chart renderChart called');
     if (this.chart) {
       this.chart.destroy();
     }
     
     const data = JSON.parse(this.el.dataset.weatherHistory);
     const times = data.map(d => new Date(d.timestamp));
-    const pressures = data.map(d => d.pressure);
+    const pressure = data.map(d => d.pressure);
+    const colors = getThemeColors();
+    console.log('Pressure chart colors:', colors);
     
     const canvas = this.el.querySelector('canvas');
     if (!canvas) {
@@ -238,138 +380,8 @@ Hooks.ChartJSPressureChart = {
       data: {
         labels: times,
         datasets: [{
-          label: 'Pressure (hPa)',
-          data: pressures,
-          borderColor: 'green',
-          backgroundColor: 'rgba(0, 128, 0, 0.1)',
-          tension: 0.1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: 'Pressure (hPa)'
-          }
-        },
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              displayFormats: {
-                hour: 'HH:mm',
-                minute: 'HH:mm'
-              }
-            },
-            title: {
-              display: true,
-              text: 'Time'
-            }
-          },
-          y: {
-            title: {
-              display: true,
-              text: 'hPa'
-            }
-          }
-        }
-      }
-    });
-  }
-};
-
-Hooks.ChartJSWindDirectionChart = {
-  mounted() { this.renderChart(); },
-  updated() { this.renderChart(); },
-  renderChart() {
-    if (this.chart) {
-      this.chart.destroy();
-    }
-    
-    const data = JSON.parse(this.el.dataset.weatherHistory);
-    const times = data.map(d => new Date(d.timestamp));
-    const dirs = data.map(d => d.wind_direction);
-    
-    const canvas = this.el.querySelector('canvas');
-    if (!canvas) {
-      console.error('Canvas element not found for wind direction chart');
-      return;
-    }
-    
-    this.chart = new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: times,
-        datasets: [{
-          label: 'Wind Direction (°)',
-          data: dirs,
-          borderColor: 'orange',
-          backgroundColor: 'rgba(255, 165, 0, 0.1)',
-          tension: 0.1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          title: {
-            display: true,
-            text: 'Wind Direction (°)'
-          }
-        },
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              displayFormats: {
-                hour: 'HH:mm',
-                minute: 'HH:mm'
-              }
-            },
-            title: {
-              display: true,
-              text: 'Time'
-            }
-          },
-          y: {
-            title: {
-              display: true,
-              text: '°'
-            }
-          }
-        }
-      }
-    });
-  }
-};
-
-Hooks.ChartJSWindSpeedChart = {
-  mounted() { this.renderChart(); },
-  updated() { this.renderChart(); },
-  renderChart() {
-    if (this.chart) {
-      this.chart.destroy();
-    }
-    
-    const data = JSON.parse(this.el.dataset.weatherHistory);
-    const times = data.map(d => new Date(d.timestamp));
-    const speeds = data.map(d => d.wind_speed);
-    
-    const canvas = this.el.querySelector('canvas');
-    if (!canvas) {
-      console.error('Canvas element not found for wind speed chart');
-      return;
-    }
-    
-    this.chart = new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: times,
-        datasets: [{
-          label: 'Wind Speed (mph)',
-          data: speeds,
+          label: 'Pressure (mb)',
+          data: pressure,
           borderColor: 'purple',
           backgroundColor: 'rgba(128, 0, 128, 0.1)',
           tension: 0.1
@@ -381,7 +393,13 @@ Hooks.ChartJSWindSpeedChart = {
         plugins: {
           title: {
             display: true,
-            text: 'Wind Speed (mph)'
+            text: 'Pressure (mb)',
+            color: colors.text
+          },
+          legend: {
+            labels: {
+              color: colors.text
+            }
           }
         },
         scales: {
@@ -395,13 +413,156 @@ Hooks.ChartJSWindSpeedChart = {
             },
             title: {
               display: true,
-              text: 'Time'
+              text: 'Time',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           },
           y: {
             title: {
               display: true,
-              text: 'mph'
+              text: 'mb',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
+            }
+          }
+        }
+      }
+    });
+  }
+};
+
+Hooks.ChartJSWindChart = {
+  mounted() { 
+    console.log('Wind chart mounted');
+    
+    // Initialize global chart instances map if it doesn't exist
+    if (!window.chartInstances) {
+      window.chartInstances = new Map();
+    }
+    
+    // Register this chart instance
+    window.chartInstances.set(this.el.id, this);
+    
+    this.renderChart();
+    // Listen for theme changes
+    this.themeChangeHandler = () => {
+      console.log('Wind chart received themeChanged event');
+      if (this.chart) {
+        console.log('Re-rendering wind chart');
+        this.renderChart();
+      }
+    };
+    window.addEventListener('themeChanged', this.themeChangeHandler);
+  },
+  updated() { this.renderChart(); },
+  destroyed() {
+    // Clean up event listener
+    if (this.themeChangeHandler) {
+      window.removeEventListener('themeChanged', this.themeChangeHandler);
+    }
+    // Remove from global chart instances
+    if (window.chartInstances) {
+      window.chartInstances.delete(this.el.id);
+    }
+  },
+  renderChart() {
+    console.log('Wind chart renderChart called');
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    
+    const data = JSON.parse(this.el.dataset.weatherHistory);
+    const times = data.map(d => new Date(d.timestamp));
+    const windSpeed = data.map(d => d.wind_speed);
+    const windGust = data.map(d => d.wind_gust);
+    const colors = getThemeColors();
+    console.log('Wind chart colors:', colors);
+    
+    const canvas = this.el.querySelector('canvas');
+    if (!canvas) {
+      console.error('Canvas element not found for wind chart');
+      return;
+    }
+    
+    this.chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: times,
+        datasets: [
+          {
+            label: 'Wind Speed (mph)',
+            data: windSpeed,
+            borderColor: 'orange',
+            backgroundColor: 'rgba(255, 165, 0, 0.1)',
+            tension: 0.1
+          },
+          {
+            label: 'Wind Gust (mph)',
+            data: windGust,
+            borderColor: 'brown',
+            backgroundColor: 'rgba(165, 42, 42, 0.1)',
+            tension: 0.1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Wind Speed & Gust (mph)',
+            color: colors.text
+          },
+          legend: {
+            labels: {
+              color: colors.text
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                hour: 'HH:mm',
+                minute: 'HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: 'Time',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'mph',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           }
         }
@@ -411,9 +572,41 @@ Hooks.ChartJSWindSpeedChart = {
 };
 
 Hooks.ChartJSRainChart = {
-  mounted() { this.renderChart(); },
+  mounted() { 
+    console.log('Rain chart mounted');
+    
+    // Initialize global chart instances map if it doesn't exist
+    if (!window.chartInstances) {
+      window.chartInstances = new Map();
+    }
+    
+    // Register this chart instance
+    window.chartInstances.set(this.el.id, this);
+    
+    this.renderChart();
+    // Listen for theme changes
+    this.themeChangeHandler = () => {
+      console.log('Rain chart received themeChanged event');
+      if (this.chart) {
+        console.log('Re-rendering rain chart');
+        this.renderChart();
+      }
+    };
+    window.addEventListener('themeChanged', this.themeChangeHandler);
+  },
   updated() { this.renderChart(); },
+  destroyed() {
+    // Clean up event listener
+    if (this.themeChangeHandler) {
+      window.removeEventListener('themeChanged', this.themeChangeHandler);
+    }
+    // Remove from global chart instances
+    if (window.chartInstances) {
+      window.chartInstances.delete(this.el.id);
+    }
+  },
   renderChart() {
+    console.log('Rain chart renderChart called');
     if (this.chart) {
       this.chart.destroy();
     }
@@ -422,7 +615,9 @@ Hooks.ChartJSRainChart = {
     const times = data.map(d => new Date(d.timestamp));
     const rain1h = data.map(d => d.rain_1h);
     const rain24h = data.map(d => d.rain_24h);
-    const rainMid = data.map(d => d.rain_since_midnight);
+    const rainSinceMidnight = data.map(d => d.rain_since_midnight);
+    const colors = getThemeColors();
+    console.log('Rain chart colors:', colors);
     
     const canvas = this.el.querySelector('canvas');
     if (!canvas) {
@@ -445,15 +640,15 @@ Hooks.ChartJSRainChart = {
           {
             label: 'Rain (24h)',
             data: rain24h,
-            borderColor: 'navy',
-            backgroundColor: 'rgba(0, 0, 128, 0.1)',
+            borderColor: 'cyan',
+            backgroundColor: 'rgba(0, 255, 255, 0.1)',
             tension: 0.1
           },
           {
             label: 'Rain (since midnight)',
-            data: rainMid,
-            borderColor: 'teal',
-            backgroundColor: 'rgba(0, 128, 128, 0.1)',
+            data: rainSinceMidnight,
+            borderColor: 'navy',
+            backgroundColor: 'rgba(0, 0, 128, 0.1)',
             tension: 0.1
           }
         ]
@@ -464,7 +659,13 @@ Hooks.ChartJSRainChart = {
         plugins: {
           title: {
             display: true,
-            text: 'Rain (inches)'
+            text: 'Rainfall (inches)',
+            color: colors.text
+          },
+          legend: {
+            labels: {
+              color: colors.text
+            }
           }
         },
         scales: {
@@ -478,13 +679,27 @@ Hooks.ChartJSRainChart = {
             },
             title: {
               display: true,
-              text: 'Time'
+              text: 'Time',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           },
           y: {
             title: {
               display: true,
-              text: 'in'
+              text: 'inches',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           }
         }
@@ -494,16 +709,50 @@ Hooks.ChartJSRainChart = {
 };
 
 Hooks.ChartJSLuminosityChart = {
-  mounted() { this.renderChart(); },
+  mounted() { 
+    console.log('Luminosity chart mounted');
+    
+    // Initialize global chart instances map if it doesn't exist
+    if (!window.chartInstances) {
+      window.chartInstances = new Map();
+    }
+    
+    // Register this chart instance
+    window.chartInstances.set(this.el.id, this);
+    
+    this.renderChart();
+    // Listen for theme changes
+    this.themeChangeHandler = () => {
+      console.log('Luminosity chart received themeChanged event');
+      if (this.chart) {
+        console.log('Re-rendering luminosity chart');
+        this.renderChart();
+      }
+    };
+    window.addEventListener('themeChanged', this.themeChangeHandler);
+  },
   updated() { this.renderChart(); },
+  destroyed() {
+    // Clean up event listener
+    if (this.themeChangeHandler) {
+      window.removeEventListener('themeChanged', this.themeChangeHandler);
+    }
+    // Remove from global chart instances
+    if (window.chartInstances) {
+      window.chartInstances.delete(this.el.id);
+    }
+  },
   renderChart() {
+    console.log('Luminosity chart renderChart called');
     if (this.chart) {
       this.chart.destroy();
     }
     
     const data = JSON.parse(this.el.dataset.weatherHistory);
     const times = data.map(d => new Date(d.timestamp));
-    const lum = data.map(d => d.luminosity);
+    const luminosity = data.map(d => d.luminosity);
+    const colors = getThemeColors();
+    console.log('Luminosity chart colors:', colors);
     
     const canvas = this.el.querySelector('canvas');
     if (!canvas) {
@@ -517,9 +766,9 @@ Hooks.ChartJSLuminosityChart = {
         labels: times,
         datasets: [{
           label: 'Luminosity',
-          data: lum,
-          borderColor: 'gold',
-          backgroundColor: 'rgba(255, 215, 0, 0.1)',
+          data: luminosity,
+          borderColor: 'yellow',
+          backgroundColor: 'rgba(255, 255, 0, 0.1)',
           tension: 0.1
         }]
       },
@@ -529,7 +778,13 @@ Hooks.ChartJSLuminosityChart = {
         plugins: {
           title: {
             display: true,
-            text: 'Luminosity'
+            text: 'Luminosity',
+            color: colors.text
+          },
+          legend: {
+            labels: {
+              color: colors.text
+            }
           }
         },
         scales: {
@@ -543,13 +798,27 @@ Hooks.ChartJSLuminosityChart = {
             },
             title: {
               display: true,
-              text: 'Time'
+              text: 'Time',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           },
           y: {
             title: {
               display: true,
-              text: ''
+              text: 'Luminosity',
+              color: colors.text
+            },
+            ticks: {
+              color: colors.text
+            },
+            grid: {
+              color: colors.grid
             }
           }
         }
@@ -557,6 +826,99 @@ Hooks.ChartJSLuminosityChart = {
     });
   }
 };
+
+// Helper function to get theme-aware colors
+const getThemeColors = () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    text: isDark ? '#e5e7eb' : '#111827',
+    grid: isDark ? '#374151' : '#9ca3af',
+    background: isDark ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
+  };
+};
+
+// Theme switching functionality
+const theme = (() => {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+    return localStorage.getItem('theme');
+  }
+  return 'auto';
+})();
+
+const applyTheme = (theme) => {
+  const element = document.documentElement;
+  
+  if (theme === 'auto') {
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      element.setAttribute('data-theme', 'dark');
+    } else {
+      element.setAttribute('data-theme', 'light');
+    }
+  } else {
+    element.setAttribute('data-theme', theme);
+  }
+};
+
+// Apply initial theme
+applyTheme(theme);
+window.localStorage.setItem('theme', theme);
+
+// Global function to re-render all charts
+window.reRenderAllCharts = () => {
+  console.log('Re-rendering all charts...');
+  
+  // Store all chart instances globally so we can access them
+  if (!window.chartInstances) {
+    window.chartInstances = new Map();
+  }
+  
+  // Re-render all stored chart instances
+  window.chartInstances.forEach((chartInstance, elementId) => {
+    console.log('Re-rendering chart:', elementId);
+    if (chartInstance && typeof chartInstance.renderChart === 'function') {
+      chartInstance.renderChart();
+    }
+  });
+  
+  // Also dispatch a custom event that charts can listen to
+  console.log('Dispatching themeChanged event');
+  window.dispatchEvent(new CustomEvent('themeChanged'));
+};
+
+const handleThemeClick = (selectedTheme) => {
+  console.log('Theme changed to:', selectedTheme);
+  applyTheme(selectedTheme);
+  localStorage.setItem('theme', selectedTheme);
+  
+  // Re-render all charts with new theme colors
+  setTimeout(() => {
+    console.log('Calling reRenderAllCharts after theme change');
+    window.reRenderAllCharts();
+  }, 100);
+};
+
+// Listen for system theme changes when auto is selected
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+  if (localStorage.getItem('theme') === 'auto') {
+    applyTheme('auto');
+    
+    // Re-render all charts with new theme colors
+    setTimeout(() => {
+      window.reRenderAllCharts();
+    }, 100);
+  }
+});
+
+// Add event listeners for theme switching
+document.addEventListener('DOMContentLoaded', () => {
+  const themeButtons = document.querySelectorAll('[data-set-theme]');
+  themeButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const theme = button.getAttribute('data-set-theme');
+      handleThemeClick(theme);
+    });
+  });
+});
 
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

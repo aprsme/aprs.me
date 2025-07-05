@@ -213,48 +213,58 @@ defmodule AprsmeWeb.ApiDocsLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="container mx-auto max-w-6xl py-8">
       <div class="mb-8">
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">APRS.me API Documentation</h1>
-        <p class="text-lg text-gray-600">
+        <h1 class="text-4xl font-bold mb-4">APRS.me API Documentation</h1>
+        <p class="text-lg opacity-70">
           RESTful JSON API for accessing APRS packet data and station information.
         </p>
       </div>
       
     <!-- API Overview -->
-      <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
-        <div class="px-6 py-4 border-b border-gray-200">
-          <h2 class="text-2xl font-semibold text-gray-900">Overview</h2>
-        </div>
-        <div class="px-6 py-4">
-          <div class="prose max-w-none">
-            <p class="text-gray-700 mb-4">
-              The APRS.me API provides programmatic access to Amateur Radio APRS (Automatic Packet Reporting System)
-              data. All API endpoints return JSON data and follow RESTful conventions.
-            </p>
+      <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+          <h2 class="card-title text-2xl">Overview</h2>
+          <p class="mb-4">
+            The APRS.me API provides programmatic access to Amateur Radio APRS (Automatic Packet Reporting System)
+            data. All API endpoints return JSON data and follow RESTful conventions.
+          </p>
 
-            <div class="grid md:grid-cols-2 gap-6 mt-6">
-              <div class="bg-blue-50 p-4 rounded-lg">
-                <h3 class="font-semibold text-blue-900 mb-2">Base URL</h3>
-                <code class="text-sm bg-white px-2 py-1 rounded border">
-                  https://aprs.me/api/v1
-                </code>
-              </div>
-
-              <div class="bg-green-50 p-4 rounded-lg">
-                <h3 class="font-semibold text-green-900 mb-2">Content Type</h3>
-                <code class="text-sm bg-white px-2 py-1 rounded border">
-                  application/json
-                </code>
-              </div>
+          <div class="grid md:grid-cols-2 gap-6 mt-6">
+            <div class="bg-primary/10 p-4 rounded-lg">
+              <h3 class="font-semibold mb-2">Base URL</h3>
+              <code class="text-sm bg-base-200 px-2 py-1 rounded">
+                https://aprs.me/api/v1
+              </code>
             </div>
 
-            <div class="mt-6 p-4 bg-yellow-50 rounded-lg">
-              <h3 class="font-semibold text-yellow-900 mb-2">Rate Limiting</h3>
-              <p class="text-yellow-800">
-                Currently no rate limiting is enforced, but please be respectful and avoid excessive requests.
-                Rate limiting may be implemented in the future.
-              </p>
+            <div class="bg-success/10 p-4 rounded-lg">
+              <h3 class="font-semibold mb-2">Content Type</h3>
+              <code class="text-sm bg-base-200 px-2 py-1 rounded">
+                application/json
+              </code>
+            </div>
+          </div>
+
+          <div class="alert alert-warning mt-6">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="stroke-current shrink-0 h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+            <div>
+              <h3 class="font-bold">Rate Limiting</h3>
+              <div class="text-xs">
+                Currently no rate limiting is enforced, but please be respectful and avoid excessive requests. Rate limiting may be implemented in the future.
+              </div>
             </div>
           </div>
         </div>
@@ -263,66 +273,46 @@ defmodule AprsmeWeb.ApiDocsLive do
     <!-- API Endpoints -->
       <div class="space-y-8">
         <!-- Callsign Endpoint -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <div class="flex items-center justify-between">
-              <h2 class="text-xl font-semibold text-gray-900">Get Latest Packet by Callsign</h2>
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                GET
-              </span>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="card-title text-xl">Get Latest Packet by Callsign</h2>
+              <span class="badge badge-success">GET</span>
             </div>
-          </div>
 
-          <div class="px-6 py-4">
             <div class="mb-4">
-              <h3 class="text-lg font-medium text-gray-900 mb-2">Endpoint</h3>
-              <div class="bg-gray-50 p-3 rounded-lg">
+              <h3 class="text-lg font-medium mb-2">Endpoint</h3>
+              <div class="bg-base-200 p-3 rounded-lg">
                 <code class="text-sm">GET /api/v1/callsign/{"{callsign}"}</code>
               </div>
             </div>
 
             <div class="mb-4">
-              <h3 class="text-lg font-medium text-gray-900 mb-2">Description</h3>
-              <p class="text-gray-700">
+              <h3 class="text-lg font-medium mb-2">Description</h3>
+              <p>
                 Retrieves the most recent APRS packet for the specified callsign. The callsign can include
                 an SSID (e.g., N0CALL-9) or just the base callsign (e.g., N0CALL).
               </p>
             </div>
 
             <div class="mb-4">
-              <h3 class="text-lg font-medium text-gray-900 mb-2">Parameters</h3>
+              <h3 class="text-lg font-medium mb-2">Parameters</h3>
               <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                  <thead class="bg-gray-50">
+                <table class="table table-zebra">
+                  <thead>
                     <tr>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Parameter
-                      </th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Required
-                      </th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Description
-                      </th>
+                      <th>Parameter</th>
+                      <th>Type</th>
+                      <th>Required</th>
+                      <th>Description</th>
                     </tr>
                   </thead>
-                  <tbody class="bg-white divide-y divide-gray-200">
+                  <tbody>
                     <tr>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                        callsign
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        string
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        Yes
-                      </td>
-                      <td class="px-6 py-4 text-sm text-gray-900">
-                        Amateur radio callsign with optional SSID (e.g., N0CALL or N0CALL-9)
-                      </td>
+                      <td class="font-mono">callsign</td>
+                      <td>string</td>
+                      <td>Yes</td>
+                      <td>Amateur radio callsign with optional SSID (e.g., N0CALL or N0CALL-9)</td>
                     </tr>
                   </tbody>
                 </table>
@@ -330,18 +320,18 @@ defmodule AprsmeWeb.ApiDocsLive do
             </div>
 
             <div class="mb-4">
-              <h3 class="text-lg font-medium text-gray-900 mb-2">Example Request</h3>
-              <div class="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto">
+              <h3 class="text-lg font-medium mb-2">Example Request</h3>
+              <div class="bg-neutral text-neutral-content p-4 rounded-lg overflow-x-auto">
                 <pre><code>curl -X GET "https://aprs.me/api/v1/callsign/N0CALL-9" \
      -H "Accept: application/json"</code></pre>
               </div>
             </div>
 
             <div class="mb-4">
-              <h3 class="text-lg font-medium text-gray-900 mb-2">Response Format</h3>
+              <h3 class="text-lg font-medium mb-2">Response Format</h3>
 
-              <h4 class="text-md font-medium text-gray-800 mb-2">Success Response (200 OK)</h4>
-              <div class="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto mb-4">
+              <h4 class="text-md font-medium mb-2">Success Response (200 OK)</h4>
+              <div class="bg-neutral text-neutral-content p-4 rounded-lg overflow-x-auto mb-4">
                 <pre><code><%= raw ~s|{
     "data": {
     "id": 12345,
@@ -383,16 +373,16 @@ defmodule AprsmeWeb.ApiDocsLive do
     }| %></code></pre>
               </div>
 
-              <h4 class="text-md font-medium text-gray-800 mb-2">Not Found Response (404)</h4>
-              <div class="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto mb-4">
+              <h4 class="text-md font-medium mb-2">Not Found Response (404)</h4>
+              <div class="bg-neutral text-neutral-content p-4 rounded-lg overflow-x-auto mb-4">
                 <pre><code><%= raw ~s|{
     "data": null,
     "message": "No packets found for callsign N0CALL-9"
     }| %></code></pre>
               </div>
 
-              <h4 class="text-md font-medium text-gray-800 mb-2">Error Response (400)</h4>
-              <div class="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto">
+              <h4 class="text-md font-medium mb-2">Error Response (400)</h4>
+              <div class="bg-neutral text-neutral-content p-4 rounded-lg overflow-x-auto">
                 <pre><code><%= raw ~s|{
     "error": {
     "message": "Invalid callsign format",
@@ -405,118 +395,73 @@ defmodule AprsmeWeb.ApiDocsLive do
         </div>
         
     <!-- Response Fields Documentation -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">Response Fields</h2>
-          </div>
-
-          <div class="px-6 py-4">
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-xl">Response Fields</h2>
             <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+              <table class="table table-zebra">
+                <thead>
                   <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Field
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
+                    <th>Field</th>
+                    <th>Type</th>
+                    <th>Description</th>
                   </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody>
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">id</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">integer</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">Unique packet identifier</td>
-                  </tr>
-                  <tr class="bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      callsign
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">string</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      Full callsign with SSID (e.g., "N0CALL-9")
-                    </td>
+                    <td class="font-mono">id</td>
+                    <td>integer</td>
+                    <td>Unique packet identifier</td>
                   </tr>
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      base_callsign
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">string</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">Base callsign without SSID</td>
-                  </tr>
-                  <tr class="bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">ssid</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">string</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      SSID (Secondary Station Identifier), null if not present
-                    </td>
+                    <td class="font-mono">callsign</td>
+                    <td>string</td>
+                    <td>Full callsign with SSID (e.g., "N0CALL-9")</td>
                   </tr>
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      received_at
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">datetime</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      When the packet was received (ISO 8601 format)
-                    </td>
-                  </tr>
-                  <tr class="bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      position
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">object</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      Position data (latitude, longitude, course, speed, altitude)
-                    </td>
+                    <td class="font-mono">base_callsign</td>
+                    <td>string</td>
+                    <td>Base callsign without SSID</td>
                   </tr>
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      symbol
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">object</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      APRS symbol information (code and table_id)
-                    </td>
-                  </tr>
-                  <tr class="bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      weather
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">object</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      Weather data if present (temperature, humidity, wind, etc.)
-                    </td>
+                    <td class="font-mono">ssid</td>
+                    <td>string</td>
+                    <td>SSID (Secondary Station Identifier), null if not present</td>
                   </tr>
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      equipment
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">object</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      Equipment information (manufacturer, type)
-                    </td>
-                  </tr>
-                  <tr class="bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      message
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">object</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      Message data if the packet is a message
-                    </td>
+                    <td class="font-mono">received_at</td>
+                    <td>datetime</td>
+                    <td>When the packet was received (ISO 8601 format)</td>
                   </tr>
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
-                      raw_packet
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">string</td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      Original raw APRS packet as received
-                    </td>
+                    <td class="font-mono">position</td>
+                    <td>object</td>
+                    <td>Position data (latitude, longitude, course, speed, altitude)</td>
+                  </tr>
+                  <tr>
+                    <td class="font-mono">symbol</td>
+                    <td>object</td>
+                    <td>APRS symbol information (code and table_id)</td>
+                  </tr>
+                  <tr>
+                    <td class="font-mono">weather</td>
+                    <td>object</td>
+                    <td>Weather data if present (temperature, humidity, wind, etc.)</td>
+                  </tr>
+                  <tr>
+                    <td class="font-mono">equipment</td>
+                    <td>object</td>
+                    <td>Equipment information (manufacturer, type)</td>
+                  </tr>
+                  <tr>
+                    <td class="font-mono">message</td>
+                    <td>object</td>
+                    <td>Message data if the packet is a message</td>
+                  </tr>
+                  <tr>
+                    <td class="font-mono">raw_packet</td>
+                    <td>string</td>
+                    <td>Original raw APRS packet as received</td>
                   </tr>
                 </tbody>
               </table>
@@ -525,62 +470,37 @@ defmodule AprsmeWeb.ApiDocsLive do
         </div>
         
     <!-- HTTP Status Codes -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">HTTP Status Codes</h2>
-          </div>
-
-          <div class="px-6 py-4">
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-xl">HTTP Status Codes</h2>
             <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+              <table class="table table-zebra">
+                <thead>
                   <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status Code
-                    </th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
+                    <th>Status Code</th>
+                    <th>Description</th>
                   </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody>
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-600">
-                      200 OK
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      Request successful, packet data returned
-                    </td>
-                  </tr>
-                  <tr class="bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-yellow-600">
-                      400 Bad Request
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      Invalid callsign format or malformed request
-                    </td>
+                    <td class="font-mono text-success">200 OK</td>
+                    <td>Request successful, packet data returned</td>
                   </tr>
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-red-600">
-                      404 Not Found
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      No packets found for the specified callsign
-                    </td>
-                  </tr>
-                  <tr class="bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-red-600">
-                      408 Request Timeout
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-900">Request took too long to process</td>
+                    <td class="font-mono text-warning">400 Bad Request</td>
+                    <td>Invalid callsign format or malformed request</td>
                   </tr>
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-red-600">
-                      500 Internal Server Error
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-900">
-                      Server error occurred while processing the request
-                    </td>
+                    <td class="font-mono text-error">404 Not Found</td>
+                    <td>No packets found for the specified callsign</td>
+                  </tr>
+                  <tr>
+                    <td class="font-mono text-error">408 Request Timeout</td>
+                    <td>Request took too long to process</td>
+                  </tr>
+                  <tr>
+                    <td class="font-mono text-error">500 Internal Server Error</td>
+                    <td>Server error occurred while processing the request</td>
                   </tr>
                 </tbody>
               </table>
@@ -589,68 +509,62 @@ defmodule AprsmeWeb.ApiDocsLive do
         </div>
         
     <!-- Future Endpoints -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">Planned Endpoints</h2>
-          </div>
-
-          <div class="px-6 py-4">
-            <p class="text-gray-700 mb-4">
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-xl">Planned Endpoints</h2>
+            <p class="mb-4">
               The following endpoints are planned for future releases:
             </p>
 
             <div class="space-y-3">
-              <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div class="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
                 <div>
                   <code class="text-sm font-mono">GET /api/v1/callsign/{"{callsign}"}/history</code>
-                  <p class="text-sm text-gray-600 mt-1">Get historical packets for a callsign</p>
+                  <p class="text-sm opacity-70 mt-1">Get historical packets for a callsign</p>
                 </div>
-                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Planned</span>
+                <span class="badge badge-primary">Planned</span>
               </div>
 
-              <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div class="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
                 <div>
                   <code class="text-sm font-mono">GET /api/v1/packets/recent</code>
-                  <p class="text-sm text-gray-600 mt-1">Get recent packets with filtering options</p>
+                  <p class="text-sm opacity-70 mt-1">Get recent packets with filtering options</p>
                 </div>
-                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Planned</span>
+                <span class="badge badge-primary">Planned</span>
               </div>
 
-              <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div class="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
                 <div>
                   <code class="text-sm font-mono">GET /api/v1/packets/area</code>
-                  <p class="text-sm text-gray-600 mt-1">Get packets within a geographic area</p>
+                  <p class="text-sm opacity-70 mt-1">Get packets within a geographic area</p>
                 </div>
-                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Planned</span>
+                <span class="badge badge-primary">Planned</span>
               </div>
 
-              <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div class="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
                 <div>
                   <code class="text-sm font-mono">GET /api/v1/weather/{"{callsign}"}</code>
-                  <p class="text-sm text-gray-600 mt-1">Get weather data from weather stations</p>
+                  <p class="text-sm opacity-70 mt-1">Get weather data from weather stations</p>
                 </div>
-                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Planned</span>
+                <span class="badge badge-primary">Planned</span>
               </div>
             </div>
           </div>
         </div>
         
     <!-- Interactive API Testing -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">Test the API</h2>
-          </div>
-
-          <div class="px-6 py-4">
-            <p class="text-gray-700 mb-4">
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-xl">Test the API</h2>
+            <p class="mb-4">
               Try the API directly from this page. Enter a callsign to see the most recent packet data.
             </p>
 
             <div class="max-w-md">
               <form phx-submit="test_api" class="space-y-4">
                 <div>
-                  <label for="test_callsign" class="block text-sm font-medium text-gray-700 mb-2">
-                    Callsign (e.g., N0CALL or N0CALL-9)
+                  <label for="test_callsign" class="label">
+                    <span class="label-text">Callsign (e.g., N0CALL or N0CALL-9)</span>
                   </label>
                   <div class="flex space-x-2">
                     <input
@@ -660,38 +574,16 @@ defmodule AprsmeWeb.ApiDocsLive do
                       value={@test_callsign}
                       phx-change="update_callsign"
                       placeholder="Enter callsign..."
-                      class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      class="input input-bordered flex-1"
                       disabled={@loading}
                     />
                     <button
                       type="submit"
                       disabled={@loading or String.trim(@test_callsign) == ""}
-                      class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      class="btn btn-primary"
                     >
                       <%= if @loading do %>
-                        <svg
-                          class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            class="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            stroke-width="4"
-                          >
-                          </circle>
-                          <path
-                            class="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          >
-                          </path>
-                        </svg>
-                        Testing...
+                        <span class="loading loading-spinner loading-sm"></span> Testing...
                       <% else %>
                         Test API
                       <% end %>
@@ -702,42 +594,42 @@ defmodule AprsmeWeb.ApiDocsLive do
               
     <!-- Error Display -->
               <%= if @error do %>
-                <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                  <div class="flex">
-                    <div class="flex-shrink-0">
-                      <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path
-                          fill-rule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <div class="ml-3">
-                      <p class="text-sm text-red-800">{@error}</p>
-                    </div>
-                  </div>
+                <div class="alert alert-error mt-4">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>{@error}</span>
                 </div>
               <% end %>
               
     <!-- Results Display -->
               <%= if @api_result do %>
                 <div class="mt-4">
-                  <h4 class="text-lg font-medium text-gray-900 mb-2">API Response</h4>
+                  <h4 class="text-lg font-medium mb-2">API Response</h4>
 
-                  <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div class="bg-base-200 border rounded-lg p-4">
                     <div class="flex items-center mb-3">
-                      <svg class="h-5 w-5 text-blue-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <svg class="h-5 w-5 text-primary mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path
                           fill-rule="evenodd"
                           d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"
                           clip-rule="evenodd"
                         />
                       </svg>
-                      <span class="text-gray-800 font-medium">JSON Response</span>
+                      <span class="font-medium">JSON Response</span>
                     </div>
 
-                    <div class="bg-gray-900 text-white p-4 rounded text-sm overflow-x-auto">
+                    <div class="bg-neutral text-neutral-content p-4 rounded text-sm overflow-x-auto">
                       <pre><%= @api_result %></pre>
                     </div>
                   </div>
@@ -748,27 +640,22 @@ defmodule AprsmeWeb.ApiDocsLive do
         </div>
         
     <!-- Contact and Support -->
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">Support</h2>
-          </div>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-xl">Support</h2>
+            <p class="mb-4">
+              This API is provided free of charge for amateur radio and educational purposes.
+              If you encounter issues or have suggestions for improvements, please reach out.
+            </p>
 
-          <div class="px-6 py-4">
-            <div class="prose max-w-none">
-              <p class="text-gray-700 mb-4">
-                This API is provided free of charge for amateur radio and educational purposes.
-                If you encounter issues or have suggestions for improvements, please reach out.
-              </p>
-
-              <div class="bg-gray-50 p-4 rounded-lg">
-                <h3 class="font-semibold text-gray-900 mb-2">Guidelines</h3>
-                <ul class="text-gray-700 space-y-1">
-                  <li>• Use reasonable request rates to avoid overwhelming the service</li>
-                  <li>• Cache responses when appropriate to reduce server load</li>
-                  <li>• Include a User-Agent header identifying your application</li>
-                  <li>• This service is for amateur radio and educational use</li>
-                </ul>
-              </div>
+            <div class="bg-base-200 p-4 rounded-lg">
+              <h3 class="font-semibold mb-2">Guidelines</h3>
+              <ul class="space-y-1">
+                <li>• Use reasonable request rates to avoid overwhelming the service</li>
+                <li>• Cache responses when appropriate to reduce server load</li>
+                <li>• Include a User-Agent header identifying your application</li>
+                <li>• This service is for amateur radio and educational use</li>
+              </ul>
             </div>
           </div>
         </div>

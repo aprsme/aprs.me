@@ -16,18 +16,18 @@
 <% _symbol_img = "/aprs-symbols/aprs-symbols-24-#{symbol_table_num}@2x.png" %>
 <% _symbol_index = symbol_code_ord - 33 %>
 
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-base-200">
   <!-- Page header -->
-  <div class="bg-white shadow-sm border-b">
-    <div class="px-4 sm:px-6 lg:px-8">
+  <div class="bg-base-100 shadow-sm">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
       <div class="py-4 md:flex md:items-center md:justify-between">
         <div class="min-w-0 flex-1">
           <div class="flex items-center">
-            <h1 class="text-xl font-bold leading-7 text-gray-900 sm:truncate sm:text-2xl">
+            <h1 class="text-xl font-bold leading-7 sm:truncate sm:text-2xl">
               APRS Station
             </h1>
             <div class="ml-3 flex items-center space-x-3">
-              <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-sm font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+              <span class="badge badge-primary">
                 {@callsign}
               </span>
               <%= if @packet do %>
@@ -63,17 +63,11 @@
         </div>
         <div class="mt-3 flex md:ml-4 md:mt-0">
           <div class="flex space-x-2">
-            <.link
-              navigate={~p"/packets/#{@callsign}"}
-              class="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-            >
+            <.link navigate={~p"/packets/#{@callsign}"} class="btn btn-outline btn-sm">
               View packets
             </.link>
             <%= if AprsmeWeb.MapLive.PacketUtils.has_weather_packets?(@callsign) do %>
-              <.link
-                navigate={~p"/weather/#{@callsign}"}
-                class="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
+              <.link navigate={~p"/weather/#{@callsign}"} class="btn btn-primary btn-sm">
                 Weather charts
               </.link>
             <% end %>
@@ -83,17 +77,17 @@
     </div>
   </div>
 
-  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+  <div class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
     <%= if @packet do %>
       <!-- Station details -->
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 mb-6">
         <!-- Position information -->
-        <div class="bg-white overflow-hidden shadow-sm rounded-lg border">
-          <div class="px-4 py-3">
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
             <div class="flex items-center mb-3">
               <div class="flex-shrink-0">
                 <svg
-                  class="h-4 w-4 text-gray-400"
+                  class="h-4 w-4 opacity-70"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke-width="1.5"
@@ -112,38 +106,38 @@
                 </svg>
               </div>
               <div class="ml-2">
-                <h3 class="text-sm font-medium text-gray-900">Position Information</h3>
+                <h3 class="text-sm font-medium">Position Information</h3>
               </div>
             </div>
             <dl class="grid grid-cols-2 gap-3">
               <div>
-                <dt class="text-xs font-medium text-gray-500">Location</dt>
-                <dd class="mt-1 text-sm font-semibold text-gray-900">
+                <dt class="text-xs font-medium opacity-70">Location</dt>
+                <dd class="mt-1 text-sm font-semibold">
                   {@packet.lat || ""}, {@packet.lon || ""}
                 </dd>
               </div>
               <div>
-                <dt class="text-xs font-medium text-gray-500">Last Position</dt>
-                <dd class="mt-1 text-sm font-semibold text-gray-900">
+                <dt class="text-xs font-medium opacity-70">Last Position</dt>
+                <dd class="mt-1 text-sm font-semibold">
                   {AprsmeWeb.MapLive.PacketUtils.get_timestamp(@packet)}
                 </dd>
               </div>
               <%= if @packet.altitude do %>
                 <div>
-                  <dt class="text-xs font-medium text-gray-500">Altitude</dt>
-                  <dd class="mt-1 text-sm font-semibold text-gray-900">{@packet.altitude} ft</dd>
+                  <dt class="text-xs font-medium opacity-70">Altitude</dt>
+                  <dd class="mt-1 text-sm font-semibold">{@packet.altitude} ft</dd>
                 </div>
               <% end %>
               <%= if @packet.course do %>
                 <div>
-                  <dt class="text-xs font-medium text-gray-500">Course</dt>
-                  <dd class="mt-1 text-sm font-semibold text-gray-900">{@packet.course}°</dd>
+                  <dt class="text-xs font-medium opacity-70">Course</dt>
+                  <dd class="mt-1 text-sm font-semibold">{@packet.course}°</dd>
                 </div>
               <% end %>
               <%= if @packet.speed do %>
                 <div>
-                  <dt class="text-xs font-medium text-gray-500">Speed</dt>
-                  <dd class="mt-1 text-sm font-semibold text-gray-900">{@packet.speed} MPH</dd>
+                  <dt class="text-xs font-medium opacity-70">Speed</dt>
+                  <dd class="mt-1 text-sm font-semibold">{@packet.speed} MPH</dd>
                 </div>
               <% end %>
             </dl>
@@ -151,12 +145,12 @@
         </div>
         
 <!-- Device information -->
-        <div class="bg-white overflow-hidden shadow-sm rounded-lg border">
-          <div class="px-4 py-3">
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
             <div class="flex items-center mb-3">
               <div class="flex-shrink-0">
                 <svg
-                  class="h-4 w-4 text-gray-400"
+                  class="h-4 w-4 opacity-70"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke-width="1.5"
@@ -170,13 +164,13 @@
                 </svg>
               </div>
               <div class="ml-2">
-                <h3 class="text-sm font-medium text-gray-900">Device Information</h3>
+                <h3 class="text-sm font-medium">Device Information</h3>
               </div>
             </div>
             <dl class="grid grid-cols-2 gap-3">
               <div>
-                <dt class="text-xs font-medium text-gray-500">Device</dt>
-                <dd class="mt-1 text-sm font-semibold text-gray-900">
+                <dt class="text-xs font-medium opacity-70">Device</dt>
+                <dd class="mt-1 text-sm font-semibold">
                   <%= if @packet.device_model || @packet.device_vendor do %>
                     {[
                       @packet.device_model,
@@ -189,19 +183,19 @@
                       ({@packet.device_class})
                     <% end %>
                   <% else %>
-                    <span class="text-gray-500 font-mono">
+                    <span class="opacity-70 font-mono">
                       {@packet.device_identifier || "Unknown"}
                     </span>
                   <% end %>
                 </dd>
               </div>
               <div>
-                <dt class="text-xs font-medium text-gray-500">Path</dt>
-                <dd class="mt-1 text-sm font-semibold text-gray-900">{@packet.path || ""}</dd>
+                <dt class="text-xs font-medium opacity-70">Path</dt>
+                <dd class="mt-1 text-sm font-semibold">{@packet.path || ""}</dd>
               </div>
               <div class="col-span-2">
-                <dt class="text-xs font-medium text-gray-500">Raw Packet</dt>
-                <dd class="mt-1 text-xs font-mono text-gray-900 break-all">
+                <dt class="text-xs font-medium opacity-70">Raw Packet</dt>
+                <dd class="mt-1 text-xs font-mono break-all">
                   <%= if is_binary(@packet.raw_packet) do %>
                     {Aprsme.EncodingUtils.sanitize_string(@packet.raw_packet)}
                   <% else %>
@@ -215,12 +209,12 @@
       </div>
       
 <!-- Neighboring stations -->
-      <div class="bg-white shadow-sm rounded-lg border">
-        <div class="px-4 py-3">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
           <div class="flex items-center mb-3">
             <div class="flex-shrink-0">
               <svg
-                class="h-4 w-4 text-gray-400"
+                class="h-4 w-4 opacity-70"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke-width="1.5"
@@ -234,42 +228,30 @@
               </svg>
             </div>
             <div class="ml-2">
-              <h3 class="text-sm font-medium text-gray-900">Stations Near Current Position</h3>
+              <h3 class="text-sm font-medium">Stations Near Current Position</h3>
             </div>
           </div>
           <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
+            <table class="table table-zebra">
+              <thead>
                 <tr>
-                  <th
-                    scope="col"
-                    class="py-2 pl-3 pr-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
+                  <th class="text-xs font-medium uppercase tracking-wider">
                     Callsign
                   </th>
-                  <th
-                    scope="col"
-                    class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
+                  <th class="text-xs font-medium uppercase tracking-wider">
                     Distance & Course
                   </th>
-                  <th
-                    scope="col"
-                    class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
+                  <th class="text-xs font-medium uppercase tracking-wider">
                     Last Heard
                   </th>
                 </tr>
               </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
+              <tbody>
                 <%= for neighbor <- @neighbors do %>
                   <tr>
-                    <td class="whitespace-nowrap py-2 pl-3 pr-2 text-sm font-medium text-gray-900">
+                    <td class="font-medium">
                       <div class="flex items-center space-x-2">
-                        <.link
-                          navigate={~p"/info/#{neighbor.callsign}"}
-                          class="text-blue-600 hover:text-blue-900"
-                        >
+                        <.link navigate={~p"/info/#{neighbor.callsign}"} class="link link-primary">
                           {neighbor.callsign}
                         </.link>
                         <%= if neighbor.packet do %>
@@ -302,14 +284,14 @@
                         <% end %>
                       </div>
                     </td>
-                    <td class="whitespace-nowrap px-2 py-2 text-sm text-gray-500">
+                    <td class="opacity-70">
                       <%= if neighbor.course do %>
                         {neighbor.distance || ""} @ {Float.round(neighbor.course, 0)}°
                       <% else %>
                         {neighbor.distance || ""}
                       <% end %>
                     </td>
-                    <td class="whitespace-nowrap px-2 py-2 text-sm text-gray-500">
+                    <td class="opacity-70">
                       {neighbor.last_heard || ""}
                     </td>
                   </tr>
@@ -322,7 +304,7 @@
     <% else %>
       <div class="text-center py-8">
         <svg
-          class="mx-auto h-8 w-8 text-gray-400"
+          class="mx-auto h-8 w-8 opacity-70"
           fill="none"
           viewBox="0 0 24 24"
           stroke-width="1.5"
@@ -335,8 +317,8 @@
             d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423L16.5 15.75l.394 1.183a2.25 2.25 0 001.423 1.423L19.5 18.75l-1.183.394a2.25 2.25 0 00-1.423 1.423z"
           />
         </svg>
-        <h3 class="mt-2 text-sm font-semibold text-gray-900">No data available</h3>
-        <p class="mt-1 text-sm text-gray-500">
+        <h3 class="mt-2 text-sm font-semibold">No data available</h3>
+        <p class="mt-1 text-sm opacity-70">
           No recent packet data available for this callsign.
         </p>
       </div>

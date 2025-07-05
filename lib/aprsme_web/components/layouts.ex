@@ -5,6 +5,6 @@ defmodule AprsmeWeb.Layouts do
   embed_templates "layouts/*"
 
   def body_class(_assigns) do
-    ["bg-white antialiased"]
+    ["bg-base-100 antialiased"]
   end
 end
