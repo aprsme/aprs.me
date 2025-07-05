@@ -21,8 +21,7 @@ defmodule Aprsme.Application do
       Aprsme.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: Aprsme.PubSub},
-      # Start Finch
-      {Finch, name: Aprsme.Finch},
+
       # Start the Endpoint (http/https)
       AprsmeWeb.Endpoint,
       # Start a worker by calling: Aprsme.Worker.start_link(arg)

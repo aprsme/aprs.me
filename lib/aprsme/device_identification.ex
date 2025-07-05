@@ -129,10 +129,8 @@ defmodule Aprsme.DeviceIdentification do
   end
 
   def fetch_and_upsert_devices do
-    req = Finch.build(:get, @url)
-
-    case Finch.request(req, Aprsme.Finch) do
-      {:ok, %Finch.Response{status: 200, body: body}} ->
+    case Req.get(@url) do
+      {:ok, %Req.Response{status: 200, body: body}} ->
         {:ok, json} = Jason.decode(body)
         upsert_devices(json)
 

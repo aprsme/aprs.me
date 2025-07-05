@@ -20,6 +20,7 @@ config :aprsme, Aprsme.Repo,
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :aprsme, AprsmeWeb.Endpoint,
+  adapter: Bandit.PhoenixAdapter,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
   server: false

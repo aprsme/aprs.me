@@ -16,6 +16,47 @@ defmodule AprsmeWeb.CoreComponents do
   alias Phoenix.LiveView.JS
 
   @doc """
+  Renders a Heroicon SVG inline from deps/heroicons/optimized.
+  Usage: <.icon name="arrow-left" outline={true} class="h-5 w-5" />
+  """
+  attr :name, :string, required: true
+  attr :outline, :boolean, default: true
+  attr :class, :string, default: nil
+
+  def icon(%{name: name, outline: outline, class: class} = assigns) do
+    style = if outline, do: "outline", else: "solid"
+
+    path =
+      Path.join([
+        :aprsme |> :code.priv_dir() |> to_string() |> Path.dirname() |> Path.join("deps/heroicons/optimized"),
+        style,
+        name <> ".svg"
+      ])
+
+    svg =
+      case File.read(path) do
+        {:ok, contents} ->
+          # Insert class attribute if not present
+          Regex.replace(~r/<svg([^>]*?)>/, contents, fn _, attrs ->
+            if String.contains?(attrs, "class=") do
+              "<svg#{attrs}>"
+            else
+              "<svg class=\"#{class}\"#{attrs}>"
+            end
+          end)
+
+        _ ->
+          "<!-- icon not found: #{name} -->"
+      end
+
+    assigns = assign(assigns, :svg, Phoenix.HTML.raw(svg))
+
+    ~H"""
+    {@svg}
+    """
+  end
+
+  @doc """
   Renders a modal.
 
   ## Examples
@@ -75,7 +116,7 @@ defmodule AprsmeWeb.CoreComponents do
                   class="-m-3 flex-none p-3 opacity-20 hover:opacity-40"
                   aria-label={gettext("close")}
                 >
-                  <Heroicons.x_mark solid class="h-5 w-5 stroke-current" />
+                  <.icon name="x-mark" outline={false} class="h-5 w-5 stroke-current" />
                 </button>
               </div>
               <div id={"#{@id}-content"}>
@@ -149,8 +190,8 @@ defmodule AprsmeWeb.CoreComponents do
       {@rest}
     >
       <p :if={@title} class="flex items-center gap-1.5 text-[0.8125rem] font-semibold leading-6">
-        <Heroicons.information_circle :if={@kind == :info} mini class="h-4 w-4" />
-        <Heroicons.exclamation_circle :if={@kind == :error} mini class="h-4 w-4" />
+        <.icon name="information-circle" outline={true} class="h-4 w-4" />
+        <.icon name="exclamation-circle" outline={true} class="h-4 w-4" />
         {@title}
       </p>
       <p class="mt-2 text-[0.8125rem] leading-5">{msg}</p>
@@ -160,7 +201,11 @@ defmodule AprsmeWeb.CoreComponents do
         class="group absolute top-2 right-1 p-2"
         aria-label={gettext("close")}
       >
-        <Heroicons.x_mark solid class="h-5 w-5 stroke-current opacity-40 group-hover:opacity-70" />
+        <.icon
+          name="x-mark"
+          outline={false}
+          class="h-5 w-5 stroke-current opacity-40 group-hover:opacity-70"
+        />
       </button>
     </div>
     """
@@ -386,7 +431,7 @@ defmodule AprsmeWeb.CoreComponents do
   def error(assigns) do
     ~H"""
     <p class="phx-no-feedback:hidden mt-3 flex gap-3 text-sm leading-6 text-rose-600">
-      <Heroicons.exclamation_circle mini class="mt-0.5 h-5 w-5 flex-none fill-rose-500" />
+      <.icon name="exclamation-circle" outline={true} class="mt-0.5 h-5 w-5 flex-none fill-rose-500" />
       {render_slot(@inner_block)}
     </p>
     """
@@ -540,7 +585,7 @@ defmodule AprsmeWeb.CoreComponents do
         navigate={@navigate}
         class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
       >
-        <Heroicons.arrow_left solid class="w-3 h-3 stroke-current inline" />
+        <.icon name="arrow-left" outline={false} class="w-3 h-3 stroke-current inline" />
         {render_slot(@inner_block)}
       </.link>
     </div>

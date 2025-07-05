@@ -14,7 +14,6 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
-  @finch_name Aprsme.Finch
 
   @impl true
   def mount(_params, _session, socket) do
@@ -1182,8 +1181,8 @@ defmodule AprsmeWeb.MapLive.Index do
 
   defp get_ip_location(ip) do
     # Asynchronously fetch IP location
-    case :get |> Finch.build("https://ip-api.com/json/#{ip}") |> Finch.request(@finch_name) do
-      {:ok, %{status: 200, body: body}} -> handle_ip_api_response(body)
+    case Req.get("https://ip-api.com/json/#{ip}") do
+      {:ok, %Req.Response{status: 200, body: body}} -> handle_ip_api_response(body)
       {:ok, _response} -> send_default_ip_location()
       {:error, %{reason: :timeout}} -> send_default_ip_location()
       {:error, _error} -> send_default_ip_location()

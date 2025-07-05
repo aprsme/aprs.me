@@ -84,13 +84,17 @@ defmodule AprsmeWeb do
 
   defp html_helpers do
     quote do
+      # Translation
+      use Gettext, backend: AprsmeWeb.Gettext
+
       import AprsmeWeb.CoreComponents
-      import AprsmeWeb.Gettext
+
       # HTML escaping functionality
       import Phoenix.HTML
-      # Core UI components and translation
+      # Core UI components
+      alias AprsmeWeb.Layouts
 
-      # Shortcut for generating JS commands
+      # Common modules used in templates
       alias Phoenix.LiveView.JS
 
       # Routes generation with the ~p sigil
