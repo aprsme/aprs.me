@@ -42,18 +42,15 @@ config :aprsme, AprsmeWeb.Endpoint,
 # Watch static and templates for browser reloading.
 config :aprsme, AprsmeWeb.Endpoint,
   live_reload: [
+    web_console_logger: true,
     patterns: [
-      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
-      ~r"lib/aprsme_web/(live|views)/.*(ex)$",
-      ~r"lib/aprsme_web/templates/.*(eex)$",
-      ~r"assets/vendor/.*(js|css)$"
+      ~r"lib/temp_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]
   ]
 
 # Enable dev routes for dashboard and mailbox
-#
-#     mix phx.gen.cert
 #
 # Run `mix help phx.gen.cert` for more information.
 config :aprsme, dev_routes: true

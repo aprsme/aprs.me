@@ -20,28 +20,8 @@ import "phoenix_html";
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
+import topbar from "../vendor/topbar"
 import "../vendor/oms.min.js";
-
-// Load topbar library
-const topbarScript = document.createElement('script');
-topbarScript.src = '/assets/topbar.js';
-topbarScript.onload = function() {
-  // Show progress bar on live navigation and form submits
-  if (window.topbar) {
-    window.topbar.config({ 
-      barColors: { 
-        0: "hsl(var(--p))",  // DaisyUI primary color
-        0.5: "hsl(var(--s))", // DaisyUI secondary color
-        1: "hsl(var(--a))"    // DaisyUI accent color
-      }, 
-      shadowColor: "rgba(0, 0, 0, .3)",
-      barThickness: 3
-    });
-    window.addEventListener("phx:page-loading-start", (info) => window.topbar.show(200));
-    window.addEventListener("phx:page-loading-stop", (info) => window.topbar.hide());
-  }
-};
-document.head.appendChild(topbarScript);
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
@@ -197,6 +177,12 @@ let liveSocket = new LiveSocket("/live", Socket, {
   params: { _csrf_token: csrfToken },
   hooks: Hooks,
 });
+
+// Show progress bar on live navigation and form submits
+topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
+window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
+window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
+
 
 // connect if there are any LiveViews on the page
 liveSocket.connect();
