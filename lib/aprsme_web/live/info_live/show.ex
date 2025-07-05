@@ -212,6 +212,7 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   defp get_other_ssids(callsign) do
     import Ecto.Query
+
     alias Aprsme.Packet
     alias Aprsme.Repo
     # Extract base callsign from the full callsign (remove SSID if present)
