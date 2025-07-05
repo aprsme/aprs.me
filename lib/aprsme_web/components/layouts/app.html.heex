@@ -1,3 +1,174 @@
+<style>
+  /* Map page specific styles */
+  body.map-page header {
+    display: none;
+  }
+
+  body.map-page main {
+    padding: 0;
+    max-width: none;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  body.map-page main > div {
+    max-width: none;
+    height: 100%;
+  }
+
+  body.map-page .phx-main {
+    position: relative;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  body.map-page div[data-phx-main="true"] {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Full page map for APRS home page and callsign pages */
+  body.map-page #aprs-map {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    z-index: 1 !important;
+    transition: right 0.3s ease-in-out !important;
+  }
+
+  /* Desktop slideover behavior for map */
+  @media (min-width: 1024px) {
+    body.map-page #aprs-map.slideover-open {
+      right: 352px !important;
+    }
+    
+    body.map-page #aprs-map.slideover-closed {
+      right: 0 !important;
+    }
+  }
+
+  /* Mobile slideover behavior for map */
+  @media (max-width: 1023px) {
+    body.map-page #aprs-map {
+      right: 0 !important;
+    }
+  }
+
+  /* Slideover toggle button styles */
+  body.map-page .slideover-toggle {
+    position: fixed !important;
+    right: 10px;
+    top: 10px;
+    z-index: 1001;
+    background: white;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.map-page .slideover-toggle:hover {
+    background: #f8fafc;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+  }
+
+  body.map-page .slideover-toggle:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Hide toggle on desktop when slideover is open */
+  @media (min-width: 1024px) {
+    body.map-page .slideover-toggle.slideover-open {
+      display: none;
+    }
+  }
+
+  /* Mobile toggle adjustments */
+  @media (max-width: 1023px) {
+    body.map-page .slideover-toggle {
+      right: 15px;
+      top: 15px;
+      padding: 12px;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+    }
+  }
+
+  /* Slideover panel responsive styles */
+  body.map-page .slideover-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    width: 352px;
+    background: white;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+
+  /* Desktop slideover behavior */
+  @media (min-width: 1024px) {
+    body.map-page .slideover-panel.slideover-open {
+      transform: translateX(0);
+    }
+    
+    body.map-page .slideover-panel.slideover-closed {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Mobile slideover behavior */
+  @media (max-width: 1023px) {
+    body.map-page .slideover-panel {
+      width: 100vw;
+      max-width: 400px;
+      box-shadow: -8px 0 32px rgba(0, 0, 0, 0.2);
+    }
+    
+    body.map-page .slideover-panel.slideover-open {
+      transform: translateX(0);
+    }
+    
+    body.map-page .slideover-panel.slideover-closed {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Mobile panel improvements */
+  @media (max-width: 1023px) {
+    body.map-page .slideover-panel {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
+  /* Improve scrolling on mobile */
+  @media (max-width: 1023px) {
+    body.map-page .slideover-panel {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+    
+    body.map-page .slideover-panel .flex-1 {
+      min-height: 0;
+    }
+  }
+</style>
+
 <.header />
 <main class="min-h-screen bg-base-100">
   <div>

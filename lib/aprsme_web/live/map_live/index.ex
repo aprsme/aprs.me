@@ -12,6 +12,8 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.MapLive.PacketUtils
   alias Phoenix.LiveView.Socket
 
+  @layout {AprsmeWeb.Layouts, :map}
+
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
 
@@ -54,7 +56,8 @@ defmodule AprsmeWeb.MapLive.Index do
        historical_hours: "1",
        packet_age_threshold: one_hour_ago,
        slideover_open: true,
-       deployed_at: deployed_at
+       deployed_at: deployed_at,
+       map_page: true
      )}
   end
 
@@ -774,7 +777,7 @@ defmodule AprsmeWeb.MapLive.Index do
           <form phx-change="update_trail_duration" class="relative">
             <select
               name="trail_duration"
-              class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white appearance-none transition-all duration-200 hover:border-slate-400"
+              class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white text-gray-900 appearance-none transition-all duration-200 hover:border-slate-400"
             >
               <option value="1" selected={@trail_duration == "1"}>1 Hour</option>
               <option value="6" selected={@trail_duration == "6"}>6 Hours</option>
@@ -799,17 +802,6 @@ defmodule AprsmeWeb.MapLive.Index do
               </svg>
             </div>
           </form>
-          <p class="text-xs text-slate-500 flex items-center space-x-1">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>How long should position trails be displayed</span>
-          </p>
         </div>
         
     <!-- Historical Data -->
@@ -828,7 +820,7 @@ defmodule AprsmeWeb.MapLive.Index do
           <form phx-change="update_historical_hours" class="relative">
             <select
               name="historical_hours"
-              class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white appearance-none transition-all duration-200 hover:border-slate-400"
+              class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white text-gray-900 appearance-none transition-all duration-200 hover:border-slate-400"
             >
               <option value="1" selected={@historical_hours == "1"}>1 Hour</option>
               <option value="3" selected={@historical_hours == "3"}>3 Hours</option>
@@ -852,17 +844,6 @@ defmodule AprsmeWeb.MapLive.Index do
               </svg>
             </div>
           </form>
-          <p class="text-xs text-slate-500 flex items-center space-x-1">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>How many hours of historical packets to load</span>
-          </p>
         </div>
         
     <!-- Navigation -->

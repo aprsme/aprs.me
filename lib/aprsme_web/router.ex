@@ -39,9 +39,6 @@ defmodule AprsmeWeb.Router do
       live "/about", AboutLive, :index
       live "/api", ApiDocsLive, :index
       live "/info/:callsign", InfoLive.Show, :show
-    end
-
-    live_session :map_pages, layout: {AprsmeWeb.Layouts, :map} do
       live "/", MapLive.Index, :index
       live "/:callsign", MapLive.CallsignView, :index
     end

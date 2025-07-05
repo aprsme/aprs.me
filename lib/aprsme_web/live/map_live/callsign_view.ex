@@ -9,6 +9,8 @@ defmodule AprsmeWeb.MapLive.CallsignView do
   alias AprsmeWeb.MapLive.MapHelpers
   alias AprsmeWeb.MapLive.PacketUtils
 
+  @layout {AprsmeWeb.Layouts, :map}
+
   @default_center %{lat: 39.0, lng: -98.0}
   @default_zoom 4
   @default_replay_speed 1.0
@@ -61,7 +63,8 @@ defmodule AprsmeWeb.MapLive.CallsignView do
         latest_symbol_table_id: "/",
         latest_symbol_code: ">",
         # Flag to track if latest marker was already pushed
-        latest_marker_pushed: false
+        latest_marker_pushed: false,
+        map_page: true
       )
 
     if connected?(socket) do
@@ -656,9 +659,11 @@ defmodule AprsmeWeb.MapLive.CallsignView do
         <div class="callsign-title">{@callsign}</div>
 
         <div class="nav-links">
-          <a href="/" class="nav-link">← Back to Map</a>
-          <a href="/packets" class="nav-link">All Packets</a>
-          <a href={"/packets/#{String.downcase(@callsign)}"} class="nav-link">{@callsign} Packets</a>
+          <.link navigate="/" class="nav-link">← Back to Map</.link>
+          <.link navigate="/packets" class="nav-link">All Packets</.link>
+          <.link navigate={"/packets/#{String.downcase(@callsign)}"} class="nav-link">
+            {@callsign} Packets
+          </.link>
         </div>
       </div>
 

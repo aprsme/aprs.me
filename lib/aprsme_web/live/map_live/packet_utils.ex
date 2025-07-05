@@ -199,14 +199,14 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
 
     weather_link_html =
       if has_weather_packets?(packet_info.callsign) do
-        ~s( <a href="/weather/#{packet_info.callsign}" class="aprs-info-link">weather charts</a>)
+        ~s( <.link navigate="/weather/#{packet_info.callsign}" class="aprs-info-link">weather charts</.link>)
       else
         ""
       end
 
     """
     <div class="aprs-popup">
-      <div class="aprs-callsign"><strong><a href="/#{packet_info.callsign}">#{packet_info.callsign}</a></strong> <a href="/info/#{packet_info.callsign}" class="aprs-info-link">info</a>#{weather_link_html}</div>
+      <div class="aprs-callsign"><strong><.link navigate="/#{packet_info.callsign}">#{packet_info.callsign}</.link></strong> <.link navigate="/info/#{packet_info.callsign}" class="aprs-info-link">info</.link>#{weather_link_html}</div>
       #{comment_html}
       #{timestamp_html}
     </div>
@@ -234,7 +234,7 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
 
     """
     <div class="aprs-popup" data-timestamp="#{cache_buster}">
-      <div class="aprs-callsign"><strong><a href="/#{sender}">#{sender}</a></strong> <a href="/info/#{sender}" class="aprs-info-link">info</a> <a href="/weather/#{sender}" class="aprs-info-link">weather charts</a></div>
+      <div class="aprs-callsign"><strong><.link navigate="/#{sender}">#{sender}</.link></strong> <.link navigate="/info/#{sender}" class="aprs-info-link">info</.link> <.link navigate="/weather/#{sender}" class="aprs-info-link">weather charts</.link></div>
       <div class="aprs-comment">Weather Report</div>
       #{timestamp_html}
       <hr style="margin-top: 4px; margin-bottom: 4px;">

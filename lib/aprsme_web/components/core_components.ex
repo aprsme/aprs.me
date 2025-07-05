@@ -446,9 +446,9 @@ defmodule AprsmeWeb.CoreComponents do
     ~H"""
     <div class="navbar bg-base-200 shadow-lg">
       <div class="navbar-start">
-        <a href="/" class="btn btn-ghost text-xl font-bold text-primary">
+        <.link navigate="/" class="btn btn-ghost text-xl font-bold text-primary">
           aprs.me
-        </a>
+        </.link>
       </div>
       <div class="navbar-center hidden lg:flex">
         <.navigation variant={:horizontal} />
@@ -751,14 +751,14 @@ defmodule AprsmeWeb.CoreComponents do
     ~H"""
     <%= if @variant == :horizontal do %>
       <ul class="menu menu-horizontal px-1">
-        <li><a href="/" class="link link-hover">Home</a></li>
-        <li><a href="/api" class="link link-hover">API</a></li>
-        <li><a href="/about" class="link link-hover">About</a></li>
+        <li><.link navigate="/" class="text-gray-900 hover:text-gray-700">Home</.link></li>
+        <li><.link navigate="/api" class="text-gray-900 hover:text-gray-700">API</.link></li>
+        <li><.link navigate="/about" class="text-gray-900 hover:text-gray-700">About</.link></li>
       </ul>
     <% else %>
-      <li><a href="/" class="link link-hover">Home</a></li>
-      <li><a href="/api" class="link link-hover">API</a></li>
-      <li><a href="/about" class="link link-hover">About</a></li>
+      <li><.link navigate="/" class="text-gray-900 hover:text-gray-700">Home</.link></li>
+      <li><.link navigate="/api" class="text-gray-900 hover:text-gray-700">API</.link></li>
+      <li><.link navigate="/about" class="text-gray-900 hover:text-gray-700">About</.link></li>
     <% end %>
     """
   end
