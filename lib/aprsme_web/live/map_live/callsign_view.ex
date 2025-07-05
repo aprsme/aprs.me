@@ -9,8 +9,6 @@ defmodule AprsmeWeb.MapLive.CallsignView do
   alias AprsmeWeb.MapLive.MapHelpers
   alias AprsmeWeb.MapLive.PacketUtils
 
-  @layout {AprsmeWeb.Layouts, :map}
-
   @default_center %{lat: 39.0, lng: -98.0}
   @default_zoom 4
   @default_replay_speed 1.0

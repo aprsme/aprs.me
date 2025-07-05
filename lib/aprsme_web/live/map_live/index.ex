@@ -12,8 +12,6 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.MapLive.PacketUtils
   alias Phoenix.LiveView.Socket
 
-  @layout {AprsmeWeb.Layouts, :map}
-
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
 
