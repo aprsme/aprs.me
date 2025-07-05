@@ -20,7 +20,7 @@ import "phoenix_html";
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
-import topbar from "../vendor/topbar.js";
+import "../vendor/topbar.js";
 import "../vendor/oms.min.js";
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
@@ -179,7 +179,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
 });
 
 // Show progress bar on live navigation and form submits
-topbar.config({ 
+window.topbar.config({ 
   barColors: { 
     0: "hsl(var(--p))",  // DaisyUI primary color
     0.5: "hsl(var(--s))", // DaisyUI secondary color
@@ -188,8 +188,8 @@ topbar.config({
   shadowColor: "rgba(0, 0, 0, .3)",
   barThickness: 3
 });
-window.addEventListener("phx:page-loading-start", (info) => topbar.delayedShow(200));
-window.addEventListener("phx:page-loading-stop", (info) => topbar.hide());
+window.addEventListener("phx:page-loading-start", (info) => window.topbar.show(200));
+window.addEventListener("phx:page-loading-stop", (info) => window.topbar.hide());
 
 // connect if there are any LiveViews on the page
 liveSocket.connect();
