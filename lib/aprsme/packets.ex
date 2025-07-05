@@ -412,9 +412,10 @@ defmodule Aprsme.Packets do
   def get_recent_packets_optimized(opts \\ %{}) do
     # Always limit to the last hour for initial load
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
-    limit = Map.get(opts, :limit, 500)
+    limit = Map.get(opts, :limit, 200)
 
     # Use a more efficient query that leverages the partial indexes
+    # Order by received_at DESC to get the most recent packets first
     base_query =
       from(p in Packet,
         where: p.has_position == true,

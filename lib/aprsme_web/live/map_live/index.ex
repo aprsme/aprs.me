@@ -38,7 +38,8 @@ defmodule AprsmeWeb.MapLive.Index do
     if connected?(socket) do
       Endpoint.subscribe("aprs_messages")
       Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
-      maybe_start_geolocation(socket)
+      # Defer IP geolocation to avoid blocking initial page load
+      Process.send_after(self(), :start_geolocation, 2000)
     end
 
     {:ok,
@@ -88,53 +89,6 @@ defmodule AprsmeWeb.MapLive.Index do
       # Slideover state - will be set based on screen size
       slideover_open: true
     )
-  end
-
-  @spec maybe_start_geolocation(Socket.t()) :: Socket.t()
-  defp maybe_start_geolocation(socket) do
-    if geolocation_enabled?() do
-      ip_for_geolocation =
-        if Application.get_env(:aprsme, AprsmeWeb.Endpoint)[:code_reloader] do
-          # For testing geolocation in dev environment, use a public IP address.
-          # This will be geolocated to Mountain View, CA.
-          "8.8.8.8"
-        else
-          extract_ip(socket)
-        end
-
-      if valid_ip_for_geolocation?(ip_for_geolocation) do
-        start_geolocation_task(ip_for_geolocation)
-      end
-    end
-
-    socket
-  end
-
-  defp geolocation_enabled? do
-    Application.get_env(:aprsme, :disable_aprs_connection, false) != true
-  end
-
-  defp extract_ip(socket) do
-    case socket.private[:connect_info][:peer_data][:address] do
-      {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
-      {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
-      _ -> nil
-    end
-  end
-
-  defp valid_ip_for_geolocation?(ip) do
-    ip && !String.starts_with?(ip, "127.") && !String.starts_with?(ip, "::1")
-  end
-
-  defp start_geolocation_task(ip) do
-    Task.start(fn ->
-      try do
-        get_ip_location(ip)
-      rescue
-        _error ->
-          send(self(), {:ip_location, @default_center})
-      end
-    end)
   end
 
   @impl true
@@ -211,8 +165,8 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("map_ready", _params, socket) do
     socket = assign(socket, map_ready: true)
 
-    # Always trigger reload of historical packets with the current value
-    send(self(), :reload_historical_packets)
+    # Load historical packets with a small delay to ensure map is fully ready
+    Process.send_after(self(), :reload_historical_packets, 100)
 
     # If we have pending geolocation, zoom to it now
     socket =
@@ -316,6 +270,8 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_info(:reload_historical_packets, socket), do: handle_reload_historical_packets(socket)
 
   def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
+
+  def handle_info(:start_geolocation, socket), do: handle_info_start_geolocation(socket)
 
   def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket),
     do: handle_info({:postgres_packet, packet}, socket)
@@ -452,6 +408,52 @@ defmodule AprsmeWeb.MapLive.Index do
       end
 
     {:noreply, assign(socket, visible_packets: new_visible_packets)}
+  end
+
+  defp handle_info_start_geolocation(socket) do
+    if geolocation_enabled?() do
+      ip_for_geolocation =
+        if Application.get_env(:aprsme, AprsmeWeb.Endpoint)[:code_reloader] do
+          # For testing geolocation in dev environment, use a public IP address.
+          # This will be geolocated to Mountain View, CA.
+          "8.8.8.8"
+        else
+          extract_ip(socket)
+        end
+
+      if valid_ip_for_geolocation?(ip_for_geolocation) do
+        start_geolocation_task(ip_for_geolocation)
+      end
+    end
+
+    {:noreply, socket}
+  end
+
+  defp geolocation_enabled? do
+    Application.get_env(:aprsme, :disable_aprs_connection, false) != true
+  end
+
+  defp extract_ip(socket) do
+    case socket.private[:connect_info][:peer_data][:address] do
+      {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
+      {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
+      _ -> nil
+    end
+  end
+
+  defp valid_ip_for_geolocation?(ip) do
+    ip && !String.starts_with?(ip, "127.") && !String.starts_with?(ip, "::1")
+  end
+
+  defp start_geolocation_task(ip) do
+    Task.start(fn ->
+      try do
+        get_ip_location(ip)
+      rescue
+        _error ->
+          send(self(), {:ip_location, @default_center})
+      end
+    end)
   end
 
   # Handle replaying the next historical packet
@@ -921,8 +923,8 @@ defmodule AprsmeWeb.MapLive.Index do
       # Clear existing historical packets
       socket = push_event(socket, "clear_historical_packets", %{})
 
-      # Load historical packets for the current map bounds and time range
-      socket = load_historical_packets_for_bounds(socket, socket.assigns.map_bounds)
+      # Use optimized loading for better performance
+      socket = load_historical_packets_for_bounds_optimized(socket, socket.assigns.map_bounds)
 
       {:noreply, socket}
     else
@@ -1112,14 +1114,14 @@ defmodule AprsmeWeb.MapLive.Index do
       map_bounds.north
     ]
 
-    # Use the optimized query for initial load
+    # Use the optimized query for initial load with smaller limit for faster loading
     packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
 
     historical_packets =
       packets_module.get_recent_packets_optimized(%{
         bounds: bounds,
-        # Smaller limit for faster initial load
-        limit: 500
+        # Reduced limit for faster initial load
+        limit: 200
       })
 
     if Enum.empty?(historical_packets) do
