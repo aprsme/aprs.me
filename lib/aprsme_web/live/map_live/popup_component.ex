@@ -5,6 +5,8 @@ defmodule AprsmeWeb.MapLive.PopupComponent do
   import AprsmeWeb.TimeHelpers
   import Gettext
 
+  alias AprsmeWeb.WeatherUnits
+
   def popup(assigns) do
     ~H"""
     <div class="aprs-popup" data-timestamp={@cache_buster}>
@@ -36,16 +38,16 @@ defmodule AprsmeWeb.MapLive.PopupComponent do
       <% end %>
       <%= if @weather do %>
         <hr style="margin-top: 4px; margin-bottom: 4px;" />
-        {gettext(AprsmeWeb.Gettext, "Temperature:")} {@temperature}°F<br />
+        {gettext(AprsmeWeb.Gettext, "Temperature:")} {@temperature}{@temp_unit}<br />
         {gettext(AprsmeWeb.Gettext, "Humidity:")} {@humidity}%<br />
-        {gettext(AprsmeWeb.Gettext, "Wind:")} {@wind_direction}° {gettext(AprsmeWeb.Gettext, "at")} {@wind_speed} mph, {gettext(
+        {gettext(AprsmeWeb.Gettext, "Wind:")} {@wind_direction}° {gettext(AprsmeWeb.Gettext, "at")} {@wind_speed} {@wind_unit}, {gettext(
           AprsmeWeb.Gettext,
           "gusts to"
-        )} {@wind_gust} mph<br />
+        )} {@wind_gust} {@gust_unit}<br />
         {gettext(AprsmeWeb.Gettext, "Pressure:")} {@pressure} hPa<br />
-        {gettext(AprsmeWeb.Gettext, "Rain (1h):")} {@rain_1h} in.<br />
-        {gettext(AprsmeWeb.Gettext, "Rain (24h):")} {@rain_24h} in.<br />
-        {gettext(AprsmeWeb.Gettext, "Rain (since midnight):")} {@rain_since_midnight} in.<br />
+        {gettext(AprsmeWeb.Gettext, "Rain (1h):")} {@rain_1h} {@rain_unit}<br />
+        {gettext(AprsmeWeb.Gettext, "Rain (24h):")} {@rain_24h} {@rain_unit}<br />
+        {gettext(AprsmeWeb.Gettext, "Rain (since midnight):")} {@rain_since_midnight} {@rain_unit}<br />
       <% end %>
     </div>
     """

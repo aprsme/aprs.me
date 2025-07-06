@@ -144,9 +144,11 @@ defmodule AprsmeWeb.MapLive.Index do
       end)
       |> Map.new()
 
+    locale = Map.get(socket.assigns, :locale, "en")
+
     visible_packets_list =
       filtered_packets
-      |> Enum.map(fn {_callsign, packet} -> PacketUtils.build_packet_data(packet) end)
+      |> Enum.map(fn {_callsign, packet} -> PacketUtils.build_packet_data(packet, false, locale) end)
       |> Enum.filter(& &1)
 
     socket = assign(socket, visible_packets: filtered_packets)
@@ -398,7 +400,8 @@ defmodule AprsmeWeb.MapLive.Index do
     new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
 
     # Live packets are always the most recent for their callsign
-    marker_data = PacketUtils.build_packet_data(packet, true)
+    locale = Map.get(socket.assigns, :locale, "en")
+    marker_data = PacketUtils.build_packet_data(packet, true, locale)
 
     socket =
       if marker_data do
@@ -1046,7 +1049,8 @@ defmodule AprsmeWeb.MapLive.Index do
     # Only show as red dot if it's not the most recent position
     is_most_recent = index == 0
 
-    packet_data = PacketUtils.build_packet_data(packet, is_most_recent)
+    # Note: We don't have access to locale here, so we'll use default "en"
+    packet_data = PacketUtils.build_packet_data(packet, is_most_recent, "en")
 
     if packet_data do
       packet_data

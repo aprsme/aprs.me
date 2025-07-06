@@ -329,7 +329,8 @@ defmodule AprsmeWeb.MapLive.CallsignView do
     socket = assign(socket, visible_packets: updated_visible_packets)
 
     # Live packets are always the most recent for their callsign
-    packet_data = PacketUtils.build_packet_data(packet, true)
+    locale = Map.get(socket.assigns, :locale, "en")
+    packet_data = PacketUtils.build_packet_data(packet, true, locale)
 
     socket =
       if packet_data,
@@ -355,7 +356,9 @@ defmodule AprsmeWeb.MapLive.CallsignView do
   end
 
   defp handle_replay_packet(packet, socket) do
-    case PacketUtils.build_packet_data(packet) do
+    locale = Map.get(socket.assigns, :locale, "en")
+
+    case PacketUtils.build_packet_data(packet, false, locale) do
       nil -> handle_invalid_replay_packet(socket)
       packet_data -> handle_valid_replay_packet(packet, packet_data, socket)
     end
@@ -814,7 +817,8 @@ defmodule AprsmeWeb.MapLive.CallsignView do
   end
 
   defp build_single_historical_packet_data(packet, index, callsign) do
-    case PacketUtils.build_packet_data(packet) do
+    # Note: We don't have access to locale here, so we'll use default "en"
+    case PacketUtils.build_packet_data(packet, false, "en") do
       nil ->
         nil
 
@@ -847,7 +851,8 @@ defmodule AprsmeWeb.MapLive.CallsignView do
 
   defp push_latest_marker(socket, latest_packet) do
     if latest_packet do
-      packet_data = PacketUtils.build_packet_data(latest_packet, true)
+      locale = Map.get(socket.assigns, :locale, "en")
+      packet_data = PacketUtils.build_packet_data(latest_packet, true, locale)
 
       if packet_data,
         do: {push_event(socket, "new_packet", packet_data), true},
@@ -992,7 +997,8 @@ defmodule AprsmeWeb.MapLive.CallsignView do
     if Map.get(socket.assigns, :latest_marker_pushed, false) do
       socket
     else
-      packet_data = PacketUtils.build_packet_data(packet, true)
+      locale = Map.get(socket.assigns, :locale, "en")
+      packet_data = PacketUtils.build_packet_data(packet, true, locale)
       if packet_data, do: push_event(socket, "new_packet", packet_data), else: socket
     end
   end

@@ -137,24 +137,25 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
       Map.get(data_extended, to_string(key)) || "N/A"
   end
 
-  def build_packet_data(packet, is_most_recent_for_callsign) when is_boolean(is_most_recent_for_callsign) do
+  def build_packet_data(packet, is_most_recent_for_callsign, locale \\ "en")
+      when is_boolean(is_most_recent_for_callsign) do
     {lat, lon, data_extended} = MapHelpers.get_coordinates(packet)
     callsign = generate_callsign(packet)
 
     if lat && lon && callsign != "" && callsign != nil do
-      packet_data = build_packet_map(packet, lat, lon, data_extended)
+      packet_data = build_packet_map(packet, lat, lon, data_extended, locale)
       Map.put(packet_data, "is_most_recent_for_callsign", is_most_recent_for_callsign)
     end
   end
 
   def build_packet_data(packet) do
-    build_packet_data(packet, false)
+    build_packet_data(packet, false, "en")
   end
 
-  defp build_packet_map(packet, lat, lon, data_extended) do
+  defp build_packet_map(packet, lat, lon, data_extended, locale) do
     data_extended = data_extended || %{}
     packet_info = extract_packet_info(packet, data_extended)
-    popup = build_popup_content(packet, packet_info, lat, lon)
+    popup = build_popup_content(packet, packet_info, lat, lon, locale)
 
     build_packet_result(packet, packet_info, lat, lon, popup)
   end
@@ -171,9 +172,9 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
     }
   end
 
-  defp build_popup_content(packet, packet_info, lat, lon) do
+  defp build_popup_content(packet, packet_info, lat, lon, locale) do
     if packet_info.is_weather_packet do
-      build_weather_popup_html(packet, packet_info.callsign)
+      build_weather_popup_html(packet, packet_info.callsign, locale)
     else
       build_standard_popup_html(packet_info, lat, lon)
     end
@@ -197,10 +198,26 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
     |> IO.iodata_to_binary()
   end
 
-  defp build_weather_popup_html(packet, sender) do
+  defp build_weather_popup_html(packet, sender, locale) do
     received_at = get_received_at(packet)
     timestamp_dt = TimeHelpers.to_datetime(received_at)
     cache_buster = System.system_time(:millisecond)
+
+    # Get weather data and convert units based on locale
+    temperature_raw = get_weather_field(packet, :temperature)
+    wind_speed_raw = get_weather_field(packet, :wind_speed)
+    wind_gust_raw = get_weather_field(packet, :wind_gust)
+    rain_1h_raw = get_weather_field(packet, :rain_1h)
+    rain_24h_raw = get_weather_field(packet, :rain_24h)
+    rain_since_midnight_raw = get_weather_field(packet, :rain_since_midnight)
+
+    # Convert units if the values are numbers
+    {temperature, temp_unit} = convert_temperature(temperature_raw, locale)
+    {wind_speed, wind_unit} = convert_wind_speed(wind_speed_raw, locale)
+    {wind_gust, gust_unit} = convert_wind_speed(wind_gust_raw, locale)
+    {rain_1h, rain_unit} = convert_rain(rain_1h_raw, locale)
+    {rain_24h, rain_unit} = convert_rain(rain_24h_raw, locale)
+    {rain_since_midnight, rain_unit} = convert_rain(rain_since_midnight_raw, locale)
 
     %{
       callsign: sender,
@@ -209,15 +226,19 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
       cache_buster: cache_buster,
       weather: true,
       weather_link: true,
-      temperature: get_weather_field(packet, :temperature),
+      temperature: temperature,
+      temp_unit: temp_unit,
       humidity: get_weather_field(packet, :humidity),
       wind_direction: get_weather_field(packet, :wind_direction),
-      wind_speed: get_weather_field(packet, :wind_speed),
-      wind_gust: get_weather_field(packet, :wind_gust),
+      wind_speed: wind_speed,
+      wind_unit: wind_unit,
+      wind_gust: wind_gust,
+      gust_unit: gust_unit,
       pressure: get_weather_field(packet, :pressure),
-      rain_1h: get_weather_field(packet, :rain_1h),
-      rain_24h: get_weather_field(packet, :rain_24h),
-      rain_since_midnight: get_weather_field(packet, :rain_since_midnight)
+      rain_1h: rain_1h,
+      rain_24h: rain_24h,
+      rain_since_midnight: rain_since_midnight,
+      rain_unit: rain_unit
     }
     |> PopupComponent.popup()
     |> Safe.to_iodata()
@@ -259,4 +280,23 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
       true -> nil
     end
   end
+
+  # Weather unit conversion helpers
+  defp convert_temperature(value, locale) when is_number(value) do
+    AprsmeWeb.WeatherUnits.format_temperature(value, locale)
+  end
+
+  defp convert_temperature(value, _locale), do: {value, "°F"}
+
+  defp convert_wind_speed(value, locale) when is_number(value) do
+    AprsmeWeb.WeatherUnits.format_wind_speed(value, locale)
+  end
+
+  defp convert_wind_speed(value, _locale), do: {value, "mph"}
+
+  defp convert_rain(value, locale) when is_number(value) do
+    AprsmeWeb.WeatherUnits.format_rain(value, locale)
+  end
+
+  defp convert_rain(value, _locale), do: {value, "in"}
 end
