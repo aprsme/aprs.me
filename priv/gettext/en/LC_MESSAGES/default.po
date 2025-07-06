@@ -814,14 +814,70 @@ msgstr ""
 msgid "°F"
 msgstr ""
 
-#: lib/aprsme_web/components/core_components.ex:756
-#: lib/aprsme_web/components/core_components.ex:761
+#: lib/aprsme_web/components/core_components.ex:760
+#: lib/aprsme_web/components/core_components.ex:768
 #, elixir-autogen, elixir-format
 msgid "About"
 msgstr ""
 
-#: lib/aprsme_web/components/core_components.ex:754
-#: lib/aprsme_web/components/core_components.ex:759
+#: lib/aprsme_web/components/core_components.ex:755
+#: lib/aprsme_web/components/core_components.ex:765
 #, elixir-autogen, elixir-format
 msgid "Home"
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:791
+#: lib/aprsme_web/live/map_live/index.ex:794
+#: lib/aprsme_web/live/map_live/index.ex:797
+#: lib/aprsme_web/live/map_live/index.ex:800
+#: lib/aprsme_web/live/map_live/index.ex:803
+#: lib/aprsme_web/live/map_live/index.ex:846
+#: lib/aprsme_web/live/map_live/index.ex:849
+#: lib/aprsme_web/live/map_live/index.ex:852
+#: lib/aprsme_web/live/map_live/index.ex:855
+#: lib/aprsme_web/live/map_live/index.ex:858
+#, elixir-autogen, elixir-format, fuzzy
+msgid "1 Hour"
+msgid_plural "%{count} Hours"
+msgstr[0] ""
+msgstr[1] ""
+
+#: lib/aprsme_web/live/map_live/index.ex:806
+#, elixir-autogen, elixir-format
+msgid "1 Week"
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:755
+#, elixir-autogen, elixir-format
+msgid "Enter callsign..."
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:838
+#, elixir-autogen, elixir-format
+msgid "Historical Data"
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:906
+#, elixir-autogen, elixir-format
+msgid "Last Deploy"
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:890
+#, elixir-autogen, elixir-format
+msgid "Navigation"
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:762
+#, elixir-autogen, elixir-format
+msgid "Search"
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:747
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Search Callsign"
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:783
+#, elixir-autogen, elixir-format
+msgid "Trail Duration"
 msgstr ""

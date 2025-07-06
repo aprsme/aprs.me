@@ -814,14 +814,70 @@ msgstr "mb"
 msgid "°F"
 msgstr "°F"
 
-#: lib/aprsme_web/components/core_components.ex:756
-#: lib/aprsme_web/components/core_components.ex:761
+#: lib/aprsme_web/components/core_components.ex:760
+#: lib/aprsme_web/components/core_components.ex:768
 #, elixir-autogen, elixir-format
 msgid "About"
 msgstr "Acerca de"
 
-#: lib/aprsme_web/components/core_components.ex:754
-#: lib/aprsme_web/components/core_components.ex:759
+#: lib/aprsme_web/components/core_components.ex:755
+#: lib/aprsme_web/components/core_components.ex:765
 #, elixir-autogen, elixir-format
 msgid "Home"
 msgstr "Inicio"
+
+#: lib/aprsme_web/live/map_live/index.ex:791
+#: lib/aprsme_web/live/map_live/index.ex:794
+#: lib/aprsme_web/live/map_live/index.ex:797
+#: lib/aprsme_web/live/map_live/index.ex:800
+#: lib/aprsme_web/live/map_live/index.ex:803
+#: lib/aprsme_web/live/map_live/index.ex:846
+#: lib/aprsme_web/live/map_live/index.ex:849
+#: lib/aprsme_web/live/map_live/index.ex:852
+#: lib/aprsme_web/live/map_live/index.ex:855
+#: lib/aprsme_web/live/map_live/index.ex:858
+#, elixir-autogen, elixir-format
+msgid "1 Hour"
+msgid_plural "%{count} Hours"
+msgstr[0] "1 hora"
+msgstr[1] "%{count} horas"
+
+#: lib/aprsme_web/live/map_live/index.ex:806
+#, elixir-autogen, elixir-format
+msgid "1 Week"
+msgstr "1 semana"
+
+#: lib/aprsme_web/live/map_live/index.ex:755
+#, elixir-autogen, elixir-format
+msgid "Enter callsign..."
+msgstr "Introduce indicativo..."
+
+#: lib/aprsme_web/live/map_live/index.ex:838
+#, elixir-autogen, elixir-format
+msgid "Historical Data"
+msgstr "Datos históricos"
+
+#: lib/aprsme_web/live/map_live/index.ex:906
+#, elixir-autogen, elixir-format
+msgid "Last Deploy"
+msgstr "Último despliegue"
+
+#: lib/aprsme_web/live/map_live/index.ex:890
+#, elixir-autogen, elixir-format
+msgid "Navigation"
+msgstr "Navegación"
+
+#: lib/aprsme_web/live/map_live/index.ex:762
+#, elixir-autogen, elixir-format
+msgid "Search"
+msgstr "Buscar"
+
+#: lib/aprsme_web/live/map_live/index.ex:747
+#, elixir-autogen, elixir-format
+msgid "Search Callsign"
+msgstr "Buscar indicativo"
+
+#: lib/aprsme_web/live/map_live/index.ex:783
+#, elixir-autogen, elixir-format
+msgid "Trail Duration"
+msgstr "Duración de la ruta"

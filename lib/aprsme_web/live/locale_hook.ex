@@ -5,7 +5,8 @@ defmodule AprsmeWeb.LocaleHook do
   """
   import Phoenix.Component
 
-  @supported_locales ["en", "es"]
+  # Cache supported locales at compile time
+  @supported_locales ~w(en es de fr)
 
   def on_mount(:set_locale, _params, session, socket) do
     locale = get_locale_from_session(session) || "en"

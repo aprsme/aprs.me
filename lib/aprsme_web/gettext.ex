@@ -21,4 +21,18 @@ defmodule AprsmeWeb.Gettext do
   See the [Gettext Docs](https://hexdocs.pm/gettext) for detailed usage.
   """
   use Gettext.Backend, otp_app: :aprsme
+
+  @supported_locales ~w(en es de fr)
+
+  @doc """
+  Sets the Gettext locale for the current process.
+  """
+  def put_locale(locale) when locale in @supported_locales do
+    Gettext.put_locale(__MODULE__, locale)
+  end
+
+  @doc """
+  Returns the list of supported locales.
+  """
+  def supported_locales, do: @supported_locales
 end

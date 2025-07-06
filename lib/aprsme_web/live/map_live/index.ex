@@ -744,7 +744,7 @@ defmodule AprsmeWeb.MapLive.Index do
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
-            <span>{Gettext.gettext(AprsmeWeb.Gettext, "Search Callsign")}</span>
+            <span>{gettext("Search Callsign")}</span>
           </label>
           <form phx-submit="search_callsign" class="flex space-x-2">
             <input
@@ -752,14 +752,14 @@ defmodule AprsmeWeb.MapLive.Index do
               name="callsign"
               value={@overlay_callsign}
               phx-change="update_callsign"
-              placeholder={Gettext.gettext(AprsmeWeb.Gettext, "Enter callsign...")}
+              placeholder={gettext("Enter callsign...")}
               class="flex-1 px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm uppercase placeholder-slate-400 transition-all duration-200 hover:border-slate-400"
             />
             <button
               type="submit"
               class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl"
             >
-              {Gettext.gettext(AprsmeWeb.Gettext, "Search")}
+              {gettext("Search")}
             </button>
           </form>
         </div>
@@ -780,7 +780,7 @@ defmodule AprsmeWeb.MapLive.Index do
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span>{Gettext.gettext(AprsmeWeb.Gettext, "Trail Duration")}</span>
+            <span>{gettext("Trail Duration")}</span>
           </label>
           <form phx-change="update_trail_duration" class="relative">
             <select
@@ -788,22 +788,22 @@ defmodule AprsmeWeb.MapLive.Index do
               class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white text-gray-900 appearance-none transition-all duration-200 hover:border-slate-400"
             >
               <option value="1" selected={@trail_duration == "1"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "1 Hour")}
+                {ngettext("1 Hour", "%{count} Hours", 1)}
               </option>
               <option value="6" selected={@trail_duration == "6"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "6 Hours")}
+                {ngettext("1 Hour", "%{count} Hours", 6)}
               </option>
               <option value="12" selected={@trail_duration == "12"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "12 Hours")}
+                {ngettext("1 Hour", "%{count} Hours", 12)}
               </option>
               <option value="24" selected={@trail_duration == "24"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "24 Hours")}
+                {ngettext("1 Hour", "%{count} Hours", 24)}
               </option>
               <option value="48" selected={@trail_duration == "48"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "48 Hours")}
+                {ngettext("1 Hour", "%{count} Hours", 48)}
               </option>
               <option value="168" selected={@trail_duration == "168"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "1 Week")}
+                {gettext("1 Week")}
               </option>
             </select>
             <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -835,7 +835,7 @@ defmodule AprsmeWeb.MapLive.Index do
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span>{Gettext.gettext(AprsmeWeb.Gettext, "Historical Data")}</span>
+            <span>{gettext("Historical Data")}</span>
           </label>
           <form phx-change="update_historical_hours" class="relative">
             <select
@@ -843,19 +843,19 @@ defmodule AprsmeWeb.MapLive.Index do
               class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white text-gray-900 appearance-none transition-all duration-200 hover:border-slate-400"
             >
               <option value="1" selected={@historical_hours == "1"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "1 Hour")}
+                {ngettext("1 Hour", "%{count} Hours", 1)}
               </option>
               <option value="3" selected={@historical_hours == "3"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "3 Hours")}
+                {ngettext("1 Hour", "%{count} Hours", 3)}
               </option>
               <option value="6" selected={@historical_hours == "6"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "6 Hours")}
+                {ngettext("1 Hour", "%{count} Hours", 6)}
               </option>
               <option value="12" selected={@historical_hours == "12"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "12 Hours")}
+                {ngettext("1 Hour", "%{count} Hours", 12)}
               </option>
               <option value="24" selected={@historical_hours == "24"}>
-                {Gettext.gettext(AprsmeWeb.Gettext, "24 Hours")}
+                {ngettext("1 Hour", "%{count} Hours", 24)}
               </option>
             </select>
             <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -887,7 +887,7 @@ defmodule AprsmeWeb.MapLive.Index do
                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"
               />
             </svg>
-            <span class="font-medium">{Gettext.gettext(AprsmeWeb.Gettext, "Navigation")}</span>
+            <span class="font-medium">{gettext("Navigation")}</span>
           </div>
           <.navigation variant={:vertical} class="text-sm" />
         </div>
@@ -903,7 +903,7 @@ defmodule AprsmeWeb.MapLive.Index do
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span class="font-medium">{Gettext.gettext(AprsmeWeb.Gettext, "Last Deploy")}</span>
+            <span class="font-medium">{gettext("Last Deploy")}</span>
           </div>
           <div class="text-xs text-slate-500">
             <div class="font-mono">{time_ago_in_words(@deployed_at)}</div>

@@ -27,8 +27,9 @@ config :aprsme, AprsmeWeb.Endpoint,
   live_view: [signing_salt: "ees098qG"]
 
 # Configure Gettext
+# Configure Gettext with supported locales from AprsmeWeb.Gettext module
 config :aprsme, AprsmeWeb.Gettext,
-  locales: ~w(en es),
+  locales: ~w(en es de),
   default_locale: "en"
 
 # Configure Oban for background jobs

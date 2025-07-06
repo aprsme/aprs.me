@@ -5,13 +5,12 @@ defmodule AprsmeWeb.Plugs.SetLocale do
   """
   import Plug.Conn
 
-  @supported_locales ["en", "es"]
-
   def init(opts), do: opts
 
   def call(conn, _opts) do
     locale = get_locale_from_header(conn) || "en"
     IO.puts("DEBUG: SetLocale - Final locale: #{locale}")
+    # Set the backend's locale for the current process
     Gettext.put_locale(AprsmeWeb.Gettext, locale)
     # Store locale in session for LiveView to access
     conn = put_session(conn, :locale, locale)
@@ -48,6 +47,6 @@ defmodule AprsmeWeb.Plugs.SetLocale do
   end
 
   defp supported_locale?(locale) do
-    locale in @supported_locales
+    locale in ~w(en es de fr)
   end
 end
