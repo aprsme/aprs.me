@@ -27,7 +27,7 @@ msgstr "close"
 msgid "%{count} days"
 msgstr "%{count} days"
 
-#: lib/aprsme_web/live/status_live/index.ex:310
+#: lib/aprsme_web/live/status_live/index.ex:324
 #, elixir-autogen, elixir-format
 msgid "%{count} days ago"
 msgstr "%{count} days ago"
@@ -37,7 +37,7 @@ msgstr "%{count} days ago"
 msgid "%{count} hours"
 msgstr "%{count} hours"
 
-#: lib/aprsme_web/live/status_live/index.ex:309
+#: lib/aprsme_web/live/status_live/index.ex:323
 #, elixir-autogen, elixir-format
 msgid "%{count} hours ago"
 msgstr "%{count} hours ago"
@@ -47,7 +47,7 @@ msgstr "%{count} hours ago"
 msgid "%{count} minutes"
 msgstr "%{count} minutes"
 
-#: lib/aprsme_web/live/status_live/index.ex:308
+#: lib/aprsme_web/live/status_live/index.ex:322
 #, elixir-autogen, elixir-format
 msgid "%{count} minutes ago"
 msgstr "%{count} minutes ago"
@@ -57,7 +57,7 @@ msgstr "%{count} minutes ago"
 msgid "%{count} months"
 msgstr "%{count} months"
 
-#: lib/aprsme_web/live/status_live/index.ex:307
+#: lib/aprsme_web/live/status_live/index.ex:321
 #, elixir-autogen, elixir-format
 msgid "%{count} seconds ago"
 msgstr "%{count} seconds ago"
@@ -107,7 +107,7 @@ msgstr ""
 msgid "1 year"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:78
+#: lib/aprsme_web/live/status_live/index.ex:80
 #, elixir-autogen, elixir-format
 msgid "APRS-IS Connection"
 msgstr ""
@@ -153,27 +153,27 @@ msgstr ""
 msgid "Bad request"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:87
+#: lib/aprsme_web/live/status_live/index.ex:89
 #, elixir-autogen, elixir-format
 msgid "Connected"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:110
+#: lib/aprsme_web/live/status_live/index.ex:113
 #, elixir-autogen, elixir-format
 msgid "Connected Since:"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:187
+#: lib/aprsme_web/live/status_live/index.ex:201
 #, elixir-autogen, elixir-format
 msgid "Connection Health:"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:92
+#: lib/aprsme_web/live/status_live/index.ex:94
 #, elixir-autogen, elixir-format
 msgid "Disconnected"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:294
+#: lib/aprsme_web/live/status_live/index.ex:308
 #, elixir-autogen, elixir-format
 msgid "Disconnected - Connection issues detected"
 msgstr ""
@@ -188,12 +188,12 @@ msgstr ""
 msgid "Error Type"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:298
+#: lib/aprsme_web/live/status_live/index.ex:312
 #, elixir-autogen, elixir-format
 msgid "Excellent - Long-term stable connection"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:131
+#: lib/aprsme_web/live/status_live/index.ex:135
 #, elixir-autogen, elixir-format
 msgid "Filter:"
 msgstr ""
@@ -203,7 +203,7 @@ msgstr ""
 msgid "Forbidden"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:296
+#: lib/aprsme_web/live/status_live/index.ex:310
 #, elixir-autogen, elixir-format
 msgid "Good - Connection stable for less than 1 hour"
 msgstr ""
@@ -213,7 +213,7 @@ msgstr ""
 msgid "Internal server error"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:165
+#: lib/aprsme_web/live/status_live/index.ex:176
 #, elixir-autogen, elixir-format
 msgid "Last Packet:"
 msgstr ""
@@ -223,7 +223,7 @@ msgstr ""
 msgid "Last updated:"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:105
+#: lib/aprsme_web/live/status_live/index.ex:107
 #, elixir-autogen, elixir-format
 msgid "Login ID:"
 msgstr ""
@@ -238,28 +238,28 @@ msgstr ""
 msgid "No error message"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:170
+#: lib/aprsme_web/live/status_live/index.ex:182
 #, elixir-autogen, elixir-format
 msgid "None"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:115
-#: lib/aprsme_web/live/status_live/index.ex:262
+#: lib/aprsme_web/live/status_live/index.ex:119
+#: lib/aprsme_web/live/status_live/index.ex:276
 #, elixir-autogen, elixir-format
 msgid "Not connected"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:141
+#: lib/aprsme_web/live/status_live/index.ex:145
 #, elixir-autogen, elixir-format
 msgid "Packet Statistics"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:158
+#: lib/aprsme_web/live/status_live/index.ex:167
 #, elixir-autogen, elixir-format
 msgid "Packets/Min:"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:151
+#: lib/aprsme_web/live/status_live/index.ex:158
 #, elixir-autogen, elixir-format
 msgid "Packets/Sec:"
 msgstr ""
@@ -291,7 +291,7 @@ msgstr ""
 msgid "Raw Packet"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:295
+#: lib/aprsme_web/live/status_live/index.ex:309
 #, elixir-autogen, elixir-format
 msgid "Recently connected - Monitoring stability"
 msgstr ""
@@ -308,17 +308,17 @@ msgstr ""
 msgid "Resource not found"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:98
+#: lib/aprsme_web/live/status_live/index.ex:100
 #, elixir-autogen, elixir-format
 msgid "Server:"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:83
+#: lib/aprsme_web/live/status_live/index.ex:85
 #, elixir-autogen, elixir-format
 msgid "Status:"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:176
+#: lib/aprsme_web/live/status_live/index.ex:189
 #, elixir-autogen, elixir-format
 msgid "Stored Packets:"
 msgstr ""
@@ -383,7 +383,7 @@ msgstr ""
 msgid "The system is currently disconnected from the APRS-IS network. This may be due to network issues or server maintenance."
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:144
+#: lib/aprsme_web/live/status_live/index.ex:149
 #, elixir-autogen, elixir-format
 msgid "Total Packets:"
 msgstr ""
@@ -407,7 +407,7 @@ msgstr ""
 msgid "Unknown"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:299
+#: lib/aprsme_web/live/status_live/index.ex:313
 #, elixir-autogen, elixir-format
 msgid "Unknown status"
 msgstr ""
@@ -422,7 +422,7 @@ msgstr ""
 msgid "Updating..."
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:121
+#: lib/aprsme_web/live/status_live/index.ex:125
 #, elixir-autogen, elixir-format
 msgid "Uptime:"
 msgstr ""
@@ -432,7 +432,7 @@ msgstr ""
 msgid "Validation failed"
 msgstr ""
 
-#: lib/aprsme_web/live/status_live/index.ex:297
+#: lib/aprsme_web/live/status_live/index.ex:311
 #, elixir-autogen, elixir-format
 msgid "Very good - Connection stable for less than 1 day"
 msgstr ""
@@ -558,7 +558,7 @@ msgstr ""
 msgid "Weather Details"
 msgstr ""
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:165
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:166
 #, elixir-autogen, elixir-format
 msgid "Weather History Graphs"
 msgstr ""
@@ -812,4 +812,16 @@ msgstr ""
 #: lib/aprsme_web/live/weather_live/callsign_view.ex:62
 #, elixir-autogen, elixir-format
 msgid "°F"
+msgstr ""
+
+#: lib/aprsme_web/components/core_components.ex:756
+#: lib/aprsme_web/components/core_components.ex:761
+#, elixir-autogen, elixir-format
+msgid "About"
+msgstr ""
+
+#: lib/aprsme_web/components/core_components.ex:754
+#: lib/aprsme_web/components/core_components.ex:759
+#, elixir-autogen, elixir-format
+msgid "Home"
 msgstr ""

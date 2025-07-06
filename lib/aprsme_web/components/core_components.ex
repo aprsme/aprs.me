@@ -751,14 +751,22 @@ defmodule AprsmeWeb.CoreComponents do
     ~H"""
     <%= if @variant == :horizontal do %>
       <ul class="menu menu-horizontal px-1">
-        <li><.link navigate="/" class="text-gray-900 hover:text-gray-700">Home</.link></li>
+        <li>
+          <.link navigate="/" class="text-gray-900 hover:text-gray-700">{gettext("Home")}</.link>
+        </li>
         <li><.link navigate="/api" class="text-gray-900 hover:text-gray-700">API</.link></li>
-        <li><.link navigate="/about" class="text-gray-900 hover:text-gray-700">About</.link></li>
+        <li>
+          <.link navigate="/about" class="text-gray-900 hover:text-gray-700">
+            {gettext("About")}
+          </.link>
+        </li>
       </ul>
     <% else %>
-      <li><.link navigate="/" class="text-gray-900 hover:text-gray-700">Home</.link></li>
+      <li><.link navigate="/" class="text-gray-900 hover:text-gray-700">{gettext("Home")}</.link></li>
       <li><.link navigate="/api" class="text-gray-900 hover:text-gray-700">API</.link></li>
-      <li><.link navigate="/about" class="text-gray-900 hover:text-gray-700">About</.link></li>
+      <li>
+        <.link navigate="/about" class="text-gray-900 hover:text-gray-700">{gettext("About")}</.link>
+      </li>
     <% end %>
     """
   end
