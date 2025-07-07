@@ -4,7 +4,7 @@ defmodule Aprsme.MixProject do
   def project do
     [
       app: :aprsme,
-      version: "0.1.0",
+      version: get_version(),
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -123,6 +123,14 @@ defmodule Aprsme.MixProject do
       {:aprs, path: "vendor/aprs"}
     else
       {:aprs, github: "aprsme/aprs", branch: "main"}
+    end
+  end
+
+  # Get version from PARSER_GIT_HASH environment variable or fall back to default
+  defp get_version do
+    case System.get_env("PARSER_GIT_HASH") do
+      nil -> "0.1.0"
+      hash -> hash
     end
   end
 end

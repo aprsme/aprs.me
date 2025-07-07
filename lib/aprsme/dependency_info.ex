@@ -10,7 +10,11 @@ defmodule Aprsme.DependencyInfo do
   """
   def get_aprs_library_sha do
     if Application.get_env(:aprsme, :env, :dev) == :prod do
-      fetch_aprs_sha_from_github()
+      # In production, use environment variable set during build if available
+      case System.get_env("PARSER_GIT_HASH") do
+        nil -> fetch_aprs_sha_from_github()
+        hash -> hash
+      end
     else
       get_aprs_sha_from_vendor()
     end

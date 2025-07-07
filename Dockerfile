@@ -23,6 +23,10 @@ RUN mix local.hex --force && mix local.rebar --force
 # Set build environment
 ENV MIX_ENV="prod"
 
+# Capture APRS parser git hash from GitHub API
+RUN curl -s https://api.github.com/repos/aprsme/aprs/commits/main | grep -o '"sha":"[^"]*"' | head -1 | cut -d'"' -f4 | cut -c1-7 > /tmp/parser_hash.txt
+ENV PARSER_GIT_HASH=$(cat /tmp/parser_hash.txt)
+
 # Install dependencies
 COPY mix.exs mix.lock ./
 RUN mix deps.get --only $MIX_ENV
