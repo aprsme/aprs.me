@@ -47,27 +47,17 @@ defmodule Aprsme.DependencyInfo do
   defp get_static_parser_hash do
     case System.get_env("PARSER_GIT_HASH") do
       nil ->
-        "unknown"
-
-      "unknown" ->
-        # Try to read from the file copied during build
+        # Fallback: try to read from the file
         hash_file = Path.join(["/app", "parser_hash.txt"])
 
-        # Try alternative paths
-        alternative_paths = [
-          hash_file,
-          Path.join([File.cwd!(), "parser_hash.txt"]),
-          "parser_hash.txt"
-        ]
-
-        Enum.find_value(alternative_paths, "unknown", fn path ->
-          if File.exists?(path) do
-            case File.read(path) do
-              {:ok, hash} -> String.trim(hash)
-              _ -> nil
-            end
+        if File.exists?(hash_file) do
+          case File.read(hash_file) do
+            {:ok, hash} -> String.trim(hash)
+            _ -> "unknown"
           end
-        end)
+        else
+          "unknown"
+        end
 
       hash ->
         hash
