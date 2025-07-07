@@ -79,7 +79,8 @@ if config_env() == :prod do
     aprs_is_port: 14_580,
     aprs_is_default_filter: System.get_env("APRS_FILTER"),
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
-    aprs_is_password: System.get_env("APRS_PASSCODE")
+    aprs_is_password: System.get_env("APRS_PASSCODE"),
+    env: :prod
 
   # ## Configuring the mailer
   #

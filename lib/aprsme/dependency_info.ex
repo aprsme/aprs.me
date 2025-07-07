@@ -9,7 +9,7 @@ defmodule Aprsme.DependencyInfo do
   In production: fetches from GitHub API
   """
   def get_aprs_library_sha do
-    if Mix.env() == :prod do
+    if Application.get_env(:aprsme, :env, :dev) == :prod do
       fetch_aprs_sha_from_github()
     else
       get_aprs_sha_from_vendor()
