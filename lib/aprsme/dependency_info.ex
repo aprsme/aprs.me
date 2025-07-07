@@ -40,11 +40,7 @@ defmodule Aprsme.DependencyInfo do
   In production: uses the hash captured at compile time
   """
   def get_aprs_library_sha do
-    if Application.get_env(:aprsme, :env, :dev) == :prod do
-      @aprs_hash
-    else
-      get_aprs_sha_from_vendor()
-    end
+    System.get_env("APRS_PARSER_HASH") || "unknown"
   end
 
   defp get_aprs_sha_from_vendor do

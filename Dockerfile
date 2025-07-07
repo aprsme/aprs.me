@@ -29,6 +29,8 @@ RUN curl -s https://api.github.com/repos/aprsme/aprs/commits/main | grep -o '"sh
 
 # Install dependencies
 COPY mix.exs mix.lock ./
+# Extract the hash from mix.lock and write to a file
+RUN grep -oE 'aprs.*ref,\\s*"([a-f0-9]+)"' mix.lock | grep -oE '[a-f0-9]{7,}' | head -1 > /tmp/aprs_hash.txt
 RUN mix deps.get --only $MIX_ENV
 RUN mix deps.compile
 
@@ -69,6 +71,11 @@ COPY --from=builder /tmp/parser_hash.txt /app/parser_hash.txt
 
 # Set parser git hash environment variable for runtime
 RUN PARSER_HASH=$(cat /app/parser_hash.txt) && echo "PARSER_GIT_HASH=$PARSER_HASH" >> /etc/environment
+
+# In the runtime stage, after WORKDIR /app
+COPY --from=builder /tmp/aprs_hash.txt /app/aprs_hash.txt
+RUN echo "APRS_PARSER_HASH=$(cat /app/aprs_hash.txt)" >> /etc/environment
+ENV APRS_PARSER_HASH="unknown"
 
 # Copy release from builder
 COPY --from=builder --chown=nobody:root /app/release ./
