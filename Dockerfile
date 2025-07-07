@@ -24,14 +24,11 @@ RUN mix local.hex --force && mix local.rebar --force
 # Set build environment
 ENV MIX_ENV="prod"
 
-# Capture APRS parser git hash from GitHub API during build
-RUN curl -s https://api.github.com/repos/aprsme/aprs/commits/main | grep -o '"sha":"[^\"]*"' | head -1 | cut -d'"' -f4 | cut -c1-7 > /tmp/parser_hash.txt
-
 # Install dependencies
 COPY mix.exs mix.lock ./
-# Extract the hash from mix.lock and write to a file
-RUN grep -oE 'aprs.*ref,\\s*"([a-f0-9]+)"' mix.lock | grep -oE '[a-f0-9]{7,}' | head -1 > /tmp/aprs_hash.txt
 RUN mix deps.get --only $MIX_ENV
+# Extract the APRS parser hash from the fetched GitHub dependency
+RUN cd deps/aprs && git rev-parse HEAD | cut -c1-7 > /tmp/aprs_hash.txt
 RUN mix deps.compile
 
 # Copy application code
@@ -66,16 +63,11 @@ RUN mkdir -p /app
 # Set deployment timestamp to current time during runtime container build
 RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > /app/deployed_at.txt
 
-# Copy parser hash from builder stage
-COPY --from=builder /tmp/parser_hash.txt /app/parser_hash.txt
-
-# Set parser git hash environment variable for runtime
-RUN PARSER_HASH=$(cat /app/parser_hash.txt) && echo "PARSER_GIT_HASH=$PARSER_HASH" >> /etc/environment
-
-# In the runtime stage, after WORKDIR /app
+# Copy APRS parser hash from builder stage
 COPY --from=builder /tmp/aprs_hash.txt /app/aprs_hash.txt
-RUN echo "APRS_PARSER_HASH=$(cat /app/aprs_hash.txt)" >> /etc/environment
-ENV APRS_PARSER_HASH="unknown"
+
+# Set APRS parser hash environment variable for runtime
+RUN APRS_HASH=$(cat /app/aprs_hash.txt) && echo "APRS_PARSER_HASH=$APRS_HASH" >> /etc/environment
 
 # Copy release from builder
 COPY --from=builder --chown=nobody:root /app/release ./
