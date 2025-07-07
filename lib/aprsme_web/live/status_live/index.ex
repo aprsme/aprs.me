@@ -14,6 +14,7 @@ defmodule AprsmeWeb.StatusLive.Index do
         page_title: "System Status",
         aprs_status: get_aprs_status(),
         version: get_app_version(),
+        aprs_library_sha: get_aprs_library_sha(),
         current_time: DateTime.utc_now(),
         health_score: calculate_health_score(get_aprs_status())
       )
@@ -45,6 +46,37 @@ defmodule AprsmeWeb.StatusLive.Index do
             <div class="text-sm opacity-70">
               {gettext("Last updated:")}
               <span class="font-mono">{Calendar.strftime(@current_time, "%H:%M:%S UTC")}</span>
+            </div>
+          </div>
+          
+    <!-- Application Information -->
+          <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">{gettext("Application Information")}</h2>
+            <div class="card bg-base-200">
+              <div class="card-body">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Version:")}</span>
+                    <span class="text-sm font-mono">{@version}</span>
+                  </div>
+                  <%= if @aprs_library_sha do %>
+                    <div class="flex items-center">
+                      <span class="text-sm font-medium opacity-70 mr-2">
+                        {gettext("APRS Library:")}
+                      </span>
+                      <span class="text-sm font-mono">
+                        <a
+                          href="https://github.com/aprsme/aprs/commit/{@aprs_library_sha}"
+                          target="_blank"
+                          class="link link-primary"
+                        >
+                          {@aprs_library_sha}
+                        </a>
+                      </span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -257,6 +289,10 @@ defmodule AprsmeWeb.StatusLive.Index do
 
   defp get_app_version do
     :aprsme |> Application.spec(:vsn) |> List.to_string()
+  end
+
+  defp get_aprs_library_sha do
+    Aprsme.DependencyInfo.get_aprs_library_sha()
   end
 
   defp refresh_status(socket) do
