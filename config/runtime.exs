@@ -82,6 +82,19 @@ if config_env() == :prod do
     aprs_is_password: System.get_env("APRS_PASSCODE"),
     env: :prod
 
+  # Configure libcluster for Dokku clustering
+  config :libcluster,
+    topologies: [
+      dokku: [
+        strategy: Cluster.Strategy.DNSPoll,
+        config: [
+          polling_interval: 5_000,
+          query: System.get_env("DOKKU_DNS_CLUSTER_QUERY", "tasks.#{System.get_env("DOKKU_APP_NAME", "aprsme")}"),
+          node_basename: System.get_env("DOKKU_APP_NAME", "aprsme")
+        ]
+      ]
+    ]
+
   # ## Configuring the mailer
   #
   # In production you need to configure the mailer to use a different adapter.
