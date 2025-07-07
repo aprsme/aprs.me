@@ -11,7 +11,7 @@ ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 FROM ${BUILDER_IMAGE} AS builder
 
 # Install build dependencies
-RUN apt-get update -y && apt-get install -y --no-install-recommends build-essential git \
+RUN apt-get update -y && apt-get install -y --no-install-recommends build-essential git curl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Prepare build directory
@@ -22,11 +22,7 @@ RUN mix local.hex --force && mix local.rebar --force
 
 # Set build environment
 ENV MIX_ENV="prod"
-
-# Capture APRS parser git hash from GitHub API and set as ENV
-RUN PARSER_GIT_HASH=$(curl -s https://api.github.com/repos/aprsme/aprs/commits/main | grep -o '"sha":"[^\"]*"' | head -1 | cut -d'"' -f4 | cut -c1-7) && \
-    echo "PARSER_GIT_HASH=$PARSER_GIT_HASH" > parser_git_hash.env
-ENV $(cat parser_git_hash.env | xargs)
+ENV PARSER_GIT_HASH="unknown"
 
 # Install dependencies
 COPY mix.exs mix.lock ./
