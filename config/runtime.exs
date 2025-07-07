@@ -89,8 +89,8 @@ if config_env() == :prod do
         strategy: Cluster.Strategy.DNSPoll,
         config: [
           polling_interval: 5_000,
-          query: System.get_env("DOKKU_DNS_CLUSTER_QUERY", "tasks.#{System.get_env("DOKKU_APP_NAME", "aprsme")}"),
-          node_basename: System.get_env("DOKKU_APP_NAME", "aprsme")
+          query: System.get_env("DOKKU_DNS_CLUSTER_QUERY", "tasks.#{System.get_env("DOKKU_APP_NAME", "aprs")}"),
+          node_basename: System.get_env("DOKKU_APP_NAME", "aprs")
         ]
       ]
     ]
