@@ -130,7 +130,8 @@ defmodule Aprsme.MixProject do
   defp get_version do
     case System.get_env("PARSER_GIT_HASH") do
       nil -> "0.1.0"
-      hash -> hash
+      "unknown" -> "0.1.0"
+      hash -> "0.0.0-#{hash}"
     end
   end
 end

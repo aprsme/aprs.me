@@ -11,6 +11,7 @@ ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 FROM ${BUILDER_IMAGE} AS builder
 
 # Install build dependencies
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && apt-get install -y --no-install-recommends build-essential git curl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
