@@ -86,11 +86,12 @@ if config_env() == :prod do
   config :libcluster,
     topologies: [
       dokku: [
-        strategy: Cluster.Strategy.DNSPoll,
+        strategy: Cluster.Strategy.Epmd,
         config: [
-          polling_interval: 5_000,
-          query: System.get_env("DOKKU_DNS_CLUSTER_QUERY", "aprs.web"),
-          node_basename: "aprs"
+          hosts: [
+            :"aprs@aprs.web.1",
+            :"aprs@aprs.web.2"
+          ]
         ]
       ]
     ]
