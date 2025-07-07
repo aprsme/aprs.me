@@ -286,7 +286,7 @@ msgstr "RELAY-2 (Relay-Digipeater, 2 Hops)"
 
 #: lib/aprsme_web/live/bad_packets_live/index.html.heex:58
 #: lib/aprsme_web/live/info_live/show.html.heex:227
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:148
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:149
 #, elixir-autogen, elixir-format
 msgid "Raw Packet"
 msgstr "Rohpaket"
@@ -492,7 +492,7 @@ msgstr "WIDE7-1 (WIDE-Bereichs-Digipeater, 7 Hops)"
 msgid "less than a minute"
 msgstr "weniger als eine Minute"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:118
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:119
 #, elixir-autogen, elixir-format
 msgid "Gusts"
 msgstr "Böen"
@@ -507,27 +507,27 @@ msgstr "Luftfeuchtigkeit"
 msgid "Last WX report"
 msgstr "Letzter WX-Bericht"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:124
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:125
 #, elixir-autogen, elixir-format
 msgid "Pressure"
 msgstr "Druck"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:130
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:131
 #, elixir-autogen, elixir-format
 msgid "Rain (1h)"
 msgstr "Regen (1h)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:136
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:137
 #, elixir-autogen, elixir-format
 msgid "Rain (24h)"
 msgstr "Regen (24h)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:142
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:143
 #, elixir-autogen, elixir-format
 msgid "Rain (since midnight)"
 msgstr "Regen (seit Mitternacht)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:159
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:160
 #, elixir-autogen, elixir-format
 msgid "Raw comment"
 msgstr "Rohkommentar"
@@ -558,7 +558,7 @@ msgstr "Pakete anzeigen"
 msgid "Weather Details"
 msgstr "Wetterdetails"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:166
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:167
 #, elixir-autogen, elixir-format
 msgid "Weather History Graphs"
 msgstr "Wetterverlaufsdiagramme"
@@ -747,72 +747,37 @@ msgstr "In intensiver Entwicklung"
 msgid "Weather charts"
 msgstr "Wetterdiagramme"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:63
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:76
 #, elixir-autogen, elixir-format
 msgid "%"
 msgstr "%"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:53
-#, elixir-autogen, elixir-format
-msgid "Dew Point (°F)"
-msgstr "Taupunkt (°F)"
-
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:54
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:55
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:67
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:68
 #, elixir-autogen, elixir-format
 msgid "Humidity (%)"
 msgstr "Luftfeuchtigkeit (%)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:56
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:57
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:69
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:70
 #, elixir-autogen, elixir-format
 msgid "Pressure (mb)"
 msgstr "Druck (mb)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:51
-#, elixir-autogen, elixir-format
-msgid "Temperature & Dew Point (°F)"
-msgstr "Temperatur & Taupunkt (°F)"
-
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:52
-#, elixir-autogen, elixir-format
-msgid "Temperature (°F)"
-msgstr "Temperatur (°F)"
-
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:61
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:74
 #, elixir-autogen, elixir-format
 msgid "Time"
 msgstr "Zeit"
-
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:58
-#, elixir-autogen, elixir-format
-msgid "Wind (mph)"
-msgstr "Wind (mph)"
-
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:60
-#, elixir-autogen, elixir-format
-msgid "Wind Gust (mph)"
-msgstr "Windböe (mph)"
-
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:59
-#, elixir-autogen, elixir-format
-msgid "Wind Speed (mph)"
-msgstr "Windgeschwindigkeit (mph)"
 
 #: lib/aprsme_web/time_helpers.ex:14
 #, elixir-autogen, elixir-format
 msgid "ago"
 msgstr "vor"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:64
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:77
 #, elixir-autogen, elixir-format
 msgid "mb"
 msgstr "mb"
-
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:62
-#, elixir-autogen, elixir-format
-msgid "°F"
-msgstr "°F"
 
 #: lib/aprsme_web/components/core_components.ex:760
 #: lib/aprsme_web/components/core_components.ex:768
@@ -826,58 +791,93 @@ msgstr "Über"
 msgid "Home"
 msgstr "Startseite"
 
-#: lib/aprsme_web/live/map_live/index.ex:791
 #: lib/aprsme_web/live/map_live/index.ex:794
 #: lib/aprsme_web/live/map_live/index.ex:797
 #: lib/aprsme_web/live/map_live/index.ex:800
 #: lib/aprsme_web/live/map_live/index.ex:803
-#: lib/aprsme_web/live/map_live/index.ex:846
+#: lib/aprsme_web/live/map_live/index.ex:806
 #: lib/aprsme_web/live/map_live/index.ex:849
 #: lib/aprsme_web/live/map_live/index.ex:852
 #: lib/aprsme_web/live/map_live/index.ex:855
 #: lib/aprsme_web/live/map_live/index.ex:858
+#: lib/aprsme_web/live/map_live/index.ex:861
 #, elixir-autogen, elixir-format, fuzzy
 msgid "1 Hour"
 msgid_plural "%{count} Hours"
 msgstr[0] "1 Stunde"
 msgstr[1] "%{count} Stunden"
 
-#: lib/aprsme_web/live/map_live/index.ex:806
+#: lib/aprsme_web/live/map_live/index.ex:809
 #, elixir-autogen, elixir-format
 msgid "1 Week"
 msgstr "1 Woche"
 
-#: lib/aprsme_web/live/map_live/index.ex:755
+#: lib/aprsme_web/live/map_live/index.ex:758
 #, elixir-autogen, elixir-format
 msgid "Enter callsign..."
 msgstr "Rufzeichen eingeben..."
 
-#: lib/aprsme_web/live/map_live/index.ex:838
+#: lib/aprsme_web/live/map_live/index.ex:841
 #, elixir-autogen, elixir-format
 msgid "Historical Data"
 msgstr "Historische Daten"
 
-#: lib/aprsme_web/live/map_live/index.ex:906
+#: lib/aprsme_web/live/map_live/index.ex:909
 #, elixir-autogen, elixir-format
 msgid "Last Deploy"
 msgstr "Letztes Deployment"
 
-#: lib/aprsme_web/live/map_live/index.ex:890
+#: lib/aprsme_web/live/map_live/index.ex:893
 #, elixir-autogen, elixir-format
 msgid "Navigation"
 msgstr "Navigation"
 
-#: lib/aprsme_web/live/map_live/index.ex:762
+#: lib/aprsme_web/live/map_live/index.ex:765
 #, elixir-autogen, elixir-format
 msgid "Search"
 msgstr "Suchen"
 
-#: lib/aprsme_web/live/map_live/index.ex:747
+#: lib/aprsme_web/live/map_live/index.ex:750
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Search Callsign"
 msgstr "Rufzeichen suchen"
 
-#: lib/aprsme_web/live/map_live/index.ex:783
+#: lib/aprsme_web/live/map_live/index.ex:786
 #, elixir-autogen, elixir-format
 msgid "Trail Duration"
 msgstr "Spur-Dauer"
+
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:66
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Dew Point (%{unit})"
+msgstr "Taupunkt (°F)"
+
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:64
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Temperature & Dew Point (%{unit})"
+msgstr "Temperatur & Taupunkt (°F)"
+
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:65
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Temperature (%{unit})"
+msgstr "Temperatur (°F)"
+
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:71
+#, elixir-autogen, elixir-format
+msgid "Wind (%{unit})"
+msgstr ""
+
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:73
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Wind Gust (%{unit})"
+msgstr "Windböe (mph)"
+
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:72
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Wind Speed (%{unit})"
+msgstr "Windgeschwindigkeit (mph)"
+
+#: lib/aprsme_web/live/about_live.html.heex:6
+#, elixir-autogen, elixir-format
+msgid "about_main"
+msgstr ""
