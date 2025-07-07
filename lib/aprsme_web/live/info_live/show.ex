@@ -124,7 +124,7 @@ defmodule AprsmeWeb.InfoLive.Show do
           callsign: p.sender,
           distance: format_distance(dist),
           course: course,
-          last_heard: PacketUtils.get_timestamp(p),
+          last_heard: format_timestamp_for_display(p),
           packet: p
         }
       end)
@@ -182,6 +182,39 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   defp to_float(_), do: 0.0
 
+  defp format_timestamp_for_display(packet) do
+    received_at = get_received_at(packet)
+
+    if received_at do
+      timestamp_dt = AprsmeWeb.TimeHelpers.to_datetime(received_at)
+
+      if timestamp_dt do
+        %{
+          time_ago: AprsmeWeb.TimeHelpers.time_ago_in_words(timestamp_dt),
+          formatted: Calendar.strftime(timestamp_dt, "%Y-%m-%d %H:%M:%S UTC")
+        }
+      else
+        %{
+          time_ago: gettext("Unknown"),
+          formatted: ""
+        }
+      end
+    else
+      %{
+        time_ago: gettext("Unknown"),
+        formatted: ""
+      }
+    end
+  end
+
+  defp get_received_at(packet) do
+    cond do
+      Map.has_key?(packet, :received_at) -> packet.received_at
+      Map.has_key?(packet, "received_at") -> packet["received_at"]
+      true -> nil
+    end
+  end
+
   defp format_distance(km) when km < 1.0 do
     "#{Float.round(km * 1000, 0)} m"
   end
@@ -237,7 +270,7 @@ defmodule AprsmeWeb.InfoLive.Show do
       %{
         callsign: p.sender,
         ssid: p.ssid,
-        last_heard: PacketUtils.get_timestamp(p),
+        last_heard: format_timestamp_for_display(p),
         packet: p
       }
     end)

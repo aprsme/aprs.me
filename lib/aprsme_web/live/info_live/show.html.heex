@@ -346,7 +346,16 @@
                         <% end %>
                       </td>
                       <td class="opacity-70">
-                        {ssid_info.last_heard || ""}
+                        <%= if ssid_info.last_heard do %>
+                          <div class="font-semibold">
+                            {ssid_info.last_heard.time_ago}
+                          </div>
+                          <div class="text-xs opacity-70 font-mono">
+                            {ssid_info.last_heard.formatted}
+                          </div>
+                        <% else %>
+                          <span class="opacity-70">{gettext("Unknown")}</span>
+                        <% end %>
                       </td>
                     </tr>
                   <% end %>
@@ -441,7 +450,16 @@
                       <% end %>
                     </td>
                     <td class="opacity-70">
-                      {neighbor.last_heard || ""}
+                      <%= if neighbor.last_heard do %>
+                        <div class="font-semibold">
+                          {neighbor.last_heard.time_ago}
+                        </div>
+                        <div class="text-xs opacity-70 font-mono">
+                          {neighbor.last_heard.formatted}
+                        </div>
+                      <% else %>
+                        <span class="opacity-70">{gettext("Unknown")}</span>
+                      <% end %>
                     </td>
                   </tr>
                 <% end %>
