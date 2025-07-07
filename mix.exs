@@ -128,7 +128,7 @@ defmodule Aprsme.MixProject do
   end
 
   defp sentry_package_source_code(release) do
-    Mix.Task.run("sentry.package_source_code", ["--release", release.path])
+    Mix.Task.run("sentry.package_source_code", [release.path])
     release
   end
 

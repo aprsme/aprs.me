@@ -5,8 +5,6 @@ defmodule AprsmeWeb.MapLive.PopupComponent do
   import AprsmeWeb.TimeHelpers
   import Gettext
 
-  alias AprsmeWeb.WeatherUnits
-
   def popup(assigns) do
     ~H"""
     <div class="aprs-popup" data-timestamp={@cache_buster}>
@@ -45,9 +43,9 @@ defmodule AprsmeWeb.MapLive.PopupComponent do
           "gusts to"
         )} {@wind_gust} {@gust_unit}<br />
         {gettext(AprsmeWeb.Gettext, "Pressure:")} {@pressure} hPa<br />
-        {gettext(AprsmeWeb.Gettext, "Rain (1h):")} {@rain_1h} {@rain_unit}<br />
-        {gettext(AprsmeWeb.Gettext, "Rain (24h):")} {@rain_24h} {@rain_unit}<br />
-        {gettext(AprsmeWeb.Gettext, "Rain (since midnight):")} {@rain_since_midnight} {@rain_unit}<br />
+        {gettext(AprsmeWeb.Gettext, "Rain (1h):")} {@rain_1h} {@rain_1h_unit}<br />
+        {gettext(AprsmeWeb.Gettext, "Rain (24h):")} {@rain_24h} {@rain_24h_unit}<br />
+        {gettext(AprsmeWeb.Gettext, "Rain (since midnight):")} {@rain_since_midnight} {@rain_since_midnight_unit}<br />
       <% end %>
     </div>
     """

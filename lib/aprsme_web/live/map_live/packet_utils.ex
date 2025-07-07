@@ -215,9 +215,9 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
     {temperature, temp_unit} = convert_temperature(temperature_raw, locale)
     {wind_speed, wind_unit} = convert_wind_speed(wind_speed_raw, locale)
     {wind_gust, gust_unit} = convert_wind_speed(wind_gust_raw, locale)
-    {rain_1h, rain_unit} = convert_rain(rain_1h_raw, locale)
-    {rain_24h, rain_unit} = convert_rain(rain_24h_raw, locale)
-    {rain_since_midnight, rain_unit} = convert_rain(rain_since_midnight_raw, locale)
+    {rain_1h, rain_1h_unit} = convert_rain(rain_1h_raw, locale)
+    {rain_24h, rain_24h_unit} = convert_rain(rain_24h_raw, locale)
+    {rain_since_midnight, rain_since_midnight_unit} = convert_rain(rain_since_midnight_raw, locale)
 
     %{
       callsign: sender,
@@ -238,7 +238,9 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
       rain_1h: rain_1h,
       rain_24h: rain_24h,
       rain_since_midnight: rain_since_midnight,
-      rain_unit: rain_unit
+      rain_1h_unit: rain_1h_unit,
+      rain_24h_unit: rain_24h_unit,
+      rain_since_midnight_unit: rain_since_midnight_unit
     }
     |> PopupComponent.popup()
     |> Safe.to_iodata()
