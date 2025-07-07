@@ -441,6 +441,7 @@ defmodule AprsmeWeb.CoreComponents do
   Renders a modern site header with navigation links.
   """
   attr :class, :string, default: ""
+  attr :dev_mode, :boolean, default: false
 
   def header(assigns) do
     ~H"""
@@ -448,6 +449,9 @@ defmodule AprsmeWeb.CoreComponents do
       <div class="navbar-start">
         <.link navigate="/" class="btn btn-ghost text-xl font-bold text-primary">
           aprs.me
+          <%= if @dev_mode do %>
+            <span class="badge badge-warning badge-sm ml-2">DEV</span>
+          <% end %>
         </.link>
       </div>
       <div class="navbar-center hidden lg:flex">

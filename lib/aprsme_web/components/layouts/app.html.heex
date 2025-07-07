@@ -169,7 +169,7 @@
   }
 </style>
 
-<.header />
+<.header dev_mode={Application.get_env(:aprsme, :dev_routes, false)} />
 <main class="min-h-screen bg-base-100">
   <div>
     <.flash kind={:info} title="Success!" flash={@flash} />

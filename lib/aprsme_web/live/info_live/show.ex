@@ -20,7 +20,9 @@ defmodule AprsmeWeb.InfoLive.Show do
 
     packet = get_latest_packet(normalized_callsign)
     packet = enrich_packet_with_device_info(packet)
-    neighbors = get_neighbors(packet, normalized_callsign)
+    # Get locale from socket assigns (set by LocaleHook)
+    locale = Map.get(socket.assigns, :locale, "en")
+    neighbors = get_neighbors(packet, normalized_callsign, locale)
     has_weather_packets = PacketUtils.has_weather_packets?(normalized_callsign)
     other_ssids = get_other_ssids(normalized_callsign)
 
@@ -43,7 +45,9 @@ defmodule AprsmeWeb.InfoLive.Show do
       # Refresh data when new packet arrives
       packet = get_latest_packet(socket.assigns.callsign)
       packet = enrich_packet_with_device_info(packet)
-      neighbors = get_neighbors(packet, socket.assigns.callsign)
+      # Get locale from socket assigns
+      locale = Map.get(socket.assigns, :locale, "en")
+      neighbors = get_neighbors(packet, socket.assigns.callsign, locale)
       has_weather_packets = PacketUtils.has_weather_packets?(socket.assigns.callsign)
       other_ssids = get_other_ssids(socket.assigns.callsign)
 
@@ -93,9 +97,9 @@ defmodule AprsmeWeb.InfoLive.Show do
     |> Map.put(:device_class, class)
   end
 
-  defp get_neighbors(nil, _callsign), do: []
+  defp get_neighbors(nil, _callsign, _locale), do: []
 
-  defp get_neighbors(packet, callsign) do
+  defp get_neighbors(packet, callsign, locale) do
     lat = packet.lat
     lon = packet.lon
 
@@ -122,7 +126,7 @@ defmodule AprsmeWeb.InfoLive.Show do
 
         %{
           callsign: p.sender,
-          distance: format_distance(dist),
+          distance: format_distance(dist, locale),
           course: course,
           last_heard: format_timestamp_for_display(p),
           packet: p
@@ -148,7 +152,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     |> Enum.reverse()
   end
 
-  defp haversine(lat1, lon1, lat2, lon2) do
+  def haversine(lat1, lon1, lat2, lon2) do
     # Returns distance in km
     # Convert Decimal to float if needed
     lat1 = to_float(lat1)
@@ -215,15 +219,30 @@ defmodule AprsmeWeb.InfoLive.Show do
     end
   end
 
-  defp format_distance(km) when km < 1.0 do
-    "#{Float.round(km * 1000, 0)} m"
+  def format_distance(km, locale \\ "en") do
+    case locale do
+      "en" ->
+        # Use imperial units for English locale
+        miles = Aprsme.Convert.kph_to_mph(km)
+
+        if miles < 1.0 do
+          feet = miles * 5280
+          "#{Float.round(feet, 0)} ft"
+        else
+          "#{Float.round(miles, 2)} mi"
+        end
+
+      _ ->
+        # Use metric units for other locales
+        if km < 1.0 do
+          "#{Float.round(km * 1000, 0)} m"
+        else
+          "#{Float.round(km, 2)} km"
+        end
+    end
   end
 
-  defp format_distance(km) do
-    "#{Float.round(km, 2)} km"
-  end
-
-  defp calculate_course(lat1, lon1, lat2, lon2) do
+  def calculate_course(lat1, lon1, lat2, lon2) do
     # Calculate bearing from point 1 to point 2
     # Convert Decimal to float if needed
     lat1 = to_float(lat1)

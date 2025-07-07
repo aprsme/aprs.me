@@ -336,10 +336,11 @@
                               ssid_info.packet.lat,
                               ssid_info.packet.lon
                             ) %>
+                          <% locale = Map.get(assigns, :locale, "en") %>
                           <%= if course do %>
-                            {format_distance(dist)} @ {Float.round(course, 0)}°
+                            {format_distance(dist, locale)} @ {Float.round(course, 0)}°
                           <% else %>
-                            {format_distance(dist)}
+                            {format_distance(dist, locale)}
                           <% end %>
                         <% else %>
                           -
