@@ -10,7 +10,6 @@ defmodule Aprsme.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      releases: releases(),
       test_coverage: [tool: ExCoveralls],
       listeners: [Phoenix.CodeReloader],
       dialyzer: [
@@ -117,20 +116,6 @@ defmodule Aprsme.MixProject do
         "phx.digest"
       ]
     ]
-  end
-
-  defp releases do
-    [
-      aprsme: [
-        cookie: "aprsme",
-        steps: [:assemble, &sentry_package_source_code/1]
-      ]
-    ]
-  end
-
-  defp sentry_package_source_code(release) do
-    Mix.Task.run("sentry.package_source_code", [release.path])
-    release
   end
 
   defp aprs_dep do
