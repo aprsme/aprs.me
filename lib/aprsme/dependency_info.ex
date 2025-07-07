@@ -30,15 +30,6 @@ defmodule Aprsme.DependencyInfo do
     _ -> nil
   end
 
-  defp fetch_aprs_sha_from_github do
-    resp = Req.get!("https://api.github.com/repos/aprsme/aprs/commits/main")
-    body = resp.body
-    sha = body["sha"] || body |> Jason.decode!() |> Access.get("sha")
-    String.slice(sha, 0, 7)
-  rescue
-    _ -> nil
-  end
-
   def latest_aprs_library_sha do
     resp = Req.get!("https://api.github.com/repos/aprsme/aprs/commits/main")
     body = resp.body
@@ -62,14 +53,21 @@ defmodule Aprsme.DependencyInfo do
         # Try to read from the file copied during build
         hash_file = Path.join(["/app", "parser_hash.txt"])
 
-        if File.exists?(hash_file) do
-          case File.read(hash_file) do
-            {:ok, hash} -> String.trim(hash)
-            _ -> "unknown"
+        # Try alternative paths
+        alternative_paths = [
+          hash_file,
+          Path.join([File.cwd!(), "parser_hash.txt"]),
+          "parser_hash.txt"
+        ]
+
+        Enum.find_value(alternative_paths, "unknown", fn path ->
+          if File.exists?(path) do
+            case File.read(path) do
+              {:ok, hash} -> String.trim(hash)
+              _ -> nil
+            end
           end
-        else
-          "unknown"
-        end
+        end)
 
       hash ->
         hash
