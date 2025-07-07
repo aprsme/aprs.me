@@ -86,12 +86,12 @@ if config_env() == :prod do
   config :libcluster,
     topologies: [
       dokku: [
-        strategy: Cluster.Strategy.Epmd,
+        strategy: Cluster.Strategy.Gossip,
         config: [
-          hosts: [
-            :"aprs@aprs.web.1",
-            :"aprs@aprs.web.2"
-          ]
+          port: 45892,
+          if_addr: "0.0.0.0",
+          multicast_addr: "230.1.1.1",
+          multicast_ttl: 1
         ]
       ]
     ]
