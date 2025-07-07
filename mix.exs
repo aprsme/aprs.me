@@ -52,6 +52,7 @@ defmodule Aprsme.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:error_tracker, "~> 0.6"},
       {:bcrypt_elixir, "~> 3.0"},
       {:certifi, "~> 2.9"},
       {:ecto_psql_extras, "~> 0.8.8"},
@@ -75,7 +76,6 @@ defmodule Aprsme.MixProject do
       {:swoosh, "~> 1.16"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
-      {:sentry, "~> 11.0.1"},
       aprs_dep(),
       {:esbuild, "~> 0.9", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
@@ -92,6 +92,7 @@ defmodule Aprsme.MixProject do
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
       {:sobelow, "~> 0.8", only: :dev},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
+      {:igniter, "~> 0.6", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
       {:styler, "~> 1.4.2", only: [:dev, :test], runtime: false},
       {:httpoison, "~> 1.8"}

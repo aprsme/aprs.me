@@ -64,6 +64,11 @@ config :aprsme,
     max_demand: 50
   ]
 
+config :error_tracker,
+  repo: Aprsme.Repo,
+  otp_app: :aprsme,
+  enabled: true
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.24.2",

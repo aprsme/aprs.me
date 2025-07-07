@@ -1,6 +1,5 @@
 defmodule AprsmeWeb.Endpoint do
   @moduledoc false
-  use Sentry.PlugCapture
   use Phoenix.Endpoint, otp_app: :aprsme
 
   # The session will be stored in the cookie and signed,
@@ -51,6 +50,5 @@ defmodule AprsmeWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  plug Sentry.PlugContext
   plug AprsmeWeb.Router
 end

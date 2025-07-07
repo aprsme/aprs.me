@@ -1,5 +1,6 @@
 defmodule AprsmeWeb.Router do
   use AprsmeWeb, :router
+  use ErrorTracker.Web, :router
 
   import AprsmeWeb.UserAuth
   import Phoenix.LiveDashboard.Router
@@ -30,6 +31,7 @@ defmodule AprsmeWeb.Router do
     pipe_through :browser
 
     live_dashboard "/dashboard", metrics: AprsmeWeb.Telemetry
+    error_tracker_dashboard("/errors")
 
     live_session :regular_pages, on_mount: [{AprsmeWeb.LocaleHook, :set_locale}] do
       live "/status", StatusLive.Index, :index
