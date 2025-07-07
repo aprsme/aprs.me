@@ -557,6 +557,7 @@ defmodule Aprsme.Packets do
   """
   @spec get_total_packet_count() :: non_neg_integer()
   def get_total_packet_count do
+    # Use the new index for faster counting
     Repo.one(from p in Packet, select: count(p.id)) || 0
   rescue
     DBConnection.ConnectionError ->
