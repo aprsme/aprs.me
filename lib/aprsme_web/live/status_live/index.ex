@@ -15,6 +15,7 @@ defmodule AprsmeWeb.StatusLive.Index do
         aprs_status: get_aprs_status(),
         version: get_app_version(),
         aprs_library_sha: get_aprs_library_sha(),
+        is_latest_aprs_library: Aprsme.DependencyInfo.is_latest_aprs_library?(),
         current_time: DateTime.utc_now(),
         health_score: calculate_health_score(get_aprs_status())
       )
@@ -66,12 +67,15 @@ defmodule AprsmeWeb.StatusLive.Index do
                       </span>
                       <span class="text-sm font-mono">
                         <a
-                          href="https://github.com/aprsme/aprs/commit/{@aprs_library_sha}"
+                          href={"https://github.com/aprsme/aprs/commit/#{@aprs_library_sha}"}
                           target="_blank"
                           class="link link-primary"
                         >
                           {@aprs_library_sha}
                         </a>
+                        <%= if @is_latest_aprs_library do %>
+                          <span class="ml-2 text-success font-semibold">Latest &#x2705;</span>
+                        <% end %>
                       </span>
                     </div>
                   <% end %>

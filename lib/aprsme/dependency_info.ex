@@ -30,17 +30,24 @@ defmodule Aprsme.DependencyInfo do
   end
 
   defp fetch_aprs_sha_from_github do
-    case HTTPoison.get("https://api.github.com/repos/aprsme/aprs/commits/main") do
-      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, %{"sha" => sha}} -> String.slice(sha, 0, 7)
-          _ -> nil
-        end
-
-      _ ->
-        nil
-    end
+    resp = Req.get!("https://api.github.com/repos/aprsme/aprs/commits/main")
+    body = resp.body
+    sha = body["sha"] || body |> Jason.decode!() |> Access.get("sha")
+    String.slice(sha, 0, 7)
   rescue
     _ -> nil
+  end
+
+  def latest_aprs_library_sha do
+    resp = Req.get!("https://api.github.com/repos/aprsme/aprs/commits/main")
+    body = resp.body
+    sha = body["sha"] || body |> Jason.decode!() |> Access.get("sha")
+    String.slice(sha, 0, 7)
+  rescue
+    _ -> nil
+  end
+
+  def is_latest_aprs_library? do
+    get_aprs_library_sha() == latest_aprs_library_sha()
   end
 end
