@@ -3,15 +3,45 @@ defmodule Aprsme.DependencyInfo do
   Provides information about dependencies, particularly for production builds.
   """
 
+  @aprs_hash (
+               mix_lock_path = Path.join([File.cwd!(), "mix.lock"])
+
+               if File.exists?(mix_lock_path) do
+                 case File.read(mix_lock_path) do
+                   {:ok, content} ->
+                     case Regex.run(
+                            ~r/aprs:\s*\{:git,\s*"https:\/\/github\.com\/aprsme\/aprs",\s*\{:ref,\s*"([a-f0-9]+)"\}/,
+                            content
+                          ) do
+                       [_, hash] ->
+                         String.slice(hash, 0, 7)
+
+                       _ ->
+                         case Regex.run(
+                                ~r/aprs:\s*\{:git,\s*"https:\/\/github\.com\/aprsme\/aprs",\s*"([a-f0-9]+)"\}/,
+                                content
+                              ) do
+                           [_, hash] -> String.slice(hash, 0, 7)
+                           _ -> "unknown"
+                         end
+                     end
+
+                   _ ->
+                     "unknown"
+                 end
+               else
+                 "unknown"
+               end
+             )
+
   @doc """
   Gets the SHA1 hash of the aprs library currently being used.
   In development: reads from vendor/aprs directory
-  In production: uses the hash captured at build time
+  In production: uses the hash captured at compile time
   """
   def get_aprs_library_sha do
     if Application.get_env(:aprsme, :env, :dev) == :prod do
-      # In production, use the static hash captured at build time
-      get_static_parser_hash()
+      @aprs_hash
     else
       get_aprs_sha_from_vendor()
     end
@@ -41,26 +71,5 @@ defmodule Aprsme.DependencyInfo do
 
   def is_latest_aprs_library? do
     get_aprs_library_sha() == latest_aprs_library_sha()
-  end
-
-  # Get static parser hash at compile time
-  defp get_static_parser_hash do
-    case System.get_env("PARSER_GIT_HASH") do
-      nil ->
-        # Fallback: try to read from the file
-        hash_file = Path.join(["/app", "parser_hash.txt"])
-
-        if File.exists?(hash_file) do
-          case File.read(hash_file) do
-            {:ok, hash} -> String.trim(hash)
-            _ -> "unknown"
-          end
-        else
-          "unknown"
-        end
-
-      hash ->
-        hash
-    end
   end
 end
