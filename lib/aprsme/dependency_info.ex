@@ -55,9 +55,24 @@ defmodule Aprsme.DependencyInfo do
   # Get static parser hash at compile time
   defp get_static_parser_hash do
     case System.get_env("PARSER_GIT_HASH") do
-      nil -> "unknown"
-      "unknown" -> "unknown"
-      hash -> hash
+      nil ->
+        "unknown"
+
+      "unknown" ->
+        # Try to read from the file copied during build
+        hash_file = Path.join(["/app", "parser_hash.txt"])
+
+        if File.exists?(hash_file) do
+          case File.read(hash_file) do
+            {:ok, hash} -> String.trim(hash)
+            _ -> "unknown"
+          end
+        else
+          "unknown"
+        end
+
+      hash ->
+        hash
     end
   end
 end

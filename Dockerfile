@@ -67,8 +67,8 @@ RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > /app/deployed_at.txt
 # Copy parser hash from builder stage
 COPY --from=builder /tmp/parser_hash.txt /app/parser_hash.txt
 
-# Set parser git hash environment variable for runtime
-ENV PARSER_GIT_HASH=$(cat /app/parser_hash.txt)
+# Set default parser git hash environment variable
+ENV PARSER_GIT_HASH="unknown"
 
 # Copy release from builder
 COPY --from=builder --chown=nobody:root /app/release ./
