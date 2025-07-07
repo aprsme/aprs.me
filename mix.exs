@@ -75,6 +75,7 @@ defmodule Aprsme.MixProject do
       {:swoosh, "~> 1.16"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
+      {:sentry, "~> 11.0.1"},
       aprs_dep(),
       {:esbuild, "~> 0.9", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
@@ -120,9 +121,15 @@ defmodule Aprsme.MixProject do
   defp releases do
     [
       aprsme: [
-        cookie: "aprsme"
+        cookie: "aprsme",
+        steps: [:assemble, &sentry_package_source_code/1]
       ]
     ]
+  end
+
+  defp sentry_package_source_code(release) do
+    Mix.Task.run("sentry.package_source_code", ["--release", release.path])
+    release
   end
 
   defp aprs_dep do

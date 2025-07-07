@@ -28,5 +28,11 @@ config :esbuild,
 # of environment variables, is done on config/runtime.exs.
 config :logger, level: :info
 
+config :sentry,
+  dsn: "https://40cd46881506a6c8e79ea353b62c2835@o4509627566063616.ingest.us.sentry.io/4509627568029696",
+  environment_name: Mix.env(),
+  enable_source_code_context: true,
+  root_source_code_paths: [File.cwd!()]
+
 # Configures Swoosh API Client
 config :swoosh, :api_client, Swoosh.ApiClient.Req
