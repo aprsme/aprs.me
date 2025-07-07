@@ -23,11 +23,21 @@ defmodule AprsmeWeb.Plugs.SetLocaleTest do
     assert Gettext.get_locale(AprsmeWeb.Gettext) == "en"
   end
 
-  test "falls back to English when Accept-Language header contains unsupported locale", %{conn: conn} do
+  test "sets French locale when Accept-Language header contains fr", %{conn: conn} do
     conn
     |> Plug.Session.call(Plug.Session.init(store: :cookie, key: "_aprs_key", signing_salt: "test"))
     |> fetch_session()
     |> put_req_header("accept-language", "fr-FR,fr;q=0.9,en;q=0.8")
+    |> SetLocale.call([])
+
+    assert Gettext.get_locale(AprsmeWeb.Gettext) == "fr"
+  end
+
+  test "falls back to English when Accept-Language header contains unsupported locale", %{conn: conn} do
+    conn
+    |> Plug.Session.call(Plug.Session.init(store: :cookie, key: "_aprs_key", signing_salt: "test"))
+    |> fetch_session()
+    |> put_req_header("accept-language", "ja-JP,ja;q=0.9,en;q=0.8")
     |> SetLocale.call([])
 
     assert Gettext.get_locale(AprsmeWeb.Gettext) == "en"
@@ -49,6 +59,6 @@ defmodule AprsmeWeb.Plugs.SetLocaleTest do
     |> put_req_header("accept-language", "fr-FR,es-ES,en-US;q=0.9")
     |> SetLocale.call([])
 
-    assert Gettext.get_locale(AprsmeWeb.Gettext) == "es"
+    assert Gettext.get_locale(AprsmeWeb.Gettext) == "fr"
   end
 end

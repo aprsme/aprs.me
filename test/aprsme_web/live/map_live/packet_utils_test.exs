@@ -43,9 +43,9 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
       assert popup =~ "Humidity: 45.0%"
       assert popup =~ "Wind: 180° at 10.0 mph, gusts to 15.0 mph"
       assert popup =~ "Pressure: 1013.2 hPa"
-      assert popup =~ "Rain (1h): 0.0 in."
-      assert popup =~ "Rain (24h): 0.1 in."
-      assert popup =~ "Rain (since midnight): 0.2 in."
+      assert popup =~ "Rain (1h): 0.0 in"
+      assert popup =~ "Rain (24h): 0.1 in"
+      assert popup =~ "Rain (since midnight): 0.2 in"
 
       # Check callsign and links
       assert popup =~ "TEST-1"
@@ -86,9 +86,9 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
       assert popup =~ "Humidity: N/A%"
       assert popup =~ "Wind: N/A° at N/A mph, gusts to N/A mph"
       assert popup =~ "Pressure: N/A hPa"
-      assert popup =~ "Rain (1h): N/A in."
-      assert popup =~ "Rain (24h): N/A in."
-      assert popup =~ "Rain (since midnight): N/A in."
+      assert popup =~ "Rain (1h): N/A in"
+      assert popup =~ "Rain (24h): N/A in"
+      assert popup =~ "Rain (since midnight): N/A in"
     end
 
     test "generates weather popup with partial weather data" do
@@ -126,9 +126,9 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
       # Check missing data shows N/A
       assert popup =~ "Wind: N/A° at N/A mph, gusts to N/A mph"
       assert popup =~ "Pressure: N/A hPa"
-      assert popup =~ "Rain (1h): N/A in."
-      assert popup =~ "Rain (24h): N/A in."
-      assert popup =~ "Rain (since midnight): N/A in."
+      assert popup =~ "Rain (1h): N/A in"
+      assert popup =~ "Rain (24h): N/A in"
+      assert popup =~ "Rain (since midnight): N/A in"
     end
 
     test "generates standard popup for non-weather packets" do
@@ -155,7 +155,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
 
       # Check that it's NOT a weather popup
       refute popup =~ "Weather Report"
-      refute popup =~ "data-timestamp="
+      # All popups now have data-timestamp for cache busting
+      assert popup =~ "data-timestamp="
 
       # Check standard popup content
       assert popup =~ "TEST-1"

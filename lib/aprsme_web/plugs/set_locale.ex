@@ -9,7 +9,6 @@ defmodule AprsmeWeb.Plugs.SetLocale do
 
   def call(conn, _opts) do
     locale = get_locale_from_header(conn) || "en"
-    IO.puts("DEBUG: SetLocale - Final locale: #{locale}")
     # Set the backend's locale for the current process
     Gettext.put_locale(AprsmeWeb.Gettext, locale)
     # Store locale in session for LiveView to access
@@ -20,11 +19,9 @@ defmodule AprsmeWeb.Plugs.SetLocale do
   defp get_locale_from_header(conn) do
     case get_req_header(conn, "accept-language") do
       [accept_language | _] ->
-        IO.puts("DEBUG: SetLocale - Accept-Language header: #{inspect(accept_language)}")
         parse_accept_language(accept_language)
 
       _ ->
-        IO.puts("DEBUG: SetLocale - No Accept-Language header found")
         nil
     end
   end
@@ -33,7 +30,8 @@ defmodule AprsmeWeb.Plugs.SetLocale do
     accept_language
     |> String.split(",")
     |> Enum.map(&parse_language_tag/1)
-    |> Enum.find(&supported_locale?/1)
+    |> Enum.filter(&supported_locale?/1)
+    |> List.first()
   end
 
   defp parse_language_tag(tag) do
@@ -47,6 +45,6 @@ defmodule AprsmeWeb.Plugs.SetLocale do
   end
 
   defp supported_locale?(locale) do
-    locale in ~w(en es de fr)
+    locale in ~w(en es fr de)
   end
 end
