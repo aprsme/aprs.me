@@ -3,18 +3,18 @@ defmodule Aprsme.DependencyInfo do
   Provides information about dependencies, particularly for production builds.
   """
 
+  # Store parser git hash at compile time
+  @parser_git_hash get_static_parser_hash()
+
   @doc """
   Gets the SHA1 hash of the aprs library currently being used.
   In development: reads from vendor/aprs directory
-  In production: fetches from GitHub API
+  In production: uses the hash captured at build time
   """
   def get_aprs_library_sha do
     if Application.get_env(:aprsme, :env, :dev) == :prod do
-      # In production, use environment variable set during build if available
-      case System.get_env("PARSER_GIT_HASH") do
-        nil -> fetch_aprs_sha_from_github()
-        hash -> hash
-      end
+      # In production, use the static hash captured at compile time
+      @parser_git_hash
     else
       get_aprs_sha_from_vendor()
     end
@@ -53,5 +53,14 @@ defmodule Aprsme.DependencyInfo do
 
   def is_latest_aprs_library? do
     get_aprs_library_sha() == latest_aprs_library_sha()
+  end
+
+  # Get static parser hash at compile time
+  defp get_static_parser_hash do
+    case System.get_env("PARSER_GIT_HASH") do
+      nil -> "unknown"
+      "unknown" -> "unknown"
+      hash -> hash
+    end
   end
 end
