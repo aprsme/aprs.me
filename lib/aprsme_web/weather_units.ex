@@ -25,6 +25,9 @@ defmodule AprsmeWeb.WeatherUnits do
     end
   end
 
+  def unit_system(nil), do: :imperial
+  def unit_system(_), do: :imperial
+
   @doc """
   Converts temperature from Fahrenheit to Celsius if needed.
   Returns the temperature in the appropriate unit for the locale.
