@@ -55,8 +55,7 @@ defmodule AprsmeWeb.MapLive.Index do
        historical_hours: "1",
        packet_age_threshold: one_hour_ago,
        slideover_open: true,
-       deployed_at: deployed_at,
-       map_page: true
+       deployed_at: deployed_at
      )}
   end
 
