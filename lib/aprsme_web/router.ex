@@ -31,6 +31,20 @@ defmodule AprsmeWeb.Router do
   end
 
   scope "/", AprsmeWeb do
+    pipe_through [:browser]
+    live_dashboard "/dashboard", metrics: AprsmeWeb.Telemetry
+    error_tracker_dashboard("/errors")
+
+    delete "/users/log_out", UserSessionController, :delete
+
+    live_session :current_user,
+      on_mount: [{AprsmeWeb.UserAuth, :mount_current_user}, {AprsmeWeb.LocaleHook, :set_locale}] do
+      live "/users/confirm/:token", UserConfirmationLive, :edit
+      live "/users/confirm", UserConfirmationInstructionsLive, :new
+    end
+  end
+
+  scope "/", AprsmeWeb do
     pipe_through :public_api
     get "/health", PageController, :health
     get "/ready", PageController, :ready
@@ -93,31 +107,12 @@ defmodule AprsmeWeb.Router do
   end
 
   scope "/", AprsmeWeb do
-    pipe_through :browser
-
-    live_dashboard "/dashboard", metrics: AprsmeWeb.Telemetry
-    error_tracker_dashboard("/errors")
-  end
-
-  scope "/", AprsmeWeb do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
       on_mount: [{AprsmeWeb.UserAuth, :ensure_authenticated}, {AprsmeWeb.LocaleHook, :set_locale}] do
       live "/users/settings", UserSettingsLive, :edit
       live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
-    end
-  end
-
-  scope "/", AprsmeWeb do
-    pipe_through [:browser]
-
-    delete "/users/log_out", UserSessionController, :delete
-
-    live_session :current_user,
-      on_mount: [{AprsmeWeb.UserAuth, :mount_current_user}, {AprsmeWeb.LocaleHook, :set_locale}] do
-      live "/users/confirm/:token", UserConfirmationLive, :edit
-      live "/users/confirm", UserConfirmationInstructionsLive, :new
     end
   end
 end
