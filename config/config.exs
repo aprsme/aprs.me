@@ -26,10 +26,9 @@ config :aprsme, AprsmeWeb.Endpoint,
   pubsub_server: Aprsme.PubSub,
   live_view: [signing_salt: "ees098qG"]
 
-# Configure Gettext
 # Configure Gettext with supported locales from AprsmeWeb.Gettext module
 config :aprsme, AprsmeWeb.Gettext,
-  locales: ~w(en es de),
+  locales: ~w(en es de fr),
   default_locale: "en"
 
 # Configure Oban for background jobs
@@ -78,6 +77,8 @@ config :esbuild,
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
+
+config :gettext, :plural_forms, GettextPseudolocalize.Plural
 
 # Configures Elixir's Logger
 config :logger, :console,

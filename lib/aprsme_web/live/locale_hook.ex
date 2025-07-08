@@ -9,8 +9,15 @@ defmodule AprsmeWeb.LocaleHook do
   @supported_locales ~w(en es de fr)
 
   def on_mount(:set_locale, params, session, socket) do
-    locale = get_locale_from_session(session) || "en"
-    Gettext.put_locale(AprsmeWeb.Gettext, locale)
+    # Only set locale in production to allow seeing "xx" placeholders in dev
+    locale =
+      if Mix.env() == :prod do
+        get_locale_from_session(session) || "en"
+      end
+
+    if locale do
+      Gettext.put_locale(AprsmeWeb.Gettext, locale)
+    end
 
     # Set map_page assign based on route
     map_page = is_map_page?(params)

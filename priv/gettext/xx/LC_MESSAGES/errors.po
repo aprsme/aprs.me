@@ -1,0 +1,102 @@
+## "msgid"s in this file come from POT (.pot) files.
+###
+### Do not add, change, or remove "msgid"s manually here as
+### they're tied to the ones in the corresponding POT file
+### (with the same domain).
+###
+### Use "mix gettext.extract --merge" or "mix gettext.merge"
+### to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: xx\n"
+"Plural-Forms: nplurals=2\n"
+
+msgid "can't be blank"
+msgstr "⟦ċàñ'ť ƀê ƀĺàñǩ~~~~~~⟧"
+
+msgid "has already been taken"
+msgstr "⟦ȟàš àĺȓêàđÿ ƀêêñ ťàǩêñ~~~~~~~~~⟧"
+
+msgid "is invalid"
+msgstr "⟦íš íñṽàĺíđ~~~~~⟧"
+
+msgid "must be accepted"
+msgstr "⟦ɱüšť ƀê àċċêƥťêđ~~~~~~~⟧"
+
+msgid "has invalid format"
+msgstr "⟦ȟàš íñṽàĺíđ ƒøȓɱàť~~~~~~~~⟧"
+
+msgid "has an invalid entry"
+msgstr "⟦ȟàš àñ íñṽàĺíđ êñťȓÿ~~~~~~~~⟧"
+
+msgid "is reserved"
+msgstr "⟦íš ȓêšêȓṽêđ~~~~~⟧"
+
+msgid "does not match confirmation"
+msgstr "⟦đøêš ñøť ɱàťċȟ ċøñƒíȓɱàťíøñ~~~~~~~~~~~⟧"
+
+msgid "is still associated with this entry"
+msgstr "⟦íš šťíĺĺ àššøċíàťêđ ẁíťȟ ťȟíš êñťȓÿ~~~~~~~~~~~~~~⟧"
+
+msgid "are still associated with this entry"
+msgstr "⟦àȓê šťíĺĺ àššøċíàťêđ ẁíťȟ ťȟíš êñťȓÿ~~~~~~~~~~~~~~~⟧"
+
+msgid "should have %{count} item(s)"
+msgid_plural "should have %{count} item(s)"
+msgstr[0] "⟦šȟøüĺđ ȟàṽê %{count} íťêɱ(š)~~~~~~~~~~~~⟧"
+msgstr[1] "⟦šȟøüĺđ ȟàṽê %{count} íťêɱ(š)~~~~~~~~~~~~⟧"
+
+msgid "should be %{count} character(s)"
+msgid_plural "should be %{count} character(s)"
+msgstr[0] "⟦šȟøüĺđ ƀê %{count} ċȟàȓàċťêȓ(š)~~~~~~~~~~~~~⟧"
+msgstr[1] "⟦šȟøüĺđ ƀê %{count} ċȟàȓàċťêȓ(š)~~~~~~~~~~~~~⟧"
+
+msgid "should be %{count} byte(s)"
+msgid_plural "should be %{count} byte(s)"
+msgstr[0] "⟦šȟøüĺđ ƀê %{count} ƀÿťê(š)~~~~~~~~~~~⟧"
+msgstr[1] "⟦šȟøüĺđ ƀê %{count} ƀÿťê(š)~~~~~~~~~~~⟧"
+
+msgid "should have at least %{count} item(s)"
+msgid_plural "should have at least %{count} item(s)"
+msgstr[0] "⟦šȟøüĺđ ȟàṽê àť ĺêàšť %{count} íťêɱ(š)~~~~~~~~~~~~~~~⟧"
+msgstr[1] "⟦šȟøüĺđ ȟàṽê àť ĺêàšť %{count} íťêɱ(š)~~~~~~~~~~~~~~~⟧"
+
+msgid "should be at least %{count} character(s)"
+msgid_plural "should be at least %{count} character(s)"
+msgstr[0] "⟦šȟøüĺđ ƀê àť ĺêàšť %{count} ċȟàȓàċťêȓ(š)~~~~~~~~~~~~~~~~⟧"
+msgstr[1] "⟦šȟøüĺđ ƀê àť ĺêàšť %{count} ċȟàȓàċťêȓ(š)~~~~~~~~~~~~~~~~⟧"
+
+msgid "should be at least %{count} byte(s)"
+msgid_plural "should be at least %{count} byte(s)"
+msgstr[0] "⟦šȟøüĺđ ƀê àť ĺêàšť %{count} ƀÿťê(š)~~~~~~~~~~~~~~⟧"
+msgstr[1] "⟦šȟøüĺđ ƀê àť ĺêàšť %{count} ƀÿťê(š)~~~~~~~~~~~~~~⟧"
+
+msgid "should have at most %{count} item(s)"
+msgid_plural "should have at most %{count} item(s)"
+msgstr[0] "⟦šȟøüĺđ ȟàṽê àť ɱøšť %{count} íťêɱ(š)~~~~~~~~~~~~~~~⟧"
+msgstr[1] "⟦šȟøüĺđ ȟàṽê àť ɱøšť %{count} íťêɱ(š)~~~~~~~~~~~~~~~⟧"
+
+msgid "should be at most %{count} character(s)"
+msgid_plural "should be at most %{count} character(s)"
+msgstr[0] "⟦šȟøüĺđ ƀê àť ɱøšť %{count} ċȟàȓàċťêȓ(š)~~~~~~~~~~~~~~~~⟧"
+msgstr[1] "⟦šȟøüĺđ ƀê àť ɱøšť %{count} ċȟàȓàċťêȓ(š)~~~~~~~~~~~~~~~~⟧"
+
+msgid "should be at most %{count} byte(s)"
+msgid_plural "should be at most %{count} byte(s)"
+msgstr[0] "⟦šȟøüĺđ ƀê àť ɱøšť %{count} ƀÿťê(š)~~~~~~~~~~~~~~⟧"
+msgstr[1] "⟦šȟøüĺđ ƀê àť ɱøšť %{count} ƀÿťê(š)~~~~~~~~~~~~~~⟧"
+
+msgid "must be less than %{number}"
+msgstr "⟦ɱüšť ƀê ĺêšš ťȟàñ %{number}~~~~~~~~~~~⟧"
+
+msgid "must be greater than %{number}"
+msgstr "⟦ɱüšť ƀê ğȓêàťêȓ ťȟàñ %{number}~~~~~~~~~~~~⟧"
+
+msgid "must be less than or equal to %{number}"
+msgstr "⟦ɱüšť ƀê ĺêšš ťȟàñ øȓ êʠüàĺ ťø %{number}~~~~~~~~~~~~~~~~⟧"
+
+msgid "must be greater than or equal to %{number}"
+msgstr "⟦ɱüšť ƀê ğȓêàťêȓ ťȟàñ øȓ êʠüàĺ ťø %{number}~~~~~~~~~~~~~~~~~⟧"
+
+msgid "must be equal to %{number}"
+msgstr "⟦ɱüšť ƀê êʠüàĺ ťø %{number}~~~~~~~~~~~⟧"
