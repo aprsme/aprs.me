@@ -1,5 +1,31 @@
 <% assigns = assign_new(assigns, :map_page, fn -> false end) %>
 <style>
+  /* Non-map pages should allow scrolling */
+  body:not(.map-page) {
+    overflow: auto;
+    height: auto;
+  }
+
+  body:not(.map-page) html {
+    overflow: auto;
+    height: auto;
+  }
+
+  body:not(.map-page) main {
+    overflow: visible;
+    height: auto;
+  }
+
+  body:not(.map-page) .phx-main {
+    overflow: visible;
+    height: auto;
+  }
+
+  body:not(.map-page) div[data-phx-main="true"] {
+    overflow: visible;
+    height: auto;
+  }
+
   /* Map page specific styles */
   body.map-page header {
     display: none;

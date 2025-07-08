@@ -61,7 +61,9 @@ defmodule AprsmeWeb.MapLive.CallsignView do
         latest_symbol_table_id: "/",
         latest_symbol_code: ">",
         # Flag to track if latest marker was already pushed
-        latest_marker_pushed: false
+        latest_marker_pushed: false,
+        # Indicate this is a map page for proper styling
+        map_page: true
       )
 
     if connected?(socket) do

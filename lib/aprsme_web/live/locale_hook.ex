@@ -19,8 +19,8 @@ defmodule AprsmeWeb.LocaleHook do
       Gettext.put_locale(AprsmeWeb.Gettext, locale)
     end
 
-    # Set map_page assign based on route
-    map_page = is_map_page?(params)
+    # Set map_page assign based on the view module
+    map_page = is_map_page?(socket, params)
 
     {:cont, assign(socket, locale: locale, map_page: map_page)}
   end
@@ -35,17 +35,12 @@ defmodule AprsmeWeb.LocaleHook do
     end
   end
 
-  defp is_map_page?(%{"callsign" => callsign}) when map_size(%{"callsign" => callsign}) == 1 do
-    # Root callsign route (e.g., /:callsign) is a map page
-    true
-  end
-
-  defp is_map_page?(%{}) do
-    # Root route (/) is a map page
-    true
-  end
-
-  defp is_map_page?(_) do
-    false
+  defp is_map_page?(socket, params) do
+    # Only check the view module from socket private data
+    case socket.private[:phoenix_live_view] do
+      %{view: AprsmeWeb.MapLive.Index} -> true
+      %{view: AprsmeWeb.MapLive.CallsignView} -> true
+      _ -> false
+    end
   end
 end
