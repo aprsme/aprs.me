@@ -560,13 +560,15 @@ let MapAPRSMap = {
       }
 
       // Add the new marker as the most recent for this callsign
+      // Check if openPopup is explicitly set to false to prevent interrupting user
+      const shouldOpenPopup = data.openPopup !== false;
       self.addMarker({
         ...data,
         historical: false,
         is_most_recent_for_callsign: true,
         callsign_group: data.callsign_group || data.callsign || incomingCallsign,
         popup: data.popup || self.buildPopupContent(data),
-        openPopup: true,
+        openPopup: shouldOpenPopup,
       });
     });
 
@@ -807,6 +809,11 @@ let MapAPRSMap = {
     // Add popup if content provided
     if (data.popup) {
       marker.bindPopup(data.popup, { autoPan: false });
+      
+      // Handle popup close events for all popups
+      marker.on("popupclose", () => {
+        self.pushEvent("popup_closed", {});
+      });
     }
 
     // Handle marker click
@@ -818,6 +825,11 @@ let MapAPRSMap = {
         lat: lat,
         lng: lng,
       });
+    });
+
+    // Handle popup close events
+    marker.on("popupclose", () => {
+      self.pushEvent("popup_closed", {});
     });
 
     // Mark historical markers for identification

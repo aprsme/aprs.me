@@ -33,7 +33,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     socket = assign_defaults(socket, one_hour_ago)
     socket = assign(socket, packet_buffer: [], buffer_timer: nil)
-    socket = assign(socket, all_packets: %{})
+    socket = assign(socket, all_packets: %{}, station_popup_open: false)
 
     if connected?(socket) do
       Endpoint.subscribe("aprs_messages")
@@ -66,6 +66,7 @@ defmodule AprsmeWeb.MapLive.Index do
       packets: [],
       page_title: "APRS Map",
       visible_packets: %{},
+      station_popup_open: false,
       map_bounds: %{
         north: 49.0,
         south: 24.0,
@@ -184,7 +185,8 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_event("marker_clicked", _params, socket) do
-    {:noreply, socket}
+    # When a marker is clicked, mark that a station popup is open
+    {:noreply, assign(socket, station_popup_open: true)}
   end
 
   @impl true
@@ -250,6 +252,12 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("request_geolocation", _params, socket) do
     # This event is handled by the JavaScript hook
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("popup_closed", _params, socket) do
+    # When any popup is closed, mark that no station popup is open
+    {:noreply, assign(socket, station_popup_open: false)}
   end
 
   @impl true
@@ -405,7 +413,13 @@ defmodule AprsmeWeb.MapLive.Index do
 
     socket =
       if marker_data do
-        push_event(socket, "new_packet", marker_data)
+        # Only show new packet popup if no station popup is currently open
+        if socket.assigns.station_popup_open do
+          # Send without opening popup to avoid interrupting user
+          push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
+        else
+          push_event(socket, "new_packet", marker_data)
+        end
       else
         socket
       end
