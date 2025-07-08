@@ -233,7 +233,7 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
 
   defp default_time_range do
     now = DateTime.utc_now()
-    {DateTime.add(now, -24 * 3600, :second), now}
+    {DateTime.add(now, -48 * 3600, :second), now}
   end
 
   defp calc_dew_point(temp, humidity) when is_number(temp) and is_number(humidity) do
