@@ -55,16 +55,35 @@ This is an Elixir Phoenix LiveView application that serves as a real-time APRS (
 - GenStage for packet processing pipelines
 - Tailwind CSS + ESBuild for frontend assets (no Node.js)
 
-## Testing Patterns
+## Test-Driven Development
+
+**MANDATORY**: Follow strict test-driven development (TDD) practices:
+
+1. **Red Phase**: Write failing tests first before implementing any functionality
+2. **Green Phase**: Write minimal code to make tests pass
+3. **Refactor Phase**: Improve code while keeping tests green
+
+### TDD Workflow
+- Always write tests before implementing new features or fixing bugs
+- Start with the simplest failing test case
+- Write only enough code to make the test pass
+- Refactor with confidence knowing tests will catch regressions
+- Run `mix test` frequently during development
+- Use `mix test.watch` for continuous feedback
+
+### Testing Patterns
 
 Tests use comprehensive mocking to prevent external connections:
 - APRS-IS connections are mocked in test environment
 - Database uses sandbox mode for isolation
 - External API calls mocked with Mox library
-- Run `mix test` after any changes to ensure no breakage
+- Write unit tests for business logic, integration tests for workflows
+- Test edge cases and error conditions thoroughly
+- Maintain high test coverage with `mix test --cover`
 
 ## Code Style Guidelines
 
+- **CRITICAL**: Never write production code without tests first
 - Use LiveView for UI interactions, minimize JavaScript
 - Prefer pattern matching over if/case statements
 - Follow idiomatic Elixir conventions
@@ -72,6 +91,7 @@ Tests use comprehensive mocking to prevent external connections:
 - Address any compiler warnings
 - Run `mix dialyzer` and fix all errors/warnings
 - Use function composition over nested conditionals
+- Write descriptive test names that explain behavior
 
 ## Deployment
 
