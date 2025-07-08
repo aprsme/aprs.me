@@ -63,10 +63,10 @@ defmodule AprsmeWeb.ConnCase do
       end
 
   """
-  def log_in_user(conn, _user) do
-    user = Aprsme.AccountsFixtures.user_fixture()
-    token = Aprsme.Accounts.generate_user_session_token(user)
+  # def log_in_user(conn, _user) do
+  #   user = Aprsme.AccountsFixtures.user_fixture()
+  #   token = Aprsme.Accounts.generate_user_session_token(user)
 
-    Plug.Conn.put_req_header(conn, "authorization", "Bearer #{token}")
-  end
+  #   Plug.Conn.put_req_header(conn, "authorization", "Bearer #{token}")
+  # end
 end

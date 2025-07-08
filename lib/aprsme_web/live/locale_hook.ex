@@ -35,7 +35,7 @@ defmodule AprsmeWeb.LocaleHook do
     end
   end
 
-  defp is_map_page?(socket, params) do
+  defp is_map_page?(socket, _params) do
     # Only check the view module from socket private data
     case socket.private[:phoenix_live_view] do
       %{view: AprsmeWeb.MapLive.Index} -> true
