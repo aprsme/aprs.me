@@ -5,6 +5,7 @@ defmodule Aprsme.PacketConsumer do
   """
   use GenStage
 
+  alias Aprsme.LogSanitizer
   alias Aprsme.Repo
 
   require Logger
@@ -17,6 +18,8 @@ defmodule Aprsme.PacketConsumer do
   def init(opts) do
     batch_size = opts[:batch_size] || 100
     batch_timeout = opts[:batch_timeout] || 1000
+    # Maximum batch size to prevent unbounded memory growth
+    max_batch_size = opts[:max_batch_size] || 1000
 
     # Start a timer for batch processing
     timer = Process.send_after(self(), :process_batch, batch_timeout)
@@ -26,27 +29,62 @@ defmodule Aprsme.PacketConsumer do
        batch: [],
        batch_size: batch_size,
        batch_timeout: batch_timeout,
+       max_batch_size: max_batch_size,
        timer: timer
      }}
   end
 
   @impl true
-  def handle_events(events, _from, %{batch: batch, batch_size: batch_size} = state) do
+  def handle_events(events, _from, %{batch: batch, batch_size: batch_size, max_batch_size: max_batch_size} = state) do
     new_batch = batch ++ events
+    new_batch_length = length(new_batch)
 
-    if length(new_batch) >= batch_size do
-      # Process the batch immediately
-      process_batch(new_batch)
-      {:noreply, [], %{state | batch: []}}
-    else
-      # Add to batch and wait for more
-      {:noreply, [], %{state | batch: new_batch}}
+    cond do
+      new_batch_length >= max_batch_size ->
+        # If batch exceeds maximum size, process immediately and drop excess
+        {process_batch, drop_batch} = Enum.split(new_batch, max_batch_size)
+        process_batch(process_batch)
+
+        # Log warning about dropping packets (sanitized)
+        if length(drop_batch) > 0 do
+          Logger.warning("Dropped #{length(drop_batch)} packets due to batch size limit",
+            batch_info:
+              LogSanitizer.log_data(
+                dropped_count: length(drop_batch),
+                processed_count: length(process_batch),
+                reason: "batch_size_limit_exceeded"
+              )
+          )
+        end
+
+        {:noreply, [], %{state | batch: []}}
+
+      new_batch_length >= batch_size ->
+        # Process the batch immediately
+        process_batch(new_batch)
+        {:noreply, [], %{state | batch: []}}
+
+      true ->
+        # Add to batch and wait for more
+        {:noreply, [], %{state | batch: new_batch}}
     end
   end
 
   @impl true
-  def handle_info(:process_batch, %{batch: batch, batch_timeout: timeout} = state) do
+  def handle_info(:process_batch, %{batch: batch, batch_timeout: timeout, max_batch_size: max_batch_size} = state) do
     if length(batch) > 0 do
+      # Check if batch size is concerning
+      if length(batch) > max_batch_size * 0.8 do
+        Logger.warning("Batch size approaching limit",
+          batch_status:
+            LogSanitizer.log_data(
+              current_size: length(batch),
+              max_size: max_batch_size,
+              utilization_percent: trunc(length(batch) / max_batch_size * 100)
+            )
+        )
+      end
+
       process_batch(batch)
     end
 
@@ -58,6 +96,8 @@ defmodule Aprsme.PacketConsumer do
   defp process_batch(packets) do
     require Logger
 
+    # Monitor memory usage before processing
+    {memory_before, _} = :erlang.statistics(:runtime)
     start_time = System.monotonic_time(:millisecond)
 
     results =
@@ -73,18 +113,50 @@ defmodule Aprsme.PacketConsumer do
     end_time = System.monotonic_time(:millisecond)
     duration = end_time - start_time
 
+    # Monitor memory usage after processing
+    {memory_after, _} = :erlang.statistics(:runtime)
+    memory_diff = memory_after - memory_before
+
+    # Force garbage collection if memory usage is high
+    # 50MB threshold
+    if memory_diff > 50_000 do
+      :erlang.garbage_collect()
+
+      Logger.warning("High memory usage detected, forced garbage collection",
+        memory_info:
+          LogSanitizer.log_data(
+            memory_diff_bytes: memory_diff,
+            batch_size: length(packets),
+            gc_forced: true
+          )
+      )
+    end
+
     :telemetry.execute(
       [
         :aprsme,
         :packet_pipeline,
         :batch
       ],
-      %{count: length(packets), success: success_count, error: error_count, duration_ms: duration},
+      %{
+        count: length(packets),
+        success: success_count,
+        error: error_count,
+        duration_ms: duration,
+        memory_diff: memory_diff
+      },
       %{}
     )
 
-    Logger.info(
-      "Processed batch of #{length(packets)} packets in #{duration}ms (success: #{success_count}, errors: #{error_count})"
+    Logger.info("Batch processing completed",
+      batch_result:
+        LogSanitizer.log_data(
+          packet_count: length(packets),
+          duration_ms: duration,
+          success_count: success_count,
+          error_count: error_count,
+          memory_diff_bytes: memory_diff
+        )
     )
   end
 
@@ -296,20 +368,11 @@ defmodule Aprsme.PacketConsumer do
 
   defp set_lat_lon(attrs, lat, lon) do
     round6 = fn
+      nil ->
+        nil
+
       n when is_float(n) ->
         Float.round(n, 6)
-
-      n when is_integer(n) ->
-        n * 1.0
-
-      n when is_binary(n) ->
-        case Float.parse(n) do
-          {f, _} -> Float.round(f, 6)
-          :error -> nil
-        end
-
-      _ ->
-        nil
     end
 
     attrs

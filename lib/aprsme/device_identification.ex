@@ -6,6 +6,7 @@ defmodule Aprsme.DeviceIdentification do
 
   import Ecto.Query
 
+  alias Aprsme.CircuitBreaker
   alias Aprsme.Devices
   alias Aprsme.Repo
 
@@ -130,13 +131,24 @@ defmodule Aprsme.DeviceIdentification do
   end
 
   def fetch_and_upsert_devices do
-    case Req.get(@url) do
-      {:ok, %Req.Response{status: 200, body: body}} ->
-        {:ok, json} = Jason.decode(body)
-        upsert_devices(json)
+    case CircuitBreaker.call(
+           :aprs_foundation_api,
+           fn ->
+             case Req.get(@url) do
+               {:ok, %Req.Response{status: 200, body: body}} ->
+                 upsert_devices(body)
 
-      err ->
-        err
+               {:ok, %Req.Response{status: status}} ->
+                 {:error, {:http_error, status}}
+
+               {:error, reason} ->
+                 {:error, reason}
+             end
+           end,
+           15_000
+         ) do
+      {:ok, result} -> result
+      {:error, reason} -> {:error, reason}
     end
   end
 

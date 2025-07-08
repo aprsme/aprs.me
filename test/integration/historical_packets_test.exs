@@ -1,9 +1,6 @@
 defmodule Aprsme.Integration.HistoricalPacketsTest do
   use AprsmeWeb.ConnCase
 
-  import Phoenix.ConnTest
-  import Phoenix.LiveViewTest
-
   setup do
     Mox.set_mox_global()
     Application.put_env(:aprsme, :packets_module, PacketsMock)

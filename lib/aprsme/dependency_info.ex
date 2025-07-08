@@ -3,6 +3,8 @@ defmodule Aprsme.DependencyInfo do
   Provides information about dependencies, particularly for production builds.
   """
 
+  alias Aprsme.CircuitBreaker
+
   @doc """
   Gets the SHA1 hash of the aprs library currently being used.
   In development: reads from vendor/aprs directory
@@ -31,12 +33,19 @@ defmodule Aprsme.DependencyInfo do
   end
 
   def latest_aprs_library_sha do
-    resp = Req.get!("https://api.github.com/repos/aprsme/aprs/commits/main")
-    body = resp.body
-    sha = body["sha"] || body |> Jason.decode!() |> Access.get("sha")
-    String.slice(sha, 0, 7)
-  rescue
-    _ -> nil
+    case CircuitBreaker.call(
+           :github_api,
+           fn ->
+             resp = Req.get!("https://api.github.com/repos/aprsme/aprs/commits/main")
+             body = resp.body
+             sha = body["sha"] || body |> Jason.decode!() |> Access.get("sha")
+             String.slice(sha, 0, 7)
+           end,
+           10_000
+         ) do
+      {:ok, sha} -> sha
+      {:error, _} -> nil
+    end
   end
 
   def is_latest_aprs_library? do

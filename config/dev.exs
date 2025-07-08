@@ -55,6 +55,10 @@ config :aprsme, AprsmeWeb.Endpoint,
 # Run `mix help phx.gen.cert` for more information.
 config :aprsme, dev_routes: true
 
+# Configure Hammer for development environment
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
+
 # Do not include metadata nor timestamps in development logs
 #
 # The `http:` config above can be replaced with:
@@ -70,14 +74,14 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Set a higher stacktrace during development. Avoid configuring such
 #       certfile: "priv/cert/selfsigned.pem"
+# Disable swoosh api client as it is only required for production adapters.
 # in production as building large stacktraces may be expensive.
+# different ports.
+
 #     ],
 #
 # If desired, both `http:` and `https:` keys can be
 # configured to run both http and https servers on
 config :phoenix, :stacktrace_depth, 20
-
-# Disable swoosh api client as it is only required for production adapters.
-# different ports.
 
 config :swoosh, :api_client, false

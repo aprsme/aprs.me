@@ -6,6 +6,8 @@ defmodule Aprsme.AprsIsConnection do
   """
   use GenServer
 
+  alias Aprsme.LogSanitizer
+
   require Logger
 
   @type state :: %{
@@ -55,7 +57,14 @@ defmodule Aprsme.AprsIsConnection do
         {:noreply, %{state | socket: socket, backoff: @reconnect_initial}}
 
       {:error, reason} ->
-        Logger.error("APRS-IS connection failed: #{inspect(reason)}. Retrying in #{state.backoff} ms.")
+        Logger.error("APRS-IS connection failed, retrying with backoff",
+          connection_error:
+            LogSanitizer.log_data(
+              reason: reason,
+              backoff_ms: state.backoff,
+              next_attempt: DateTime.add(DateTime.utc_now(), state.backoff, :millisecond)
+            )
+        )
 
         :telemetry.execute([:aprsme, :is, :connect_error], %{}, %{reason: reason})
         schedule_connect(state.backoff)
@@ -73,7 +82,15 @@ defmodule Aprsme.AprsIsConnection do
 
   @impl true
   def handle_info({:tcp_closed, _socket}, state) do
-    Logger.warning("APRS-IS connection closed. Reconnecting...")
+    Logger.warning("APRS-IS connection closed, initiating reconnection",
+      connection_status:
+        LogSanitizer.log_data(
+          event: "connection_closed",
+          reconnect_delay_ms: @reconnect_initial,
+          backoff_reset: true
+        )
+    )
+
     :telemetry.execute([:aprsme, :is, :disconnected], %{}, %{})
     schedule_connect(@reconnect_initial)
     {:noreply, %{state | socket: nil, backoff: @reconnect_initial}}
@@ -81,7 +98,15 @@ defmodule Aprsme.AprsIsConnection do
 
   @impl true
   def handle_info({:tcp_error, _socket, reason}, state) do
-    Logger.error("APRS-IS TCP error: #{inspect(reason)}. Reconnecting...")
+    Logger.error("APRS-IS TCP error detected, reconnecting",
+      tcp_error:
+        LogSanitizer.log_data(
+          reason: reason,
+          reconnect_delay_ms: @reconnect_initial,
+          socket_reset: true
+        )
+    )
+
     :telemetry.execute([:aprsme, :is, :tcp_error], %{}, %{reason: reason})
     schedule_connect(@reconnect_initial)
     {:noreply, %{state | socket: nil, backoff: @reconnect_initial}}

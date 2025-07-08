@@ -4,7 +4,8 @@ defmodule AprsmeWeb.Api.V1.CallsignController do
   """
   use AprsmeWeb, :controller
 
-  alias Aprsme.Packets
+  alias Aprsme.CachedQueries
+  alias Aprsme.ErrorHandler
   alias AprsmeWeb.Api.V1.CallsignJSON
 
   action_fallback AprsmeWeb.Api.V1.FallbackController
@@ -67,21 +68,21 @@ defmodule AprsmeWeb.Api.V1.CallsignController do
 
   defp get_latest_packet(callsign) do
     # Get the most recent packet for this callsign regardless of age or type
-    case Packets.get_latest_packet_for_callsign(callsign) do
-      nil ->
-        {:error, :not_found}
-
-      packet ->
-        {:ok, packet}
+    # Use cached version for better performance with error handling
+    fn ->
+      case CachedQueries.get_latest_packet_for_callsign_cached(callsign) do
+        nil -> {:error, :not_found}
+        packet -> {:ok, packet}
+      end
     end
-  rescue
-    Ecto.QueryError ->
-      {:error, :database_error}
-
-    error ->
-      require Logger
-
-      Logger.error("Error fetching packet for callsign #{callsign}: #{inspect(error)}")
-      {:error, :internal_error}
+    |> ErrorHandler.with_error_handling(
+      context: %{callsign: callsign, operation: :get_latest_packet},
+      max_retries: 1,
+      retry_delay: 500
+    )
+    |> case do
+      {:ok, result} -> result
+      {:error, error} -> {:error, error}
+    end
   end
 end

@@ -284,20 +284,38 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   end
 
   # Weather unit conversion helpers
-  defp convert_temperature(value, locale) when is_number(value) do
-    AprsmeWeb.WeatherUnits.format_temperature(value, locale)
+  defp convert_temperature(value, locale) when is_binary(value) and value != "N/A" do
+    case Float.parse(value) do
+      {num_value, _} ->
+        AprsmeWeb.WeatherUnits.format_temperature(num_value, locale)
+
+      :error ->
+        {value, "°F"}
+    end
   end
 
   defp convert_temperature(value, _locale), do: {value, "°F"}
 
-  defp convert_wind_speed(value, locale) when is_number(value) do
-    AprsmeWeb.WeatherUnits.format_wind_speed(value, locale)
+  defp convert_wind_speed(value, locale) when is_binary(value) and value != "N/A" do
+    case Float.parse(value) do
+      {num_value, _} ->
+        AprsmeWeb.WeatherUnits.format_wind_speed(num_value, locale)
+
+      :error ->
+        {value, "mph"}
+    end
   end
 
   defp convert_wind_speed(value, _locale), do: {value, "mph"}
 
-  defp convert_rain(value, locale) when is_number(value) do
-    AprsmeWeb.WeatherUnits.format_rain(value, locale)
+  defp convert_rain(value, locale) when is_binary(value) and value != "N/A" do
+    case Float.parse(value) do
+      {num_value, _} ->
+        AprsmeWeb.WeatherUnits.format_rain(num_value, locale)
+
+      :error ->
+        {value, "in"}
+    end
   end
 
   defp convert_rain(value, _locale), do: {value, "in"}

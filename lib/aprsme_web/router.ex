@@ -5,6 +5,8 @@ defmodule AprsmeWeb.Router do
   import AprsmeWeb.UserAuth
   import Phoenix.LiveDashboard.Router
 
+  alias AprsmeWeb.Plugs.RateLimiter
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -14,14 +16,22 @@ defmodule AprsmeWeb.Router do
     plug :put_secure_browser_headers
     plug :fetch_current_user
     plug AprsmeWeb.Plugs.SetLocale
+    plug RateLimiter, scale: 60_000, limit: 200
+  end
+
+  pipeline :public_api do
+    plug :accepts, ["json"]
+    plug RateLimiter, scale: 60_000, limit: 100
   end
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug RateLimiter, scale: 60_000, limit: 100
+    plug AprsmeWeb.Plugs.ApiCSRF
   end
 
   scope "/", AprsmeWeb do
-    pipe_through :api
+    pipe_through :public_api
     get "/health", PageController, :health
     get "/ready", PageController, :ready
     get "/status.json", PageController, :status_json
@@ -29,9 +39,6 @@ defmodule AprsmeWeb.Router do
 
   scope "/", AprsmeWeb do
     pipe_through :browser
-
-    live_dashboard "/dashboard", metrics: AprsmeWeb.Telemetry
-    error_tracker_dashboard("/errors")
 
     live_session :regular_pages, on_mount: [{AprsmeWeb.LocaleHook, :set_locale}] do
       live "/status", StatusLive.Index, :index
@@ -88,6 +95,9 @@ defmodule AprsmeWeb.Router do
 
   scope "/", AprsmeWeb do
     pipe_through [:browser, :require_authenticated_user]
+
+    live_dashboard "/dashboard", metrics: AprsmeWeb.Telemetry
+    error_tracker_dashboard("/errors")
 
     live_session :require_authenticated_user,
       on_mount: [{AprsmeWeb.UserAuth, :ensure_authenticated}, {AprsmeWeb.LocaleHook, :set_locale}] do

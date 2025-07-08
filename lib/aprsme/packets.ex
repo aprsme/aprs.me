@@ -504,7 +504,9 @@ defmodule Aprsme.Packets do
 
   defp filter_by_callsign(query, %{callsign: callsign}) do
     # Use sender field for exact callsign matching
-    from p in query, where: ilike(p.sender, ^callsign)
+    # Sanitize callsign to prevent SQL injection
+    sanitized_callsign = sanitize_callsign(callsign)
+    from p in query, where: ilike(p.sender, ^sanitized_callsign)
   end
 
   defp filter_by_callsign(query, _), do: query
@@ -538,7 +540,15 @@ defmodule Aprsme.Packets do
   defp filter_by_map_bounds(query, _), do: query
 
   defp create_bounding_box_wkt(min_lon, min_lat, max_lon, max_lat) do
-    "POLYGON((#{min_lon} #{min_lat}, #{max_lon} #{min_lat}, #{max_lon} #{max_lat}, #{min_lon} #{max_lat}, #{min_lon} #{min_lat}))"
+    # Validate and sanitize coordinates to prevent SQL injection
+    with {:ok, min_lon} <- validate_coordinate(min_lon),
+         {:ok, min_lat} <- validate_coordinate(min_lat),
+         {:ok, max_lon} <- validate_coordinate(max_lon),
+         {:ok, max_lat} <- validate_coordinate(max_lat) do
+      "POLYGON((#{min_lon} #{min_lat}, #{max_lon} #{min_lat}, #{max_lon} #{max_lat}, #{min_lon} #{max_lat}, #{min_lon} #{min_lat}))"
+    else
+      _ -> raise ArgumentError, "Invalid coordinates provided"
+    end
   end
 
   defp limit_results(query, %{limit: limit, page: page}) when not is_nil(limit) and not is_nil(page) do
@@ -717,12 +727,44 @@ defmodule Aprsme.Packets do
   """
   @spec get_latest_packet_for_callsign(String.t()) :: struct() | nil
   def get_latest_packet_for_callsign(callsign) when is_binary(callsign) do
+    sanitized_callsign = sanitize_callsign(callsign)
+
     from(p in Packet,
-      where: ilike(p.sender, ^callsign),
+      where: ilike(p.sender, ^sanitized_callsign),
       order_by: [desc: p.received_at],
       limit: 1
     )
     |> select_with_virtual_coordinates()
     |> Repo.one()
   end
+
+  # Sanitization functions to prevent SQL injection
+  defp sanitize_callsign(callsign) when is_binary(callsign) do
+    # APRS callsigns are alphanumeric with hyphens and up to 9 characters
+    # Remove any characters that could be used for SQL injection
+    callsign
+    |> String.upcase()
+    |> String.replace(~r/[^A-Z0-9\-]/, "")
+    |> String.slice(0, 9)
+  end
+
+  defp sanitize_callsign(_), do: ""
+
+  defp validate_coordinate(coord) when is_number(coord) do
+    # Validate coordinate ranges
+    if coord >= -180 and coord <= 180 do
+      {:ok, coord}
+    else
+      {:error, :invalid_coordinate}
+    end
+  end
+
+  defp validate_coordinate(coord) when is_binary(coord) do
+    case Float.parse(coord) do
+      {float_val, ""} -> validate_coordinate(float_val)
+      _ -> {:error, :invalid_coordinate}
+    end
+  end
+
+  defp validate_coordinate(_), do: {:error, :invalid_coordinate}
 end

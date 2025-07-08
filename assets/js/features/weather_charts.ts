@@ -40,6 +40,29 @@ const getThemeColors = () => {
     };
 };
 
+// Helper for 24-hour time formatting
+function format24Hour(date: Date): string {
+    if (!(date instanceof Date) || isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }).format(date);
+}
+
+function toValidDate(raw: any): Date | null {
+    if (raw instanceof Date && !isNaN(raw.getTime())) return raw;
+    if (typeof raw === 'number') {
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) return d;
+    }
+    if (typeof raw === 'string') {
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) return d;
+    }
+    return null;
+}
+
 declare global {
     interface Window {
         chartInstances?: Map<string, any>;
@@ -110,6 +133,7 @@ export const WeatherChartHooks: Record<string, Hook> = {
                     ]
                 },
                 options: {
+                    adapters: { date: { locale: 'en-GB' } },
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
@@ -117,7 +141,18 @@ export const WeatherChartHooks: Record<string, Hook> = {
                         legend: { labels: { color: colors.text } }
                     },
                     scales: {
-                        x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: labels.time || 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } },
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                tooltipFormat: 'HH:mm',
+                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
+                                locale: 'en-GB'
+                            },
+                            title: { display: true, text: labels.time || 'Time', color: colors.text },
+                            ticks: { color: colors.text, maxTicksLimit: 8 },
+                            grid: { color: colors.grid }
+                        },
                         y: { title: { display: true, text: labels.degf || '°F', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
                     }
                 }
@@ -156,10 +191,25 @@ export const WeatherChartHooks: Record<string, Hook> = {
                 type: 'line',
                 data: { labels: times, datasets: [{ label: labels.humidity_label || 'Humidity (%)', data: humidity, borderColor: 'green', backgroundColor: 'rgba(0, 255, 0, 0.1)', tension: 0.1, pointRadius: 0 }] },
                 options: {
+                    adapters: { date: { locale: 'en-GB' } },
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { title: { display: true, text: labels.humidity_title || 'Humidity (%)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: { x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: labels.time || 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { title: { display: true, text: labels.percent || '%', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } } }
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                tooltipFormat: 'HH:mm',
+                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
+                                locale: 'en-GB'
+                            },
+                            title: { display: true, text: labels.time || 'Time', color: colors.text },
+                            ticks: { color: colors.text, maxTicksLimit: 8 },
+                            grid: { color: colors.grid }
+                        },
+                        y: { title: { display: true, text: labels.percent || '%', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
+                    }
                 }
             });
         }
@@ -196,10 +246,25 @@ export const WeatherChartHooks: Record<string, Hook> = {
                 type: 'line',
                 data: { labels: times, datasets: [{ label: labels.pressure_label || 'Pressure (mb)', data: pressure, borderColor: 'purple', backgroundColor: 'rgba(128, 0, 128, 0.1)', tension: 0.1, pointRadius: 0 }] },
                 options: {
+                    adapters: { date: { locale: 'en-GB' } },
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { title: { display: true, text: labels.pressure_title || 'Pressure (mb)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: { x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: labels.time || 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { title: { display: true, text: labels.mb || 'mb', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } } }
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                tooltipFormat: 'HH:mm',
+                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
+                                locale: 'en-GB'
+                            },
+                            title: { display: true, text: labels.time || 'Time', color: colors.text },
+                            ticks: { color: colors.text, maxTicksLimit: 8 },
+                            grid: { color: colors.grid }
+                        },
+                        y: { title: { display: true, text: labels.mb || 'mb', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
+                    }
                 }
             });
         }
@@ -241,10 +306,25 @@ export const WeatherChartHooks: Record<string, Hook> = {
                     ]
                 },
                 options: {
+                    adapters: { date: { locale: 'en-GB' } },
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { title: { display: true, text: 'Wind Speed & Gust (mph)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: { x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { title: { display: true, text: 'mph', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } } }
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                tooltipFormat: 'HH:mm',
+                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
+                                locale: 'en-GB'
+                            },
+                            title: { display: true, text: 'Time', color: colors.text },
+                            ticks: { color: colors.text, maxTicksLimit: 8 },
+                            grid: { color: colors.grid }
+                        },
+                        y: { title: { display: true, text: 'mph', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
+                    }
                 }
             });
         }
@@ -288,10 +368,25 @@ export const WeatherChartHooks: Record<string, Hook> = {
                     ]
                 },
                 options: {
+                    adapters: { date: { locale: 'en-GB' } },
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { title: { display: true, text: 'Rainfall (inches)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: { x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { title: { display: true, text: 'inches', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } } }
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                tooltipFormat: 'HH:mm',
+                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
+                                locale: 'en-GB'
+                            },
+                            title: { display: true, text: 'Time', color: colors.text },
+                            ticks: { color: colors.text, maxTicksLimit: 8 },
+                            grid: { color: colors.grid }
+                        },
+                        y: { title: { display: true, text: 'inches', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
+                    }
                 }
             });
         }
@@ -327,10 +422,25 @@ export const WeatherChartHooks: Record<string, Hook> = {
                 type: 'line',
                 data: { labels: times, datasets: [{ label: 'Luminosity', data: luminosity, borderColor: 'yellow', backgroundColor: 'rgba(255, 255, 0, 0.1)', tension: 0.1, pointRadius: 0 }] },
                 options: {
+                    adapters: { date: { locale: 'en-GB' } },
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { title: { display: true, text: 'Luminosity', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: { x: { type: 'time', time: { displayFormats: { hour: 'HH:mm', minute: 'HH:mm' } }, title: { display: true, text: 'Time', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }, y: { title: { display: true, text: 'Luminosity', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } } }
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                tooltipFormat: 'HH:mm',
+                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
+                                locale: 'en-GB'
+                            },
+                            title: { display: true, text: 'Time', color: colors.text },
+                            ticks: { color: colors.text, maxTicksLimit: 8 },
+                            grid: { color: colors.grid }
+                        },
+                        y: { title: { display: true, text: 'Luminosity', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
+                    }
                 }
             });
         }

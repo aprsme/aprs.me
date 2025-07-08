@@ -71,16 +71,19 @@ if config_env() == :prod do
     server: true,
     check_origin: ["https://#{host}"]
 
-  # config :aprsme, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
-
   config :aprsme,
     ecto_repos: [Aprsme.Repo],
     aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
+    # config :aprsme, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
     aprs_is_port: 14_580,
     aprs_is_default_filter: System.get_env("APRS_FILTER"),
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
     aprs_is_password: System.get_env("APRS_PASSCODE"),
     env: :prod
+
+  # Configure Hammer for production environment
+  config :hammer,
+    backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
 
   # Configure libcluster for Dokku clustering
   config :libcluster,
@@ -88,7 +91,7 @@ if config_env() == :prod do
       dokku: [
         strategy: Cluster.Strategy.Gossip,
         config: [
-          port: 45892,
+          port: 45_892,
           if_addr: "0.0.0.0",
           multicast_addr: "230.1.1.1",
           multicast_ttl: 1

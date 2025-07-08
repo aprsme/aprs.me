@@ -251,7 +251,6 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
     # Return "0" for missing numeric fields, keep other values as-is
     case value do
       "N/A" -> "0"
-      nil -> "0"
       _ -> value
     end
   end
@@ -263,34 +262,69 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
     value = PacketUtils.get_weather_field(packet, key)
 
     case {key, value} do
-      {:temperature, value} when is_number(value) ->
-        {converted_value, unit} = WeatherUnits.format_temperature(value, locale)
-        "#{converted_value}#{unit}"
+      {:temperature, value} when is_binary(value) and value != "N/A" ->
+        case Float.parse(value) do
+          {num_value, _} ->
+            {converted_value, unit} = WeatherUnits.format_temperature(num_value, locale)
+            "#{converted_value}#{unit}"
 
-      {:wind_speed, value} when is_number(value) ->
-        {converted_value, unit} = WeatherUnits.format_wind_speed(value, locale)
-        "#{converted_value} #{unit}"
+          :error ->
+            value
+        end
 
-      {:wind_gust, value} when is_number(value) ->
-        {converted_value, unit} = WeatherUnits.format_wind_speed(value, locale)
-        "#{converted_value} #{unit}"
+      {:wind_speed, value} when is_binary(value) and value != "N/A" ->
+        case Float.parse(value) do
+          {num_value, _} ->
+            {converted_value, unit} = WeatherUnits.format_wind_speed(num_value, locale)
+            "#{converted_value} #{unit}"
 
-      {:rain_1h, value} when is_number(value) ->
-        {converted_value, unit} = WeatherUnits.format_rain(value, locale)
-        "#{converted_value} #{unit}"
+          :error ->
+            value
+        end
 
-      {:rain_24h, value} when is_number(value) ->
-        {converted_value, unit} = WeatherUnits.format_rain(value, locale)
-        "#{converted_value} #{unit}"
+      {:wind_gust, value} when is_binary(value) and value != "N/A" ->
+        case Float.parse(value) do
+          {num_value, _} ->
+            {converted_value, unit} = WeatherUnits.format_wind_speed(num_value, locale)
+            "#{converted_value} #{unit}"
 
-      {:rain_since_midnight, value} when is_number(value) ->
-        {converted_value, unit} = WeatherUnits.format_rain(value, locale)
-        "#{converted_value} #{unit}"
+          :error ->
+            value
+        end
+
+      {:rain_1h, value} when is_binary(value) and value != "N/A" ->
+        case Float.parse(value) do
+          {num_value, _} ->
+            {converted_value, unit} = WeatherUnits.format_rain(num_value, locale)
+            "#{converted_value} #{unit}"
+
+          :error ->
+            value
+        end
+
+      {:rain_24h, value} when is_binary(value) and value != "N/A" ->
+        case Float.parse(value) do
+          {num_value, _} ->
+            {converted_value, unit} = WeatherUnits.format_rain(num_value, locale)
+            "#{converted_value} #{unit}"
+
+          :error ->
+            value
+        end
+
+      {:rain_since_midnight, value} when is_binary(value) and value != "N/A" ->
+        case Float.parse(value) do
+          {num_value, _} ->
+            {converted_value, unit} = WeatherUnits.format_rain(num_value, locale)
+            "#{converted_value} #{unit}"
+
+          :error ->
+            value
+        end
 
       _ ->
         case value do
           "N/A" -> "N/A"
-          nil -> "N/A"
           _ -> "#{value}"
         end
     end

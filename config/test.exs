@@ -49,6 +49,10 @@ config :aprsme, auto_migrate: false
 # Only in tests, remove the complexity from the password hashing algorithm
 config :bcrypt_elixir, :log_rounds, 1
 
+# Configure Hammer for test environment
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

@@ -25,6 +25,12 @@ defmodule Aprsme.Application do
       Aprsme.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: Aprsme.PubSub},
+      # Start cache systems
+      %{id: :query_cache, start: {Cachex, :start_link, [:query_cache, [limit: 10_000]]}},
+      %{id: :device_cache, start: {Cachex, :start_link, [:device_cache, [limit: 5_000]]}},
+      %{id: :symbol_cache, start: {Cachex, :start_link, [:symbol_cache, [limit: 1_000]]}},
+      # Start circuit breaker
+      Aprsme.CircuitBreaker,
 
       # Start the Endpoint (http/https)
       AprsmeWeb.Endpoint,

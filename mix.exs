@@ -94,7 +94,9 @@ defmodule Aprsme.MixProject do
       {:igniter, "~> 0.6", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
       {:styler, "~> 1.4.2", only: [:dev, :test], runtime: false},
-      {:httpoison, "~> 1.8"}
+      {:httpoison, "~> 1.8"},
+      {:hammer, "~> 6.0"},
+      {:cachex, "~> 3.4"}
     ]
   end
 
