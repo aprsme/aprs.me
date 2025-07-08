@@ -3,7 +3,6 @@ defmodule AprsmeWeb.LocaleHook do
   LiveView hook for setting locale based on Accept-Language header.
   This ensures that LiveView updates maintain the correct locale.
   """
-  import Config, only: [config_env: 0]
   import Phoenix.Component
 
   # Cache supported locales at compile time
@@ -12,7 +11,7 @@ defmodule AprsmeWeb.LocaleHook do
   def on_mount(:set_locale, params, session, socket) do
     # Only set locale in production to allow seeing "xx" placeholders in dev
     locale =
-      if config_env() == :prod do
+      if Application.get_env(:aprsme, :env) == :prod do
         get_locale_from_session(session) || "en"
       end
 
