@@ -1,29 +1,33 @@
 <% assigns = assign_new(assigns, :map_page, fn -> false end) %>
 <style>
-  /* Non-map pages should allow scrolling */
-  body:not(.map-page) {
-    overflow: auto;
-    height: auto;
+  /* Default scrolling behavior for all pages */
+  html, body {
+    overflow: auto !important;
+    height: auto !important;
+    min-height: 100vh !important;
   }
 
-  body:not(.map-page) html {
-    overflow: auto;
-    height: auto;
-  }
-
-  body:not(.map-page) main {
-    overflow: visible;
-    height: auto;
-  }
-
-  body:not(.map-page) .phx-main {
-    overflow: visible;
-    height: auto;
-  }
-
+  /* Reset constraints for non-map pages */
+  body:not(.map-page) main,
+  body:not(.map-page) .phx-main,
   body:not(.map-page) div[data-phx-main="true"] {
-    overflow: visible;
-    height: auto;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 100vh !important;
+  }
+
+  /* Ensure proper scrolling for non-map pages */
+  body:not(.map-page) {
+    overflow-y: auto !important;
+    height: auto !important;
+  }
+
+  /* Only apply map constraints to map pages */
+  body.map-page,
+  body.map-page html {
+    overflow: hidden !important;
+    height: 100vh !important;
   }
 
   /* Map page specific styles */
@@ -197,7 +201,12 @@
 </style>
 
 <.header dev_mode={Application.get_env(:aprsme, :dev_routes, false)} />
-<main class="min-h-screen bg-base-100">
+<main
+  id="main-content"
+  class={if assigns[:map_page], do: "min-h-screen bg-base-100", else: "bg-base-100"}
+  phx-hook="BodyClassHook"
+  data-map-page={to_string(assigns[:map_page] || false)}
+>
   <div>
     <.flash kind={:info} title="Success!" flash={@flash} />
     <.flash kind={:error} title="Error!" flash={@flash} />

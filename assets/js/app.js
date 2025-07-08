@@ -70,10 +70,34 @@ let ResponsiveSlideoverHook = {
   },
 };
 
+// Body Class Hook - Updates body class based on map_page assign
+let BodyClassHook = {
+  mounted() {
+    this.updateBodyClass();
+  },
+  
+  updated() {
+    this.updateBodyClass();
+  },
+  
+  updateBodyClass() {
+    // Get the map_page value from the element's data attribute
+    const mapPage = this.el.dataset.mapPage === 'true';
+    
+    // Update body class based on map_page value
+    if (mapPage) {
+      document.body.classList.add('map-page');
+    } else {
+      document.body.classList.remove('map-page');
+    }
+  }
+};
+
 // APRS Map Hook
 let Hooks = {};
 Hooks.APRSMap = MapAPRSMap;
 Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
+Hooks.BodyClassHook = BodyClassHook;
 
 // Register weather chart hooks from TypeScript
 import { WeatherChartHooks } from "./features/weather_charts";
