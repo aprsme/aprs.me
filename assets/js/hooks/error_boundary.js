@@ -47,12 +47,34 @@ const ErrorBoundary = {
   
   isErrorInComponent(error) {
     // Check if the error occurred within this component's DOM tree
-    // This is a simplified check - in production you might want more sophisticated logic
-    if (!error || !error.stack) return false;
+    if (!error) return false;
     
-    // Check if any element in the component has an error
-    const hasError = this.el.querySelector('[data-phx-error]');
-    return !!hasError;
+    // If the error has a target element, check if it's within our component
+    if (error.target && this.el.contains(error.target)) {
+      return true;
+    }
+    
+    // Check if the error stack trace contains references to our component's hooks or elements
+    if (error.stack) {
+      // Look for our component's ID in the stack trace
+      const componentId = this.el.id;
+      if (componentId && error.stack.includes(componentId)) {
+        return true;
+      }
+      
+      // Check if the error originated from a hook within this component
+      const hooks = this.el.querySelectorAll('[phx-hook]');
+      for (let hook of hooks) {
+        const hookName = hook.getAttribute('phx-hook');
+        if (hookName && error.stack.includes(hookName)) {
+          return true;
+        }
+      }
+    }
+    
+    // For now, we'll be conservative and only handle errors we're sure about
+    // In a more sophisticated implementation, you might analyze the error source
+    return false;
   },
   
   handleError(error) {
