@@ -6,68 +6,147 @@ defmodule AprsmeWeb.UserSettingsLive do
 
   def render(assigns) do
     ~H"""
-    <.header />
+    <div class="hero min-h-screen bg-base-200">
+      <div class="hero-content flex-col w-full max-w-4xl">
+        <div class="text-center mb-8">
+          <h1 class="text-4xl font-bold">Account Settings</h1>
+          <p class="text-base-content/70">Update your email address and password</p>
+        </div>
 
-    <.simple_form
-      :let={f}
-      id="email_form"
-      for={@email_changeset}
-      phx-submit="update_email"
-      phx-change="validate_email"
-    >
-      <.error :if={@email_changeset.action == :insert}>
-        Oops, something went wrong! Please check the errors below.
-      </.error>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+          <!-- Change Email Section -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-4">Change Email</h2>
 
-      <.input field={{f, :email}} type="email" label="Email" required />
+              <.simple_form
+                :let={f}
+                id="email_form"
+                for={@email_changeset}
+                phx-submit="update_email"
+                phx-change="validate_email"
+              >
+                <div :if={@email_changeset.action == :insert} class="alert alert-error mb-4">
+                  <span>Oops, something went wrong! Please check the errors below.</span>
+                </div>
 
-      <.input
-        field={{f, :current_password}}
-        name="current_password"
-        id="current_password_for_email"
-        type="password"
-        label="Current password"
-        value={@email_form_current_password}
-        required
-      />
-      <:actions>
-        <.button phx-disable-with="Changing...">Change Email</.button>
-      </:actions>
-    </.simple_form>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">Email</span>
+                  </label>
+                  <input
+                    type="email"
+                    name={Phoenix.HTML.Form.input_name(f, :email)}
+                    value={Phoenix.HTML.Form.input_value(f, :email) || ""}
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
 
-    <.header />
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">Current password</span>
+                  </label>
+                  <input
+                    type="password"
+                    name="current_password"
+                    id="current_password_for_email"
+                    value={@email_form_current_password || ""}
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Enter current password"
+                    required
+                  />
+                </div>
 
-    <.simple_form
-      :let={f}
-      id="password_form"
-      for={@password_changeset}
-      action={~p"/users/log_in?_action=password_updated"}
-      method="post"
-      phx-change="validate_password"
-      phx-submit="update_password"
-      phx-trigger-action={@trigger_submit}
-    >
-      <.error :if={@password_changeset.action == :insert}>
-        Oops, something went wrong! Please check the errors below.
-      </.error>
+                <div class="form-control mt-6">
+                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Changing...">
+                    Change Email
+                  </button>
+                </div>
+              </.simple_form>
+            </div>
+          </div>
+          
+    <!-- Change Password Section -->
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-4">Change Password</h2>
 
-      <.input field={{f, :email}} type="hidden" value={@current_email} />
+              <.simple_form
+                :let={f}
+                id="password_form"
+                for={@password_changeset}
+                action={~p"/users/log_in?_action=password_updated"}
+                method="post"
+                phx-change="validate_password"
+                phx-submit="update_password"
+                phx-trigger-action={@trigger_submit}
+              >
+                <div :if={@password_changeset.action == :insert} class="alert alert-error mb-4">
+                  <span>Oops, something went wrong! Please check the errors below.</span>
+                </div>
 
-      <.input field={{f, :password}} type="password" label="New password" required />
-      <.input field={{f, :password_confirmation}} type="password" label="Confirm new password" />
-      <.input
-        field={{f, :current_password}}
-        name="current_password"
-        type="password"
-        label="Current password"
-        id="current_password_for_password"
-        value={@current_password}
-        required
-      />
-      <:actions>
-        <.button phx-disable-with="Changing...">Change Password</.button>
-      </:actions>
-    </.simple_form>
+                <input
+                  type="hidden"
+                  name={Phoenix.HTML.Form.input_name(f, :email)}
+                  value={@current_email}
+                />
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">New password</span>
+                  </label>
+                  <input
+                    type="password"
+                    name={Phoenix.HTML.Form.input_name(f, :password)}
+                    value={Phoenix.HTML.Form.input_value(f, :password) || ""}
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Enter new password"
+                    required
+                  />
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">Confirm new password</span>
+                  </label>
+                  <input
+                    type="password"
+                    name={Phoenix.HTML.Form.input_name(f, :password_confirmation)}
+                    value={Phoenix.HTML.Form.input_value(f, :password_confirmation) || ""}
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Confirm new password"
+                    required
+                  />
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">Current password</span>
+                  </label>
+                  <input
+                    type="password"
+                    name="current_password"
+                    id="current_password_for_password"
+                    value={@current_password || ""}
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Enter current password"
+                    required
+                  />
+                </div>
+
+                <div class="form-control mt-6">
+                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Changing...">
+                    Change Password
+                  </button>
+                </div>
+              </.simple_form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     """
   end
 

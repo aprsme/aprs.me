@@ -119,6 +119,8 @@
     color: oklch(58% 0.233 277.117) !important;
 }
 
+/* Input field dark mode fixes */
+
 /* Marker cluster styles */
 .marker-cluster-small {
     background-color: rgba(16, 185, 129, 0.8);
@@ -326,4 +328,60 @@
 
 .historical-dot-marker {
     z-index: 15 !important;
+}
+
+/* Input field dark mode fixes - Override DaisyUI CSS variables for dark theme */
+
+[data-theme="dark"] {
+    --color-base-100: #2d3748 !important;
+    --color-base-200: #1a202c !important;
+    --color-base-300: #171923 !important;
+    --color-base-content: #f7fafc !important;
+    --input-bg: #2d3748;
+    --input-color: #f7fafc;
+    --input-border: #4a5568;
+}
+
+/* Ultra-specific selector to override DaisyUI */
+html[data-theme="dark"] .card .input,
+html[data-theme="dark"] .card .input-bordered,
+html[data-theme="dark"] .card input.input,
+html[data-theme="dark"] .card input.input-bordered,
+html[data-theme="dark"] .card input[type="email"],
+html[data-theme="dark"] .card input[type="password"],
+html[data-theme="dark"] .form-control input.input,
+html[data-theme="dark"] .form-control input.input-bordered,
+html[data-theme="dark"] .form-control input[type="email"],
+html[data-theme="dark"] .form-control input[type="password"] {
+    background-color: #2d3748 !important;
+    color: #f7fafc !important;
+    border-color: #4a5568 !important;
+}
+
+html[data-theme="dark"] .card .input:focus,
+html[data-theme="dark"] .card .input-bordered:focus,
+html[data-theme="dark"] .card input.input:focus,
+html[data-theme="dark"] .card input.input-bordered:focus,
+html[data-theme="dark"] .card input[type="email"]:focus,
+html[data-theme="dark"] .card input[type="password"]:focus,
+html[data-theme="dark"] .form-control input.input:focus,
+html[data-theme="dark"] .form-control input.input-bordered:focus,
+html[data-theme="dark"] .form-control input[type="email"]:focus,
+html[data-theme="dark"] .form-control input[type="password"]:focus {
+    background-color: #2d3748 !important;
+    color: #f7fafc !important;
+    border-color: #6366f1 !important;
+}
+
+html[data-theme="dark"] .input::placeholder,
+html[data-theme="dark"] input.input::placeholder,
+html[data-theme="dark"] input[type="email"]::placeholder,
+html[data-theme="dark"] input[type="password"]::placeholder {
+    color: oklch(60% 0.029 256.847) !important;
+}
+
+html[data-theme="dark"] .checkbox,
+html[data-theme="dark"] input.checkbox {
+    background-color: var(--input-bg) !important;
+    border-color: var(--input-border) !important;
 }

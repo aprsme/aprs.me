@@ -6,36 +6,75 @@ defmodule AprsmeWeb.UserResetPasswordLive do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center" />
+    <div class="hero min-h-screen bg-base-200">
+      <div class="hero-content text-center">
+        <div class="max-w-md">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h1 class="card-title text-3xl mb-4 justify-center">Reset Password</h1>
+              <p class="text-base-content/70 mb-6">Enter your new password below</p>
 
-      <.simple_form
-        :let={f}
-        for={@changeset}
-        id="reset_password_form"
-        phx-submit="reset_password"
-        phx-change="validate"
-      >
-        <.error :if={@changeset.action == :insert}>
-          Oops, something went wrong! Please check the errors below.
-        </.error>
+              <.simple_form
+                :let={f}
+                for={@changeset}
+                id="reset_password_form"
+                phx-submit="reset_password"
+                phx-change="validate"
+              >
+                <div :if={@changeset.action == :insert} class="alert alert-error mb-4">
+                  <span>Oops, something went wrong! Please check the errors below.</span>
+                </div>
 
-        <.input field={{f, :password}} type="password" label="New password" required />
-        <.input
-          field={{f, :password_confirmation}}
-          type="password"
-          label="Confirm new password"
-          required
-        />
-        <:actions>
-          <.button phx-disable-with="Resetting..." class="w-full">Reset Password</.button>
-        </:actions>
-      </.simple_form>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">New password</span>
+                  </label>
+                  <input
+                    type="password"
+                    name={Phoenix.HTML.Form.input_name(f, :password)}
+                    value={Phoenix.HTML.Form.input_value(f, :password) || ""}
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Enter new password"
+                    required
+                  />
+                </div>
 
-      <p class="text-center mt-4">
-        <.link navigate={~p"/users/register"}>Register</.link>
-        | <.link navigate={~p"/users/log_in"}>Log in</.link>
-      </p>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">Confirm new password</span>
+                  </label>
+                  <input
+                    type="password"
+                    name={Phoenix.HTML.Form.input_name(f, :password_confirmation)}
+                    value={Phoenix.HTML.Form.input_value(f, :password_confirmation) || ""}
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Confirm new password"
+                    required
+                  />
+                </div>
+
+                <div class="form-control mt-6">
+                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Resetting...">
+                    Reset Password
+                  </button>
+                </div>
+              </.simple_form>
+
+              <div class="divider">OR</div>
+
+              <div class="text-center text-sm">
+                <.link navigate={~p"/users/register"} class="link link-primary">
+                  Register
+                </.link>
+                |
+                <.link navigate={~p"/users/log_in"} class="link link-primary">
+                  Log in
+                </.link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end

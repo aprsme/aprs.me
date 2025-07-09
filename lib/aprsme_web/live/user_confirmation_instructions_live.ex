@@ -6,25 +6,61 @@ defmodule AprsmeWeb.UserConfirmationInstructionsLive do
 
   def render(assigns) do
     ~H"""
-    <.header />
+    <div class="hero min-h-screen bg-base-200">
+      <div class="hero-content text-center">
+        <div class="max-w-md">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h1 class="card-title text-3xl mb-4 justify-center">
+                Resend confirmation instructions
+              </h1>
+              <p class="text-base-content/70 mb-6">
+                Enter your email address to receive a new confirmation link
+              </p>
 
-    <.simple_form
-      :let={f}
-      for={%{}}
-      as={:user}
-      id="resend_confirmation_form"
-      phx-submit="send_instructions"
-    >
-      <.input field={{f, :email}} type="email" label="Email" required />
-      <:actions>
-        <.button phx-disable-with="Sending...">Resend confirmation instructions</.button>
-      </:actions>
-    </.simple_form>
+              <.simple_form
+                :let={_f}
+                for={%{}}
+                as={:user}
+                id="resend_confirmation_form"
+                phx-submit="send_instructions"
+              >
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">Email</span>
+                  </label>
+                  <input
+                    type="email"
+                    name="user[email]"
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
 
-    <p>
-      <.link navigate={~p"/users/register"}>Register</.link>
-      | <.link navigate={~p"/users/log_in"}>Log in</.link>
-    </p>
+                <div class="form-control mt-6">
+                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Sending...">
+                    Resend confirmation instructions
+                  </button>
+                </div>
+              </.simple_form>
+
+              <div class="divider">OR</div>
+
+              <div class="text-center text-sm">
+                <.link navigate={~p"/users/register"} class="link link-primary">
+                  Register
+                </.link>
+                |
+                <.link navigate={~p"/users/log_in"} class="link link-primary">
+                  Log in
+                </.link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     """
   end
 

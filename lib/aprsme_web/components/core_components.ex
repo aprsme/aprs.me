@@ -237,7 +237,7 @@ defmodule AprsmeWeb.CoreComponents do
   def simple_form(assigns) do
     ~H"""
     <.form :let={f} for={@for} as={@as} {@rest}>
-      <div class="space-y-8 bg-white mt-10">
+      <div class="space-y-8 bg-base-100 mt-10">
         {render_slot(@inner_block, f)}
         <div :for={action <- @actions} class="mt-2 flex items-center justify-between gap-6">
           {render_slot(action, f)}
@@ -442,6 +442,7 @@ defmodule AprsmeWeb.CoreComponents do
   """
   attr :class, :string, default: ""
   attr :dev_mode, :boolean, default: false
+  attr :current_user, :any, default: nil
 
   def header(assigns) do
     ~H"""
@@ -455,7 +456,7 @@ defmodule AprsmeWeb.CoreComponents do
         </.link>
       </div>
       <div class="navbar-center hidden lg:flex">
-        <.navigation variant={:horizontal} />
+        <.navigation variant={:horizontal} current_user={@current_user} />
       </div>
       <div class="navbar-end">
         <.theme_selector />
@@ -474,7 +475,7 @@ defmodule AprsmeWeb.CoreComponents do
             tabindex="0"
             class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52"
           >
-            <.navigation variant={:vertical} />
+            <.navigation variant={:vertical} current_user={@current_user} />
           </ul>
         </div>
       </div>
@@ -750,6 +751,7 @@ defmodule AprsmeWeb.CoreComponents do
   """
   attr :class, :string, default: ""
   attr :variant, :atom, values: [:horizontal, :vertical], default: :horizontal
+  attr :current_user, :any, default: nil
 
   def navigation(assigns) do
     ~H"""
@@ -764,6 +766,29 @@ defmodule AprsmeWeb.CoreComponents do
             {gettext("About")}
           </.link>
         </li>
+        <%= if @current_user do %>
+          <li>
+            <.link navigate="/users/settings" class="text-gray-900 hover:text-gray-700">
+              {gettext("Settings")}
+            </.link>
+          </li>
+          <li>
+            <.link href="/users/log_out" method="delete" class="text-gray-900 hover:text-gray-700">
+              {gettext("Log out")}
+            </.link>
+          </li>
+        <% else %>
+          <li>
+            <.link navigate="/users/register" class="text-gray-900 hover:text-gray-700">
+              {gettext("Register")}
+            </.link>
+          </li>
+          <li>
+            <.link navigate="/users/log_in" class="text-gray-900 hover:text-gray-700">
+              {gettext("Log in")}
+            </.link>
+          </li>
+        <% end %>
       </ul>
     <% else %>
       <li><.link navigate="/" class="text-gray-900 hover:text-gray-700">{gettext("Home")}</.link></li>
@@ -771,6 +796,29 @@ defmodule AprsmeWeb.CoreComponents do
       <li>
         <.link navigate="/about" class="text-gray-900 hover:text-gray-700">{gettext("About")}</.link>
       </li>
+      <%= if @current_user do %>
+        <li>
+          <.link navigate="/users/settings" class="text-gray-900 hover:text-gray-700">
+            {gettext("Settings")}
+          </.link>
+        </li>
+        <li>
+          <.link href="/users/log_out" method="delete" class="text-gray-900 hover:text-gray-700">
+            {gettext("Log out")}
+          </.link>
+        </li>
+      <% else %>
+        <li>
+          <.link navigate="/users/register" class="text-gray-900 hover:text-gray-700">
+            {gettext("Register")}
+          </.link>
+        </li>
+        <li>
+          <.link navigate="/users/log_in" class="text-gray-900 hover:text-gray-700">
+            {gettext("Log in")}
+          </.link>
+        </li>
+      <% end %>
     <% end %>
     """
   end

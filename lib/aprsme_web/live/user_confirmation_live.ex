@@ -6,20 +6,49 @@ defmodule AprsmeWeb.UserConfirmationLive do
 
   def render(%{live_action: :edit} = assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center" />
+    <div class="hero min-h-screen bg-base-200">
+      <div class="hero-content text-center">
+        <div class="max-w-md">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h1 class="card-title text-3xl mb-4 justify-center">Confirm your account</h1>
+              <p class="text-base-content/70 mb-6">Click the button below to confirm your account</p>
 
-      <.simple_form :let={f} for={%{}} as={:user} id="confirmation_form" phx-submit="confirm_account">
-        <.input field={{f, :token}} type="hidden" value={@token} />
-        <:actions>
-          <.button phx-disable-with="Confirming..." class="w-full">Confirm my account</.button>
-        </:actions>
-      </.simple_form>
+              <.simple_form
+                :let={_f}
+                for={%{}}
+                as={:user}
+                id="confirmation_form"
+                phx-submit="confirm_account"
+              >
+                <input type="hidden" name="user[token]" value={@token} />
 
-      <p class="text-center mt-4">
-        <.link navigate={~p"/users/register"}>Register</.link>
-        | <.link navigate={~p"/users/log_in"}>Log in</.link>
-      </p>
+                <div class="form-control mt-6">
+                  <button
+                    type="submit"
+                    class="btn btn-primary w-full"
+                    phx-disable-with="Confirming..."
+                  >
+                    Confirm my account
+                  </button>
+                </div>
+              </.simple_form>
+
+              <div class="divider">OR</div>
+
+              <div class="text-center text-sm">
+                <.link navigate={~p"/users/register"} class="link link-primary">
+                  Register
+                </.link>
+                |
+                <.link navigate={~p"/users/log_in"} class="link link-primary">
+                  Log in
+                </.link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end

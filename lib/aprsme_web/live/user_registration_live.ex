@@ -7,40 +7,77 @@ defmodule AprsmeWeb.UserRegistrationLive do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center" />
+    <div class="hero min-h-screen bg-base-200">
+      <div class="hero-content text-center">
+        <div class="max-w-md">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h1 class="card-title text-3xl mb-4 justify-center">Register for an account</h1>
+              <p class="text-base-content/70 mb-6">
+                Already registered?
+                <.link navigate={~p"/users/log_in"} class="link link-primary">
+                  Sign in
+                </.link>
+                to your account now.
+              </p>
 
-      <h2 class="text-center text-2xl font-bold mt-6 mb-2">Register for an account</h2>
-      <p class="text-center text-gray-600 mb-6">
-        Already registered?
-        <.link navigate={~p"/users/log_in"} class="font-semibold text-brand hover:underline">
-          Sign in
-        </.link>
-        to your account now.
-      </p>
+              <.simple_form
+                :let={f}
+                id="registration_form"
+                for={@changeset}
+                phx-submit="save"
+                phx-change="validate"
+                phx-trigger-action={@trigger_submit}
+                action={~p"/users/log_in?_action=registered"}
+                method="post"
+                as={:user}
+              >
+                <div :if={@changeset.action == :insert} class="alert alert-error mb-4">
+                  <span>Oops, something went wrong! Please check the errors below.</span>
+                </div>
 
-      <.simple_form
-        :let={f}
-        id="registration_form"
-        for={@changeset}
-        phx-submit="save"
-        phx-change="validate"
-        phx-trigger-action={@trigger_submit}
-        action={~p"/users/log_in?_action=registered"}
-        method="post"
-        as={:user}
-      >
-        <.error :if={@changeset.action == :insert}>
-          Oops, something went wrong! Please check the errors below.
-        </.error>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">Email</span>
+                  </label>
+                  <input
+                    type="email"
+                    name={Phoenix.HTML.Form.input_name(f, :email)}
+                    value={Phoenix.HTML.Form.input_value(f, :email) || ""}
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
 
-        <.input field={{f, :email}} type="email" label="Email" required />
-        <.input field={{f, :password}} type="password" label="Password" required />
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">Password</span>
+                  </label>
+                  <input
+                    type="password"
+                    name={Phoenix.HTML.Form.input_name(f, :password)}
+                    value={Phoenix.HTML.Form.input_value(f, :password) || ""}
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Enter your password"
+                    required
+                  />
+                </div>
 
-        <:actions>
-          <.button phx-disable-with="Creating account..." class="w-full">Create an account</.button>
-        </:actions>
-      </.simple_form>
+                <div class="form-control mt-6">
+                  <button
+                    type="submit"
+                    class="btn btn-primary w-full"
+                    phx-disable-with="Creating account..."
+                  >
+                    Create an account
+                  </button>
+                </div>
+              </.simple_form>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end

@@ -906,7 +906,7 @@ defmodule AprsmeWeb.MapLive.Index do
             </svg>
             <span class="font-medium">{gettext("Navigation")}</span>
           </div>
-          <.navigation variant={:vertical} class="text-sm" />
+          <.navigation variant={:vertical} class="text-sm" current_user={@current_user} />
         </div>
         
     <!-- Deployment Information -->

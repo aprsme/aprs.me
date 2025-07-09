@@ -6,24 +6,56 @@ defmodule AprsmeWeb.UserForgotPasswordLive do
 
   def render(assigns) do
     ~H"""
-    <div class="mx-auto max-w-sm">
-      <.header class="text-center" />
+    <div class="hero min-h-screen bg-base-200">
+      <div class="hero-content text-center">
+        <div class="max-w-md">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h1 class="card-title text-3xl mb-4 justify-center">Forgot your password?</h1>
+              <p class="text-base-content/70 mb-6">We'll send a password reset link to your inbox</p>
 
-      <h2 class="text-center text-2xl font-bold mt-6 mb-2">Forgot your password?</h2>
-      <p class="text-center text-gray-600 mb-6">We'll send a password reset link to your inbox</p>
+              <.simple_form
+                :let={_f}
+                id="reset_password_form"
+                for={%{}}
+                as={:user}
+                phx-submit="send_email"
+              >
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text">Email</span>
+                  </label>
+                  <input
+                    type="email"
+                    name="user[email]"
+                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
 
-      <.simple_form :let={f} id="reset_password_form" for={%{}} as={:user} phx-submit="send_email">
-        <.input field={{f, :email}} type="email" placeholder="Email" required />
-        <:actions>
-          <.button phx-disable-with="Sending..." class="w-full">
-            Send password reset instructions
-          </.button>
-        </:actions>
-      </.simple_form>
-      <p class="text-center mt-4">
-        <.link navigate={~p"/users/register"}>Register</.link>
-        | <.link navigate={~p"/users/log_in"}>Log in</.link>
-      </p>
+                <div class="form-control mt-6">
+                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Sending...">
+                    Send password reset instructions
+                  </button>
+                </div>
+              </.simple_form>
+
+              <div class="divider">OR</div>
+
+              <div class="text-center text-sm">
+                <.link navigate={~p"/users/register"} class="link link-primary">
+                  Register
+                </.link>
+                |
+                <.link navigate={~p"/users/log_in"} class="link link-primary">
+                  Log in
+                </.link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     """
   end

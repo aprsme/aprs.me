@@ -200,7 +200,7 @@
   }
 </style>
 
-<.header dev_mode={Application.get_env(:aprsme, :dev_routes, false)} />
+<.header dev_mode={Application.get_env(:aprsme, :dev_routes, false)} current_user={@current_user} />
 <main
   id="main-content"
   class={if assigns[:map_page], do: "min-h-screen bg-base-100", else: "bg-base-100"}

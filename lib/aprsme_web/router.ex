@@ -51,10 +51,37 @@ defmodule AprsmeWeb.Router do
     get "/status.json", PageController, :status_json
   end
 
+  ## Authentication routes
+
+  scope "/", AprsmeWeb do
+    pipe_through [:browser, :redirect_if_user_is_authenticated]
+
+    live_session :redirect_if_user_is_authenticated,
+      on_mount: [{AprsmeWeb.UserAuth, :redirect_if_user_is_authenticated}, {AprsmeWeb.LocaleHook, :set_locale}] do
+      live "/users/register", UserRegistrationLive, :new
+      live "/users/log_in", UserLoginLive, :new
+      live "/users/reset_password", UserForgotPasswordLive, :new
+      live "/users/reset_password/:token", UserResetPasswordLive, :edit
+    end
+
+    post "/users/log_in", UserSessionController, :create
+  end
+
+  scope "/", AprsmeWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    live_session :require_authenticated_user,
+      on_mount: [{AprsmeWeb.UserAuth, :ensure_authenticated}, {AprsmeWeb.LocaleHook, :set_locale}] do
+      live "/users/settings", UserSettingsLive, :edit
+      live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
+    end
+  end
+
   scope "/", AprsmeWeb do
     pipe_through :browser
 
-    live_session :regular_pages, on_mount: [{AprsmeWeb.LocaleHook, :set_locale}] do
+    live_session :regular_pages,
+      on_mount: [{AprsmeWeb.UserAuth, :mount_current_user}, {AprsmeWeb.LocaleHook, :set_locale}] do
       live "/status", StatusLive.Index, :index
       live "/packets", PacketsLive.Index, :index
       live "/packets/:callsign", PacketsLive.CallsignView, :index
@@ -87,32 +114,6 @@ defmodule AprsmeWeb.Router do
       pipe_through :browser
 
       forward "/mailbox", Plug.Swoosh.MailboxPreview
-    end
-  end
-
-  ## Authentication routes
-
-  scope "/", AprsmeWeb do
-    pipe_through [:browser, :redirect_if_user_is_authenticated]
-
-    live_session :redirect_if_user_is_authenticated,
-      on_mount: [{AprsmeWeb.UserAuth, :redirect_if_user_is_authenticated}, {AprsmeWeb.LocaleHook, :set_locale}] do
-      live "/users/register", UserRegistrationLive, :new
-      live "/users/log_in", UserLoginLive, :new
-      live "/users/reset_password", UserForgotPasswordLive, :new
-      live "/users/reset_password/:token", UserResetPasswordLive, :edit
-    end
-
-    post "/users/log_in", UserSessionController, :create
-  end
-
-  scope "/", AprsmeWeb do
-    pipe_through [:browser, :require_authenticated_user]
-
-    live_session :require_authenticated_user,
-      on_mount: [{AprsmeWeb.UserAuth, :ensure_authenticated}, {AprsmeWeb.LocaleHook, :set_locale}] do
-      live "/users/settings", UserSettingsLive, :edit
-      live "/users/settings/confirm_email/:token", UserSettingsLive, :confirm_email
     end
   end
 end
