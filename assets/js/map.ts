@@ -290,13 +290,19 @@ let MapAPRSMap = {
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
         self.sendBoundsToServer();
-        // Save map state
+        // Save map state and update URL
         const center = self.map.getCenter();
         const zoom = self.map.getZoom();
         localStorage.setItem(
           "aprs_map_state",
           JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
         );
+        
+        // Send map state update to server for URL updating
+        self.pushEvent("update_map_state", {
+          center: { lat: center.lat, lng: center.lng },
+          zoom: zoom
+        });
       }, 300);
     });
 
@@ -315,13 +321,19 @@ let MapAPRSMap = {
 
         self.sendBoundsToServer();
         self.lastZoom = currentZoom;
-        // Save map state
+        // Save map state and update URL
         const center = self.map.getCenter();
         const zoom = self.map.getZoom();
         localStorage.setItem(
           "aprs_map_state",
           JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
         );
+        
+        // Send map state update to server for URL updating
+        self.pushEvent("update_map_state", {
+          center: { lat: center.lat, lng: center.lng },
+          zoom: zoom
+        });
       }, 300);
     });
 

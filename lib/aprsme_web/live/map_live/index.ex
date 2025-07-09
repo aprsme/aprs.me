@@ -15,8 +15,54 @@ defmodule AprsmeWeb.MapLive.Index do
   @default_center %{lat: 39.8283, lng: -98.5795}
   @default_zoom 5
 
+  # Parse map state from URL parameters
+  @spec parse_map_params(map()) :: {map(), integer()}
+  defp parse_map_params(params) do
+    # Parse latitude (lat parameter)
+    lat =
+      case Map.get(params, "lat") do
+        nil ->
+          @default_center.lat
+
+        lat_str ->
+          case Float.parse(lat_str) do
+            {lat_val, _} when lat_val >= -90 and lat_val <= 90 -> lat_val
+            _ -> @default_center.lat
+          end
+      end
+
+    # Parse longitude (lng parameter) 
+    lng =
+      case Map.get(params, "lng") do
+        nil ->
+          @default_center.lng
+
+        lng_str ->
+          case Float.parse(lng_str) do
+            {lng_val, _} when lng_val >= -180 and lng_val <= 180 -> lng_val
+            _ -> @default_center.lng
+          end
+      end
+
+    # Parse zoom level (z parameter)
+    zoom =
+      case Map.get(params, "z") do
+        nil ->
+          @default_zoom
+
+        zoom_str ->
+          case Integer.parse(zoom_str) do
+            {zoom_val, _} when zoom_val >= 1 and zoom_val <= 20 -> zoom_val
+            _ -> @default_zoom
+          end
+      end
+
+    map_center = %{lat: lat, lng: lng}
+    {map_center, zoom}
+  end
+
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     if connected?(socket) do
       # Subscribe to packet updates
       Phoenix.PubSub.subscribe(Aprsme.PubSub, "packets")
@@ -31,7 +77,11 @@ defmodule AprsmeWeb.MapLive.Index do
 
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
 
+    # Parse map state from URL parameters
+    {map_center, map_zoom} = parse_map_params(params)
+
     socket = assign_defaults(socket, one_hour_ago)
+    socket = assign(socket, map_center: map_center, map_zoom: map_zoom)
     socket = assign(socket, packet_buffer: [], buffer_timer: nil)
     socket = assign(socket, all_packets: %{}, station_popup_open: false)
 
@@ -263,6 +313,61 @@ defmodule AprsmeWeb.MapLive.Index do
   @impl true
   def handle_event("get_assigns", _params, socket) do
     send(self(), {:test_assigns, socket.assigns})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("update_map_state", %{"center" => center, "zoom" => zoom}, socket) do
+    # Parse center coordinates
+    lat =
+      case center do
+        %{"lat" => lat_val} -> lat_val
+        _ -> socket.assigns.map_center.lat
+      end
+
+    lng =
+      case center do
+        %{"lng" => lng_val} -> lng_val
+        _ -> socket.assigns.map_center.lng
+      end
+
+    # Validate and clamp values
+    lat = max(-90.0, min(90.0, lat))
+    lng = max(-180.0, min(180.0, lng))
+    zoom = max(1, min(20, zoom))
+
+    map_center = %{lat: lat, lng: lng}
+
+    # Update socket state
+    socket = assign(socket, map_center: map_center, map_zoom: zoom)
+
+    # Update URL without page reload
+    new_path = "/?lat=#{lat}&lng=#{lng}&z=#{zoom}"
+    socket = push_patch(socket, to: new_path, replace: true)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_params(params, _url, socket) do
+    # Parse new map state from URL parameters
+    {map_center, map_zoom} = parse_map_params(params)
+
+    # Update socket state
+    socket = assign(socket, map_center: map_center, map_zoom: map_zoom)
+
+    # If map is ready, update the client-side map
+    socket =
+      if socket.assigns.map_ready do
+        push_event(socket, "zoom_to_location", %{
+          lat: map_center.lat,
+          lng: map_center.lng,
+          zoom: map_zoom
+        })
+      else
+        socket
+      end
+
     {:noreply, socket}
   end
 
