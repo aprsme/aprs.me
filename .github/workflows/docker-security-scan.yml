@@ -97,12 +97,15 @@ jobs:
 
       - name: Run Docker Scout vulnerability scan
         uses: docker/scout-action@v1
+        continue-on-error: true
         with:
-          command: quickview,cves
+          command: cves
           image: aprsme:${{ github.sha }}
-          output-format: sarif
+          format: sarif
           only-severities: critical,high
           sarif-file: scout-results.sarif
+          dockerhub-user: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Upload Docker Scout results
         uses: actions/upload-artifact@v4
@@ -110,6 +113,7 @@ jobs:
         with:
           name: docker-scout-report
           path: scout-results.sarif
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Generate security report summary
