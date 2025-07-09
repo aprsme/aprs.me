@@ -334,21 +334,18 @@ defmodule AprsmeWeb.MapLive.Index do
 
   defp handle_info_initialize_replay(socket) do
     if not socket.assigns.historical_loaded and socket.assigns.map_ready do
-      # Use default bounds if map_bounds is not available yet
-      map_bounds =
-        socket.assigns.map_bounds ||
-          %{
-            north: 90.0,
-            south: -90.0,
-            east: 180.0,
-            west: -180.0
-          }
-
-      socket = assign(socket, map_bounds: map_bounds)
-
-      # Use optimized query for initial load
-      socket = load_historical_packets_for_bounds_optimized(socket, map_bounds)
-      {:noreply, socket}
+      # Only proceed if we have actual map bounds - don't use world bounds
+      if socket.assigns.map_bounds do
+        # Use progressive loading for better performance
+        socket = start_progressive_historical_loading(socket)
+        socket = assign(socket, historical_loaded: true)
+        {:noreply, socket}
+      else
+        # Wait a bit longer for map bounds to be available
+        # Increase delay to give client more time to send real bounds
+        Process.send_after(self(), :initialize_replay, 500)
+        {:noreply, socket}
+      end
     else
       {:noreply, socket}
     end
@@ -1212,12 +1209,22 @@ defmodule AprsmeWeb.MapLive.Index do
       |> load_historical_batch(0)
 
     # Schedule next batches using LiveView's async processing
-    # Use shorter delays for higher zoom levels (fewer batches)
-    base_delay = if zoom >= 12, do: 25, else: 50
+    # Use much shorter delays for higher zoom levels (fewer batches)
+    base_delay =
+      cond do
+        # Very zoomed in - almost instant
+        zoom >= 15 -> 10
+        # Moderately zoomed in
+        zoom >= 12 -> 20
+        # Medium zoom
+        zoom >= 8 -> 35
+        # Zoomed out
+        true -> 50
+      end
 
     Enum.each(1..(total_batches - 1), fn batch_index ->
-      delay = base_delay * (batch_index * 2)
-      # Progressive delays: 50ms, 100ms, 150ms, etc.
+      # Linear delays instead of exponential
+      delay = base_delay * batch_index
       Process.send_after(self(), {:load_historical_batch, batch_index}, delay)
     end)
 
@@ -1227,16 +1234,16 @@ defmodule AprsmeWeb.MapLive.Index do
   # Calculate optimal batch size based on zoom level
   # Higher zoom = smaller viewport = fewer packets needed = smaller batches for faster response
   @spec calculate_batch_size_for_zoom(integer()) :: integer()
-  # Very zoomed in - small batches
-  defp calculate_batch_size_for_zoom(zoom) when zoom >= 15, do: 20
-  # Moderately zoomed in
-  defp calculate_batch_size_for_zoom(zoom) when zoom >= 12, do: 35
+  # Very zoomed in - tiny batches for instant response
+  defp calculate_batch_size_for_zoom(zoom) when zoom >= 15, do: 10
+  # Moderately zoomed in - small batches
+  defp calculate_batch_size_for_zoom(zoom) when zoom >= 12, do: 20
   # Medium zoom
-  defp calculate_batch_size_for_zoom(zoom) when zoom >= 8, do: 50
+  defp calculate_batch_size_for_zoom(zoom) when zoom >= 8, do: 35
   # Zoomed out
-  defp calculate_batch_size_for_zoom(zoom) when zoom >= 5, do: 75
+  defp calculate_batch_size_for_zoom(zoom) when zoom >= 5, do: 50
   # Very zoomed out
-  defp calculate_batch_size_for_zoom(_), do: 100
+  defp calculate_batch_size_for_zoom(_), do: 75
 
   # Calculate optimal number of batches based on zoom level
   # Higher zoom = fewer batches needed since viewport is smaller
@@ -1253,6 +1260,8 @@ defmodule AprsmeWeb.MapLive.Index do
   @spec load_historical_batch(Socket.t(), integer()) :: Socket.t()
   defp load_historical_batch(socket, batch_offset) do
     if socket.assigns.map_bounds do
+      require Logger
+
       bounds = [
         socket.assigns.map_bounds.west,
         socket.assigns.map_bounds.south,
@@ -1264,6 +1273,11 @@ defmodule AprsmeWeb.MapLive.Index do
       zoom = socket.assigns.map_zoom || 5
       batch_size = calculate_batch_size_for_zoom(zoom)
       offset = batch_offset * batch_size
+
+      # Debug logging to see what bounds we're using
+      Logger.debug(
+        "Loading historical batch #{batch_offset} with zoom #{zoom}, batch_size #{batch_size}, bounds: #{inspect(bounds)}"
+      )
 
       packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
 
@@ -1484,7 +1498,15 @@ defmodule AprsmeWeb.MapLive.Index do
     socket = push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
 
     # Load additional historical packets for the new bounds if needed
-    socket = load_historical_packets_for_bounds(socket, map_bounds)
+    # Only load if we haven't loaded historical packets yet
+    socket =
+      if socket.assigns.historical_loaded do
+        socket
+      else
+        socket
+        |> start_progressive_historical_loading()
+        |> assign(historical_loaded: true)
+      end
 
     # Update map bounds and visible packets
     assign(socket, map_bounds: map_bounds, visible_packets: new_visible_packets)
