@@ -420,22 +420,23 @@ defmodule Aprsme.Packets do
     limit = Map.get(opts, :limit, 200)
     offset = Map.get(opts, :offset, 0)
 
-    # Use a more efficient query that leverages the partial indexes
-    # Order by received_at DESC to get the most recent packets first
+    # Build base query with time and position filters
     base_query =
       from(p in Packet,
         where: p.has_position == true,
-        where: p.received_at >= ^one_hour_ago,
-        order_by: [desc: p.received_at],
-        limit: ^limit,
-        offset: ^offset
+        where: p.received_at >= ^one_hour_ago
       )
 
+    # Apply spatial and other filters BEFORE limiting
+    # This ensures we get the most recent packets within the specified bounds
     query =
       base_query
       |> filter_by_region(opts)
       |> filter_by_callsign(opts)
       |> filter_by_map_bounds(opts)
+      |> order_by(desc: :received_at)
+      |> limit(^limit)
+      |> offset(^offset)
       |> select_with_virtual_coordinates()
 
     Repo.all(query)
