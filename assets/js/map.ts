@@ -4,6 +4,8 @@ declare const OverlappingMarkerSpiderfier: any;
 
 // Import trail management functionality
 import { TrailManager } from "./features/trail_manager";
+// Import helper functions
+import { parseTimestamp, getTrailId, saveMapState, safePushEvent, getLiveSocket } from "./map_helpers";
 
 // APRS Map Hook - handles only basic map interaction
 // All data logic handled by LiveView
@@ -25,7 +27,12 @@ type LiveViewHookContext = {
   lastZoom?: number;
   currentPopupMarkerId?: string | null;
   oms?: any;
-  programmaticMoveCounter?: number;
+  programmaticMoveId?: string;
+  programmaticMoveTimeout?: ReturnType<typeof setTimeout>;
+  cleanupInterval?: ReturnType<typeof setInterval>;
+  mapEventHandlers?: Map<string, Function>;
+  isDestroyed?: boolean;
+  popupNavigationHandler?: (e: Event) => void;
   [key: string]: any;
 };
 
@@ -275,9 +282,9 @@ let MapAPRSMap = {
         self.sendBoundsToServer();
 
         // Start periodic cleanup of old trail positions (every 5 minutes)
-        setInterval(
+        self.cleanupInterval = setInterval(
           () => {
-            if (self.trailManager) {
+            if (!self.isDestroyed && self.trailManager) {
               self.trailManager.cleanupOldPositions();
             }
           },
@@ -288,50 +295,29 @@ let MapAPRSMap = {
       }
     });
 
+    // Track map event handlers for cleanup
+    self.mapEventHandlers = new Map();
+    self.isDestroyed = false;
+
     // Send bounds to LiveView when map moves
-    self.map!.on("moveend", () => {
+    const moveEndHandler = () => {
       // Skip if this is a programmatic move from the server
-      if (self.programmaticMoveCounter && self.programmaticMoveCounter > 0) {
-        // Decrement counter for this programmatic move event
-        self.programmaticMoveCounter--;
+      if (self.programmaticMoveId) {
         return;
       }
       
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
-        // Save map state and update URL
-        const center = self.map.getCenter();
-        const zoom = self.map.getZoom();
-        
-        // Truncate lat/lng to 5 decimal places for URL
-        const truncatedLat = Math.round(center.lat * 100000) / 100000;
-        const truncatedLng = Math.round(center.lng * 100000) / 100000;
-        
-        localStorage.setItem(
-          "aprs_map_state",
-          JSON.stringify({ lat: truncatedLat, lng: truncatedLng, zoom }),
-        );
-        
-        // Send combined map state update to server for URL and bounds updating
-        self.pushEvent("update_map_state", {
-          center: { lat: truncatedLat, lng: truncatedLng },
-          zoom: zoom,
-          bounds: {
-            north: self.map.getBounds().getNorth(),
-            south: self.map.getBounds().getSouth(),
-            east: self.map.getBounds().getEast(),
-            west: self.map.getBounds().getWest(),
-          }
-        });
+        saveMapState(self.map, self.pushEvent);
       }, 300);
-    });
+    };
+    self.map!.on("moveend", moveEndHandler);
+    self.mapEventHandlers!.set("moveend", moveEndHandler);
 
     // Handle zoom changes with optimization for large zoom differences
-    self.map!.on("zoomend", () => {
+    const zoomEndHandler = () => {
       // Skip if this is a programmatic move from the server
-      if (self.programmaticMoveCounter && self.programmaticMoveCounter > 0) {
-        // Decrement counter for this programmatic move event
-        self.programmaticMoveCounter--;
+      if (self.programmaticMoveId) {
         return;
       }
       
@@ -348,31 +334,11 @@ let MapAPRSMap = {
 
         self.lastZoom = currentZoom;
         // Save map state and update URL
-        const center = self.map.getCenter();
-        const zoom = self.map.getZoom();
-        
-        // Truncate lat/lng to 5 decimal places for URL
-        const truncatedLat = Math.round(center.lat * 100000) / 100000;
-        const truncatedLng = Math.round(center.lng * 100000) / 100000;
-        
-        localStorage.setItem(
-          "aprs_map_state",
-          JSON.stringify({ lat: truncatedLat, lng: truncatedLng, zoom }),
-        );
-        
-        // Send combined map state update to server for URL and bounds updating
-        self.pushEvent("update_map_state", {
-          center: { lat: truncatedLat, lng: truncatedLng },
-          zoom: zoom,
-          bounds: {
-            north: self.map.getBounds().getNorth(),
-            south: self.map.getBounds().getSouth(),
-            east: self.map.getBounds().getEast(),
-            west: self.map.getBounds().getWest(),
-          }
-        });
+        saveMapState(self.map, self.pushEvent);
       }, 300);
-    });
+    };
+    self.map!.on("zoomend", zoomEndHandler);
+    self.mapEventHandlers!.set("zoomend", zoomEndHandler);
 
     // Handle resize
     self.resizeHandler = () => {
@@ -457,9 +423,9 @@ let MapAPRSMap = {
         e.stopPropagation();
         
         // Use Phoenix LiveView's built-in navigation
-        // window.liveSocket is available globally in Phoenix LiveView apps
-        if ((window as any).liveSocket) {
-          (window as any).liveSocket.pushHistoryPatch(navLink.href, "push", navLink);
+        const liveSocket = getLiveSocket();
+        if (liveSocket) {
+          liveSocket.pushHistoryPatch(navLink.href, "push", navLink);
         } else {
           // Fallback to regular navigation if LiveView socket not available
           window.location.href = navLink.href;
@@ -533,20 +499,27 @@ let MapAPRSMap = {
           // Use a slight delay to ensure map is ready
           setTimeout(() => {
             if (self.map) {
-              // Set counter to handle both moveend and zoomend events from setView
-              // setView() can trigger both events, so we need to handle both
-              self.programmaticMoveCounter = 2;
+              // Generate a unique ID for this programmatic move
+              const moveId = `move_${Date.now()}_${Math.random()}`;
+              self.programmaticMoveId = moveId;
+              
+              // Clear any existing timeout
+              if (self.programmaticMoveTimeout) {
+                clearTimeout(self.programmaticMoveTimeout);
+              }
+              
+              // Set a timeout to clear the programmatic move flag
+              // This ensures we don't block user interactions indefinitely
+              self.programmaticMoveTimeout = setTimeout(() => {
+                if (self.programmaticMoveId === moveId) {
+                  self.programmaticMoveId = undefined;
+                }
+              }, 1500);
+              
               self.map.setView([lat, lng], zoom, {
                 animate: true,
                 duration: 1,
               });
-              
-              // Safety timeout to reset counter in case events don't fire as expected
-              setTimeout(() => {
-                if (self.programmaticMoveCounter && self.programmaticMoveCounter > 0) {
-                  self.programmaticMoveCounter = 0;
-                }
-              }, 2000);
 
               // Check element dimensions after zoom
               setTimeout(() => {
@@ -672,14 +645,16 @@ let MapAPRSMap = {
         const prevMarker = self.markers!.get(self.currentPopupMarkerId);
         if (prevMarker && prevMarker.closePopup) prevMarker.closePopup();
       }
-      // Re-add marker with openPopup flag (will open after add)
-      const markerData = self.markerStates!.get(data.id);
-      if (markerData) {
-        self.addMarker({ ...markerData, id: data.id, openPopup: true });
+      // Try to open popup directly first if marker exists
+      const marker = self.markers!.get(data.id);
+      if (marker && marker.openPopup) {
+        marker.openPopup();
       } else {
-        // fallback: try to open popup directly if marker exists
-        const marker = self.markers!.get(data.id);
-        if (marker && marker.openPopup) marker.openPopup();
+        // Fallback: re-add marker with openPopup flag if it doesn't exist
+        const markerData = self.markerStates!.get(data.id);
+        if (markerData) {
+          self.addMarker({ ...markerData, id: data.id, openPopup: true });
+        }
       }
       self.currentPopupMarkerId = data.id;
     });
@@ -711,16 +686,8 @@ let MapAPRSMap = {
         packetsByCallsign.forEach((packets, callsign) => {
           // Sort by timestamp (oldest first) to ensure proper trail line drawing
           const sortedPackets = packets.sort((a, b) => {
-            const timeA = a.timestamp
-              ? typeof a.timestamp === "number"
-                ? a.timestamp
-                : new Date(a.timestamp).getTime()
-              : 0;
-            const timeB = b.timestamp
-              ? typeof b.timestamp === "number"
-                ? b.timestamp
-                : new Date(b.timestamp).getTime()
-              : 0;
+            const timeA = parseTimestamp(a.timestamp);
+            const timeB = parseTimestamp(b.timestamp);
             return timeA - timeB;
           });
 
@@ -754,16 +721,8 @@ let MapAPRSMap = {
         packetsByCallsign.forEach((packets, callsign) => {
           // Sort by timestamp (oldest first) to ensure proper trail line drawing
           const sortedPackets = packets.sort((a, b) => {
-            const timeA = a.timestamp
-              ? typeof a.timestamp === "number"
-                ? a.timestamp
-                : new Date(a.timestamp).getTime()
-              : 0;
-            const timeB = b.timestamp
-              ? typeof b.timestamp === "number"
-                ? b.timestamp
-                : new Date(b.timestamp).getTime()
-              : 0;
+            const timeA = parseTimestamp(a.timestamp);
+            const timeB = parseTimestamp(b.timestamp);
             return timeA - timeB;
           });
 
@@ -911,13 +870,9 @@ let MapAPRSMap = {
       if (positionChanged && self.trailManager) {
         // Position changed, update trail
         const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
-        const timestamp = data.timestamp
-          ? typeof data.timestamp === "string"
-            ? new Date(data.timestamp).getTime()
-            : data.timestamp
-          : Date.now();
-        // Use callsign_group for proper trail grouping - prioritize callsign_group, then callsign, then id
-        const trailId = data.callsign_group || data.callsign || data.id;
+        const timestamp = parseTimestamp(data.timestamp);
+        // Use callsign_group for proper trail grouping
+        const trailId = getTrailId(data);
 
         self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
       }
@@ -946,35 +901,19 @@ let MapAPRSMap = {
       
       // Handle popup close events - check if hook is still connected
       marker.on("popupclose", () => {
-        // Only send event if LiveView is still connected
-        if (self.pushEvent) {
-          try {
-            self.pushEvent("popup_closed", {});
-          } catch (e) {
-            // Silently ignore if LiveView is disconnected
-            console.debug("Unable to send popup_closed event - LiveView disconnected");
-          }
-        }
+        safePushEvent(self.pushEvent, "popup_closed", {});
       });
     }
 
     // Handle marker click
     marker.on("click", () => {
       if (marker.openPopup) marker.openPopup();
-      // Only send event if LiveView is still connected
-      if (self.pushEvent) {
-        try {
-          self.pushEvent("marker_clicked", {
-            id: data.id,
-            callsign: data.callsign,
-            lat: lat,
-            lng: lng,
-          });
-        } catch (e) {
-          // Silently ignore if LiveView is disconnected
-          console.debug("Unable to send marker_clicked event - LiveView disconnected");
-        }
-      }
+      safePushEvent(self.pushEvent, "marker_clicked", {
+        id: data.id,
+        callsign: data.callsign,
+        lat: lat,
+        lng: lng,
+      });
     });
 
     // Mark historical markers for identification
@@ -1009,13 +948,9 @@ let MapAPRSMap = {
     // Initialize trail for new marker - always add to trail for line drawing
     if (self.trailManager) {
       const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
-      const timestamp = data.timestamp
-        ? typeof data.timestamp === "string"
-          ? new Date(data.timestamp).getTime()
-          : data.timestamp
-        : Date.now();
-      // Use callsign_group for proper trail grouping - prioritize callsign_group, then callsign, then id
-      const trailId = data.callsign_group || data.callsign || data.id;
+      const timestamp = parseTimestamp(data.timestamp);
+      // Use callsign_group for proper trail grouping
+      const trailId = getTrailId(data);
 
       self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
     }
@@ -1074,13 +1009,9 @@ let MapAPRSMap = {
             existingMarker.setLatLng([lat, lng]);
             if (self.trailManager) {
               const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
-              const timestamp = data.timestamp
-                ? typeof data.timestamp === "string"
-                  ? new Date(data.timestamp).getTime()
-                  : data.timestamp
-                : Date.now();
-              // Use callsign_group for proper trail grouping - prioritize callsign_group, then callsign, then id
-              const trailId = data.callsign_group || data.callsign || data.id;
+              const timestamp = parseTimestamp(data.timestamp);
+              // Use callsign_group for proper trail grouping
+              const trailId = getTrailId(data);
               self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
             }
           }
@@ -1322,14 +1253,10 @@ let MapAPRSMap = {
     }
 
     if (data.timestamp) {
-      let date;
-      if (typeof data.timestamp === "number") {
-        date = new Date(data.timestamp * 1000);
-      } else if (typeof data.timestamp === "string") {
-        date = new Date(data.timestamp);
-      }
-
-      if (date && !isNaN(date.getTime())) {
+      const timestamp = parseTimestamp(data.timestamp);
+      const date = new Date(timestamp);
+      
+      if (!isNaN(date.getTime())) {
         content += `<div class="aprs-timestamp">${date.toISOString()}</div>`;
       }
     }
@@ -1341,13 +1268,29 @@ let MapAPRSMap = {
   destroyed() {
     const self = this as unknown as LiveViewHookContext;
     
+    // Mark as destroyed immediately
+    self.isDestroyed = true;
+    
     // Disable pushEvent to prevent any events from being sent during cleanup
     const originalPushEvent = self.pushEvent;
     self.pushEvent = () => {}; // No-op function
     
+    // Clear interval timer
+    if (self.cleanupInterval !== undefined) {
+      clearInterval(self.cleanupInterval);
+      self.cleanupInterval = undefined;
+    }
+    
+    // Clear programmatic move timeout
+    if (self.programmaticMoveTimeout !== undefined) {
+      clearTimeout(self.programmaticMoveTimeout);
+      self.programmaticMoveTimeout = undefined;
+    }
+    
     // Remove popup navigation event listener
     if (self.popupNavigationHandler) {
       document.removeEventListener('click', self.popupNavigationHandler);
+      self.popupNavigationHandler = undefined;
     }
     
     // Close any open popups before cleanup
@@ -1355,7 +1298,7 @@ let MapAPRSMap = {
       try {
         self.map.closePopup();
       } catch (e) {
-        // Ignore errors during popup cleanup
+        console.debug("Error closing popup during cleanup:", e);
       }
     }
     
@@ -1364,6 +1307,19 @@ let MapAPRSMap = {
     }
     if (self.resizeHandler !== undefined) {
       window.removeEventListener("resize", self.resizeHandler);
+      self.resizeHandler = undefined;
+    }
+    
+    // Remove map event handlers
+    if (self.map !== undefined && self.mapEventHandlers !== undefined) {
+      self.mapEventHandlers.forEach((handler, event) => {
+        try {
+          self.map.off(event, handler);
+        } catch (e) {
+          console.debug(`Error removing ${event} handler:`, e);
+        }
+      });
+      self.mapEventHandlers.clear();
     }
     
     // Remove all event listeners from markers before clearing layers
@@ -1375,7 +1331,7 @@ let MapAPRSMap = {
             marker.unbindPopup(); // Unbind popup to prevent events
           }
         } catch (e) {
-          // Ignore errors during cleanup
+          console.debug(`Error cleaning up marker:`, e);
         }
       });
     }
