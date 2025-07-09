@@ -27,6 +27,8 @@ let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("
 
 // Import minimal APRS map hook
 import MapAPRSMap from "./map";
+// Import error boundary hook
+import ErrorBoundary from "./hooks/error_boundary";
 
 // Responsive Slideover Hook
 let ResponsiveSlideoverHook = {
@@ -98,6 +100,7 @@ let Hooks = {};
 Hooks.APRSMap = MapAPRSMap;
 Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
 Hooks.BodyClassHook = BodyClassHook;
+Hooks.ErrorBoundary = ErrorBoundary;
 
 // Register weather chart hooks from TypeScript
 import { WeatherChartHooks } from "./features/weather_charts";

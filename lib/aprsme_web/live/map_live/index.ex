@@ -4,6 +4,7 @@ defmodule AprsmeWeb.MapLive.Index do
   """
   use AprsmeWeb, :live_view
 
+  import AprsmeWeb.Components.ErrorBoundary
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_navigate: 2, push_patch: 2]
 
@@ -409,6 +410,23 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   @impl true
+  def handle_event(
+        "error_boundary_triggered",
+        %{"message" => message, "stack" => stack, "component_id" => component_id},
+        socket
+      ) do
+    # Log the error for monitoring
+    require Logger
+
+    Logger.error("Error boundary triggered in component #{component_id}: #{message}\n#{stack}")
+
+    # You could also send this to an error tracking service here
+    # ErrorTracker.report_error(message, stack, %{component: component_id, user_id: socket.assigns[:current_user_id]})
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_params(params, _url, socket) do
     # Parse new map state from URL parameters
     {map_center, map_zoom} = parse_map_params(params)
@@ -781,15 +799,17 @@ defmodule AprsmeWeb.MapLive.Index do
       }
     </style>
 
-    <div
-      id="aprs-map"
-      class={if @slideover_open, do: "slideover-open", else: "slideover-closed"}
-      phx-hook="APRSMap"
-      phx-update="ignore"
-      data-center={Jason.encode!(@map_center)}
-      data-zoom={@map_zoom}
-    >
-    </div>
+    <.error_boundary id="map-error-boundary">
+      <div
+        id="aprs-map"
+        class={if @slideover_open, do: "slideover-open", else: "slideover-closed"}
+        phx-hook="APRSMap"
+        phx-update="ignore"
+        data-center={Jason.encode!(@map_center)}
+        data-zoom={@map_zoom}
+      >
+      </div>
+    </.error_boundary>
 
     <button
       class="locate-button"

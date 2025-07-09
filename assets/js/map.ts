@@ -1,5 +1,16 @@
-// Declare Leaflet as a global variable
-declare const L: any;
+// Import type definitions
+import type { 
+  LiveViewHookContext, 
+  MarkerData, 
+  BoundsData, 
+  CenterData, 
+  MarkerState, 
+  MapEventData 
+} from './types/map';
+import type { Map as LeafletMap, Marker, TileLayer, LayerGroup, DivIcon, LatLngBounds } from 'leaflet';
+
+// Declare Leaflet as a global variable with proper typing
+declare const L: typeof import('leaflet');
 declare const OverlappingMarkerSpiderfier: any;
 
 // Import trail management functionality
@@ -9,85 +20,6 @@ import { parseTimestamp, getTrailId, saveMapState, safePushEvent, getLiveSocket 
 
 // APRS Map Hook - handles only basic map interaction
 // All data logic handled by LiveView
-
-type LiveViewHookContext = {
-  el: HTMLElement & { _leaflet_id?: any };
-  pushEvent: (event: string, payload: any) => void;
-  handleEvent: (event: string, callback: Function) => void;
-  map?: any;
-  markers?: Map<string, any>;
-  markerStates?: Map<string, MarkerState>;
-  markerLayer?: any;
-  trailManager?: TrailManager;
-  boundsTimer?: ReturnType<typeof setTimeout>;
-  resizeHandler?: () => void;
-  errors?: string[];
-  initializationAttempts?: number;
-  maxInitializationAttempts?: number;
-  lastZoom?: number;
-  currentPopupMarkerId?: string | null;
-  oms?: any;
-  programmaticMoveId?: string;
-  programmaticMoveTimeout?: ReturnType<typeof setTimeout>;
-  cleanupInterval?: ReturnType<typeof setInterval>;
-  mapEventHandlers?: Map<string, Function>;
-  isDestroyed?: boolean;
-  popupNavigationHandler?: (e: Event) => void;
-  [key: string]: any;
-};
-
-interface MarkerData {
-  id: string;
-  lat: number;
-  lng: number;
-  callsign?: string;
-  comment?: string;
-  symbol_table_id?: string;
-  symbol_code?: string;
-  symbol_description?: string;
-  popup?: string;
-  historical?: boolean;
-  color?: string;
-  timestamp?: number;
-  is_most_recent_for_callsign?: boolean;
-  callsign_group?: string;
-  symbol_html?: string;
-}
-
-interface BoundsData {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-}
-
-interface CenterData {
-  lat: number;
-  lng: number;
-}
-
-interface MarkerState {
-  lat: number;
-  lng: number;
-  symbol_table: string;
-  symbol_code: string;
-  popup?: string;
-  historical?: boolean;
-  is_most_recent_for_callsign?: boolean;
-  callsign_group?: string;
-  callsign?: string;
-}
-
-interface MapEventData {
-  bounds?: BoundsData;
-  center?: CenterData;
-  zoom?: number;
-  id?: string;
-  callsign?: string;
-  lat?: number;
-  lng?: number;
-  markers?: MarkerData[];
-}
 
 
 let MapAPRSMap = {
