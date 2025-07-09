@@ -5,7 +5,7 @@ defmodule AprsmeWeb.MapLive.Index do
   use AprsmeWeb, :live_view
 
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
-  import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_navigate: 2]
+  import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_navigate: 2, push_patch: 2]
 
   alias AprsmeWeb.Endpoint
   alias AprsmeWeb.MapLive.MapHelpers
@@ -31,7 +31,7 @@ defmodule AprsmeWeb.MapLive.Index do
           end
       end
 
-    # Parse longitude (lng parameter) 
+    # Parse longitude (lng parameter)
     lng =
       case Map.get(params, "lng") do
         nil ->
