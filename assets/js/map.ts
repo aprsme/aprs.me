@@ -25,6 +25,7 @@ type LiveViewHookContext = {
   lastZoom?: number;
   currentPopupMarkerId?: string | null;
   oms?: any;
+  programmaticMove?: boolean;
   [key: string]: any;
 };
 
@@ -287,9 +288,14 @@ let MapAPRSMap = {
 
     // Send bounds to LiveView when map moves
     self.map!.on("moveend", () => {
+      // Skip if this is a programmatic move from the server
+      if (self.programmaticMove) {
+        self.programmaticMove = false;
+        return;
+      }
+      
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
-        self.sendBoundsToServer();
         // Save map state and update URL
         const center = self.map.getCenter();
         const zoom = self.map.getZoom();
@@ -298,16 +304,28 @@ let MapAPRSMap = {
           JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
         );
         
-        // Send map state update to server for URL updating
+        // Send combined map state update to server for URL and bounds updating
         self.pushEvent("update_map_state", {
           center: { lat: center.lat, lng: center.lng },
-          zoom: zoom
+          zoom: zoom,
+          bounds: {
+            north: self.map.getBounds().getNorth(),
+            south: self.map.getBounds().getSouth(),
+            east: self.map.getBounds().getEast(),
+            west: self.map.getBounds().getWest(),
+          }
         });
       }, 300);
     });
 
     // Handle zoom changes with optimization for large zoom differences
     self.map!.on("zoomend", () => {
+      // Skip if this is a programmatic move from the server
+      if (self.programmaticMove) {
+        self.programmaticMove = false;
+        return;
+      }
+      
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
         const currentZoom = self.map!.getZoom();
@@ -319,7 +337,6 @@ let MapAPRSMap = {
           self.pushEvent("refresh_markers", {});
         }
 
-        self.sendBoundsToServer();
         self.lastZoom = currentZoom;
         // Save map state and update URL
         const center = self.map.getCenter();
@@ -329,10 +346,16 @@ let MapAPRSMap = {
           JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
         );
         
-        // Send map state update to server for URL updating
+        // Send combined map state update to server for URL and bounds updating
         self.pushEvent("update_map_state", {
           center: { lat: center.lat, lng: center.lng },
-          zoom: zoom
+          zoom: zoom,
+          bounds: {
+            north: self.map.getBounds().getNorth(),
+            south: self.map.getBounds().getSouth(),
+            east: self.map.getBounds().getEast(),
+            west: self.map.getBounds().getWest(),
+          }
         });
       }, 300);
     });
@@ -464,6 +487,8 @@ let MapAPRSMap = {
           // Use a slight delay to ensure map is ready
           setTimeout(() => {
             if (self.map) {
+              // Set flag to prevent event loop
+              self.programmaticMove = true;
               self.map.setView([lat, lng], zoom, {
                 animate: true,
                 duration: 1,

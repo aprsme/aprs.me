@@ -317,7 +317,7 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   @impl true
-  def handle_event("update_map_state", %{"center" => center, "zoom" => zoom}, socket) do
+  def handle_event("update_map_state", %{"center" => center, "zoom" => zoom} = params, socket) do
     # Parse center coordinates
     lat =
       case center do
@@ -344,6 +344,24 @@ defmodule AprsmeWeb.MapLive.Index do
     # Update URL without page reload
     new_path = "/?lat=#{lat}&lng=#{lng}&z=#{zoom}"
     socket = push_patch(socket, to: new_path, replace: true)
+
+    # If bounds are included, also process bounds update
+    socket = case Map.get(params, "bounds") do
+      %{"north" => north, "south" => south, "east" => east, "west" => west} ->
+        map_bounds = %{
+          north: north,
+          south: south,
+          east: east,
+          west: west
+        }
+        # Only trigger bounds processing if bounds actually changed
+        if socket.assigns.map_bounds != map_bounds do
+          send(self(), {:process_bounds_update, map_bounds})
+        end
+        socket
+      _ -> 
+        socket
+    end
 
     {:noreply, socket}
   end
