@@ -5,6 +5,7 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   alias Aprsme.Packets
   alias AprsmeWeb.MapLive.PacketUtils
+  alias AprsmeWeb.AprsSymbol
 
   @neighbor_radius_km 10
   @neighbor_limit 10
@@ -303,6 +304,60 @@ defmodule AprsmeWeb.InfoLive.Show do
     case String.split(callsign, "-") do
       [base, _ssid] -> base
       [base] -> base
+    end
+  end
+
+  @doc """
+  Renders an APRS symbol style for use in templates.
+  """
+  def render_symbol_style(packet, size \\ 32) do
+    if packet do
+      {symbol_table_id, symbol_code} = AprsSymbol.extract_from_packet(packet)
+      AprsSymbol.render_style(symbol_table_id, symbol_code, size)
+    else
+      # Return empty style if no packet
+      ""
+    end
+  end
+
+  @doc """
+  Renders an APRS symbol as HTML for overlay symbols that need proper overlay character display.
+  """
+  def render_symbol_html(packet, size \\ 32) do
+    if packet do
+      {symbol_table_id, symbol_code} = AprsSymbol.extract_from_packet(packet)
+      
+      # Check if this is an overlay symbol
+      if symbol_table_id && String.match?(symbol_table_id, ~r/^[A-Z0-9]$/) do
+        # Use layered sprite backgrounds for overlay symbols
+        sprite_info = AprsSymbol.get_sprite_info(symbol_table_id, symbol_code)
+        overlay_sprite_info = AprsSymbol.get_overlay_character_sprite_info(symbol_table_id)
+        
+        raw """
+        <div style="
+          position: relative;
+          width: #{size}px;
+          height: #{size}px;
+          background-image: url(#{overlay_sprite_info.sprite_file}), url(#{sprite_info.sprite_file});
+          background-position: #{overlay_sprite_info.background_position}, #{sprite_info.background_position};
+          background-size: #{overlay_sprite_info.background_size}, #{sprite_info.background_size};
+          background-repeat: no-repeat, no-repeat;
+          image-rendering: pixelated;
+          display: inline-block;
+          vertical-align: middle;
+          margin-bottom: -6px;
+        ">
+        </div>
+        """
+      else
+        # Use style rendering for non-overlay symbols
+        raw """
+        <div style="#{AprsSymbol.render_style(symbol_table_id, symbol_code, size)}"></div>
+        """
+      end
+    else
+      # Return empty if no packet
+      raw ""
     end
   end
 

@@ -400,8 +400,8 @@ defmodule Aprsme.Packets do
   @impl true
   @spec get_recent_packets(map()) :: [struct()]
   def get_recent_packets(opts \\ %{}) do
-    # Always limit to the last hour
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+    # Always limit to the last 24 hours for more symbol variety
+    one_hour_ago = DateTime.add(DateTime.utc_now(), -24 * 3600, :second)
 
     # Merge the one-hour limit with any other filters
     opts_with_time = Map.put(opts, :start_time, one_hour_ago)
@@ -415,8 +415,8 @@ defmodule Aprsme.Packets do
   """
   @spec get_recent_packets_optimized(map()) :: [struct()]
   def get_recent_packets_optimized(opts \\ %{}) do
-    # Always limit to the last hour for initial load
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+    # Always limit to the last 24 hours for more symbol variety
+    one_hour_ago = DateTime.add(DateTime.utc_now(), -24 * 3600, :second)
     limit = Map.get(opts, :limit, 200)
     offset = Map.get(opts, :offset, 0)
 

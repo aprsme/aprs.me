@@ -25,7 +25,7 @@ type LiveViewHookContext = {
   lastZoom?: number;
   currentPopupMarkerId?: string | null;
   oms?: any;
-  programmaticMove?: boolean;
+  programmaticMoveCounter?: number;
   [key: string]: any;
 };
 
@@ -44,6 +44,7 @@ interface MarkerData {
   timestamp?: number;
   is_most_recent_for_callsign?: boolean;
   callsign_group?: string;
+  symbol_html?: string;
 }
 
 interface BoundsData {
@@ -80,6 +81,7 @@ interface MapEventData {
   lng?: number;
   markers?: MarkerData[];
 }
+
 
 let MapAPRSMap = {
   mounted() {
@@ -289,8 +291,9 @@ let MapAPRSMap = {
     // Send bounds to LiveView when map moves
     self.map!.on("moveend", () => {
       // Skip if this is a programmatic move from the server
-      if (self.programmaticMove) {
-        self.programmaticMove = false;
+      if (self.programmaticMoveCounter && self.programmaticMoveCounter > 0) {
+        // Decrement counter for this programmatic move event
+        self.programmaticMoveCounter--;
         return;
       }
       
@@ -299,14 +302,19 @@ let MapAPRSMap = {
         // Save map state and update URL
         const center = self.map.getCenter();
         const zoom = self.map.getZoom();
+        
+        // Truncate lat/lng to 5 decimal places for URL
+        const truncatedLat = Math.round(center.lat * 100000) / 100000;
+        const truncatedLng = Math.round(center.lng * 100000) / 100000;
+        
         localStorage.setItem(
           "aprs_map_state",
-          JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
+          JSON.stringify({ lat: truncatedLat, lng: truncatedLng, zoom }),
         );
         
         // Send combined map state update to server for URL and bounds updating
         self.pushEvent("update_map_state", {
-          center: { lat: center.lat, lng: center.lng },
+          center: { lat: truncatedLat, lng: truncatedLng },
           zoom: zoom,
           bounds: {
             north: self.map.getBounds().getNorth(),
@@ -321,8 +329,9 @@ let MapAPRSMap = {
     // Handle zoom changes with optimization for large zoom differences
     self.map!.on("zoomend", () => {
       // Skip if this is a programmatic move from the server
-      if (self.programmaticMove) {
-        self.programmaticMove = false;
+      if (self.programmaticMoveCounter && self.programmaticMoveCounter > 0) {
+        // Decrement counter for this programmatic move event
+        self.programmaticMoveCounter--;
         return;
       }
       
@@ -341,14 +350,19 @@ let MapAPRSMap = {
         // Save map state and update URL
         const center = self.map.getCenter();
         const zoom = self.map.getZoom();
+        
+        // Truncate lat/lng to 5 decimal places for URL
+        const truncatedLat = Math.round(center.lat * 100000) / 100000;
+        const truncatedLng = Math.round(center.lng * 100000) / 100000;
+        
         localStorage.setItem(
           "aprs_map_state",
-          JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
+          JSON.stringify({ lat: truncatedLat, lng: truncatedLng, zoom }),
         );
         
         // Send combined map state update to server for URL and bounds updating
         self.pushEvent("update_map_state", {
-          center: { lat: center.lat, lng: center.lng },
+          center: { lat: truncatedLat, lng: truncatedLng },
           zoom: zoom,
           bounds: {
             north: self.map.getBounds().getNorth(),
@@ -389,6 +403,9 @@ let MapAPRSMap = {
     // LiveView event handlers
     self.setupLiveViewHandlers();
 
+    // Set up event delegation for popup navigation links
+    self.setupPopupNavigation();
+
     if (typeof OverlappingMarkerSpiderfier !== "undefined") {
       self.oms = new OverlappingMarkerSpiderfier(self.map);
     }
@@ -423,6 +440,35 @@ let MapAPRSMap = {
         </div>
       `;
     }
+  },
+
+  setupPopupNavigation() {
+    const self = this as unknown as LiveViewHookContext;
+    
+    // Store the event handler so we can remove it later
+    self.popupNavigationHandler = (e: Event) => {
+      const target = e.target as HTMLElement;
+      
+      // Check if clicked element or its parent is a LiveView navigation link
+      const navLink = target.closest('.aprs-lv-link') as HTMLAnchorElement;
+      
+      if (navLink && navLink.href) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Use Phoenix LiveView's built-in navigation
+        // window.liveSocket is available globally in Phoenix LiveView apps
+        if ((window as any).liveSocket) {
+          (window as any).liveSocket.pushHistoryPatch(navLink.href, "push", navLink);
+        } else {
+          // Fallback to regular navigation if LiveView socket not available
+          window.location.href = navLink.href;
+        }
+      }
+    };
+    
+    // Use event delegation to handle clicks on popup navigation links
+    document.addEventListener('click', self.popupNavigationHandler);
   },
 
   setupLiveViewHandlers() {
@@ -487,12 +533,20 @@ let MapAPRSMap = {
           // Use a slight delay to ensure map is ready
           setTimeout(() => {
             if (self.map) {
-              // Set flag to prevent event loop
-              self.programmaticMove = true;
+              // Set counter to handle both moveend and zoomend events from setView
+              // setView() can trigger both events, so we need to handle both
+              self.programmaticMoveCounter = 2;
               self.map.setView([lat, lng], zoom, {
                 animate: true,
                 duration: 1,
               });
+              
+              // Safety timeout to reset counter in case events don't fire as expected
+              setTimeout(() => {
+                if (self.programmaticMoveCounter && self.programmaticMoveCounter > 0) {
+                  self.programmaticMoveCounter = 0;
+                }
+              }, 2000);
 
               // Check element dimensions after zoom
               setTimeout(() => {
@@ -890,26 +944,37 @@ let MapAPRSMap = {
     if (data.popup) {
       marker.bindPopup(data.popup, { autoPan: false });
       
-      // Handle popup close events for all popups
+      // Handle popup close events - check if hook is still connected
       marker.on("popupclose", () => {
-        self.pushEvent("popup_closed", {});
+        // Only send event if LiveView is still connected
+        if (self.pushEvent) {
+          try {
+            self.pushEvent("popup_closed", {});
+          } catch (e) {
+            // Silently ignore if LiveView is disconnected
+            console.debug("Unable to send popup_closed event - LiveView disconnected");
+          }
+        }
       });
     }
 
     // Handle marker click
     marker.on("click", () => {
       if (marker.openPopup) marker.openPopup();
-      self.pushEvent("marker_clicked", {
-        id: data.id,
-        callsign: data.callsign,
-        lat: lat,
-        lng: lng,
-      });
-    });
-
-    // Handle popup close events
-    marker.on("popupclose", () => {
-      self.pushEvent("popup_closed", {});
+      // Only send event if LiveView is still connected
+      if (self.pushEvent) {
+        try {
+          self.pushEvent("marker_clicked", {
+            id: data.id,
+            callsign: data.callsign,
+            lat: lat,
+            lng: lng,
+          });
+        } catch (e) {
+          // Silently ignore if LiveView is disconnected
+          console.debug("Unable to send marker_clicked event - LiveView disconnected");
+        }
+      }
     });
 
     // Mark historical markers for identification
@@ -1162,57 +1227,37 @@ let MapAPRSMap = {
           }
         });
       }
-      // For current packets or most recent historical packets, show the full APRS symbol icon
-      const symbolTableId = data.symbol_table_id || "/";
-      const symbolCode = getValidSymbolCode(data.symbol_code, symbolTableId);
-
-      // Map symbol table identifier to correct table index per hessu/aprs-symbols
-      // Primary table: / (0)
-      // Alternate table: \ (1)
-      // Overlay table: ] (2)
-      // Any other character is treated as alternate table (1)
-      const tableMap: Record<string, string> = {
-        "/": "0", // Primary table
-        "\\": "1", // Alternate table
-        "]": "2", // Overlay table
-      };
-      const tableId = symbolTableId === "/" ? "0" : symbolTableId === "]" ? "2" : "1";
-      const spriteFile = `/aprs-symbols/aprs-symbols-128-${tableId}@2x.png`;
-
-      // Calculate sprite position per hessu/aprs-symbols
-      const charCode = symbolCode.charCodeAt(0);
-      const index = charCode - 33; // ASCII printable characters start at 33 (!)
-      // Clamp to valid range (0-93 for printable ASCII 33-126)
-      const safeIndex = Math.max(0, Math.min(index, 93));
-      const column = safeIndex % 16;
-      const row = Math.floor(safeIndex / 16);
-      const x = -column * 128;
-      const y = -row * 128;
-
-      // Create the HTML string directly to ensure proper style application
-      const iconHtml = `<div style="
-        width: 32px;
-        height: 32px;
-        background-image: url(${spriteFile});
-        background-position: ${x / 4}px ${y / 4}px;
-        background-size: 512px 192px;
-        background-repeat: no-repeat;
-        image-rendering: pixelated;
-        opacity: 1.0;
-        overflow: hidden;
-      " data-symbol-table="${symbolTableId}" data-symbol-code="${symbolCode}" data-sprite-position="${x},${y}" data-expected-index="${index}" title="Symbol: ${symbolCode} (${charCode}) at row ${row}, col ${column}"></div>`;
-
-      return L.divIcon({
-        html: iconHtml,
-        className: "",
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
+      // Use server-generated symbol HTML if available
+      if (data.symbol_html) {
+        return L.divIcon({
+          html: data.symbol_html,
+          className: "",
+          iconSize: [120, 32], // Increased width to accommodate callsign label
+          iconAnchor: [16, 16],
+        });
+      }
     }
 
     // For historical packets that are not the most recent for their callsign,
-    // show a simple red dot (only positions where lat/lon actually changed)
+    // still show the proper APRS symbol but with reduced opacity
     if (data.historical && !data.is_most_recent_for_callsign) {
+      // Use server-generated symbol HTML if available
+      if (data.symbol_html) {
+        // Add opacity to the symbol HTML for historical markers
+        const historicalHtml = data.symbol_html.replace(
+          /style="([^"]*)"/, 
+          'style="$1 opacity: 0.7;"'
+        );
+        
+        return L.divIcon({
+          html: historicalHtml,
+          className: "historical-aprs-marker",
+          iconSize: [120, 32],
+          iconAnchor: [16, 16],
+        });
+      }
+      
+      // Fallback: red dot for historical positions without symbol data
       const iconHtml = `<div style="
         width: 8px;
         height: 8px;
@@ -1231,51 +1276,32 @@ let MapAPRSMap = {
       });
     }
 
-    // For current packets or most recent historical packets, show the full APRS symbol icon
-    const symbolTableId = data.symbol_table_id || "/";
-    const symbolCode = getValidSymbolCode(data.symbol_code, symbolTableId);
+    // Fallback: Use server-generated symbol HTML if available
+    if (data.symbol_html) {
+      return L.divIcon({
+        html: data.symbol_html,
+        className: "",
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+    }
 
-    // Map symbol table identifier to correct table index per hessu/aprs-symbols
-    // Primary table: / (0)
-    // Alternate table: \ (1)
-    // Overlay table: ] (2)
-    // Any other character is treated as alternate table (1)
-    const tableMap: Record<string, string> = {
-      "/": "0", // Primary table
-      "\\": "1", // Alternate table
-      "]": "2", // Overlay table
-    };
-    const tableId = symbolTableId === "/" ? "0" : symbolTableId === "]" ? "2" : "1";
-    const spriteFile = `/aprs-symbols/aprs-symbols-128-${tableId}@2x.png`;
-
-    // Calculate sprite position per hessu/aprs-symbols
-    const charCode = symbolCode.charCodeAt(0);
-    const index = charCode - 33; // ASCII printable characters start at 33 (!)
-    // Clamp to valid range (0-93 for printable ASCII 33-126)
-    const safeIndex = Math.max(0, Math.min(index, 93));
-    const column = safeIndex % 16;
-    const row = Math.floor(safeIndex / 16);
-    const x = -column * 128;
-    const y = -row * 128;
-
-    // Create the HTML string directly to ensure proper style application
+    // Final fallback: Simple dot
     const iconHtml = `<div style="
-      width: 32px;
-      height: 32px;
-      background-image: url(${spriteFile});
-      background-position: ${x / 4}px ${y / 4}px;
-      background-size: 512px 192px;
-      background-repeat: no-repeat;
-      image-rendering: pixelated;
-      opacity: ${data.historical && data.is_most_recent_for_callsign ? "0.9" : "1.0"};
-      overflow: hidden;
-    " data-symbol-table="${symbolTableId}" data-symbol-code="${symbolCode}" data-sprite-position="${x},${y}" data-expected-index="${index}" title="Symbol: ${symbolCode} (${charCode}) at row ${row}, col ${column}"></div>`;
+      width: 8px;
+      height: 8px;
+      background-color: #2563eb;
+      border: 2px solid #FFFFFF;
+      border-radius: 50%;
+      opacity: 0.8;
+      box-shadow: 0 0 2px rgba(0,0,0,0.3);
+    " title="APRS Station: ${data.callsign}"></div>`;
 
     return L.divIcon({
       html: iconHtml,
-      className: "", // Remove class to avoid CSS conflicts
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
+      className: "",
+      iconSize: [12, 12],
+      iconAnchor: [6, 6],
     });
   },
 
@@ -1287,7 +1313,7 @@ let MapAPRSMap = {
     // const symbolDesc = data.symbol_description || `Symbol: ${symbolTableId}${symbolCode}`;
 
     let content = `<div class="aprs-popup">
-      <div class="aprs-callsign"><strong><a href="/${callsign}">${callsign}</a></strong> <a href="/info/${callsign}" class="aprs-info-link">info</a></div>`;
+      <div class="aprs-callsign"><strong><a href="/${callsign}" class="aprs-lv-link">${callsign}</a></strong> <a href="/info/${callsign}" class="aprs-lv-link aprs-info-link">info</a></div>`;
     // Removed symbol info from popup
     // content += `<div class="aprs-symbol-info">${symbolDesc}</div>`;
 
@@ -1314,12 +1340,46 @@ let MapAPRSMap = {
 
   destroyed() {
     const self = this as unknown as LiveViewHookContext;
+    
+    // Disable pushEvent to prevent any events from being sent during cleanup
+    const originalPushEvent = self.pushEvent;
+    self.pushEvent = () => {}; // No-op function
+    
+    // Remove popup navigation event listener
+    if (self.popupNavigationHandler) {
+      document.removeEventListener('click', self.popupNavigationHandler);
+    }
+    
+    // Close any open popups before cleanup
+    if (self.map !== undefined) {
+      try {
+        self.map.closePopup();
+      } catch (e) {
+        // Ignore errors during popup cleanup
+      }
+    }
+    
     if (self.boundsTimer !== undefined) {
       clearTimeout(self.boundsTimer);
     }
     if (self.resizeHandler !== undefined) {
       window.removeEventListener("resize", self.resizeHandler);
     }
+    
+    // Remove all event listeners from markers before clearing layers
+    if (self.markers !== undefined) {
+      self.markers.forEach((marker: any) => {
+        try {
+          marker.off(); // Remove all event listeners
+          if (marker.getPopup()) {
+            marker.unbindPopup(); // Unbind popup to prevent events
+          }
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+      });
+    }
+    
     if (self.markerLayer !== undefined) {
       self.markerLayer!.clearLayers();
     }
@@ -1333,6 +1393,9 @@ let MapAPRSMap = {
       self.map!.remove();
       self.map = undefined;
     }
+    
+    // Restore original pushEvent (though it won't be used since we're destroyed)
+    self.pushEvent = originalPushEvent;
   },
 };
 
