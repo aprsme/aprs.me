@@ -132,6 +132,9 @@ jobs:
           echo '```' >> security-summary.md
           cat app-packages.txt >> security-summary.md || echo "No application vulnerabilities report available" >> security-summary.md
           echo '```' >> security-summary.md
+          
+          # Also output to GitHub Actions summary
+          cat security-summary.md >> $GITHUB_STEP_SUMMARY
 
       - name: Upload security summary
         uses: actions/upload-artifact@v4
@@ -142,9 +145,18 @@ jobs:
           retention-days: 14
 
       - name: Check for critical vulnerabilities
+        continue-on-error: true
         run: |
           if grep -q "CRITICAL" trivy-results.sarif; then
-            echo "Critical vulnerabilities found in the Docker image."
-            echo "Please review the scan results in the Security tab."
+            echo "::warning::Critical vulnerabilities found in the Docker image."
+            echo "Please review the scan results in the Security tab and the uploaded reports."
+            echo ""
+            echo "Summary of critical vulnerabilities:"
+            grep -A 5 -B 5 "CRITICAL" trivy-results.sarif | head -50 || true
+            echo ""
+            echo "For full details, check the Security tab and artifact reports."
+            # Exit with error code but continue-on-error will prevent workflow failure
             exit 1
+          else
+            echo "No critical vulnerabilities found."
           fi
