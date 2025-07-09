@@ -168,6 +168,11 @@ defmodule Aprsme.Packets do
   defp insert_packet(attrs, packet_data) do
     case %Packet{} |> Packet.changeset(attrs) |> Repo.insert() do
       {:ok, packet} ->
+        # Invalidate cache for this packet's callsign
+        if Map.has_key?(attrs, :sender) do
+          Aprsme.CachedQueries.invalidate_callsign_cache(attrs.sender)
+        end
+
         {:ok, packet}
 
       {:error, changeset} ->
@@ -413,6 +418,7 @@ defmodule Aprsme.Packets do
     # Always limit to the last hour for initial load
     one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
     limit = Map.get(opts, :limit, 200)
+    offset = Map.get(opts, :offset, 0)
 
     # Use a more efficient query that leverages the partial indexes
     # Order by received_at DESC to get the most recent packets first
@@ -421,7 +427,8 @@ defmodule Aprsme.Packets do
         where: p.has_position == true,
         where: p.received_at >= ^one_hour_ago,
         order_by: [desc: p.received_at],
-        limit: ^limit
+        limit: ^limit,
+        offset: ^offset
       )
 
     query =

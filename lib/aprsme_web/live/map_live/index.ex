@@ -283,6 +283,11 @@ defmodule AprsmeWeb.MapLive.Index do
 
   def handle_info(:start_geolocation, socket), do: handle_info_start_geolocation(socket)
 
+  def handle_info({:load_historical_batch, batch_offset}, socket) do
+    socket = load_historical_batch(socket, batch_offset)
+    {:noreply, socket}
+  end
+
   def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket),
     do: handle_info({:postgres_packet, packet}, socket)
 
@@ -970,8 +975,8 @@ defmodule AprsmeWeb.MapLive.Index do
       # Clear existing historical packets
       socket = push_event(socket, "clear_historical_packets", %{})
 
-      # Use optimized loading for better performance
-      socket = load_historical_packets_for_bounds_optimized(socket, socket.assigns.map_bounds)
+      # Start progressive loading using LiveView's efficient batching
+      socket = start_progressive_historical_loading(socket)
 
       {:noreply, socket}
     else
@@ -1166,16 +1171,105 @@ defmodule AprsmeWeb.MapLive.Index do
     packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
 
     historical_packets =
-      packets_module.get_recent_packets_optimized(%{
-        bounds: bounds,
-        # Reduced limit for faster initial load
-        limit: 200
-      })
+      if packets_module == Aprsme.Packets do
+        # Use cached queries for better performance
+        Aprsme.CachedQueries.get_recent_packets_cached(%{
+          bounds: bounds,
+          # Reduced limit for faster initial load
+          limit: 200
+        })
+      else
+        # Fallback for testing
+        packets_module.get_recent_packets_optimized(%{
+          bounds: bounds,
+          # Reduced limit for faster initial load
+          limit: 200
+        })
+      end
 
     if Enum.empty?(historical_packets) do
       assign(socket, historical_loaded: true)
     else
       process_historical_packets(socket, historical_packets)
+    end
+  end
+
+  # Progressive loading functions using LiveView's efficient update mechanisms
+  @spec start_progressive_historical_loading(Socket.t()) :: Socket.t()
+  defp start_progressive_historical_loading(socket) do
+    # Start with a small batch for immediate visual feedback
+    socket =
+      socket
+      |> assign(loading_batch: 0, total_batches: 4)
+      |> load_historical_batch(0)
+
+    # Schedule next batches using LiveView's async processing
+    Process.send_after(self(), {:load_historical_batch, 1}, 50)
+    Process.send_after(self(), {:load_historical_batch, 2}, 150)
+    Process.send_after(self(), {:load_historical_batch, 3}, 300)
+
+    socket
+  end
+
+  @spec load_historical_batch(Socket.t(), integer()) :: Socket.t()
+  defp load_historical_batch(socket, batch_offset) do
+    if socket.assigns.map_bounds do
+      bounds = [
+        socket.assigns.map_bounds.west,
+        socket.assigns.map_bounds.south,
+        socket.assigns.map_bounds.east,
+        socket.assigns.map_bounds.north
+      ]
+
+      # Load smaller batches with offset for progressive loading
+      batch_size = 50
+      offset = batch_offset * batch_size
+
+      packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
+
+      historical_packets =
+        if packets_module == Aprsme.Packets do
+          # Use cached queries for better performance
+          Aprsme.CachedQueries.get_recent_packets_cached(%{
+            bounds: bounds,
+            limit: batch_size,
+            offset: offset
+          })
+        else
+          # Fallback for testing
+          packets_module.get_recent_packets_optimized(%{
+            bounds: bounds,
+            limit: batch_size,
+            offset: offset
+          })
+        end
+
+      if Enum.any?(historical_packets) do
+        # Process this batch and send to frontend
+        packet_data_list = build_packet_data_list(historical_packets)
+
+        if Enum.any?(packet_data_list) do
+          # Use LiveView's efficient push_event for incremental updates
+          socket =
+            push_event(socket, "add_historical_packets_batch", %{
+              packets: packet_data_list,
+              batch: batch_offset,
+              is_final: batch_offset >= 3
+            })
+
+          # Update progress for user feedback
+          socket = assign(socket, loading_batch: batch_offset + 1)
+
+          socket
+        else
+          socket
+        end
+      else
+        # No more data in this batch
+        socket
+      end
+    else
+      socket
     end
   end
 
