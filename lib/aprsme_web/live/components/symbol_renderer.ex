@@ -91,7 +91,6 @@ defmodule AprsmeWeb.SymbolRenderer do
     AprsmeWeb.AprsSymbol.get_sprite_info(symbol_table, symbol_code)
   end
 
-
   @doc """
   Renders an APRS symbol for use in Leaflet markers.
   Returns HTML string that can be used as marker content.

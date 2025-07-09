@@ -1,5 +1,6 @@
 defmodule AprsmeWeb.MapLive.OverlayRenderingTest do
   use ExUnit.Case, async: true
+
   alias AprsmeWeb.MapLive.PacketUtils
 
   describe "overlay symbol rendering in map" do
@@ -21,18 +22,19 @@ defmodule AprsmeWeb.MapLive.OverlayRenderingTest do
 
       # Process the packet through PacketUtils
       result = PacketUtils.build_packet_data(packet, true, "en-US")
-      
+
       # Check that symbol_html was generated
       assert Map.has_key?(result, "symbol_html")
       symbol_html = result["symbol_html"]
-      
+
       # Verify the overlay symbol is rendered correctly with overlay character on top
       # The overlay character (D) should be first in the background-image list
-      assert symbol_html =~ "background-image: url(/aprs-symbols/aprs-symbols-128-2@2x.png), url(/aprs-symbols/aprs-symbols-128-2@2x.png)"
-      
+      assert symbol_html =~
+               "background-image: url(/aprs-symbols/aprs-symbols-128-2@2x.png), url(/aprs-symbols/aprs-symbols-128-2@2x.png)"
+
       # Verify the positions (overlay character D first at -96.0px -64.0px, then base & at -160.0px 0.0px)
       assert symbol_html =~ "background-position: -96.0px -64.0px, -160.0px 0.0px"
-      
+
       # Verify callsign is included
       assert symbol_html =~ "W5MRC-15"
     end
@@ -56,14 +58,15 @@ defmodule AprsmeWeb.MapLive.OverlayRenderingTest do
       # Process the packet
       result = PacketUtils.build_packet_data(packet, true, "en-US")
       symbol_html = result["symbol_html"]
-      
+
       # Verify the overlay uses different sprite tables
       # Overlay character N from table 2, base # from table 1
-      assert symbol_html =~ "background-image: url(/aprs-symbols/aprs-symbols-128-2@2x.png), url(/aprs-symbols/aprs-symbols-128-1@2x.png)"
-      
+      assert symbol_html =~
+               "background-image: url(/aprs-symbols/aprs-symbols-128-2@2x.png), url(/aprs-symbols/aprs-symbols-128-1@2x.png)"
+
       # Verify the positions (overlay N first, then base #)
       assert symbol_html =~ "background-position: -416.0px -64.0px, -64.0px 0.0px"
-      
+
       # Verify callsign
       assert symbol_html =~ "TEST-1"
     end
@@ -87,14 +90,14 @@ defmodule AprsmeWeb.MapLive.OverlayRenderingTest do
       # Process the packet
       result = PacketUtils.build_packet_data(packet, true, "en-US")
       symbol_html = result["symbol_html"]
-      
+
       # Verify it's a single background image (no overlay)
       assert symbol_html =~ "background-image: url(/aprs-symbols/aprs-symbols-128-0@2x.png)"
       assert not (symbol_html =~ "background-image: url(/aprs-symbols/aprs-symbols-128-0@2x.png), url")
-      
+
       # Verify the position for _ symbol
       assert symbol_html =~ "background-position: -448.0px -96.0px"
-      
+
       # Verify callsign
       assert symbol_html =~ "WEATHER-1"
     end

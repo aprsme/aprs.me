@@ -1,4 +1,3 @@
-
 <div class="min-h-screen bg-base-200">
   <!-- Page header -->
   <div class="bg-base-100 shadow-sm">
@@ -15,9 +14,13 @@
               </span>
               <%= if @packet do %>
                 <% {symbol_table, symbol_code} = AprsmeWeb.AprsSymbol.extract_from_packet(@packet) %>
-                <% display_symbol = if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/), do: symbol_table, else: "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
+                <% display_symbol =
+                  if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/),
+                    do: symbol_table,
+                    else:
+                      "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
                 <div title={display_symbol}>
-                  <%= render_symbol_html(@packet) %>
+                  {render_symbol_html(@packet)}
                 </div>
               <% end %>
             </div>
@@ -251,10 +254,15 @@
                             {ssid_info.callsign}
                           </.link>
                           <%= if ssid_info.packet do %>
-                            <% {symbol_table, symbol_code} = AprsmeWeb.AprsSymbol.extract_from_packet(ssid_info.packet) %>
-                            <% display_symbol = if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/), do: symbol_table, else: "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
+                            <% {symbol_table, symbol_code} =
+                              AprsmeWeb.AprsSymbol.extract_from_packet(ssid_info.packet) %>
+                            <% display_symbol =
+                              if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/),
+                                do: symbol_table,
+                                else:
+                                  "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
                             <div title={display_symbol}>
-                              <%= render_symbol_html(ssid_info.packet) %>
+                              {render_symbol_html(ssid_info.packet)}
                             </div>
                           <% end %>
                         </div>
@@ -353,10 +361,15 @@
                           {neighbor.callsign}
                         </.link>
                         <%= if neighbor.packet do %>
-                          <% {symbol_table, symbol_code} = AprsmeWeb.AprsSymbol.extract_from_packet(neighbor.packet) %>
-                          <% display_symbol = if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/), do: symbol_table, else: "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
+                          <% {symbol_table, symbol_code} =
+                            AprsmeWeb.AprsSymbol.extract_from_packet(neighbor.packet) %>
+                          <% display_symbol =
+                            if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/),
+                              do: symbol_table,
+                              else:
+                                "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
                           <div title={display_symbol}>
-                            <%= render_symbol_html(neighbor.packet) %>
+                            {render_symbol_html(neighbor.packet)}
                           </div>
                         <% end %>
                       </div>

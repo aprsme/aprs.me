@@ -4,8 +4,8 @@ defmodule AprsmeWeb.InfoLive.Show do
   use Gettext, backend: AprsmeWeb.Gettext
 
   alias Aprsme.Packets
-  alias AprsmeWeb.MapLive.PacketUtils
   alias AprsmeWeb.AprsSymbol
+  alias AprsmeWeb.MapLive.PacketUtils
 
   @neighbor_radius_km 10
   @neighbor_limit 10
@@ -326,14 +326,14 @@ defmodule AprsmeWeb.InfoLive.Show do
   def render_symbol_html(packet, size \\ 32) do
     if packet do
       {symbol_table_id, symbol_code} = AprsSymbol.extract_from_packet(packet)
-      
+
       # Check if this is an overlay symbol
       if symbol_table_id && String.match?(symbol_table_id, ~r/^[A-Z0-9]$/) do
         # Use layered sprite backgrounds for overlay symbols
         sprite_info = AprsSymbol.get_sprite_info(symbol_table_id, symbol_code)
         overlay_sprite_info = AprsSymbol.get_overlay_character_sprite_info(symbol_table_id)
-        
-        raw """
+
+        raw("""
         <div style="
           position: relative;
           width: #{size}px;
@@ -348,16 +348,16 @@ defmodule AprsmeWeb.InfoLive.Show do
           margin-bottom: -6px;
         ">
         </div>
-        """
+        """)
       else
         # Use style rendering for non-overlay symbols
-        raw """
+        raw("""
         <div style="#{AprsSymbol.render_style(symbol_table_id, symbol_code, size)}"></div>
-        """
+        """)
       end
     else
       # Return empty if no packet
-      raw ""
+      raw("")
     end
   end
 
