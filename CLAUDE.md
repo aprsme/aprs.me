@@ -28,6 +28,7 @@ This is an Elixir Phoenix LiveView application that serves as a real-time APRS (
 - `mix dialyzer` - Static type analysis (must run and fix errors/warnings)
 - `mix sobelow` - Security vulnerability scanning
 - **IMPORTANT**: Always run `mix format` before considering any task complete
+- **MANDATORY**: Run `mix compile --warnings-as-errors` and ensure it passes before considering any task complete
 
 ### Assets (No Node.js)
 - `mix assets.deploy` - Build and minify frontend assets (Tailwind CSS + ESBuild)

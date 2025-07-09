@@ -7,10 +7,6 @@ defmodule AprsmeWeb.Components.ErrorBoundary do
   """
   use Phoenix.Component
 
-  import AprsmeWeb.CoreComponents
-
-  alias Phoenix.LiveView.Socket
-
   @doc """
   Wraps content in an error boundary that catches and displays errors gracefully.
 
