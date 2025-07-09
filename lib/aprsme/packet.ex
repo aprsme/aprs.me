@@ -247,6 +247,13 @@ defmodule Aprsme.Packet do
     base_attrs = Map.delete(base_attrs, :raw_weather_data)
     base_attrs = Map.delete(base_attrs, "raw_weather_data")
 
+    # Check if symbol data exists at the top level of attrs (from APRS parser)
+    # and preserve it if not already in base_attrs
+    base_attrs =
+      base_attrs
+      |> maybe_put(:symbol_code, attrs[:symbol_code] || attrs["symbol_code"])
+      |> maybe_put(:symbol_table_id, attrs[:symbol_table_id] || attrs["symbol_table_id"])
+
     # Extract data based on the type of data_extended
     additional_data =
       case data_extended do
@@ -332,12 +339,13 @@ defmodule Aprsme.Packet do
   end
 
   defp put_symbol_fields(map, data_extended) do
+    # First try to get symbol data from the data_extended map
+    symbol_code = data_extended[:symbol_code] || data_extended["symbol_code"]
+    symbol_table_id = data_extended[:symbol_table_id] || data_extended["symbol_table_id"]
+
     map
-    |> maybe_put(:symbol_code, data_extended[:symbol_code] || data_extended["symbol_code"])
-    |> maybe_put(
-      :symbol_table_id,
-      data_extended[:symbol_table_id] || data_extended["symbol_table_id"]
-    )
+    |> maybe_put(:symbol_code, symbol_code)
+    |> maybe_put(:symbol_table_id, symbol_table_id)
     |> maybe_put(:comment, data_extended[:comment] || data_extended["comment"])
     |> maybe_put(:timestamp, data_extended[:timestamp] || data_extended["timestamp"])
     |> maybe_put(
@@ -397,10 +405,9 @@ defmodule Aprsme.Packet do
     |> maybe_put(:manufacturer, mic_e_map[:manufacturer])
     |> maybe_put(:course, mic_e_map[:heading])
     |> maybe_put(:speed, mic_e_map[:speed])
-    # Default car symbol for MicE
-    |> maybe_put(:symbol_code, ">")
-    # Primary table
-    |> maybe_put(:symbol_table_id, "/")
+    # Use symbol data from MicE if available, otherwise use default car symbol
+    |> maybe_put(:symbol_code, mic_e_map[:symbol_code] || mic_e_map["symbol_code"] || ">")
+    |> maybe_put(:symbol_table_id, mic_e_map[:symbol_table_id] || mic_e_map["symbol_table_id"] || "/")
   end
 
   # Extract weather data from various formats

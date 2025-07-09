@@ -1,84 +1,26 @@
-// Declare Leaflet as a global variable
-declare const L: any;
+// Import type definitions
+import type { 
+  LiveViewHookContext, 
+  MarkerData, 
+  BoundsData, 
+  CenterData, 
+  MarkerState, 
+  MapEventData 
+} from './types/map';
+import type { Map as LeafletMap, Marker, TileLayer, LayerGroup, DivIcon, LatLngBounds } from 'leaflet';
+
+// Declare Leaflet as a global variable with proper typing
+declare const L: typeof import('leaflet');
 declare const OverlappingMarkerSpiderfier: any;
 
 // Import trail management functionality
 import { TrailManager } from "./features/trail_manager";
+// Import helper functions
+import { parseTimestamp, getTrailId, saveMapState, safePushEvent, getLiveSocket } from "./map_helpers";
 
 // APRS Map Hook - handles only basic map interaction
 // All data logic handled by LiveView
 
-type LiveViewHookContext = {
-  el: HTMLElement & { _leaflet_id?: any };
-  pushEvent: (event: string, payload: any) => void;
-  handleEvent: (event: string, callback: Function) => void;
-  map?: any;
-  markers?: Map<string, any>;
-  markerStates?: Map<string, MarkerState>;
-  markerLayer?: any;
-  trailManager?: TrailManager;
-  boundsTimer?: ReturnType<typeof setTimeout>;
-  resizeHandler?: () => void;
-  errors?: string[];
-  initializationAttempts?: number;
-  maxInitializationAttempts?: number;
-  lastZoom?: number;
-  currentPopupMarkerId?: string | null;
-  oms?: any;
-  [key: string]: any;
-};
-
-interface MarkerData {
-  id: string;
-  lat: number;
-  lng: number;
-  callsign?: string;
-  comment?: string;
-  symbol_table_id?: string;
-  symbol_code?: string;
-  symbol_description?: string;
-  popup?: string;
-  historical?: boolean;
-  color?: string;
-  timestamp?: number;
-  is_most_recent_for_callsign?: boolean;
-  callsign_group?: string;
-}
-
-interface BoundsData {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-}
-
-interface CenterData {
-  lat: number;
-  lng: number;
-}
-
-interface MarkerState {
-  lat: number;
-  lng: number;
-  symbol_table: string;
-  symbol_code: string;
-  popup?: string;
-  historical?: boolean;
-  is_most_recent_for_callsign?: boolean;
-  callsign_group?: string;
-  callsign?: string;
-}
-
-interface MapEventData {
-  bounds?: BoundsData;
-  center?: CenterData;
-  zoom?: number;
-  id?: string;
-  callsign?: string;
-  lat?: number;
-  lng?: number;
-  markers?: MarkerData[];
-}
 
 let MapAPRSMap = {
   mounted() {
@@ -272,9 +214,9 @@ let MapAPRSMap = {
         self.sendBoundsToServer();
 
         // Start periodic cleanup of old trail positions (every 5 minutes)
-        setInterval(
+        self.cleanupInterval = setInterval(
           () => {
-            if (self.trailManager) {
+            if (!self.isDestroyed && self.trailManager) {
               self.trailManager.cleanupOldPositions();
             }
           },
@@ -285,23 +227,32 @@ let MapAPRSMap = {
       }
     });
 
+    // Track map event handlers for cleanup
+    self.mapEventHandlers = new Map();
+    self.isDestroyed = false;
+
     // Send bounds to LiveView when map moves
-    self.map!.on("moveend", () => {
+    const moveEndHandler = () => {
+      // Skip if this is a programmatic move from the server
+      if (self.programmaticMoveId) {
+        return;
+      }
+      
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
-        self.sendBoundsToServer();
-        // Save map state
-        const center = self.map.getCenter();
-        const zoom = self.map.getZoom();
-        localStorage.setItem(
-          "aprs_map_state",
-          JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
-        );
+        saveMapState(self.map, self.pushEvent);
       }, 300);
-    });
+    };
+    self.map!.on("moveend", moveEndHandler);
+    self.mapEventHandlers!.set("moveend", moveEndHandler);
 
     // Handle zoom changes with optimization for large zoom differences
-    self.map!.on("zoomend", () => {
+    const zoomEndHandler = () => {
+      // Skip if this is a programmatic move from the server
+      if (self.programmaticMoveId) {
+        return;
+      }
+      
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
         const currentZoom = self.map!.getZoom();
@@ -313,17 +264,13 @@ let MapAPRSMap = {
           self.pushEvent("refresh_markers", {});
         }
 
-        self.sendBoundsToServer();
         self.lastZoom = currentZoom;
-        // Save map state
-        const center = self.map.getCenter();
-        const zoom = self.map.getZoom();
-        localStorage.setItem(
-          "aprs_map_state",
-          JSON.stringify({ lat: center.lat, lng: center.lng, zoom }),
-        );
+        // Save map state and update URL
+        saveMapState(self.map, self.pushEvent);
       }, 300);
-    });
+    };
+    self.map!.on("zoomend", zoomEndHandler);
+    self.mapEventHandlers!.set("zoomend", zoomEndHandler);
 
     // Handle resize
     self.resizeHandler = () => {
@@ -353,6 +300,9 @@ let MapAPRSMap = {
 
     // LiveView event handlers
     self.setupLiveViewHandlers();
+
+    // Set up event delegation for popup navigation links
+    self.setupPopupNavigation();
 
     if (typeof OverlappingMarkerSpiderfier !== "undefined") {
       self.oms = new OverlappingMarkerSpiderfier(self.map);
@@ -388,6 +338,35 @@ let MapAPRSMap = {
         </div>
       `;
     }
+  },
+
+  setupPopupNavigation() {
+    const self = this as unknown as LiveViewHookContext;
+    
+    // Store the event handler so we can remove it later
+    self.popupNavigationHandler = (e: Event) => {
+      const target = e.target as HTMLElement;
+      
+      // Check if clicked element or its parent is a LiveView navigation link
+      const navLink = target.closest('.aprs-lv-link') as HTMLAnchorElement;
+      
+      if (navLink && navLink.href) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Use Phoenix LiveView's built-in navigation
+        const liveSocket = getLiveSocket();
+        if (liveSocket) {
+          liveSocket.pushHistoryPatch(navLink.href, "push", navLink);
+        } else {
+          // Fallback to regular navigation if LiveView socket not available
+          window.location.href = navLink.href;
+        }
+      }
+    };
+    
+    // Use event delegation to handle clicks on popup navigation links
+    document.addEventListener('click', self.popupNavigationHandler);
   },
 
   setupLiveViewHandlers() {
@@ -452,6 +431,23 @@ let MapAPRSMap = {
           // Use a slight delay to ensure map is ready
           setTimeout(() => {
             if (self.map) {
+              // Generate a unique ID for this programmatic move
+              const moveId = `move_${Date.now()}_${Math.random()}`;
+              self.programmaticMoveId = moveId;
+              
+              // Clear any existing timeout
+              if (self.programmaticMoveTimeout) {
+                clearTimeout(self.programmaticMoveTimeout);
+              }
+              
+              // Set a timeout to clear the programmatic move flag
+              // This ensures we don't block user interactions indefinitely
+              self.programmaticMoveTimeout = setTimeout(() => {
+                if (self.programmaticMoveId === moveId) {
+                  self.programmaticMoveId = undefined;
+                }
+              }, 1500);
+              
               self.map.setView([lat, lng], zoom, {
                 animate: true,
                 duration: 1,
@@ -581,14 +577,16 @@ let MapAPRSMap = {
         const prevMarker = self.markers!.get(self.currentPopupMarkerId);
         if (prevMarker && prevMarker.closePopup) prevMarker.closePopup();
       }
-      // Re-add marker with openPopup flag (will open after add)
-      const markerData = self.markerStates!.get(data.id);
-      if (markerData) {
-        self.addMarker({ ...markerData, id: data.id, openPopup: true });
+      // Try to open popup directly first if marker exists
+      const marker = self.markers!.get(data.id);
+      if (marker && marker.openPopup) {
+        marker.openPopup();
       } else {
-        // fallback: try to open popup directly if marker exists
-        const marker = self.markers!.get(data.id);
-        if (marker && marker.openPopup) marker.openPopup();
+        // Fallback: re-add marker with openPopup flag if it doesn't exist
+        const markerData = self.markerStates!.get(data.id);
+        if (markerData) {
+          self.addMarker({ ...markerData, id: data.id, openPopup: true });
+        }
       }
       self.currentPopupMarkerId = data.id;
     });
@@ -620,16 +618,43 @@ let MapAPRSMap = {
         packetsByCallsign.forEach((packets, callsign) => {
           // Sort by timestamp (oldest first) to ensure proper trail line drawing
           const sortedPackets = packets.sort((a, b) => {
-            const timeA = a.timestamp
-              ? typeof a.timestamp === "number"
-                ? a.timestamp
-                : new Date(a.timestamp).getTime()
-              : 0;
-            const timeB = b.timestamp
-              ? typeof b.timestamp === "number"
-                ? b.timestamp
-                : new Date(b.timestamp).getTime()
-              : 0;
+            const timeA = parseTimestamp(a.timestamp);
+            const timeB = parseTimestamp(b.timestamp);
+            return timeA - timeB;
+          });
+
+          // Add markers in chronological order
+          sortedPackets.forEach((packet) => {
+            self.addMarker({
+              ...packet,
+              historical: true,
+              popup: packet.popup || self.buildPopupContent(packet),
+            });
+          });
+        });
+      }
+    });
+
+    // Handle progressive loading of historical packets (batch processing)
+    self.handleEvent("add_historical_packets_batch", (data: { packets: MarkerData[], batch: number, is_final: boolean }) => {
+      if (data.packets && Array.isArray(data.packets)) {
+        // Process all packets immediately for maximum speed
+        const packetsByCallsign = new Map<string, MarkerData[]>();
+
+        data.packets.forEach((packet) => {
+          const callsign = packet.callsign_group || packet.callsign || packet.id;
+          if (!packetsByCallsign.has(callsign)) {
+            packetsByCallsign.set(callsign, []);
+          }
+          packetsByCallsign.get(callsign)!.push(packet);
+        });
+
+        // Process each callsign group in chronological order (oldest first)
+        packetsByCallsign.forEach((packets, callsign) => {
+          // Sort by timestamp (oldest first) to ensure proper trail line drawing
+          const sortedPackets = packets.sort((a, b) => {
+            const timeA = parseTimestamp(a.timestamp);
+            const timeB = parseTimestamp(b.timestamp);
             return timeA - timeB;
           });
 
@@ -777,13 +802,9 @@ let MapAPRSMap = {
       if (positionChanged && self.trailManager) {
         // Position changed, update trail
         const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
-        const timestamp = data.timestamp
-          ? typeof data.timestamp === "string"
-            ? new Date(data.timestamp).getTime()
-            : data.timestamp
-          : Date.now();
-        // Use callsign_group for proper trail grouping - prioritize callsign_group, then callsign, then id
-        const trailId = data.callsign_group || data.callsign || data.id;
+        const timestamp = parseTimestamp(data.timestamp);
+        // Use callsign_group for proper trail grouping
+        const trailId = getTrailId(data);
 
         self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
       }
@@ -810,26 +831,21 @@ let MapAPRSMap = {
     if (data.popup) {
       marker.bindPopup(data.popup, { autoPan: false });
       
-      // Handle popup close events for all popups
+      // Handle popup close events - check if hook is still connected
       marker.on("popupclose", () => {
-        self.pushEvent("popup_closed", {});
+        safePushEvent(self.pushEvent, "popup_closed", {});
       });
     }
 
     // Handle marker click
     marker.on("click", () => {
       if (marker.openPopup) marker.openPopup();
-      self.pushEvent("marker_clicked", {
+      safePushEvent(self.pushEvent, "marker_clicked", {
         id: data.id,
         callsign: data.callsign,
         lat: lat,
         lng: lng,
       });
-    });
-
-    // Handle popup close events
-    marker.on("popupclose", () => {
-      self.pushEvent("popup_closed", {});
     });
 
     // Mark historical markers for identification
@@ -864,13 +880,9 @@ let MapAPRSMap = {
     // Initialize trail for new marker - always add to trail for line drawing
     if (self.trailManager) {
       const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
-      const timestamp = data.timestamp
-        ? typeof data.timestamp === "string"
-          ? new Date(data.timestamp).getTime()
-          : data.timestamp
-        : Date.now();
-      // Use callsign_group for proper trail grouping - prioritize callsign_group, then callsign, then id
-      const trailId = data.callsign_group || data.callsign || data.id;
+      const timestamp = parseTimestamp(data.timestamp);
+      // Use callsign_group for proper trail grouping
+      const trailId = getTrailId(data);
 
       self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
     }
@@ -929,13 +941,9 @@ let MapAPRSMap = {
             existingMarker.setLatLng([lat, lng]);
             if (self.trailManager) {
               const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
-              const timestamp = data.timestamp
-                ? typeof data.timestamp === "string"
-                  ? new Date(data.timestamp).getTime()
-                  : data.timestamp
-                : Date.now();
-              // Use callsign_group for proper trail grouping - prioritize callsign_group, then callsign, then id
-              const trailId = data.callsign_group || data.callsign || data.id;
+              const timestamp = parseTimestamp(data.timestamp);
+              // Use callsign_group for proper trail grouping
+              const trailId = getTrailId(data);
               self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
             }
           }
@@ -1082,57 +1090,37 @@ let MapAPRSMap = {
           }
         });
       }
-      // For current packets or most recent historical packets, show the full APRS symbol icon
-      const symbolTableId = data.symbol_table_id || "/";
-      const symbolCode = getValidSymbolCode(data.symbol_code, symbolTableId);
-
-      // Map symbol table identifier to correct table index per hessu/aprs-symbols
-      // Primary table: / (0)
-      // Alternate table: \ (1)
-      // Overlay table: ] (2)
-      // Any other character is treated as alternate table (1)
-      const tableMap: Record<string, string> = {
-        "/": "0", // Primary table
-        "\\": "1", // Alternate table
-        "]": "2", // Overlay table
-      };
-      const tableId = symbolTableId === "/" ? "0" : symbolTableId === "]" ? "2" : "1";
-      const spriteFile = `/aprs-symbols/aprs-symbols-128-${tableId}@2x.png`;
-
-      // Calculate sprite position per hessu/aprs-symbols
-      const charCode = symbolCode.charCodeAt(0);
-      const index = charCode - 33; // ASCII printable characters start at 33 (!)
-      // Clamp to valid range (0-93 for printable ASCII 33-126)
-      const safeIndex = Math.max(0, Math.min(index, 93));
-      const column = safeIndex % 16;
-      const row = Math.floor(safeIndex / 16);
-      const x = -column * 128;
-      const y = -row * 128;
-
-      // Create the HTML string directly to ensure proper style application
-      const iconHtml = `<div style="
-        width: 32px;
-        height: 32px;
-        background-image: url(${spriteFile});
-        background-position: ${x / 4}px ${y / 4}px;
-        background-size: 512px 192px;
-        background-repeat: no-repeat;
-        image-rendering: pixelated;
-        opacity: 1.0;
-        overflow: hidden;
-      " data-symbol-table="${symbolTableId}" data-symbol-code="${symbolCode}" data-sprite-position="${x},${y}" data-expected-index="${index}" title="Symbol: ${symbolCode} (${charCode}) at row ${row}, col ${column}"></div>`;
-
-      return L.divIcon({
-        html: iconHtml,
-        className: "",
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
+      // Use server-generated symbol HTML if available
+      if (data.symbol_html) {
+        return L.divIcon({
+          html: data.symbol_html,
+          className: "",
+          iconSize: [120, 32], // Increased width to accommodate callsign label
+          iconAnchor: [16, 16],
+        });
+      }
     }
 
     // For historical packets that are not the most recent for their callsign,
-    // show a simple red dot (only positions where lat/lon actually changed)
+    // still show the proper APRS symbol but with reduced opacity
     if (data.historical && !data.is_most_recent_for_callsign) {
+      // Use server-generated symbol HTML if available
+      if (data.symbol_html) {
+        // Add opacity to the symbol HTML for historical markers
+        const historicalHtml = data.symbol_html.replace(
+          /style="([^"]*)"/, 
+          'style="$1 opacity: 0.7;"'
+        );
+        
+        return L.divIcon({
+          html: historicalHtml,
+          className: "historical-aprs-marker",
+          iconSize: [120, 32],
+          iconAnchor: [16, 16],
+        });
+      }
+      
+      // Fallback: red dot for historical positions without symbol data
       const iconHtml = `<div style="
         width: 8px;
         height: 8px;
@@ -1151,51 +1139,32 @@ let MapAPRSMap = {
       });
     }
 
-    // For current packets or most recent historical packets, show the full APRS symbol icon
-    const symbolTableId = data.symbol_table_id || "/";
-    const symbolCode = getValidSymbolCode(data.symbol_code, symbolTableId);
+    // Fallback: Use server-generated symbol HTML if available
+    if (data.symbol_html) {
+      return L.divIcon({
+        html: data.symbol_html,
+        className: "",
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+    }
 
-    // Map symbol table identifier to correct table index per hessu/aprs-symbols
-    // Primary table: / (0)
-    // Alternate table: \ (1)
-    // Overlay table: ] (2)
-    // Any other character is treated as alternate table (1)
-    const tableMap: Record<string, string> = {
-      "/": "0", // Primary table
-      "\\": "1", // Alternate table
-      "]": "2", // Overlay table
-    };
-    const tableId = symbolTableId === "/" ? "0" : symbolTableId === "]" ? "2" : "1";
-    const spriteFile = `/aprs-symbols/aprs-symbols-128-${tableId}@2x.png`;
-
-    // Calculate sprite position per hessu/aprs-symbols
-    const charCode = symbolCode.charCodeAt(0);
-    const index = charCode - 33; // ASCII printable characters start at 33 (!)
-    // Clamp to valid range (0-93 for printable ASCII 33-126)
-    const safeIndex = Math.max(0, Math.min(index, 93));
-    const column = safeIndex % 16;
-    const row = Math.floor(safeIndex / 16);
-    const x = -column * 128;
-    const y = -row * 128;
-
-    // Create the HTML string directly to ensure proper style application
+    // Final fallback: Simple dot
     const iconHtml = `<div style="
-      width: 32px;
-      height: 32px;
-      background-image: url(${spriteFile});
-      background-position: ${x / 4}px ${y / 4}px;
-      background-size: 512px 192px;
-      background-repeat: no-repeat;
-      image-rendering: pixelated;
-      opacity: ${data.historical && data.is_most_recent_for_callsign ? "0.9" : "1.0"};
-      overflow: hidden;
-    " data-symbol-table="${symbolTableId}" data-symbol-code="${symbolCode}" data-sprite-position="${x},${y}" data-expected-index="${index}" title="Symbol: ${symbolCode} (${charCode}) at row ${row}, col ${column}"></div>`;
+      width: 8px;
+      height: 8px;
+      background-color: #2563eb;
+      border: 2px solid #FFFFFF;
+      border-radius: 50%;
+      opacity: 0.8;
+      box-shadow: 0 0 2px rgba(0,0,0,0.3);
+    " title="APRS Station: ${data.callsign}"></div>`;
 
     return L.divIcon({
       html: iconHtml,
-      className: "", // Remove class to avoid CSS conflicts
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
+      className: "",
+      iconSize: [12, 12],
+      iconAnchor: [6, 6],
     });
   },
 
@@ -1207,7 +1176,7 @@ let MapAPRSMap = {
     // const symbolDesc = data.symbol_description || `Symbol: ${symbolTableId}${symbolCode}`;
 
     let content = `<div class="aprs-popup">
-      <div class="aprs-callsign"><strong><a href="/${callsign}">${callsign}</a></strong> <a href="/info/${callsign}" class="aprs-info-link">info</a></div>`;
+      <div class="aprs-callsign"><strong><a href="/${callsign}" class="aprs-lv-link">${callsign}</a></strong> <a href="/info/${callsign}" class="aprs-lv-link aprs-info-link">info</a></div>`;
     // Removed symbol info from popup
     // content += `<div class="aprs-symbol-info">${symbolDesc}</div>`;
 
@@ -1216,14 +1185,10 @@ let MapAPRSMap = {
     }
 
     if (data.timestamp) {
-      let date;
-      if (typeof data.timestamp === "number") {
-        date = new Date(data.timestamp * 1000);
-      } else if (typeof data.timestamp === "string") {
-        date = new Date(data.timestamp);
-      }
-
-      if (date && !isNaN(date.getTime())) {
+      const timestamp = parseTimestamp(data.timestamp);
+      const date = new Date(timestamp);
+      
+      if (!isNaN(date.getTime())) {
         content += `<div class="aprs-timestamp">${date.toISOString()}</div>`;
       }
     }
@@ -1234,12 +1199,75 @@ let MapAPRSMap = {
 
   destroyed() {
     const self = this as unknown as LiveViewHookContext;
+    
+    // Mark as destroyed immediately
+    self.isDestroyed = true;
+    
+    // Disable pushEvent to prevent any events from being sent during cleanup
+    const originalPushEvent = self.pushEvent;
+    self.pushEvent = () => {}; // No-op function
+    
+    // Clear interval timer
+    if (self.cleanupInterval !== undefined) {
+      clearInterval(self.cleanupInterval);
+      self.cleanupInterval = undefined;
+    }
+    
+    // Clear programmatic move timeout
+    if (self.programmaticMoveTimeout !== undefined) {
+      clearTimeout(self.programmaticMoveTimeout);
+      self.programmaticMoveTimeout = undefined;
+    }
+    
+    // Remove popup navigation event listener
+    if (self.popupNavigationHandler) {
+      document.removeEventListener('click', self.popupNavigationHandler);
+      self.popupNavigationHandler = undefined;
+    }
+    
+    // Close any open popups before cleanup
+    if (self.map !== undefined) {
+      try {
+        self.map.closePopup();
+      } catch (e) {
+        console.debug("Error closing popup during cleanup:", e);
+      }
+    }
+    
     if (self.boundsTimer !== undefined) {
       clearTimeout(self.boundsTimer);
     }
     if (self.resizeHandler !== undefined) {
       window.removeEventListener("resize", self.resizeHandler);
+      self.resizeHandler = undefined;
     }
+    
+    // Remove map event handlers
+    if (self.map !== undefined && self.mapEventHandlers !== undefined) {
+      self.mapEventHandlers.forEach((handler, event) => {
+        try {
+          self.map.off(event, handler);
+        } catch (e) {
+          console.debug(`Error removing ${event} handler:`, e);
+        }
+      });
+      self.mapEventHandlers.clear();
+    }
+    
+    // Remove all event listeners from markers before clearing layers
+    if (self.markers !== undefined) {
+      self.markers.forEach((marker: any) => {
+        try {
+          marker.off(); // Remove all event listeners
+          if (marker.getPopup()) {
+            marker.unbindPopup(); // Unbind popup to prevent events
+          }
+        } catch (e) {
+          console.debug(`Error cleaning up marker:`, e);
+        }
+      });
+    }
+    
     if (self.markerLayer !== undefined) {
       self.markerLayer!.clearLayers();
     }
@@ -1253,6 +1281,9 @@ let MapAPRSMap = {
       self.map!.remove();
       self.map = undefined;
     }
+    
+    // Restore original pushEvent (though it won't be used since we're destroyed)
+    self.pushEvent = originalPushEvent;
   },
 };
 

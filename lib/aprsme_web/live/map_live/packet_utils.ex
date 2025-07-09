@@ -28,10 +28,7 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   """
   @spec get_symbol_info(map()) :: {String.t(), String.t()}
   def get_symbol_info(packet) do
-    symbol_table_id = get_packet_field(packet, :symbol_table_id, "/")
-    symbol_code = get_packet_field(packet, :symbol_code, ">")
-
-    {symbol_table_id, symbol_code}
+    AprsmeWeb.AprsSymbol.extract_from_packet(packet)
   end
 
   @doc """
@@ -91,9 +88,17 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   @spec has_weather_packets?(String.t()) :: boolean()
   # Get recent packets for this callsign and check if any are weather packets
   def has_weather_packets?(callsign) when is_binary(callsign) do
-    %{callsign: callsign, limit: 10}
-    |> Aprsme.Packets.get_recent_packets()
-    |> Enum.any?(&weather_packet?/1)
+    # Use a more efficient query that only checks for existence
+    import Ecto.Query
+
+    query =
+      from p in Aprsme.Packet,
+        where: ilike(p.sender, ^callsign),
+        where: p.data_type == "weather" or (p.symbol_table_id == "/" and p.symbol_code == "_"),
+        limit: 1,
+        select: true
+
+    Aprsme.Repo.exists?(query)
   rescue
     _ -> false
   end
@@ -256,6 +261,15 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
         "live_#{packet_info.callsign}_#{System.unique_integer([:positive])}"
       end
 
+    # Generate symbol HTML using the server-side renderer
+    symbol_html =
+      AprsmeWeb.SymbolRenderer.render_marker_symbol(
+        packet_info.symbol_table_id,
+        packet_info.symbol_code,
+        packet_info.callsign,
+        32
+      )
+
     %{
       "id" => packet_id,
       "callsign" => packet_info.callsign,
@@ -271,7 +285,8 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
       "symbol_code" => packet_info.symbol_code,
       "symbol_description" => "Symbol: #{packet_info.symbol_table_id}#{packet_info.symbol_code}",
       "timestamp" => packet_info.timestamp,
-      "popup" => popup
+      "popup" => popup,
+      "symbol_html" => symbol_html
     }
   end
 

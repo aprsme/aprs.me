@@ -122,7 +122,7 @@ defmodule Aprsme.MixProject do
   end
 
   defp aprs_dep do
-    if Mix.env() in [:dev, :test] do
+    if Mix.env() in [:dev] do
       {:aprs, path: "vendor/aprs"}
     else
       {:aprs, github: "aprsme/aprs", branch: "main"}

@@ -27,6 +27,8 @@ This is an Elixir Phoenix LiveView application that serves as a real-time APRS (
 - `mix credo` - Static code analysis and style checking
 - `mix dialyzer` - Static type analysis (must run and fix errors/warnings)
 - `mix sobelow` - Security vulnerability scanning
+- **IMPORTANT**: Always run `mix format` before considering any task complete
+- **MANDATORY**: Run `mix compile --warnings-as-errors` and ensure it passes before considering any task complete
 
 ### Assets (No Node.js)
 - `mix assets.deploy` - Build and minify frontend assets (Tailwind CSS + ESBuild)
@@ -90,8 +92,15 @@ Tests use comprehensive mocking to prevent external connections:
 - Run `mix format` before committing
 - Address any compiler warnings
 - Run `mix dialyzer` and fix all errors/warnings
+- **MANDATORY**: Run `mix compile --warnings-as-errors` and ensure it passes before considering any task complete
 - Use function composition over nested conditionals
 - Write descriptive test names that explain behavior
+
+## Web Testing
+
+- **MANDATORY**: When viewing any website or web application, always use Puppeteer to take screenshots and interact with the page
+- Use `mcp__puppeteer__puppeteer_navigate`, `mcp__puppeteer__puppeteer_screenshot`, and other Puppeteer tools
+- This ensures accurate visual feedback and proper testing of the user interface
 
 ## Deployment
 
