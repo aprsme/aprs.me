@@ -1321,52 +1321,44 @@ defmodule AprsmeWeb.MapLive.Index do
   # Progressive loading functions using LiveView's efficient update mechanisms
   @spec start_progressive_historical_loading(Socket.t()) :: Socket.t()
   defp start_progressive_historical_loading(socket) do
-    # Calculate optimal batch count based on zoom level
+    # For high zoom levels, load everything in one batch for maximum speed
     zoom = socket.assigns.map_zoom || 5
-    total_batches = calculate_batch_count_for_zoom(zoom)
-
-    # Start with a small batch for immediate visual feedback
-    socket =
+    
+    if zoom >= 10 do
+      # High zoom - load everything at once for maximum speed
       socket
-      |> assign(loading_batch: 0, total_batches: total_batches)
+      |> assign(loading_batch: 0, total_batches: 1)
       |> load_historical_batch(0)
+    else
+      # Low zoom - use progressive loading to prevent overwhelming
+      total_batches = calculate_batch_count_for_zoom(zoom)
+      
+      # Start with first batch
+      socket =
+        socket
+        |> assign(loading_batch: 0, total_batches: total_batches)
+        |> load_historical_batch(0)
 
-    # Schedule next batches using LiveView's async processing
-    # Use much shorter delays for higher zoom levels (fewer batches)
-    base_delay =
-      cond do
-        # Very zoomed in - almost instant
-        zoom >= 15 -> 10
-        # Moderately zoomed in
-        zoom >= 12 -> 20
-        # Medium zoom
-        zoom >= 8 -> 35
-        # Zoomed out
-        true -> 50
-      end
+      # Load all remaining batches immediately - no delays
+      Enum.each(1..(total_batches - 1), fn batch_index ->
+        send(self(), {:load_historical_batch, batch_index})
+      end)
 
-    Enum.each(1..(total_batches - 1), fn batch_index ->
-      # Linear delays instead of exponential
-      delay = base_delay * batch_index
-      Process.send_after(self(), {:load_historical_batch, batch_index}, delay)
-    end)
-
-    socket
+      socket
+    end
   end
 
   # Calculate optimal batch size based on zoom level
-  # Higher zoom = smaller viewport = fewer packets needed = smaller batches for faster response
+  # Higher zoom = smaller viewport = load everything at once for speed
   @spec calculate_batch_size_for_zoom(integer()) :: integer()
-  # Very zoomed in - tiny batches for instant response
-  defp calculate_batch_size_for_zoom(zoom) when zoom >= 15, do: 10
-  # Moderately zoomed in - small batches
-  defp calculate_batch_size_for_zoom(zoom) when zoom >= 12, do: 20
+  # High zoom - load everything at once (up to 500 packets)
+  defp calculate_batch_size_for_zoom(zoom) when zoom >= 10, do: 500
   # Medium zoom
-  defp calculate_batch_size_for_zoom(zoom) when zoom >= 8, do: 35
+  defp calculate_batch_size_for_zoom(zoom) when zoom >= 8, do: 100
   # Zoomed out
-  defp calculate_batch_size_for_zoom(zoom) when zoom >= 5, do: 50
+  defp calculate_batch_size_for_zoom(zoom) when zoom >= 5, do: 75
   # Very zoomed out
-  defp calculate_batch_size_for_zoom(_), do: 75
+  defp calculate_batch_size_for_zoom(_), do: 50
 
   # Calculate optimal number of batches based on zoom level
   # Higher zoom = fewer batches needed since viewport is smaller
@@ -1397,10 +1389,7 @@ defmodule AprsmeWeb.MapLive.Index do
       batch_size = calculate_batch_size_for_zoom(zoom)
       offset = batch_offset * batch_size
 
-      # Debug logging to see what bounds we're using
-      Logger.debug(
-        "Loading historical batch #{batch_offset} with zoom #{zoom}, batch_size #{batch_size}, bounds: #{inspect(bounds)}"
-      )
+      # Debug logging removed for performance
 
       packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
 

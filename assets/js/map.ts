@@ -685,64 +685,42 @@ let MapAPRSMap = {
     // Handle progressive loading of historical packets (batch processing)
     self.handleEvent("add_historical_packets_batch", (data: { packets: MarkerData[], batch: number, is_final: boolean }) => {
       if (data.packets && Array.isArray(data.packets)) {
-        // Use requestAnimationFrame to ensure smooth rendering
-        requestAnimationFrame(() => {
-          // Process packets in smaller chunks to prevent UI blocking
-          const chunkSize = 10;
-          let currentIndex = 0;
-          
-          const processChunk = () => {
-            const chunk = data.packets.slice(currentIndex, currentIndex + chunkSize);
-            
-            // Group packets by callsign to process them in chronological order for proper trail drawing
-            const packetsByCallsign = new Map<string, MarkerData[]>();
+        // Process all packets immediately for maximum speed
+        const packetsByCallsign = new Map<string, MarkerData[]>();
 
-            chunk.forEach((packet) => {
-              const callsign = packet.callsign_group || packet.callsign || packet.id;
-              if (!packetsByCallsign.has(callsign)) {
-                packetsByCallsign.set(callsign, []);
-              }
-              packetsByCallsign.get(callsign)!.push(packet);
+        data.packets.forEach((packet) => {
+          const callsign = packet.callsign_group || packet.callsign || packet.id;
+          if (!packetsByCallsign.has(callsign)) {
+            packetsByCallsign.set(callsign, []);
+          }
+          packetsByCallsign.get(callsign)!.push(packet);
+        });
+
+        // Process each callsign group in chronological order (oldest first)
+        packetsByCallsign.forEach((packets, callsign) => {
+          // Sort by timestamp (oldest first) to ensure proper trail line drawing
+          const sortedPackets = packets.sort((a, b) => {
+            const timeA = a.timestamp
+              ? typeof a.timestamp === "number"
+                ? a.timestamp
+                : new Date(a.timestamp).getTime()
+              : 0;
+            const timeB = b.timestamp
+              ? typeof b.timestamp === "number"
+                ? b.timestamp
+                : new Date(b.timestamp).getTime()
+              : 0;
+            return timeA - timeB;
+          });
+
+          // Add markers in chronological order
+          sortedPackets.forEach((packet) => {
+            self.addMarker({
+              ...packet,
+              historical: true,
+              popup: packet.popup || self.buildPopupContent(packet),
             });
-
-            // Process each callsign group in chronological order (oldest first)
-            packetsByCallsign.forEach((packets, callsign) => {
-              // Sort by timestamp (oldest first) to ensure proper trail line drawing
-              const sortedPackets = packets.sort((a, b) => {
-                const timeA = a.timestamp
-                  ? typeof a.timestamp === "number"
-                    ? a.timestamp
-                    : new Date(a.timestamp).getTime()
-                  : 0;
-                const timeB = b.timestamp
-                  ? typeof b.timestamp === "number"
-                    ? b.timestamp
-                    : new Date(b.timestamp).getTime()
-                  : 0;
-                return timeA - timeB;
-              });
-
-              // Add markers in chronological order
-              sortedPackets.forEach((packet) => {
-                self.addMarker({
-                  ...packet,
-                  historical: true,
-                  popup: packet.popup || self.buildPopupContent(packet),
-                });
-              });
-            });
-            
-            currentIndex += chunkSize;
-            
-            // Continue processing if there are more packets
-            if (currentIndex < data.packets.length) {
-              // Use setTimeout to yield control and prevent blocking
-              setTimeout(processChunk, 0);
-            }
-          };
-          
-          // Start processing
-          processChunk();
+          });
         });
       }
     });
