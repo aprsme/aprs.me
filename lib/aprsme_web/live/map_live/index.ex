@@ -91,7 +91,7 @@ defmodule AprsmeWeb.MapLive.Index do
     # Check for IP geolocation in session
     Logger.info("MapLive: Checking IP geolocation. Session data: #{inspect(session["ip_geolocation"])}")
     Logger.info("MapLive: URL params: #{inspect(params)}")
-    
+
     {map_center, map_zoom} =
       case session["ip_geolocation"] do
         %{"lat" => lat, "lng" => lng} when is_number(lat) and is_number(lng) ->
@@ -109,7 +109,10 @@ defmodule AprsmeWeb.MapLive.Index do
 
         _ ->
           # No geolocation available, use URL params or defaults
-          Logger.info("MapLive: No IP geolocation found, using URL/default center: #{inspect(url_center)}, zoom: #{url_zoom}")
+          Logger.info(
+            "MapLive: No IP geolocation found, using URL/default center: #{inspect(url_center)}, zoom: #{url_zoom}"
+          )
+
           {url_center, url_zoom}
       end
 
