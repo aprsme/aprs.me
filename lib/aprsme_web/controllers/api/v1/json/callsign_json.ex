@@ -3,6 +3,7 @@ defmodule AprsmeWeb.Api.V1.CallsignJSON do
   Renders callsign and packet data for API v1.
   """
 
+  alias Aprsme.DeviceCache
   alias Aprsme.Packet
 
   def render("show.json", %{packet: packet}) do
@@ -97,10 +98,23 @@ defmodule AprsmeWeb.Api.V1.CallsignJSON do
   end
 
   defp equipment_json(%Packet{} = packet) do
+    # Look up device info based on device_identifier
+    device =
+      case packet.device_identifier do
+        nil -> nil
+        "" -> nil
+        identifier -> DeviceCache.lookup_device(identifier)
+      end
+
     equipment_data =
       %{}
+      |> maybe_add(:device_identifier, packet.device_identifier)
       |> maybe_add(:manufacturer, packet.manufacturer)
       |> maybe_add(:equipment_type, packet.equipment_type)
+      |> maybe_add(:device_model, device && device.model)
+      |> maybe_add(:device_vendor, device && device.vendor)
+      |> maybe_add(:device_contact, device && device.contact)
+      |> maybe_add(:device_class, device && device.class)
 
     case equipment_data do
       empty when empty == %{} -> nil

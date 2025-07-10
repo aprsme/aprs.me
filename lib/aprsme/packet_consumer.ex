@@ -209,9 +209,7 @@ defmodule Aprsme.PacketConsumer do
     |> normalize_ssid()
     |> then(fn attrs ->
       device_identifier = Aprsme.DeviceParser.extract_device_identifier(packet_data)
-      matched_device = Aprsme.DeviceIdentification.lookup_device_by_identifier(device_identifier)
-      canonical_identifier = if matched_device, do: matched_device.identifier, else: device_identifier
-      Map.put(attrs, :device_identifier, canonical_identifier)
+      Map.put(attrs, :device_identifier, device_identifier)
     end)
     |> sanitize_packet_strings()
     |> Map.put(:inserted_at, current_time)

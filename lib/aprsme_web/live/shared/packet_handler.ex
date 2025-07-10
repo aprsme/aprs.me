@@ -5,8 +5,7 @@ defmodule AprsmeWeb.Live.SharedPacketHandler do
   """
 
   alias Aprsme.Callsign
-  alias Aprsme.DeviceIdentification
-  alias Aprsme.DeviceParser
+  alias Aprsme.DeviceCache
   alias Aprsme.EncodingUtils
 
   @doc """
@@ -67,13 +66,13 @@ defmodule AprsmeWeb.Live.SharedPacketHandler do
   Enriches packet with device information.
   """
   def enrich_with_device_info(packet) do
-    device_identifier = extract_device_identifier(packet)
+    device_identifier = Map.get(packet, :device_identifier) || Map.get(packet, "device_identifier")
 
     device =
       case device_identifier do
         nil -> nil
         "" -> nil
-        identifier -> DeviceIdentification.lookup_device_by_identifier(identifier)
+        identifier -> DeviceCache.lookup_device(identifier)
       end
 
     packet
@@ -98,29 +97,6 @@ defmodule AprsmeWeb.Live.SharedPacketHandler do
   def callsign_filter(callsign) do
     fn packet, _socket ->
       packet_matches_callsign?(packet, callsign)
-    end
-  end
-
-  # Private functions
-
-  defp extract_device_identifier(packet) do
-    comment = Map.get(packet, :comment) || Map.get(packet, "comment") || ""
-
-    normalized_comment =
-      case comment do
-        comment when is_binary(comment) ->
-          comment
-          |> String.trim()
-          |> String.replace(~r/[^\x20-\x7E]+/, "")
-          |> String.trim()
-
-        _ ->
-          ""
-      end
-
-    case DeviceParser.extract_device_identifier(%{comment: normalized_comment}) do
-      nil -> nil
-      identifier -> String.trim(identifier)
     end
   end
 end

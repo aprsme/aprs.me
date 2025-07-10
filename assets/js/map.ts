@@ -1319,25 +1319,9 @@ let MapAPRSMap = {
     }
 
     // For historical packets that are not the most recent for their callsign,
-    // still show the proper APRS symbol but with reduced opacity
+    // show a simple dot instead of the full APRS symbol
     if (data.historical && !data.is_most_recent_for_callsign) {
-      // Use server-generated symbol HTML if available
-      if (data.symbol_html) {
-        // Add opacity to the symbol HTML for historical markers
-        const historicalHtml = data.symbol_html.replace(
-          /style="([^"]*)"/, 
-          'style="$1 opacity: 0.7;"'
-        );
-        
-        return L.divIcon({
-          html: historicalHtml,
-          className: "historical-aprs-marker",
-          iconSize: [120, 32],
-          iconAnchor: [16, 16],
-        });
-      }
-      
-      // Fallback: red dot for historical positions without symbol data
+      // Always show a red dot for historical positions
       const iconHtml = `<div style="
         width: 8px;
         height: 8px;
@@ -1346,7 +1330,7 @@ let MapAPRSMap = {
         border-radius: 50%;
         opacity: 0.8;
         box-shadow: 0 0 2px rgba(0,0,0,0.3);
-      " title="Historical position for ${data.callsign} (position changed)"></div>`;
+      " title="Historical position for ${data.callsign}"></div>`;
 
       return L.divIcon({
         html: iconHtml,

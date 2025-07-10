@@ -31,6 +31,8 @@ defmodule Aprsme.Application do
       %{id: :symbol_cache, start: {Cachex, :start_link, [:symbol_cache, [limit: 1_000]]}},
       # Start circuit breaker
       Aprsme.CircuitBreaker,
+      # Start device cache manager
+      Aprsme.DeviceCache,
 
       # Start the Endpoint (http/https)
       AprsmeWeb.Endpoint,
