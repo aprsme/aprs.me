@@ -67,7 +67,7 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   @impl true
-  def mount(params, _session, socket) do
+  def mount(params, session, socket) do
     require Logger
 
     if connected?(socket) do
@@ -86,10 +86,27 @@ defmodule AprsmeWeb.MapLive.Index do
     one_hour_ago = TimeUtils.one_day_ago()
 
     # Parse map state from URL parameters
-    {map_center, map_zoom} = parse_map_params(params)
+    {url_center, url_zoom} = parse_map_params(params)
 
-    Logger.debug("Parsed map params from URL: center=#{inspect(map_center)}, zoom=#{map_zoom}")
-    Logger.debug("Raw params: #{inspect(params)}")
+    # Check for IP geolocation in session
+    {map_center, map_zoom} = 
+      case session["ip_geolocation"] do
+        %{"lat" => lat, "lng" => lng} when is_number(lat) and is_number(lng) ->
+          # Use IP geolocation if available and no URL params specified
+          if params["lat"] || params["lng"] do
+            # URL params take precedence
+            {url_center, url_zoom}
+          else
+            # Use IP geolocation with closer zoom
+            {%{lat: lat, lng: lng}, 12}
+          end
+        _ ->
+          # No geolocation available, use URL params or defaults
+          {url_center, url_zoom}
+      end
+
+    Logger.debug("Final map params: center=#{inspect(map_center)}, zoom=#{map_zoom}")
+    Logger.debug("Raw params: #{inspect(params)}, session geo: #{inspect(session["ip_geolocation"])}")
 
     socket = assign_defaults(socket, one_hour_ago)
 
@@ -102,8 +119,6 @@ defmodule AprsmeWeb.MapLive.Index do
     if connected?(socket) do
       Endpoint.subscribe("aprs_messages")
       Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
-      # Defer IP geolocation to avoid blocking initial page load
-      Process.send_after(self(), :start_geolocation, 2000)
     end
 
     {:ok,
@@ -180,7 +195,6 @@ defmodule AprsmeWeb.MapLive.Index do
       packet_age_threshold: one_hour_ago,
       map_ready: false,
       historical_loaded: false,
-      pending_geolocation: nil,
       bounds_update_timer: nil,
       pending_bounds: nil,
       initial_bounds_loaded: false,
@@ -289,15 +303,6 @@ defmodule AprsmeWeb.MapLive.Index do
     # Wait for JavaScript to send the actual map bounds before loading historical packets
     # The calculated bounds might be too small/inaccurate
     Logger.debug("Map ready - waiting for JavaScript to send actual bounds before loading historical packets")
-
-    # If we have pending geolocation, zoom to it now
-    socket =
-      if socket.assigns.pending_geolocation do
-        %{lat: lat, lng: lng} = socket.assigns.pending_geolocation
-        push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
-      else
-        socket
-      end
 
     {:noreply, socket}
   end
@@ -514,10 +519,6 @@ defmodule AprsmeWeb.MapLive.Index do
   @impl true
   def handle_info({:process_bounds_update, map_bounds}, socket), do: handle_info_process_bounds_update(map_bounds, socket)
 
-  def handle_info({:delayed_zoom, %{lat: lat, lng: lng}}, socket), do: handle_info_delayed_zoom(lat, lng, socket)
-
-  def handle_info({:ip_location, %{lat: lat, lng: lng}}, socket), do: handle_info_ip_location(lat, lng, socket)
-
   def handle_info(:initialize_replay, socket), do: handle_info_initialize_replay(socket)
 
   def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
@@ -525,8 +526,6 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_info(:reload_historical_packets, socket), do: handle_reload_historical_packets(socket)
 
   def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
-
-  def handle_info(:start_geolocation, socket), do: handle_info_start_geolocation(socket)
 
   def handle_info({:load_historical_batch, batch_offset}, socket) do
     socket = load_historical_batch(socket, batch_offset)
@@ -560,34 +559,6 @@ defmodule AprsmeWeb.MapLive.Index do
       Logger.debug("Skipping bounds update - no change detected")
       {:noreply, socket}
     end
-  end
-
-  defp handle_info_delayed_zoom(lat, lng, socket) do
-    socket = push_event(socket, "zoom_to_location", %{lat: lat, lng: lng, zoom: 12})
-    {:noreply, socket}
-  end
-
-  defp handle_info_ip_location(lat, lng, socket) do
-    lat_float =
-      cond do
-        is_binary(lat) -> String.to_float(lat)
-        is_integer(lat) -> lat / 1.0
-        true -> lat
-      end
-
-    lng_float =
-      cond do
-        is_binary(lng) -> String.to_float(lng)
-        is_integer(lng) -> lng / 1.0
-        true -> lng
-      end
-
-    # Schedule a delayed zoom to give the user a moment to see the map
-    Process.send_after(self(), {:delayed_zoom, %{lat: lat_float, lng: lng_float}}, 500)
-
-    # We can still optimistically set the center and zoom
-    socket = assign(socket, map_center: %{lat: lat_float, lng: lng_float}, map_zoom: 12)
-    {:noreply, socket}
   end
 
   defp handle_info_initialize_replay(socket) do
@@ -692,52 +663,6 @@ defmodule AprsmeWeb.MapLive.Index do
       end
 
     {:noreply, socket}
-  end
-
-  defp handle_info_start_geolocation(socket) do
-    if geolocation_enabled?() do
-      ip_for_geolocation =
-        if Application.get_env(:aprsme, AprsmeWeb.Endpoint)[:code_reloader] do
-          # For testing geolocation in dev environment, use a public IP address.
-          # This will be geolocated to Mountain View, CA.
-          "8.8.8.8"
-        else
-          extract_ip(socket)
-        end
-
-      if valid_ip_for_geolocation?(ip_for_geolocation) do
-        start_geolocation_task(ip_for_geolocation)
-      end
-    end
-
-    {:noreply, socket}
-  end
-
-  defp geolocation_enabled? do
-    Application.get_env(:aprsme, :disable_aprs_connection, false) != true
-  end
-
-  defp extract_ip(socket) do
-    case socket.private[:connect_info][:peer_data][:address] do
-      {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
-      {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
-      _ -> nil
-    end
-  end
-
-  defp valid_ip_for_geolocation?(ip) do
-    ip && !String.starts_with?(ip, "127.") && !String.starts_with?(ip, "::1")
-  end
-
-  defp start_geolocation_task(ip) do
-    Task.start(fn ->
-      try do
-        get_ip_location(ip)
-      rescue
-        _error ->
-          send(self(), {:ip_location, @default_center})
-      end
-    end)
   end
 
   # Handle replaying the next historical packet
@@ -1714,42 +1639,6 @@ defmodule AprsmeWeb.MapLive.Index do
       lat_in_bounds && lng_in_bounds
     end
   end
-
-  # Get location from IP using ip-api.com
-  @spec get_ip_location(String.t() | nil) :: {float(), float()} | nil
-  defp get_ip_location(nil), do: nil
-
-  defp get_ip_location(ip) do
-    # Asynchronously fetch IP location
-    case Req.get("https://ip-api.com/json/#{ip}") do
-      {:ok, %Req.Response{status: 200, body: body}} -> handle_ip_api_response(body)
-      {:ok, _response} -> send_default_ip_location()
-      {:error, %{reason: :timeout}} -> send_default_ip_location()
-      {:error, _error} -> send_default_ip_location()
-    end
-  end
-
-  defp handle_ip_api_response(body) do
-    case Jason.decode(body) do
-      {:ok, %{"status" => "success", "lat" => lat, "lon" => lng}}
-      when is_number(lat) and is_number(lng) ->
-        if lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180 do
-          lat_float = lat / 1.0
-          lng_float = lng / 1.0
-          send(self(), {:ip_location, %{lat: lat_float, lng: lng_float}})
-        else
-          send_default_ip_location()
-        end
-
-      {:ok, _} ->
-        send_default_ip_location()
-
-      {:error, _decode_error} ->
-        send_default_ip_location()
-    end
-  end
-
-  defp send_default_ip_location, do: send(self(), {:ip_location, @default_center})
 
   @impl true
   def terminate(_reason, socket) do

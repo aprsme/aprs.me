@@ -6,6 +6,7 @@ defmodule AprsmeWeb.Router do
   import Phoenix.LiveDashboard.Router
 
   alias AprsmeWeb.Plugs.RateLimiter
+  alias AprsmeWeb.Plugs.IPGeolocation
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -16,6 +17,7 @@ defmodule AprsmeWeb.Router do
     plug :put_secure_browser_headers
     plug :fetch_current_user
     plug AprsmeWeb.Plugs.SetLocale
+    plug IPGeolocation
     plug RateLimiter, scale: 60_000, limit: 200
   end
 
