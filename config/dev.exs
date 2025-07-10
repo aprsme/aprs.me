@@ -17,7 +17,7 @@ config :aprsme, Aprsme.Repo,
   pool_size: 10,
   pool_timeout: 5000,
   timeout: 15_000,
-  log: false,
+  log: :debug,
   types: Aprsme.PostgresTypes
 
 config :aprsme, AprsmeWeb.Endpoint,

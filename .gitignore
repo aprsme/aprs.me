@@ -42,3 +42,4 @@ k8s/secrets.yaml
 
 /vendor
 /temp
+server.log

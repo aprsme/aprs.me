@@ -117,7 +117,9 @@ defmodule AprsmeWeb.PacketsLive.CallsignView do
         limit: ^limit
 
     # Apply callsign filter using sender field for exact matching
-    filtered_query = from p in query, where: ilike(p.sender, ^callsign)
+    # Use functional index on upper(sender) for performance
+    normalized_callsign = String.upcase(String.trim(callsign))
+    filtered_query = from p in query, where: fragment("upper(?)", p.sender) == ^normalized_callsign
 
     filtered_query
     |> Repo.all()

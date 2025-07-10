@@ -38,11 +38,12 @@ defmodule Aprsme.Packets.QueryBuilder do
 
   @doc """
   Filters query by exact callsign match (case-insensitive).
+  Uses the functional index on upper(sender) for performance.
   """
   @spec for_callsign(Ecto.Query.t(), String.t()) :: Ecto.Query.t()
   def for_callsign(query, callsign) when is_binary(callsign) do
     normalized = String.upcase(String.trim(callsign))
-    from p in query, where: ilike(p.sender, ^normalized)
+    from p in query, where: fragment("upper(?)", p.sender) == ^normalized
   end
 
   @doc """
