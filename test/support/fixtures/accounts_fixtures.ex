@@ -7,10 +7,16 @@ defmodule Aprsme.AccountsFixtures do
   def unique_user_email, do: "user#{System.unique_integer()}@example.com"
   def valid_user_password, do: "hello world!"
 
+  def unique_user_callsign do
+    num = rem(System.unique_integer([:positive]), 99) + 1
+    "K#{num}ABC"
+  end
+
   def valid_user_attributes(attrs \\ %{}) do
     Enum.into(attrs, %{
       email: unique_user_email(),
-      password: valid_user_password()
+      password: valid_user_password(),
+      callsign: unique_user_callsign()
     })
   end
 

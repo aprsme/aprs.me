@@ -182,6 +182,46 @@ defmodule Aprsme.Accounts do
   end
 
   @doc """
+  Returns an `%Ecto.Changeset{}` for changing the user callsign.
+
+  ## Examples
+
+      iex> change_user_callsign(user)
+      %Ecto.Changeset{data: %User{}}
+
+  """
+  def change_user_callsign(user, attrs \\ %{}) do
+    User.callsign_changeset(user, attrs, validate_callsign: false)
+  end
+
+  @doc """
+  Updates the user callsign with password validation.
+
+  ## Examples
+
+      iex> update_user_callsign(user, "valid password", %{callsign: "K1ABC"})
+      {:ok, %User{}}
+
+      iex> update_user_callsign(user, "invalid password", %{callsign: "K1ABC"})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_user_callsign(user, password, attrs) do
+    changeset =
+      user
+      |> User.callsign_changeset(attrs)
+      |> User.validate_current_password(password)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.update(:user, changeset)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{user: user}} -> {:ok, user}
+      {:error, :user, changeset, _} -> {:error, changeset}
+    end
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for changing the user password.
 
   ## Examples

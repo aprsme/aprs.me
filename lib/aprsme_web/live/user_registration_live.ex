@@ -62,6 +62,28 @@ defmodule AprsmeWeb.UserRegistrationLive do
 
                 <div class="form-control w-full">
                   <label class="label">
+                    <span class="label-text">Callsign</span>
+                  </label>
+                  <input
+                    type="text"
+                    name={Phoenix.HTML.Form.input_name(f, :callsign)}
+                    value={Phoenix.HTML.Form.input_value(f, :callsign) || ""}
+                    class={[
+                      "input input-bordered w-full bg-base-100 text-base-content",
+                      Keyword.has_key?(@changeset.errors, :callsign) && "input-error"
+                    ]}
+                    placeholder="Enter your amateur radio callsign"
+                    required
+                  />
+                  <label :if={Keyword.has_key?(@changeset.errors, :callsign)} class="label">
+                    <span class="label-text-alt text-error">
+                      {translate_error(Keyword.get(@changeset.errors, :callsign))}
+                    </span>
+                  </label>
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
                     <span class="label-text">Password</span>
                   </label>
                   <input

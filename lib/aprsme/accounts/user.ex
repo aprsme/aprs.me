@@ -6,6 +6,7 @@ defmodule Aprsme.Accounts.User do
 
   schema "users" do
     field(:email, :string)
+    field(:callsign, :string)
     field(:password, :string, virtual: true, redact: true)
     field(:hashed_password, :string, redact: true)
     field(:confirmed_at, :naive_datetime)
@@ -38,8 +39,9 @@ defmodule Aprsme.Accounts.User do
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :password])
+    |> cast(attrs, [:email, :password, :callsign])
     |> validate_email(opts)
+    |> validate_callsign(opts)
     |> validate_password(opts)
   end
 
@@ -49,6 +51,17 @@ defmodule Aprsme.Accounts.User do
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must have the @ sign and no spaces")
     |> validate_length(:email, max: 160)
     |> maybe_validate_unique_email(opts)
+  end
+
+  defp validate_callsign(changeset, opts) do
+    changeset
+    |> validate_required([:callsign])
+    |> validate_format(:callsign, ~r/^[A-Z]{1,2}[0-9]{1,2}[A-Z]{1,3}$/i,
+      message: "must be a valid amateur radio callsign"
+    )
+    |> update_change(:callsign, &String.upcase/1)
+    |> validate_length(:callsign, min: 3, max: 10)
+    |> maybe_validate_unique_callsign(opts)
   end
 
   defp validate_password(changeset, opts) do
@@ -95,6 +108,19 @@ defmodule Aprsme.Accounts.User do
 
   defp do_validate_unique_email(changeset, false), do: changeset
 
+  defp maybe_validate_unique_callsign(changeset, opts) do
+    validate_callsign? = Keyword.get(opts, :validate_callsign, true)
+    do_validate_unique_callsign(changeset, validate_callsign?)
+  end
+
+  defp do_validate_unique_callsign(changeset, true) do
+    changeset
+    |> unsafe_validate_unique(:callsign, Aprsme.Repo)
+    |> unique_constraint(:callsign)
+  end
+
+  defp do_validate_unique_callsign(changeset, false), do: changeset
+
   @doc """
   A user changeset for changing the email.
 
@@ -107,6 +133,21 @@ defmodule Aprsme.Accounts.User do
     |> case do
       %{changes: %{email: _}} = changeset -> changeset
       %{} = changeset -> add_error(changeset, :email, "did not change")
+    end
+  end
+
+  @doc """
+  A user changeset for changing the callsign.
+
+  It requires the callsign to change otherwise an error is added.
+  """
+  def callsign_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:callsign])
+    |> validate_callsign(opts)
+    |> case do
+      %{changes: %{callsign: _}} = changeset -> changeset
+      %{} = changeset -> add_error(changeset, :callsign, "did not change")
     end
   end
 
