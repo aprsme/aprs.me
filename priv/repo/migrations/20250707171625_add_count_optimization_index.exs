@@ -5,8 +5,9 @@ defmodule Aprsme.Repo.Migrations.AddCountOptimizationIndex do
   def up do
     # Add a partial index on id that will be used for COUNT(*) queries
     # This creates a small, fast index that PostgreSQL can use for counting
+    # Skip if already exists (from OptimizeInitialIndexCreation migration)
     execute """
-    CREATE INDEX CONCURRENTLY IF NOT EXISTS packets_count_idx
+    CREATE INDEX IF NOT EXISTS packets_count_idx
     ON packets (id)
     WHERE id IS NOT NULL
     """
