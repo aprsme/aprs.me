@@ -89,25 +89,31 @@ defmodule AprsmeWeb.MapLive.Index do
     {url_center, url_zoom} = parse_map_params(params)
 
     # Check for IP geolocation in session
+    Logger.info("MapLive: Checking IP geolocation. Session data: #{inspect(session["ip_geolocation"])}")
+    Logger.info("MapLive: URL params: #{inspect(params)}")
+    
     {map_center, map_zoom} =
       case session["ip_geolocation"] do
         %{"lat" => lat, "lng" => lng} when is_number(lat) and is_number(lng) ->
           # Use IP geolocation if available and no URL params specified
           if params["lat"] || params["lng"] do
             # URL params take precedence
+            Logger.info("MapLive: URL params present, using URL center: #{inspect(url_center)}, zoom: #{url_zoom}")
             {url_center, url_zoom}
           else
             # Use IP geolocation with closer zoom
-            {%{lat: lat, lng: lng}, 12}
+            geo_center = %{lat: lat, lng: lng}
+            Logger.info("MapLive: Using IP geolocation center: #{inspect(geo_center)}, zoom: 11")
+            {geo_center, 11}
           end
 
         _ ->
           # No geolocation available, use URL params or defaults
+          Logger.info("MapLive: No IP geolocation found, using URL/default center: #{inspect(url_center)}, zoom: #{url_zoom}")
           {url_center, url_zoom}
       end
 
-    Logger.debug("Final map params: center=#{inspect(map_center)}, zoom=#{map_zoom}")
-    Logger.debug("Raw params: #{inspect(params)}, session geo: #{inspect(session["ip_geolocation"])}")
+    Logger.info("MapLive: Final map params - center: #{inspect(map_center)}, zoom: #{map_zoom}")
 
     socket = assign_defaults(socket, one_hour_ago)
 
@@ -121,6 +127,8 @@ defmodule AprsmeWeb.MapLive.Index do
       Endpoint.subscribe("aprs_messages")
       Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
     end
+
+    Logger.info("MapLive: Mount completed with assigns - map_center: #{inspect(map_center)}, map_zoom: #{map_zoom}")
 
     {:ok,
      assign(socket,

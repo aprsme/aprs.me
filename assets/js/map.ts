@@ -61,6 +61,8 @@ let MapAPRSMap = {
       const centerData = self.el.dataset.center;
       const zoomData = self.el.dataset.zoom;
       console.log("Map data attributes - center:", centerData, "zoom:", zoomData);
+      console.log("Full element dataset:", self.el.dataset);
+      console.log("Window location:", window.location.href);
       
       if (!centerData || !zoomData) throw new Error("Missing map data attributes");
       initialCenter = JSON.parse(centerData);
@@ -173,11 +175,13 @@ let MapAPRSMap = {
         delete self.el._leaflet_id;
       }
 
+      console.log("Creating map with center:", [initialCenter.lat, initialCenter.lng], "zoom:", initialZoom);
       self.map = L.map(self.el, {
         zoomControl: true,
         attributionControl: true,
         closePopupOnClick: true,
       }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
+      console.log("Map created and view set");
     } catch (error) {
       console.error("Error initializing map:", error);
       self.errors!.push(
