@@ -88,17 +88,8 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   @spec has_weather_packets?(String.t()) :: boolean()
   # Get recent packets for this callsign and check if any are weather packets
   def has_weather_packets?(callsign) when is_binary(callsign) do
-    # Use a more efficient query that only checks for existence
-    import Ecto.Query
-
-    query =
-      from p in Aprsme.Packet,
-        where: ilike(p.sender, ^callsign),
-        where: p.data_type == "weather" or (p.symbol_table_id == "/" and p.symbol_code == "_"),
-        limit: 1,
-        select: true
-
-    Aprsme.Repo.exists?(query)
+    # Use cached query for better performance
+    Aprsme.CachedQueries.has_weather_packets_cached?(callsign)
   rescue
     _ -> false
   end

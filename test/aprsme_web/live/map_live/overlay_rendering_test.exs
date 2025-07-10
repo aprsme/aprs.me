@@ -28,9 +28,9 @@ defmodule AprsmeWeb.MapLive.OverlayRenderingTest do
       symbol_html = result["symbol_html"]
 
       # Verify the overlay symbol is rendered correctly with overlay character on top
-      # The overlay character (D) should be first in the background-image list
+      # The overlay character (D) from table 2, base symbol (&) from table 1
       assert symbol_html =~
-               "background-image: url(/aprs-symbols/aprs-symbols-128-2@2x.png), url(/aprs-symbols/aprs-symbols-128-2@2x.png)"
+               "background-image: url(/aprs-symbols/aprs-symbols-128-2@2x.png), url(/aprs-symbols/aprs-symbols-128-1@2x.png)"
 
       # Verify the positions (overlay character D first at -96.0px -64.0px, then base & at -160.0px 0.0px)
       assert symbol_html =~ "background-position: -96.0px -64.0px, -160.0px 0.0px"

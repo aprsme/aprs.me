@@ -5,13 +5,14 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
 
   import Phoenix.LiveView, only: [push_event: 3, connected?: 1]
 
-  alias Aprsme.Packets
+  alias Aprsme.Callsign
   alias AprsmeWeb.MapLive.PacketUtils
+  alias AprsmeWeb.TimeUtils
   alias AprsmeWeb.WeatherUnits
 
   @impl true
   def mount(%{"callsign" => callsign}, _session, socket) do
-    normalized_callsign = String.upcase(String.trim(callsign))
+    normalized_callsign = Callsign.normalize(callsign)
 
     # Subscribe to weather-specific topic for targeted updates
     if connected?(socket) do
@@ -27,37 +28,7 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
     locale = Map.get(socket.assigns, :locale, "en")
     unit_labels = WeatherUnits.unit_labels(locale)
 
-    weather_history_json =
-      weather_history
-      |> Enum.map(fn pkt ->
-        dew_point =
-          if is_number(pkt.temperature) and is_number(pkt.humidity) do
-            calc_dew_point(pkt.temperature, pkt.humidity)
-          end
-
-        # Convert units based on locale
-        {temp_value, _} = WeatherUnits.format_temperature(pkt.temperature, locale)
-        {dew_value, _} = if dew_point, do: WeatherUnits.format_temperature(dew_point, locale), else: {nil, nil}
-        {wind_speed_value, _} = WeatherUnits.format_wind_speed(pkt.wind_speed, locale)
-        {rain_1h_value, _} = WeatherUnits.format_rain(pkt.rain_1h, locale)
-        {rain_24h_value, _} = WeatherUnits.format_rain(pkt.rain_24h, locale)
-        {rain_since_midnight_value, _} = WeatherUnits.format_rain(pkt.rain_since_midnight, locale)
-
-        %{
-          timestamp: pkt.received_at,
-          temperature: temp_value,
-          dew_point: dew_value,
-          humidity: pkt.humidity,
-          pressure: pkt.pressure,
-          wind_direction: pkt.wind_direction,
-          wind_speed: wind_speed_value,
-          rain_1h: rain_1h_value,
-          rain_24h: rain_24h_value,
-          rain_since_midnight: rain_since_midnight_value,
-          luminosity: pkt.luminosity
-        }
-      end)
-      |> Jason.encode!()
+    weather_history_json = convert_weather_history_to_json(weather_history, locale)
 
     # Add chart labels for translation with locale-aware units
     chart_labels = %{
@@ -90,8 +61,38 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   end
 
   @impl true
-  def handle_info({:weather_packet, _packet}, socket) do
-    # Update weather data when new weather packet arrives for this callsign
+  def handle_info({:weather_packet, packet}, socket) do
+    # Check if this packet is actually newer than what we have
+    current_packet = socket.assigns.weather_packet
+
+    if should_update_weather?(current_packet, packet) do
+      update_weather_data(socket)
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Keep the old handler for backward compatibility
+  def handle_info({:postgres_packet, packet}, socket) do
+    # Only process if it's a weather packet for this callsign
+    if packet.sender == socket.assigns.callsign && packet.data_type == "weather" do
+      handle_info({:weather_packet, packet}, socket)
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(_message, socket), do: {:noreply, socket}
+
+  defp should_update_weather?(nil, _new_packet), do: true
+
+  defp should_update_weather?(current_packet, new_packet) do
+    # Only update if the new packet is actually newer
+    DateTime.after?(new_packet.received_at, current_packet.received_at)
+  end
+
+  defp update_weather_data(socket) do
+    # Fetch updated data only once
     weather_packet = get_latest_weather_packet(socket.assigns.callsign)
     {start_time, end_time} = default_time_range()
     weather_history = get_weather_history(socket.assigns.callsign, start_time, end_time)
@@ -99,37 +100,7 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
     # Get locale from socket assigns
     locale = Map.get(socket.assigns, :locale, "en")
 
-    weather_history_json =
-      weather_history
-      |> Enum.map(fn pkt ->
-        dew_point =
-          if is_number(pkt.temperature) and is_number(pkt.humidity) do
-            calc_dew_point(pkt.temperature, pkt.humidity)
-          end
-
-        # Convert units based on locale
-        {temp_value, _} = WeatherUnits.format_temperature(pkt.temperature, locale)
-        {dew_value, _} = if dew_point, do: WeatherUnits.format_temperature(dew_point, locale), else: {nil, nil}
-        {wind_speed_value, _} = WeatherUnits.format_wind_speed(pkt.wind_speed, locale)
-        {rain_1h_value, _} = WeatherUnits.format_rain(pkt.rain_1h, locale)
-        {rain_24h_value, _} = WeatherUnits.format_rain(pkt.rain_24h, locale)
-        {rain_since_midnight_value, _} = WeatherUnits.format_rain(pkt.rain_since_midnight, locale)
-
-        %{
-          timestamp: pkt.received_at,
-          temperature: temp_value,
-          dew_point: dew_value,
-          humidity: pkt.humidity,
-          pressure: pkt.pressure,
-          wind_direction: pkt.wind_direction,
-          wind_speed: wind_speed_value,
-          rain_1h: rain_1h_value,
-          rain_24h: rain_24h_value,
-          rain_since_midnight: rain_since_midnight_value,
-          luminosity: pkt.luminosity
-        }
-      end)
-      |> Jason.encode!()
+    weather_history_json = convert_weather_history_to_json(weather_history, locale)
 
     socket =
       socket
@@ -143,97 +114,18 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
     {:noreply, socket}
   end
 
-  # Keep the old handler for backward compatibility
-  def handle_info({:postgres_packet, packet}, socket) do
-    # Only update if the packet is for our callsign and contains weather data
-    if packet_matches_callsign?(packet, socket.assigns.callsign) and has_weather_data?(packet) do
-      # Refresh weather data when new weather packet arrives
-      weather_packet = get_latest_weather_packet(socket.assigns.callsign)
-      {start_time, end_time} = default_time_range()
-      weather_history = get_weather_history(socket.assigns.callsign, start_time, end_time)
-
-      # Get locale from socket assigns
-      locale = Map.get(socket.assigns, :locale, "en")
-
-      weather_history_json =
-        weather_history
-        |> Enum.map(fn pkt ->
-          dew_point =
-            if is_number(pkt.temperature) and is_number(pkt.humidity) do
-              calc_dew_point(pkt.temperature, pkt.humidity)
-            end
-
-          # Convert units based on locale
-          {temp_value, _} = WeatherUnits.format_temperature(pkt.temperature, locale)
-          {dew_value, _} = if dew_point, do: WeatherUnits.format_temperature(dew_point, locale), else: {nil, nil}
-          {wind_speed_value, _} = WeatherUnits.format_wind_speed(pkt.wind_speed, locale)
-          {rain_1h_value, _} = WeatherUnits.format_rain(pkt.rain_1h, locale)
-          {rain_24h_value, _} = WeatherUnits.format_rain(pkt.rain_24h, locale)
-          {rain_since_midnight_value, _} = WeatherUnits.format_rain(pkt.rain_since_midnight, locale)
-
-          %{
-            timestamp: pkt.received_at,
-            temperature: temp_value,
-            dew_point: dew_value,
-            humidity: pkt.humidity,
-            pressure: pkt.pressure,
-            wind_direction: pkt.wind_direction,
-            wind_speed: wind_speed_value,
-            rain_1h: rain_1h_value,
-            rain_24h: rain_24h_value,
-            rain_since_midnight: rain_since_midnight_value,
-            luminosity: pkt.luminosity
-          }
-        end)
-        |> Jason.encode!()
-
-      socket =
-        socket
-        |> assign(:weather_packet, weather_packet)
-        |> assign(:weather_history, weather_history)
-        |> assign(:weather_history_json, weather_history_json)
-
-      # Push event to update all charts with new data
-      socket = push_event(socket, "update_weather_charts", %{weather_history: weather_history_json})
-
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
-  end
-
-  def handle_info(_message, socket), do: {:noreply, socket}
-
-  defp packet_matches_callsign?(packet, callsign) do
-    packet_sender = Map.get(packet, "sender") || Map.get(packet, :sender, "")
-    String.upcase(packet_sender) == String.upcase(callsign)
-  end
-
-  defp has_weather_data?(packet) do
-    # Check if packet contains any weather-related fields
-    Enum.any?(Aprsme.EncodingUtils.weather_fields(), fn field ->
-      value = Map.get(packet, field) || Map.get(packet, to_string(field))
-      not is_nil(value)
-    end)
-  end
-
   defp get_latest_weather_packet(callsign) do
-    # Get weather packets from the last 7 days to find the most recent one
-    end_time = DateTime.utc_now()
-    start_time = DateTime.add(end_time, -7 * 24 * 3600, :second)
-
-    callsign
-    |> Packets.get_weather_packets(start_time, end_time, %{limit: 1})
-    |> List.first()
+    # Use optimized cached query that checks recent data first
+    Aprsme.CachedQueries.get_latest_weather_packet_cached(callsign)
   end
 
   defp get_weather_history(callsign, start_time, end_time) do
-    Packets.get_weather_packets(callsign, start_time, end_time, %{limit: 500})
+    # Use cached queries to avoid repeated database hits
+    Aprsme.CachedQueries.get_weather_packets_cached(callsign, start_time, end_time, %{limit: 500})
   end
 
   defp default_time_range do
-    now = DateTime.utc_now()
-    {DateTime.add(now, -48 * 3600, :second), now}
+    TimeUtils.time_range(:last_two_days)
   end
 
   defp calc_dew_point(temp, humidity) when is_number(temp) and is_number(humidity) do
@@ -241,6 +133,39 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   end
 
   defp calc_dew_point(_, _), do: nil
+
+  defp convert_weather_history_to_json(weather_history, locale) do
+    weather_history
+    |> Enum.map(fn pkt ->
+      dew_point =
+        if is_number(pkt.temperature) and is_number(pkt.humidity) do
+          calc_dew_point(pkt.temperature, pkt.humidity)
+        end
+
+      # Convert units based on locale
+      {temp_value, _} = WeatherUnits.format_temperature(pkt.temperature, locale)
+      {dew_value, _} = if dew_point, do: WeatherUnits.format_temperature(dew_point, locale), else: {nil, nil}
+      {wind_speed_value, _} = WeatherUnits.format_wind_speed(pkt.wind_speed, locale)
+      {rain_1h_value, _} = WeatherUnits.format_rain(pkt.rain_1h, locale)
+      {rain_24h_value, _} = WeatherUnits.format_rain(pkt.rain_24h, locale)
+      {rain_since_midnight_value, _} = WeatherUnits.format_rain(pkt.rain_since_midnight, locale)
+
+      %{
+        timestamp: pkt.received_at,
+        temperature: temp_value,
+        dew_point: dew_value,
+        humidity: pkt.humidity,
+        pressure: pkt.pressure,
+        wind_direction: pkt.wind_direction,
+        wind_speed: wind_speed_value,
+        rain_1h: rain_1h_value,
+        rain_24h: rain_24h_value,
+        rain_since_midnight: rain_since_midnight_value,
+        luminosity: pkt.luminosity
+      }
+    end)
+    |> Jason.encode!()
+  end
 
   @doc """
   Gets weather field value, returning "0" instead of "N/A" for missing numeric data.
@@ -255,78 +180,44 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
     end
   end
 
+  # Weather formatters mapping
+  @weather_formatters %{
+    temperature: {&WeatherUnits.format_temperature/2, ""},
+    wind_speed: {&WeatherUnits.format_wind_speed/2, " "},
+    wind_gust: {&WeatherUnits.format_wind_speed/2, " "},
+    rain_1h: {&WeatherUnits.format_rain/2, " "},
+    rain_24h: {&WeatherUnits.format_rain/2, " "},
+    rain_since_midnight: {&WeatherUnits.format_rain/2, " "}
+  }
+
   @doc """
   Formats weather values with appropriate units based on locale.
   """
   def format_weather_value(packet, key, locale) do
     value = PacketUtils.get_weather_field(packet, key)
 
-    case {key, value} do
-      {:temperature, value} when is_binary(value) and value != "N/A" ->
-        case Float.parse(value) do
-          {num_value, _} ->
-            {converted_value, unit} = WeatherUnits.format_temperature(num_value, locale)
-            "#{converted_value}#{unit}"
+    case value do
+      "N/A" ->
+        "N/A"
 
-          :error ->
-            value
-        end
+      value when is_binary(value) ->
+        case @weather_formatters[key] do
+          {formatter, separator} ->
+            case Float.parse(value) do
+              {num_value, _} ->
+                {converted_value, unit} = formatter.(num_value, locale)
+                "#{converted_value}#{separator}#{unit}"
 
-      {:wind_speed, value} when is_binary(value) and value != "N/A" ->
-        case Float.parse(value) do
-          {num_value, _} ->
-            {converted_value, unit} = WeatherUnits.format_wind_speed(num_value, locale)
-            "#{converted_value} #{unit}"
+              :error ->
+                value
+            end
 
-          :error ->
-            value
-        end
-
-      {:wind_gust, value} when is_binary(value) and value != "N/A" ->
-        case Float.parse(value) do
-          {num_value, _} ->
-            {converted_value, unit} = WeatherUnits.format_wind_speed(num_value, locale)
-            "#{converted_value} #{unit}"
-
-          :error ->
-            value
-        end
-
-      {:rain_1h, value} when is_binary(value) and value != "N/A" ->
-        case Float.parse(value) do
-          {num_value, _} ->
-            {converted_value, unit} = WeatherUnits.format_rain(num_value, locale)
-            "#{converted_value} #{unit}"
-
-          :error ->
-            value
-        end
-
-      {:rain_24h, value} when is_binary(value) and value != "N/A" ->
-        case Float.parse(value) do
-          {num_value, _} ->
-            {converted_value, unit} = WeatherUnits.format_rain(num_value, locale)
-            "#{converted_value} #{unit}"
-
-          :error ->
-            value
-        end
-
-      {:rain_since_midnight, value} when is_binary(value) and value != "N/A" ->
-        case Float.parse(value) do
-          {num_value, _} ->
-            {converted_value, unit} = WeatherUnits.format_rain(num_value, locale)
-            "#{converted_value} #{unit}"
-
-          :error ->
-            value
+          nil ->
+            "#{value}"
         end
 
       _ ->
-        case value do
-          "N/A" -> "N/A"
-          _ -> "#{value}"
-        end
+        "#{value}"
     end
   end
 end
