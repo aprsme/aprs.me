@@ -51,51 +51,63 @@ let MapAPRSMap = {
       }
     }
 
-    // Try to restore from localStorage
+    // Initialize with URL parameters first (from data attributes)
     let initialCenter: CenterData, initialZoom: number;
+    let useUrlParams = false;
+    
     try {
-      const saved = localStorage.getItem("aprs_map_state");
-      if (saved) {
-        const { lat, lng, zoom } = JSON.parse(saved);
-        if (
-          typeof lat === "number" &&
-          typeof lng === "number" &&
-          typeof zoom === "number" &&
-          lat >= -90 &&
-          lat <= 90 &&
-          lng >= -180 &&
-          lng <= 180 &&
-          zoom >= 1 &&
-          zoom <= 20
-        ) {
-          initialCenter = { lat, lng };
-          initialZoom = zoom;
-        } else {
-          throw new Error("Invalid saved map state");
-        }
-      } else {
-        throw new Error("No saved map state");
-      }
-    } catch (e) {
-      // Fallback to server-provided data attributes
+      const centerData = self.el.dataset.center;
+      const zoomData = self.el.dataset.zoom;
+      console.log("Map data attributes - center:", centerData, "zoom:", zoomData);
+      
+      if (!centerData || !zoomData) throw new Error("Missing map data attributes");
+      initialCenter = JSON.parse(centerData);
+      initialZoom = parseInt(zoomData);
+      
+      console.log("Parsed initial values - center:", initialCenter, "zoom:", initialZoom);
+      
+      if (
+        !initialCenter ||
+        typeof initialCenter.lat !== "number" ||
+        typeof initialCenter.lng !== "number"
+      )
+        throw new Error("Invalid center data");
+      if (isNaN(initialZoom) || initialZoom < 1 || initialZoom > 20)
+        throw new Error("Invalid zoom data");
+        
+      // Check if URL has explicit parameters (not default values)
+      const urlParams = new URLSearchParams(window.location.search);
+      useUrlParams = urlParams.has('lat') || urlParams.has('lng') || urlParams.has('z');
+    } catch (error) {
+      console.error("Error parsing map data attributes:", error);
+      initialCenter = { lat: 39.8283, lng: -98.5795 };
+      initialZoom = 5;
+    }
+    
+    // Only use localStorage if no URL params are present
+    if (!useUrlParams) {
       try {
-        const centerData = self.el.dataset.center;
-        const zoomData = self.el.dataset.zoom;
-        if (!centerData || !zoomData) throw new Error("Missing map data attributes");
-        initialCenter = JSON.parse(centerData);
-        initialZoom = parseInt(zoomData);
-        if (
-          !initialCenter ||
-          typeof initialCenter.lat !== "number" ||
-          typeof initialCenter.lng !== "number"
-        )
-          throw new Error("Invalid center data");
-        if (isNaN(initialZoom) || initialZoom < 1 || initialZoom > 20)
-          throw new Error("Invalid zoom data");
-      } catch (error) {
-        console.error("Error parsing map data attributes:", error);
-        initialCenter = { lat: 39.8283, lng: -98.5795 };
-        initialZoom = 5;
+        const saved = localStorage.getItem("aprs_map_state");
+        if (saved) {
+          const { lat, lng, zoom } = JSON.parse(saved);
+          if (
+            typeof lat === "number" &&
+            typeof lng === "number" &&
+            typeof zoom === "number" &&
+            lat >= -90 &&
+            lat <= 90 &&
+            lng >= -180 &&
+            lng <= 180 &&
+            zoom >= 1 &&
+            zoom <= 20
+          ) {
+            console.log("Using saved state from localStorage:", { lat, lng, zoom });
+            initialCenter = { lat, lng };
+            initialZoom = zoom;
+          }
+        }
+      } catch (e) {
+        console.log("Could not load from localStorage:", e);
       }
     }
 
@@ -210,8 +222,40 @@ let MapAPRSMap = {
     self.map!.whenReady(() => {
       try {
         self.lastZoom = self.map!.getZoom();
-        self.pushEvent("map_ready", {});
-        self.sendBoundsToServer();
+        
+        // Ensure we have a valid pushEvent function before using it
+        if (self.pushEvent && typeof self.pushEvent === 'function') {
+          console.log("Map ready - sending map_ready event");
+          self.pushEvent("map_ready", {});
+          // Send initial bounds to trigger historical loading
+          console.log("Sending initial bounds to server");
+          self.sendBoundsToServer();
+          
+          // Also send update_map_state to ensure URL updates and bounds processing
+          // Increase delay to ensure LiveView is fully connected and ready
+          setTimeout(() => {
+            if (self.map && self.pushEvent && !self.isDestroyed) {
+              console.log("Sending initial update_map_state for historical loading");
+              saveMapState(self.map, (event: string, payload: any) => self.pushEvent(event, payload));
+            }
+          }, 500);
+        } else {
+          console.warn("pushEvent not available in whenReady callback");
+          // Retry after a short delay
+          setTimeout(() => {
+            if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
+              self.pushEvent("map_ready", {});
+              self.sendBoundsToServer();
+              // Also trigger map state update after a delay
+              setTimeout(() => {
+                if (self.map && self.pushEvent && !self.isDestroyed) {
+                  console.log("Sending initial update_map_state for historical loading (retry path)");
+                  saveMapState(self.map, (event: string, payload: any) => self.pushEvent(event, payload));
+                }
+              }, 500);
+            }
+          }, 200);
+        }
 
         // Start periodic cleanup of old trail positions (every 5 minutes)
         self.cleanupInterval = setInterval(
@@ -240,7 +284,9 @@ let MapAPRSMap = {
       
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
-        saveMapState(self.map, self.pushEvent);
+        if (self.map && !self.isDestroyed) {
+          saveMapState(self.map, (event: string, payload: any) => self.pushEvent(event, payload));
+        }
       }, 300);
     };
     self.map!.on("moveend", moveEndHandler);
@@ -266,7 +312,9 @@ let MapAPRSMap = {
 
         self.lastZoom = currentZoom;
         // Save map state and update URL
-        saveMapState(self.map, self.pushEvent);
+        if (self.map && !self.isDestroyed) {
+          saveMapState(self.map, (event: string, payload: any) => self.pushEvent(event, payload));
+        }
       }, 300);
     };
     self.map!.on("zoomend", zoomEndHandler);
@@ -637,9 +685,11 @@ let MapAPRSMap = {
 
     // Handle progressive loading of historical packets (batch processing)
     self.handleEvent("add_historical_packets_batch", (data: { packets: MarkerData[], batch: number, is_final: boolean }) => {
-      if (data.packets && Array.isArray(data.packets)) {
-        // Process all packets immediately for maximum speed
-        const packetsByCallsign = new Map<string, MarkerData[]>();
+      console.log("Received historical packet batch:", data.batch, "packet count:", data.packets?.length || 0);
+      try {
+        if (data.packets && Array.isArray(data.packets)) {
+          // Process all packets immediately for maximum speed
+          const packetsByCallsign = new Map<string, MarkerData[]>();
 
         data.packets.forEach((packet) => {
           const callsign = packet.callsign_group || packet.callsign || packet.id;
@@ -668,6 +718,10 @@ let MapAPRSMap = {
           });
         });
       }
+      } catch (error) {
+        console.error("Error processing historical packets batch:", error);
+        // Continue processing other batches even if one fails
+      }
     });
 
     // Handle refresh markers event
@@ -681,6 +735,7 @@ let MapAPRSMap = {
 
     // Handle clearing historical packets
     self.handleEvent("clear_historical_packets", () => {
+      console.log("Clearing historical packets");
       // Remove only historical markers (preserve live markers and their trails)
       const markersToRemove: string[] = [];
       self.markers!.forEach((marker: any, id: any) => {
@@ -744,29 +799,38 @@ let MapAPRSMap = {
 
   sendBoundsToServer() {
     const self = this as unknown as LiveViewHookContext;
-    if (!self.map) return;
+    if (!self.map || self.isDestroyed) return;
 
-    const bounds = self.map!.getBounds();
-    const center = self.map!.getCenter();
-    const zoom = self.map!.getZoom();
+    try {
+      const bounds = self.map!.getBounds();
+      const center = self.map!.getCenter();
+      const zoom = self.map!.getZoom();
 
-    // We're no longer removing markers outside bounds during normal panning/zooming
-    // to preserve historical positions and the current marker
-    // self.removeMarkersOutsideBounds(bounds);
+      // We're no longer removing markers outside bounds during normal panning/zooming
+      // to preserve historical positions and the current marker
+      // self.removeMarkersOutsideBounds(bounds);
 
-    self.pushEvent("bounds_changed", {
-      bounds: {
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-      },
-      center: {
-        lat: center.lat,
-        lng: center.lng,
-      },
-      zoom: zoom,
-    });
+      // Use direct pushEvent call with proper context
+      if (self.pushEvent && typeof self.pushEvent === 'function') {
+        const boundsData = {
+          bounds: {
+            north: bounds.getNorth(),
+            south: bounds.getSouth(),
+            east: bounds.getEast(),
+            west: bounds.getWest(),
+          },
+          center: {
+            lat: center.lat,
+            lng: center.lng,
+          },
+          zoom: zoom,
+        };
+        console.log("Sending bounds_changed event:", boundsData);
+        self.pushEvent("bounds_changed", boundsData);
+      }
+    } catch (error) {
+      console.error("Error sending bounds to server:", error);
+    }
   },
 
   addMarker(data: MarkerData & { openPopup?: boolean }) {

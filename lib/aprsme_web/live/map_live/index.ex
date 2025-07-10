@@ -67,6 +67,8 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def mount(params, _session, socket) do
+    require Logger
+
     if connected?(socket) do
       # Subscribe to packet updates
       Phoenix.PubSub.subscribe(Aprsme.PubSub, "packets")
@@ -85,14 +87,16 @@ defmodule AprsmeWeb.MapLive.Index do
     # Parse map state from URL parameters
     {map_center, map_zoom} = parse_map_params(params)
 
+    Logger.debug("Parsed map params from URL: center=#{inspect(map_center)}, zoom=#{map_zoom}")
+    Logger.debug("Raw params: #{inspect(params)}")
+
     socket = assign_defaults(socket, one_hour_ago)
-    socket = assign(socket, map_center: map_center, map_zoom: map_zoom)
+
+    # Initialize the flag to track if initial historical load is completed
+    socket = assign(socket, initial_historical_completed: false)
 
     # Calculate initial bounds based on center and zoom level
     initial_bounds = calculate_bounds_from_center_and_zoom(map_center, map_zoom)
-    socket = assign(socket, map_bounds: initial_bounds)
-    socket = assign(socket, packet_buffer: [], buffer_timer: nil)
-    socket = assign(socket, all_packets: %{}, station_popup_open: false)
 
     if connected?(socket) do
       Endpoint.subscribe("aprs_messages")
@@ -104,9 +108,9 @@ defmodule AprsmeWeb.MapLive.Index do
     {:ok,
      assign(socket,
        map_ready: false,
-       map_bounds: nil,
-       map_center: %{lat: 39.8283, lng: -98.5795},
-       map_zoom: 4,
+       map_bounds: initial_bounds,
+       map_center: map_center,
+       map_zoom: map_zoom,
        visible_packets: %{},
        historical_packets: %{},
        overlay_callsign: "",
@@ -115,7 +119,13 @@ defmodule AprsmeWeb.MapLive.Index do
        packet_age_threshold: one_hour_ago,
        slideover_open: true,
        deployed_at: deployed_at,
-       map_page: true
+       map_page: true,
+       packet_buffer: [],
+       buffer_timer: nil,
+       all_packets: %{},
+       station_popup_open: false,
+       initial_bounds_loaded: false,
+       needs_initial_historical_load: false
      )}
   end
 
@@ -256,10 +266,19 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_event("map_ready", _params, socket) do
-    socket = assign(socket, map_ready: true)
+    require Logger
 
-    # Load historical packets immediately since we now have bounds from URL parameters
-    Process.send_after(self(), :reload_historical_packets, 10)
+    Logger.debug("map_ready event received - current bounds: #{inspect(socket.assigns.map_bounds)}")
+
+    # Mark map as ready and that we need to load historical packets
+    socket =
+      socket
+      |> assign(map_ready: true)
+      |> assign(needs_initial_historical_load: true)
+
+    # Wait for JavaScript to send the actual map bounds before loading historical packets
+    # The calculated bounds might be too small/inaccurate
+    Logger.debug("Map ready - waiting for JavaScript to send actual bounds before loading historical packets")
 
     # If we have pending geolocation, zoom to it now
     socket =
@@ -358,6 +377,10 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_event("update_map_state", %{"center" => center, "zoom" => zoom} = params, socket) do
+    require Logger
+
+    Logger.debug("update_map_state event received: center=#{inspect(center)}, zoom=#{zoom}")
+
     # Parse center coordinates
     lat =
       case center do
@@ -383,6 +406,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Update URL without page reload
     new_path = "/?lat=#{lat}&lng=#{lng}&z=#{zoom}"
+    Logger.debug("Updating URL to: #{new_path}")
     socket = push_patch(socket, to: new_path, replace: true)
 
     # If bounds are included, also process bounds update
@@ -396,8 +420,16 @@ defmodule AprsmeWeb.MapLive.Index do
             west: west
           }
 
-          # Only trigger bounds processing if bounds actually changed
-          if socket.assigns.map_bounds != map_bounds do
+          # Trigger bounds processing if bounds changed OR if this is the initial load OR if we need initial historical load
+          if socket.assigns.map_bounds != map_bounds or
+               !socket.assigns[:initial_bounds_loaded] or
+               socket.assigns[:needs_initial_historical_load] do
+            require Logger
+
+            Logger.debug(
+              "Sending bounds update (initial_load: #{!socket.assigns[:initial_bounds_loaded]}, needs_historical: #{socket.assigns[:needs_initial_historical_load]}): #{inspect(map_bounds)}"
+            )
+
             send(self(), {:process_bounds_update, map_bounds})
           end
 
@@ -478,12 +510,25 @@ defmodule AprsmeWeb.MapLive.Index do
   # Private handler functions for each message type
 
   defp handle_info_process_bounds_update(map_bounds, socket) do
-    if !socket.assigns.initial_bounds_loaded or
-         not compare_bounds(map_bounds, socket.assigns.map_bounds) do
+    require Logger
+
+    # Check if we need to process this bounds update
+    should_process =
+      !socket.assigns[:initial_bounds_loaded] or
+        socket.assigns[:needs_initial_historical_load] or
+        not compare_bounds(map_bounds, socket.assigns.map_bounds)
+
+    Logger.debug(
+      "handle_info_process_bounds_update - should_process: #{should_process}, initial_bounds_loaded: #{socket.assigns[:initial_bounds_loaded]}, needs_initial_historical_load: #{socket.assigns[:needs_initial_historical_load]}"
+    )
+
+    if should_process do
+      Logger.debug("Processing bounds update: #{inspect(map_bounds)}")
       socket = process_bounds_update(map_bounds, socket)
       socket = assign(socket, initial_bounds_loaded: true)
       {:noreply, socket}
     else
+      Logger.debug("Skipping bounds update - no change detected")
       {:noreply, socket}
     end
   end
@@ -1154,6 +1199,12 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp handle_reload_historical_packets(socket) do
+    require Logger
+
+    Logger.debug(
+      "handle_reload_historical_packets called - map_ready: #{socket.assigns.map_ready}, map_bounds: #{inspect(socket.assigns.map_bounds)}"
+    )
+
     if socket.assigns.map_ready and socket.assigns.map_bounds do
       # Clear existing historical packets
       socket = push_event(socket, "clear_historical_packets", %{})
@@ -1163,6 +1214,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
       {:noreply, socket}
     else
+      Logger.debug("Skipping historical reload - conditions not met")
       {:noreply, socket}
     end
   end
@@ -1435,14 +1487,22 @@ defmodule AprsmeWeb.MapLive.Index do
   # Progressive loading functions using LiveView's efficient update mechanisms
   @spec start_progressive_historical_loading(Socket.t()) :: Socket.t()
   defp start_progressive_historical_loading(socket) do
-    # Clear existing historical packets before loading new ones
-    socket = push_event(socket, "clear_historical_packets", %{})
+    require Logger
+
+    Logger.debug(
+      "start_progressive_historical_loading called with zoom: #{socket.assigns.map_zoom}, bounds: #{inspect(socket.assigns.map_bounds)}"
+    )
+
+    # Don't clear historical packets here - let the caller decide if clearing is needed
+    # This prevents race conditions where we clear packets that were just loaded
 
     # For high zoom levels, load everything in one batch for maximum speed
     zoom = socket.assigns.map_zoom || 5
 
     if zoom >= 10 do
       # High zoom - load everything at once for maximum speed
+      Logger.debug("High zoom (#{zoom}), loading in single batch")
+
       socket
       |> assign(loading_batch: 0, total_batches: 1)
       |> load_historical_batch(0)
@@ -1507,27 +1567,45 @@ defmodule AprsmeWeb.MapLive.Index do
       packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
 
       historical_packets =
-        if packets_module == Aprsme.Packets do
-          # Use cached queries for better performance
-          # Include zoom level in cache key for better cache efficiency
-          Aprsme.CachedQueries.get_recent_packets_cached(%{
-            bounds: bounds,
-            limit: batch_size,
-            offset: offset,
-            zoom: zoom
-          })
-        else
-          # Fallback for testing
-          packets_module.get_recent_packets_optimized(%{
-            bounds: bounds,
-            limit: batch_size,
-            offset: offset
-          })
+        try do
+          if packets_module == Aprsme.Packets do
+            # Use cached queries for better performance
+            # Include zoom level in cache key for better cache efficiency
+            Aprsme.CachedQueries.get_recent_packets_cached(%{
+              bounds: bounds,
+              limit: batch_size,
+              offset: offset,
+              zoom: zoom
+            })
+          else
+            # Fallback for testing
+            packets_module.get_recent_packets_optimized(%{
+              bounds: bounds,
+              limit: batch_size,
+              offset: offset
+            })
+          end
+        rescue
+          e ->
+            require Logger
+
+            Logger.error("Error loading historical packets: #{inspect(e)}")
+            Logger.error("Stack trace: #{Exception.format_stacktrace()}")
+            []
         end
 
       if Enum.any?(historical_packets) do
         # Process this batch and send to frontend
-        packet_data_list = build_packet_data_list(historical_packets)
+        packet_data_list =
+          try do
+            build_packet_data_list(historical_packets)
+          rescue
+            e ->
+              require Logger
+
+              Logger.error("Error building packet data list: #{inspect(e)}")
+              []
+          end
 
         if Enum.any?(packet_data_list) do
           # Use LiveView's efficient push_event for incremental updates
@@ -1672,20 +1750,21 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp handle_valid_bounds_update(map_bounds, socket) do
-    # Only schedule a bounds update if the bounds have actually changed (with rounding)
-    if compare_bounds(map_bounds, socket.assigns.map_bounds) do
-      {:noreply, socket}
-    else
-      # If this is the first bounds update (map_bounds is nil), process immediately
-      # to avoid race condition with historical packet loading
-      if is_nil(socket.assigns.map_bounds) do
-        # Process immediately for initial bounds
+    # Force processing if we need initial historical load, regardless of bounds comparison
+    cond do
+      socket.assigns[:needs_initial_historical_load] ->
+        require Logger
+
+        Logger.debug("Processing initial bounds update immediately (forced): #{inspect(map_bounds)}")
         socket = process_bounds_update(map_bounds, socket)
         {:noreply, socket}
-      else
+
+      compare_bounds(map_bounds, socket.assigns.map_bounds) ->
+        {:noreply, socket}
+
+      true ->
         # For subsequent updates, use the timer to debounce
         schedule_bounds_update(map_bounds, socket)
-      end
     end
   end
 
@@ -1701,6 +1780,21 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @spec process_bounds_update(map(), Socket.t()) :: Socket.t()
   defp process_bounds_update(map_bounds, socket) do
+    require Logger
+
+    Logger.debug("process_bounds_update called with bounds: #{inspect(map_bounds)}")
+
+    # Check if this is the initial load or if bounds have actually changed
+    is_initial_load = socket.assigns[:needs_initial_historical_load] || !socket.assigns[:initial_bounds_loaded]
+    bounds_changed = socket.assigns.map_bounds && not compare_bounds(map_bounds, socket.assigns.map_bounds)
+
+    # Check if we've completed the initial historical load
+    initial_historical_completed = socket.assigns[:initial_historical_completed] || false
+
+    Logger.debug(
+      "is_initial_load: #{is_initial_load}, bounds_changed: #{bounds_changed}, initial_historical_completed: #{initial_historical_completed}"
+    )
+
     # Remove out-of-bounds packets and markers immediately
     new_visible_packets =
       socket.assigns.visible_packets
@@ -1722,14 +1816,37 @@ defmodule AprsmeWeb.MapLive.Index do
         end)
       end
 
-    # Remove only out-of-bounds historical packets instead of clearing all
+    # Only clear historical packets if:
+    # 1. Bounds actually changed AND
+    # 2. This is not the initial load AND  
+    # 3. We've already completed the initial historical load
+    socket =
+      if bounds_changed and not is_initial_load and initial_historical_completed do
+        Logger.debug("Bounds changed after initial load - clearing historical packets")
+        push_event(socket, "clear_historical_packets", %{})
+      else
+        Logger.debug("Initial load or no significant change - keeping existing markers")
+        socket
+      end
+
+    # Always filter markers by bounds
     socket = push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
 
-    # Load historical packets for the new bounds
-    # Always load historical packets when bounds change to ensure new areas have data
+    # Update map bounds FIRST so progressive loading uses the correct bounds
+    socket =
+      socket
+      |> assign(map_bounds: map_bounds, visible_packets: new_visible_packets)
+      |> assign(needs_initial_historical_load: false)
+
+    # Load historical packets for the new bounds (now socket.assigns.map_bounds is correct)
+    Logger.debug("Starting progressive historical loading for new bounds")
     socket = start_progressive_historical_loading(socket)
 
-    # Update map bounds and visible packets
-    assign(socket, map_bounds: map_bounds, visible_packets: new_visible_packets)
+    # Mark initial historical as completed if this was the initial load
+    if is_initial_load do
+      assign(socket, initial_historical_completed: true)
+    else
+      socket
+    end
   end
 end

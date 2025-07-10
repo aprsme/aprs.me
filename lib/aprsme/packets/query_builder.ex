@@ -120,10 +120,18 @@ defmodule Aprsme.Packets.QueryBuilder do
   @spec within_bounds(Ecto.Query.t(), list(number())) :: Ecto.Query.t()
   def within_bounds(query, [west, south, east, north])
       when is_number(west) and is_number(south) and is_number(east) and is_number(north) do
-    from p in query,
-      where: p.has_position == true,
-      where: p.lat >= ^south and p.lat <= ^north,
-      where: p.lon >= ^west and p.lon <= ^east
+    # Handle antimeridian crossing (e.g., west=170, east=-170)
+    if west > east do
+      from p in query,
+        where: p.has_position == true,
+        where: p.lat >= ^south and p.lat <= ^north,
+        where: p.lon >= ^west or p.lon <= ^east
+    else
+      from p in query,
+        where: p.has_position == true,
+        where: p.lat >= ^south and p.lat <= ^north,
+        where: p.lon >= ^west and p.lon <= ^east
+    end
   end
 
   def within_bounds(query, _), do: query
