@@ -71,22 +71,36 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
     # Check for forwarded IP first (when behind proxy/load balancer)
     forwarded_for = get_req_header(conn, "x-forwarded-for")
 
-    case forwarded_for do
-      [forwarded | _] ->
-        # Take the first IP from the X-Forwarded-For header
-        forwarded
-        |> String.split(",")
-        |> List.first()
-        |> String.trim()
+    ip =
+      case forwarded_for do
+        [forwarded | _] ->
+          # Take the first IP from the X-Forwarded-For header
+          ip_from_header =
+            forwarded
+            |> String.split(",")
+            |> List.first()
+            |> String.trim()
 
-      [] ->
-        # Fall back to remote_ip
-        case conn.remote_ip do
-          {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
-          {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
-          _ -> nil
-        end
-    end
+          Logger.info("IP geolocation: Using forwarded IP from X-Forwarded-For header: #{ip_from_header}")
+          ip_from_header
+
+        [] ->
+          # Fall back to remote_ip
+          ip_from_remote =
+            case conn.remote_ip do
+              {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
+              {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
+              _ -> nil
+            end
+
+          if ip_from_remote do
+            Logger.info("IP geolocation: Using remote_ip: #{ip_from_remote}")
+          end
+
+          ip_from_remote
+      end
+
+    ip
   end
 
   defp valid_ip_for_geolocation?(ip) when is_binary(ip) do
