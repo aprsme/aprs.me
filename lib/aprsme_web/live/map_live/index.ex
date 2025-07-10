@@ -89,7 +89,7 @@ defmodule AprsmeWeb.MapLive.Index do
     {url_center, url_zoom} = parse_map_params(params)
 
     # Check for IP geolocation in session
-    {map_center, map_zoom} = 
+    {map_center, map_zoom} =
       case session["ip_geolocation"] do
         %{"lat" => lat, "lng" => lng} when is_number(lat) and is_number(lng) ->
           # Use IP geolocation if available and no URL params specified
@@ -100,6 +100,7 @@ defmodule AprsmeWeb.MapLive.Index do
             # Use IP geolocation with closer zoom
             {%{lat: lat, lng: lng}, 12}
           end
+
         _ ->
           # No geolocation available, use URL params or defaults
           {url_center, url_zoom}

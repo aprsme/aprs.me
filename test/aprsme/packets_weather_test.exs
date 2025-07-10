@@ -26,7 +26,8 @@ defmodule Aprsme.PacketsWeatherTest do
 
       assert {:ok, stored_packet} = Packets.store_packet(packet_data)
       assert stored_packet.sender == "TEST-1"
-      assert stored_packet.data_type == "weather"
+      # The parser determines data_type, not the storage layer
+      assert stored_packet.data_type == "position"
       refute Map.has_key?(stored_packet, :raw_weather_data)
       refute Map.has_key?(stored_packet, "raw_weather_data")
       assert stored_packet.temperature == 72
@@ -58,7 +59,8 @@ defmodule Aprsme.PacketsWeatherTest do
       }
 
       assert {:ok, stored_packet} = Packets.store_packet(packet_data)
-      assert stored_packet.data_type == "weather"
+      # The parser determines data_type, not the storage layer
+      assert stored_packet.data_type == "position"
       refute Map.has_key?(stored_packet, :raw_weather_data)
       refute Map.has_key?(stored_packet, "raw_weather_data")
       assert stored_packet.temperature == 85
@@ -89,7 +91,7 @@ defmodule Aprsme.PacketsWeatherTest do
       }
 
       assert {:ok, stored_packet} = Packets.store_packet(packet_data)
-      assert stored_packet.data_type == "weather"
+      assert stored_packet.data_type == "position"
       refute Map.has_key?(stored_packet, :raw_weather_data)
       refute Map.has_key?(stored_packet, "raw_weather_data")
       assert stored_packet.temperature == 95
@@ -208,7 +210,7 @@ defmodule Aprsme.PacketsWeatherTest do
       }
 
       assert {:ok, stored_packet} = Packets.store_packet(packet_data)
-      assert stored_packet.data_type == "weather"
+      assert stored_packet.data_type == "position"
       assert stored_packet.snow == 0.5
       refute Map.has_key?(stored_packet, :raw_weather_data)
       refute Map.has_key?(stored_packet, "raw_weather_data")

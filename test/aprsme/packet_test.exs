@@ -6,8 +6,9 @@ defmodule Aprsme.PacketTest do
   describe "extract_additional_data/2" do
     test "position packet with course/speed should not be classified as weather" do
       # This is the problematic packet from KG5GKC-12
-      raw_packet = "KG5GKC-12>APAT51,WIDE1-1,WIDE2-2,qAO,NI2C-10:!3310.04N/09640.40Wk038/023/A=000623AT-MOBILE KG5GKC@YAHOO.COM"
-      
+      raw_packet =
+        "KG5GKC-12>APAT51,WIDE1-1,WIDE2-2,qAO,NI2C-10:!3310.04N/09640.40Wk038/023/A=000623AT-MOBILE KG5GKC@YAHOO.COM"
+
       # Simulate the parsed data from APRS parser
       attrs = %{
         sender: "KG5GKC-12",
@@ -31,7 +32,7 @@ defmodule Aprsme.PacketTest do
       }
 
       result = Packet.extract_additional_data(attrs, raw_packet)
-      
+
       # The data_type should be "position" (normalized to string)
       assert result[:data_type] == "position" or result[:data_type] == :position
       assert result[:symbol_code] == "k"
@@ -43,7 +44,7 @@ defmodule Aprsme.PacketTest do
 
     test "actual weather packet should be classified as weather" do
       raw_packet = "KC0ABC>APRS:_10090556c220s004g005t077P000h50b09900"
-      
+
       attrs = %{
         sender: "KC0ABC",
         destination: "APRS",
@@ -66,7 +67,7 @@ defmodule Aprsme.PacketTest do
       }
 
       result = Packet.extract_additional_data(attrs, raw_packet)
-      
+
       # Weather packet should remain as weather (normalized to string)
       assert result[:data_type] == "weather" or result[:data_type] == :weather
       assert result[:temperature] == 77.0
@@ -76,13 +77,14 @@ defmodule Aprsme.PacketTest do
 
     test "position packet with weather symbol should use parser's determination" do
       raw_packet = "KC0ABC>APRS:=3310.04N/09640.40W_PHG5130"
-      
+
       attrs = %{
         sender: "KC0ABC",
         destination: "APRS",
         path: "",
         information_field: "=3310.04N/09640.40W_PHG5130",
-        data_type: :position,  # Parser determined this is position despite weather symbol
+        # Parser determined this is position despite weather symbol
+        data_type: :position,
         base_callsign: "KC0ABC",
         ssid: nil,
         data_extended: %{
@@ -97,11 +99,10 @@ defmodule Aprsme.PacketTest do
       }
 
       result = Packet.extract_additional_data(attrs, raw_packet)
-      
+
       # Should trust parser's determination (normalized to string)
       assert result[:data_type] == "position" or result[:data_type] == :position
       assert result[:symbol_code] == "_"
     end
   end
-
 end

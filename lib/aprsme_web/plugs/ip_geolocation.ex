@@ -3,10 +3,11 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
   Plug that performs IP-based geolocation on initial page load.
   Results are stored in the session to avoid repeated API calls.
   """
-  import Plug.Conn
-  require Logger
-
   @behaviour Plug
+
+  import Plug.Conn
+
+  require Logger
 
   @impl true
   def init(opts), do: opts

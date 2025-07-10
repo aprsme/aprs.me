@@ -51,6 +51,14 @@ config :aprsme, auto_migrate: false
 # Only in tests, remove the complexity from the password hashing algorithm
 config :bcrypt_elixir, :log_rounds, 1
 
+# Configure ExVCR
+config :exvcr,
+  vcr_cassette_library_dir: "test/fixtures/vcr_cassettes",
+  custom_cassette_library_dir: "test/fixtures/vcr_cassettes",
+  filter_request_headers: ["Authorization"],
+  filter_url_params: false,
+  response_headers_blacklist: []
+
 # Configure Hammer for test environment
 config :hammer,
   backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}

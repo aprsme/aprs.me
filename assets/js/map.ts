@@ -87,6 +87,8 @@ let MapAPRSMap = {
     }
     
     // Only use localStorage if no URL params are present
+    // Temporarily disabled - using server-side geolocation instead
+    /*
     if (!useUrlParams) {
       try {
         const saved = localStorage.getItem("aprs_map_state");
@@ -112,6 +114,7 @@ let MapAPRSMap = {
         console.log("Could not load from localStorage:", e);
       }
     }
+    */
 
     self.initializeMap(initialCenter, initialZoom);
   },

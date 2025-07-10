@@ -5,8 +5,8 @@ defmodule AprsmeWeb.Router do
   import AprsmeWeb.UserAuth
   import Phoenix.LiveDashboard.Router
 
-  alias AprsmeWeb.Plugs.RateLimiter
   alias AprsmeWeb.Plugs.IPGeolocation
+  alias AprsmeWeb.Plugs.RateLimiter
 
   pipeline :browser do
     plug :accepts, ["html"]
