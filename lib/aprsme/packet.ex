@@ -311,31 +311,12 @@ defmodule Aprsme.Packet do
       |> put_equipment_fields(combined_data)
       |> put_message_fields(combined_data)
 
-    # If any weather fields are present, set data_type to "weather"
-    weather_fields = [
-      :temperature,
-      :humidity,
-      :wind_speed,
-      :wind_direction,
-      :wind_gust,
-      :pressure,
-      :rain_1h,
-      :rain_24h,
-      :rain_since_midnight,
-      :snow
-    ]
-
-    has_weather =
-      Enum.any?(weather_fields, fn field ->
-        v = result[field] || result[to_string(field)]
-        not is_nil(v)
-      end)
-
-    if has_weather and (result[:data_type] != "weather" and result["data_type"] != "weather") do
-      Map.put(result, :data_type, "weather")
-    else
-      result
-    end
+    # Don't override data_type - trust the APRS parser's determination
+    # The parser already correctly identifies weather packets by:
+    # 1. Data type indicator (e.g., "_" for weather)
+    # 2. Symbol (e.g., "/_" for weather station)
+    # 3. Actual weather data patterns in the content
+    result
   end
 
   defp put_symbol_fields(map, data_extended) do
@@ -443,9 +424,8 @@ defmodule Aprsme.Packet do
   defp process_map_weather_data(attrs, weather) do
     weather = Map.drop(weather, [:raw_weather_data, "raw_weather_data"])
 
-    attrs
-    |> Map.merge(weather)
-    |> Map.put(:data_type, "weather")
+    # Only merge weather data, don't override data_type
+    Map.merge(attrs, weather)
   end
 
   # Helper to put a value only if it's not nil
