@@ -130,7 +130,7 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
   defp valid_ip_for_geolocation?(_), do: false
 
   defp fetch_ip_location(ip) do
-    url = "https://ip-api.com/json/#{ip}"
+    url = "http://ip-api.com/json/#{ip}"
     Logger.info("IP geolocation: Making HTTP request to #{url}")
 
     # Configure very short timeout to prevent blocking page load
