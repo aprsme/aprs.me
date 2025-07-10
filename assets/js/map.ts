@@ -10,7 +10,9 @@ import type {
 import type { Map as LeafletMap, Marker, TileLayer, LayerGroup, DivIcon, LatLngBounds } from 'leaflet';
 
 // Declare Leaflet as a global variable with proper typing
-declare const L: typeof import('leaflet');
+declare const L: typeof import('leaflet') & {
+  heatLayer?: (latlngs: Array<[number, number, number?]>, options?: any) => any;
+};
 declare const OverlappingMarkerSpiderfier: any;
 
 // Import trail management functionality
@@ -203,6 +205,25 @@ let MapAPRSMap = {
     // Store markers for management
     self.markers = new Map<string, any>();
     self.markerLayer = L.layerGroup().addTo(self.map);
+
+    // Create heat layer (hidden by default)
+    try {
+      if (L.heatLayer) {
+        self.heatLayer = L.heatLayer([], {
+          radius: 25,
+          blur: 15,
+          maxZoom: 8,
+          gradient: {
+            0.4: 'blue',
+            0.65: 'lime',
+            0.85: 'yellow',
+            1.0: 'red'
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error creating heat layer:", error);
+    }
 
     // Create trail layer and manager
     const trailLayer = L.layerGroup().addTo(self.map);
@@ -551,14 +572,39 @@ let MapAPRSMap = {
 
     // Handle new packets from LiveView
     self.handleEvent("new_packet", (data: MarkerData) => {
-      // Check if there's already a marker for this callsign
-      const incomingCallsign = data.callsign_group || data.callsign || data.id;
+      try {
+        // Skip if context is lost
+        if (!self || !self.map || self.isDestroyed) {
+          console.warn("Map context not ready or destroyed, skipping new packet");
+          return;
+        }
+        
+        // Check if map exists and has the hasLayer method
+        if (!self.map.hasLayer) {
+          console.warn("Map hasLayer method not available, skipping new packet");
+          return;
+        }
+        
+        // If heat layer is visible, we're in heat map mode - skip individual markers
+        if (self.heatLayer && self.map.hasLayer(self.heatLayer)) {
+          console.log("In heat map mode, skipping individual marker for new packet");
+          return;
+        }
+        
+        // Check if there's already a marker for this callsign
+        const incomingCallsign = data.callsign_group || data.callsign || data.id;
 
       if (incomingCallsign) {
         // Find existing live markers for this callsign and convert them to historical dots
         const markersToConvert: string[] = [];
 
-        self.markerStates!.forEach((state, id) => {
+        // Ensure markerStates exists
+        if (!self.markerStates) {
+          console.warn("markerStates not initialized, skipping conversion");
+          return;
+        }
+
+        self.markerStates.forEach((state, id) => {
           const stateCallsign = state.callsign_group || state.callsign;
           // Only convert non-historical markers for the same callsign, but exclude the incoming packet's ID
           if (
@@ -572,8 +618,12 @@ let MapAPRSMap = {
 
         // Convert existing live markers to historical dots by updating their icon
         markersToConvert.forEach((id) => {
-          const existingMarker = self.markers!.get(id);
-          const existingState = self.markerStates!.get(id);
+          if (!self.markers || !self.markerStates) {
+            console.warn("markers or markerStates not available during conversion");
+            return;
+          }
+          const existingMarker = self.markers.get(id);
+          const existingState = self.markerStates.get(id);
 
           if (existingMarker && existingState) {
             // Update the state to historical
@@ -614,24 +664,28 @@ let MapAPRSMap = {
         popup: data.popup || self.buildPopupContent(data),
         openPopup: shouldOpenPopup,
       });
+      } catch (error) {
+        console.error("Error in new_packet handler:", error);
+      }
     });
 
     // Handle highlighting the latest packet (open its popup)
     self.currentPopupMarkerId = null;
     self.handleEvent("highlight_packet", (data: { id: string }) => {
-      if (!data.id) return;
+      if (!data.id || !self.markers || !self.markerStates) return;
+      
       // Close previous popup if open
-      if (self.currentPopupMarkerId && self.markers!.has(self.currentPopupMarkerId)) {
-        const prevMarker = self.markers!.get(self.currentPopupMarkerId);
+      if (self.currentPopupMarkerId && self.markers.has(self.currentPopupMarkerId)) {
+        const prevMarker = self.markers.get(self.currentPopupMarkerId);
         if (prevMarker && prevMarker.closePopup) prevMarker.closePopup();
       }
       // Try to open popup directly first if marker exists
-      const marker = self.markers!.get(data.id);
+      const marker = self.markers.get(data.id);
       if (marker && marker.openPopup) {
         marker.openPopup();
       } else {
         // Fallback: re-add marker with openPopup flag if it doesn't exist
-        const markerData = self.markerStates!.get(data.id);
+        const markerData = self.markerStates.get(data.id);
         if (markerData) {
           self.addMarker({ ...markerData, id: data.id, openPopup: true });
         }
@@ -795,6 +849,91 @@ let MapAPRSMap = {
         self.trailLayer.bringToFront();
       }
     });
+
+    // Handle heat map data for low zoom levels
+    self.handleEvent("show_heat_map", (data: { heat_points: Array<{lat: number, lng: number, intensity: number}> }) => {
+      try {
+        console.log("Received heat map data with", data.heat_points?.length || 0, "points");
+        
+        if (!self.map || self.isDestroyed) {
+          console.warn("Map not ready or destroyed, skipping heat map update");
+          return;
+        }
+        
+        if (!L.heatLayer) {
+          console.error("Leaflet.heat plugin not loaded!");
+          return;
+        }
+        
+        if (!self.heatLayer) {
+          console.log("Creating heat layer for the first time");
+          try {
+            self.heatLayer = L.heatLayer([], {
+              radius: 25,
+              blur: 15,
+              maxZoom: 8,
+              gradient: {
+                0.4: 'blue',
+                0.65: 'lime',
+                0.85: 'yellow',
+                1.0: 'red'
+              }
+            });
+          } catch (error) {
+            console.error("Failed to create heat layer:", error);
+            return;
+          }
+        }
+        
+        // Convert heat points to format expected by Leaflet.heat
+        const heatData = data.heat_points.map(point => [
+          point.lat,
+          point.lng,
+          Math.min(point.intensity / 50.0, 1.0) // Normalize intensity to 0-1 range, cap at 1
+        ] as [number, number, number]);
+        
+        console.log("Setting heat layer data:", heatData.length, "points");
+        
+        // Update heat layer data
+        self.heatLayer.setLatLngs(heatData);
+        
+        // Show heat layer and hide marker layer
+        if (!self.map.hasLayer(self.heatLayer)) {
+          console.log("Adding heat layer to map");
+          self.map.addLayer(self.heatLayer);
+        }
+        if (self.markerLayer && self.map.hasLayer(self.markerLayer)) {
+          console.log("Removing marker layer from map");
+          self.map.removeLayer(self.markerLayer);
+        }
+      } catch (error) {
+        console.error("Error in show_heat_map handler:", error);
+      }
+    });
+
+    // Handle switching back to markers
+    self.handleEvent("show_markers", () => {
+      try {
+        console.log("Switching from heat map to markers");
+        
+        if (!self.map || self.isDestroyed) {
+          console.warn("Map not ready or destroyed, skipping marker display");
+          return;
+        }
+        
+        // Hide heat layer and show marker layer
+        if (self.heatLayer && self.map.hasLayer(self.heatLayer)) {
+          console.log("Removing heat layer");
+          self.map.removeLayer(self.heatLayer);
+        }
+        if (self.markerLayer && !self.map.hasLayer(self.markerLayer)) {
+          console.log("Adding marker layer");
+          self.map.addLayer(self.markerLayer);
+        }
+      } catch (error) {
+        console.error("Error in show_markers handler:", error);
+      }
+    });
   },
 
   sendBoundsToServer() {
@@ -840,6 +979,12 @@ let MapAPRSMap = {
       return;
     }
 
+    // Ensure maps are initialized
+    if (!self.markers || !self.markerStates || !self.markerLayer) {
+      console.warn("Map data structures not initialized, skipping marker add");
+      return;
+    }
+
     const lat = parseFloat(data.lat.toString());
     const lng = parseFloat(data.lng.toString());
 
@@ -850,8 +995,8 @@ let MapAPRSMap = {
     }
 
     // Check if marker already exists with same position and data
-    const existingMarker = self.markers!.get(data.id);
-    const existingState = self.markerStates!.get(data.id);
+    const existingMarker = self.markers.get(data.id);
+    const existingState = self.markerStates.get(data.id);
 
     if (existingMarker && existingState) {
       // Check if marker needs updating
@@ -897,7 +1042,15 @@ let MapAPRSMap = {
       
       // Handle popup close events - check if hook is still connected
       marker.on("popupclose", () => {
-        safePushEvent(self.pushEvent, "popup_closed", {});
+        // Only send event if not destroyed and pushEvent is still the original function
+        if (!self.isDestroyed && self.pushEvent && typeof self.pushEvent === 'function') {
+          try {
+            self.pushEvent("popup_closed", {});
+          } catch (e) {
+            // Silently ignore errors if context is lost
+            console.debug("Unable to send popup_closed event:", e);
+          }
+        }
       });
     }
 
@@ -918,8 +1071,8 @@ let MapAPRSMap = {
     }
 
     // Add to map and store reference
-    marker.addTo(self.markerLayer!);
-    self.markers!.set(data.id, marker);
+    marker.addTo(self.markerLayer);
+    self.markers.set(data.id, marker);
 
     // Make sure historical markers and trails stay visible
     if (data.historical || data.is_most_recent_for_callsign) {
@@ -929,7 +1082,7 @@ let MapAPRSMap = {
     }
 
     // Store marker state for optimization
-    self.markerStates!.set(data.id, {
+    self.markerStates.set(data.id, {
       lat: lat,
       lng: lng,
       symbol_table: data.symbol_table_id || "/",
@@ -1330,6 +1483,18 @@ let MapAPRSMap = {
           console.debug(`Error cleaning up marker:`, e);
         }
       });
+    }
+    
+    // Clean up heat layer
+    if (self.heatLayer !== undefined && self.map !== undefined) {
+      try {
+        if (self.map.hasLayer(self.heatLayer)) {
+          self.map.removeLayer(self.heatLayer);
+        }
+        self.heatLayer = undefined;
+      } catch (e) {
+        console.debug("Error removing heat layer:", e);
+      }
     }
     
     if (self.markerLayer !== undefined) {

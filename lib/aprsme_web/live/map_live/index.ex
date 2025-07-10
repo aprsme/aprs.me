@@ -8,6 +8,7 @@ defmodule AprsmeWeb.MapLive.Index do
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_navigate: 2, push_patch: 2]
 
+  alias Aprsme.Packets.Clustering
   alias AprsmeWeb.Endpoint
   alias AprsmeWeb.MapLive.MapHelpers
   alias AprsmeWeb.MapLive.PacketUtils
@@ -254,11 +255,20 @@ defmodule AprsmeWeb.MapLive.Index do
 
     socket = assign(socket, visible_packets: filtered_packets)
 
+    # Check zoom level to decide between heat map and markers
     socket =
-      if Enum.any?(visible_packets_list) do
-        push_event(socket, "add_markers", %{markers: visible_packets_list})
+      if socket.assigns.map_zoom <= 8 do
+        # Use heat map for low zoom levels
+        send_heat_map_data(socket, filtered_packets)
       else
-        socket
+        # Use regular markers for high zoom levels
+        if Enum.any?(visible_packets_list) do
+          socket
+          |> push_event("show_markers", %{})
+          |> push_event("add_markers", %{markers: visible_packets_list})
+        else
+          socket
+        end
       end
 
     {:noreply, socket}
@@ -401,8 +411,27 @@ defmodule AprsmeWeb.MapLive.Index do
 
     map_center = %{lat: lat, lng: lng}
 
+    # Check if we're crossing the heat map/marker threshold
+    old_zoom = socket.assigns.map_zoom
+    crossing_threshold = (old_zoom <= 8 and zoom > 8) or (old_zoom > 8 and zoom <= 8)
+
     # Update socket state
     socket = assign(socket, map_center: map_center, map_zoom: zoom)
+
+    # If crossing threshold, trigger appropriate display mode
+    socket =
+      if crossing_threshold do
+        if zoom <= 8 do
+          # Switching to heat map
+          socket = push_event(socket, "clear_all_markers", %{})
+          send_heat_map_for_current_bounds(socket)
+        else
+          # Switching to markers
+          trigger_marker_display(socket)
+        end
+      else
+        socket
+      end
 
     # Update URL without page reload
     new_path = "/?lat=#{lat}&lng=#{lng}&z=#{zoom}"
@@ -637,25 +666,32 @@ defmodule AprsmeWeb.MapLive.Index do
         else: System.unique_integer([:positive])
 
     new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
+    socket = assign(socket, visible_packets: new_visible_packets)
 
-    # Live packets are always the most recent for their callsign
-    locale = Map.get(socket.assigns, :locale, "en")
-    marker_data = PacketUtils.build_packet_data(packet, true, locale)
-
+    # Check zoom level to decide how to display the packet
     socket =
-      if marker_data do
-        # Only show new packet popup if no station popup is currently open
-        if socket.assigns.station_popup_open do
-          # Send without opening popup to avoid interrupting user
-          push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
-        else
-          push_event(socket, "new_packet", marker_data)
-        end
+      if socket.assigns.map_zoom <= 8 do
+        # We're in heat map mode - update the heat map with all current data
+        send_heat_map_for_current_bounds(socket)
       else
-        socket
+        # We're in marker mode - send individual marker
+        locale = Map.get(socket.assigns, :locale, "en")
+        marker_data = PacketUtils.build_packet_data(packet, true, locale)
+
+        if marker_data do
+          # Only show new packet popup if no station popup is currently open
+          if socket.assigns.station_popup_open do
+            # Send without opening popup to avoid interrupting user
+            push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
+          else
+            push_event(socket, "new_packet", marker_data)
+          end
+        else
+          socket
+        end
       end
 
-    {:noreply, assign(socket, visible_packets: new_visible_packets)}
+    {:noreply, socket}
   end
 
   defp handle_info_start_geolocation(socket) do
@@ -1608,15 +1644,36 @@ defmodule AprsmeWeb.MapLive.Index do
           end
 
         if Enum.any?(packet_data_list) do
-          # Use LiveView's efficient push_event for incremental updates
+          # Check zoom level to decide between heat map and markers
           total_batches = socket.assigns.total_batches || 4
+          is_final_batch = batch_offset >= total_batches - 1
 
           socket =
-            push_event(socket, "add_historical_packets_batch", %{
-              packets: packet_data_list,
-              batch: batch_offset,
-              is_final: batch_offset >= total_batches - 1
-            })
+            if socket.assigns.map_zoom <= 8 do
+              # For heat maps, store historical packets and update heat map when all batches are loaded
+              # Add packets to historical_packets assign
+              new_historical =
+                Enum.reduce(historical_packets, socket.assigns.historical_packets, fn packet, acc ->
+                  key = if Map.has_key?(packet, :id), do: to_string(packet.id), else: to_string(packet["id"])
+                  Map.put(acc, key, packet)
+                end)
+
+              socket = assign(socket, historical_packets: new_historical)
+
+              # If this is the final batch, update the heat map
+              if is_final_batch do
+                send_heat_map_for_current_bounds(socket)
+              else
+                socket
+              end
+            else
+              # Use LiveView's efficient push_event for incremental updates
+              push_event(socket, "add_historical_packets_batch", %{
+                packets: packet_data_list,
+                batch: batch_offset,
+                is_final: is_final_batch
+              })
+            end
 
           # Update progress for user feedback
           socket = assign(socket, loading_batch: batch_offset + 1)
@@ -1776,6 +1833,70 @@ defmodule AprsmeWeb.MapLive.Index do
     timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, 100)
     socket = assign(socket, bounds_update_timer: timer_ref, pending_bounds: map_bounds)
     {:noreply, socket}
+  end
+
+  defp send_heat_map_data(socket, filtered_packets) do
+    # Convert map of packets to list
+    packet_list = Map.values(filtered_packets)
+
+    # Get clustering data
+    case Clustering.cluster_packets(packet_list, socket.assigns.map_zoom) do
+      {:heat_map, heat_points} ->
+        push_event(socket, "show_heat_map", %{heat_points: heat_points})
+
+      {:raw_packets, _packets} ->
+        # Shouldn't happen at zoom <= 8, but handle it anyway
+        socket
+    end
+  end
+
+  defp send_heat_map_for_current_bounds(socket) do
+    # Get all packets within current bounds
+    all_packets =
+      Map.values(socket.assigns.visible_packets) ++
+        Map.values(socket.assigns.historical_packets)
+
+    # Filter by bounds
+    filtered_packets =
+      all_packets
+      |> Enum.filter(&within_bounds?(&1, socket.assigns.map_bounds))
+      |> Enum.uniq_by(fn packet ->
+        Map.get(packet, :id) || Map.get(packet, "id")
+      end)
+
+    # Get clustering data
+    case Clustering.cluster_packets(filtered_packets, socket.assigns.map_zoom) do
+      {:heat_map, heat_points} ->
+        push_event(socket, "show_heat_map", %{heat_points: heat_points})
+
+      {:raw_packets, _packets} ->
+        socket
+    end
+  end
+
+  defp trigger_marker_display(socket) do
+    # Clear heat map and show markers
+    socket = push_event(socket, "show_markers", %{})
+
+    # Re-send all visible packets as markers
+    locale = Map.get(socket.assigns, :locale, "en")
+
+    visible_packets_list =
+      socket.assigns.visible_packets
+      |> Enum.map(fn {_callsign, packet} ->
+        PacketUtils.build_packet_data(packet, true, locale)
+      end)
+      |> Enum.filter(& &1)
+
+    socket =
+      if Enum.any?(visible_packets_list) do
+        push_event(socket, "add_markers", %{markers: visible_packets_list})
+      else
+        socket
+      end
+
+    # Trigger historical packet reload for markers
+    start_progressive_historical_loading(socket)
   end
 
   @spec process_bounds_update(map(), Socket.t()) :: Socket.t()

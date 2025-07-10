@@ -10,6 +10,7 @@ export interface LiveViewHookContext {
   markers?: Map<string, Marker>;
   markerStates?: Map<string, MarkerState>;
   markerLayer?: LayerGroup;
+  heatLayer?: any; // L.heatLayer type
   trailManager?: any; // Import from trail_manager.ts when typed
   boundsTimer?: ReturnType<typeof setTimeout>;
   resizeHandler?: () => void;
@@ -73,6 +74,12 @@ export interface MarkerState {
   callsign?: string;
 }
 
+export interface HeatMapPoint {
+  lat: number;
+  lng: number;
+  intensity: number;
+}
+
 export interface MapEventData {
   bounds?: BoundsData;
   center?: CenterData;
@@ -82,6 +89,7 @@ export interface MapEventData {
   lat?: number;
   lng?: number;
   markers?: MarkerData[];
+  heat_points?: HeatMapPoint[];
 }
 
 export interface MapState {
