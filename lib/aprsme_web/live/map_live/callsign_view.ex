@@ -4,10 +4,13 @@ defmodule AprsmeWeb.MapLive.CallsignView do
 
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3]
 
+  alias Aprsme.Callsign
+  alias Aprsme.EncodingUtils
   alias Aprsme.Packets
   alias AprsmeWeb.Endpoint
   alias AprsmeWeb.MapLive.MapHelpers
   alias AprsmeWeb.MapLive.PacketUtils
+  alias AprsmeWeb.TimeUtils
 
   @default_center %{lat: 39.0, lng: -98.0}
   @default_zoom 4
@@ -16,10 +19,10 @@ defmodule AprsmeWeb.MapLive.CallsignView do
   @impl true
   def mount(%{"callsign" => callsign}, _session, socket) do
     # Normalize callsign to uppercase
-    normalized_callsign = String.upcase(callsign)
+    normalized_callsign = Callsign.normalize(callsign)
 
     # Calculate one hour ago for packet age filtering
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+    one_hour_ago = TimeUtils.one_hour_ago()
 
     socket =
       assign(socket,
@@ -142,7 +145,7 @@ defmodule AprsmeWeb.MapLive.CallsignView do
   end
 
   def handle_event("adjust_replay_speed", %{"speed" => speed}, socket) do
-    speed_float = to_float(speed)
+    speed_float = EncodingUtils.to_float(speed) || 1.0
     {:noreply, assign(socket, replay_speed: speed_float)}
   end
 
@@ -207,12 +210,7 @@ defmodule AprsmeWeb.MapLive.CallsignView do
 
   defp handle_bounds_update(bounds, socket) do
     # Convert string keys to atom keys and parse values
-    normalized_bounds = %{
-      north: to_float(bounds["north"]),
-      south: to_float(bounds["south"]),
-      east: to_float(bounds["east"]),
-      west: to_float(bounds["west"])
-    }
+    normalized_bounds = MapHelpers.normalize_bounds(bounds)
 
     # Clean up old packets first
     socket = cleanup_old_packets(socket)
@@ -250,17 +248,6 @@ defmodule AprsmeWeb.MapLive.CallsignView do
       end
 
     {:noreply, socket}
-  end
-
-  # Helper function to convert string or float to float
-  defp to_float(value) when is_float(value), do: value
-  defp to_float(value) when is_integer(value), do: value * 1.0
-
-  defp to_float(value) when is_binary(value) do
-    case Float.parse(value) do
-      {float_val, _} -> float_val
-      :error -> raise ArgumentError, "Invalid float string: #{value}"
-    end
   end
 
   @impl true
@@ -732,7 +719,7 @@ defmodule AprsmeWeb.MapLive.CallsignView do
   defp start_historical_replay(socket) do
     # Fetch historical packets for the specific callsign from the last hour
     now = DateTime.utc_now()
-    one_hour_ago = DateTime.add(now, -3600, :second)
+    one_hour_ago = TimeUtils.one_hour_ago()
 
     packets =
       fetch_historical_packets_for_callsign(

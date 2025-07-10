@@ -106,16 +106,35 @@ defmodule AprsmeWeb.MapLive.MapHelpers do
   defp extract_lat_lon_string(packet), do: {packet["lat"], packet["lon"]}
   defp extract_lat_lon_atom_alt(packet), do: {packet.latitude, packet.longitude}
 
-  defp to_float(n) when is_float(n), do: n
-  defp to_float(n) when is_integer(n), do: n * 1.0
-  defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
-
-  defp to_float(n) when is_binary(n) do
-    case Float.parse(n) do
-      {f, _} -> f
-      :error -> 0.0
-    end
+  defp to_float(value) do
+    Aprsme.EncodingUtils.to_float(value) || 0.0
   end
 
-  defp to_float(_), do: 0.0
+  @doc """
+  Normalizes map bounds from string keys to atom keys and converts values to floats.
+
+  ## Examples
+
+      iex> normalize_bounds(%{"north" => "40.5", "south" => "40.0", "east" => "-73.5", "west" => "-74.0"})
+      %{north: 40.5, south: 40.0, east: -73.5, west: -74.0}
+      
+      iex> normalize_bounds(%{"north" => 40.5, "south" => 40.0, "east" => -73.5, "west" => -74.0})
+      %{north: 40.5, south: 40.0, east: -73.5, west: -74.0}
+  """
+  @spec normalize_bounds(map()) :: map()
+  def normalize_bounds(%{"north" => n, "south" => s, "east" => e, "west" => w}) do
+    %{
+      north: to_float(n),
+      south: to_float(s),
+      east: to_float(e),
+      west: to_float(w)
+    }
+  end
+
+  def normalize_bounds(%{north: _, south: _, east: _, west: _} = bounds) do
+    # Already normalized with atom keys
+    bounds
+  end
+
+  def normalize_bounds(_), do: nil
 end

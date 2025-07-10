@@ -26,18 +26,56 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec sanitize_string(binary() | nil | any()) :: binary() | nil | any()
   def sanitize_string(binary) when is_binary(binary) do
+    # First, handle the encoding conversion
     cleaned =
       if String.valid?(binary) do
         binary
       else
-        :unicode.characters_to_binary(binary, :latin1, :utf8)
+        case :unicode.characters_to_binary(binary, :latin1, :utf8) do
+          {:error, _, _} ->
+            # If conversion fails, try to extract valid parts
+            binary
+            |> :binary.bin_to_list()
+            |> Enum.filter(fn byte -> byte >= 32 and byte <= 126 end)
+            |> :binary.list_to_bin()
+
+          {:incomplete, partial, _} ->
+            partial
+
+          result when is_binary(result) ->
+            result
+        end
       end
 
+    # Remove control characters including null bytes
+    # We filter at the codepoint level to handle all Unicode control characters
     cleaned
-    |> String.replace(<<0>>, "")
-    |> String.replace(~r/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/, "")
-    |> String.graphemes()
-    |> Enum.filter(&String.valid?/1)
+    |> String.codepoints()
+    |> Enum.filter(fn cp ->
+      case :unicode.characters_to_list(cp) do
+        [codepoint] ->
+          # Allow printable characters and common whitespace
+          # Remove C0 controls (0x00-0x1F except tab, newline, carriage return)
+          # Remove C1 controls (0x80-0x9F) 
+          # Remove DEL (0x7F)
+          cond do
+            # Tab
+            codepoint == 0x09 -> true
+            # Newline
+            codepoint == 0x0A -> true
+            # Carriage return
+            codepoint == 0x0D -> true
+            codepoint >= 0x00 and codepoint <= 0x1F -> false
+            codepoint == 0x7F -> false
+            codepoint >= 0x80 and codepoint <= 0x9F -> false
+            true -> true
+          end
+
+        _ ->
+          # Multi-codepoint grapheme, keep it
+          true
+      end
+    end)
     |> Enum.join()
     |> String.trim()
   end
@@ -119,7 +157,7 @@ defmodule Aprsme.EncodingUtils do
       iex> Aprsme.EncodingUtils.sanitize_packet_strings(["abc", <<255>>])
       ["abc", "ÿ"]
       iex> Aprsme.EncodingUtils.sanitize_packet_strings(%{"foo" => <<0, 65, 66, 67>>})
-      %{"foo" => "\0ABC"}
+      %{"foo" => "ABC"}
       iex> Aprsme.EncodingUtils.sanitize_packet_strings(nil)
       nil
   """
@@ -128,6 +166,12 @@ defmodule Aprsme.EncodingUtils do
   def sanitize_packet_strings(%NaiveDateTime{} = ndt), do: ndt
   def sanitize_packet_strings(%_struct{} = struct), do: struct |> Map.from_struct() |> sanitize_packet_strings()
   def sanitize_packet_strings(list) when is_list(list), do: Enum.map(list, &sanitize_packet_strings/1)
+
+  def sanitize_packet_strings(map) when is_map(map) do
+    Enum.reduce(map, %{}, fn {key, value}, acc ->
+      Map.put(acc, key, sanitize_packet_strings(value))
+    end)
+  end
 
   def sanitize_packet_strings(binary) when is_binary(binary) do
     s = sanitize_string(binary)
@@ -206,9 +250,9 @@ defmodule Aprsme.EncodingUtils do
   ## Examples
 
       iex> result = Aprsme.EncodingUtils.sanitize_packet(%{"information_field" => <<0, 65, 66, 67>>, "data_extended" => %{"comment" => <<0, 68, 69, 70>>}})
-      iex> result["information_field"] == "\0ABC"
+      iex> result["information_field"] == "ABC"
       true
-      iex> result["data_extended"]["comment"] == "\0DEF"
+      iex> result["data_extended"]["comment"] == "DEF"
       true
   """
   @spec sanitize_packet(struct() | map()) :: struct() | map()
@@ -221,9 +265,56 @@ defmodule Aprsme.EncodingUtils do
   end
 
   def sanitize_packet(packet) when is_map(packet) do
-    packet
-    |> Map.update(:information_field, nil, &sanitize_string/1)
-    |> Map.update(:data_extended, nil, &sanitize_data_extended/1)
+    # Handle all known string fields, checking for both atom and string keys
+    string_fields = [
+      :information_field,
+      :comment,
+      :path,
+      :raw_packet,
+      :destination,
+      :sender,
+      :base_callsign,
+      :ssid,
+      :manufacturer,
+      :equipment_type,
+      :message_text,
+      :addressee,
+      :symbol_code,
+      :symbol_table_id,
+      :dao,
+      :timestamp,
+      :device_identifier
+    ]
+
+    # Sanitize all string fields
+    sanitized =
+      Enum.reduce(string_fields, packet, fn field, acc ->
+        atom_key = field
+        string_key = to_string(field)
+
+        cond do
+          Map.has_key?(acc, atom_key) ->
+            Map.update(acc, atom_key, nil, &sanitize_string/1)
+
+          Map.has_key?(acc, string_key) ->
+            Map.update(acc, string_key, nil, &sanitize_string/1)
+
+          true ->
+            acc
+        end
+      end)
+
+    # Handle data_extended separately
+    cond do
+      Map.has_key?(sanitized, :data_extended) ->
+        Map.update(sanitized, :data_extended, nil, &sanitize_data_extended/1)
+
+      Map.has_key?(sanitized, "data_extended") ->
+        Map.update(sanitized, "data_extended", nil, &sanitize_data_extended/1)
+
+      true ->
+        sanitized
+    end
   end
 
   @doc """
@@ -247,7 +338,7 @@ defmodule Aprsme.EncodingUtils do
     %{mic_e | message: sanitize_string(message)}
   end
 
-  def sanitize_data_extended(data_extended) when is_map(data_extended) do
+  def sanitize_data_extended(data_extended) when is_map(data_extended) and not is_struct(data_extended) do
     # Handle generic maps by sanitizing all string values
     Enum.reduce(data_extended, %{}, fn {key, value}, acc ->
       sanitized_value = sanitize_map_value(value)

@@ -3,16 +3,19 @@ defmodule AprsmeWeb.InfoLive.Show do
   use AprsmeWeb, :live_view
   use Gettext, backend: AprsmeWeb.Gettext
 
+  alias Aprsme.Callsign
+  alias Aprsme.EncodingUtils
   alias Aprsme.Packets
   alias AprsmeWeb.AprsSymbol
+  alias AprsmeWeb.Live.SharedPacketHandler
   alias AprsmeWeb.MapLive.PacketUtils
+  alias AprsmeWeb.TimeUtils
 
-  @neighbor_radius_km 10
   @neighbor_limit 10
 
   @impl true
   def mount(%{"callsign" => callsign}, _session, socket) do
-    normalized_callsign = String.upcase(String.trim(callsign))
+    normalized_callsign = Callsign.normalize(callsign)
 
     # Subscribe to Postgres notifications for live updates
     if connected?(socket) do
@@ -20,7 +23,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     end
 
     packet = get_latest_packet(normalized_callsign)
-    packet = enrich_packet_with_device_info(packet)
+    packet = if packet, do: SharedPacketHandler.enrich_with_device_info(packet)
     # Get locale from socket assigns (set by LocaleHook)
     locale = Map.get(socket.assigns, :locale, "en")
     neighbors = get_neighbors(packet, normalized_callsign, locale)
@@ -41,61 +44,40 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   @impl true
   def handle_info({:postgres_packet, packet}, socket) do
-    # Only update if the packet is for our callsign
-    if packet_matches_callsign?(packet, socket.assigns.callsign) do
-      # Refresh data when new packet arrives
-      packet = get_latest_packet(socket.assigns.callsign)
-      packet = enrich_packet_with_device_info(packet)
-      # Get locale from socket assigns
-      locale = Map.get(socket.assigns, :locale, "en")
-      neighbors = get_neighbors(packet, socket.assigns.callsign, locale)
-      has_weather_packets = PacketUtils.has_weather_packets?(socket.assigns.callsign)
-      other_ssids = get_other_ssids(socket.assigns.callsign)
-
-      socket =
-        socket
-        |> assign(:packet, packet)
-        |> assign(:neighbors, neighbors)
-        |> assign(:has_weather_packets, has_weather_packets)
-        |> assign(:other_ssids, other_ssids)
-
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
+    SharedPacketHandler.handle_packet_update(packet, socket,
+      filter_fn: SharedPacketHandler.callsign_filter(socket.assigns.callsign),
+      process_fn: &process_packet_update/2,
+      enrich_packet: false
+    )
   end
 
   def handle_info(_message, socket), do: {:noreply, socket}
 
-  defp packet_matches_callsign?(packet, callsign) do
-    packet_sender = Map.get(packet, "sender") || Map.get(packet, :sender, "")
-    String.upcase(packet_sender) == String.upcase(callsign)
+  defp process_packet_update(_packet, socket) do
+    # Refresh data when new packet arrives
+    packet = get_latest_packet(socket.assigns.callsign)
+    packet = if packet, do: SharedPacketHandler.enrich_with_device_info(packet)
+    # Get locale from socket assigns
+    locale = Map.get(socket.assigns, :locale, "en")
+    neighbors = get_neighbors(packet, socket.assigns.callsign, locale)
+    has_weather_packets = PacketUtils.has_weather_packets?(socket.assigns.callsign)
+    other_ssids = get_other_ssids(socket.assigns.callsign)
+
+    socket =
+      socket
+      |> assign(:packet, packet)
+      |> assign(:neighbors, neighbors)
+      |> assign(:has_weather_packets, has_weather_packets)
+      |> assign(:other_ssids, other_ssids)
+
+    {:noreply, socket}
   end
 
   defp get_latest_packet(callsign) do
     # Get the most recent packet for this callsign, regardless of type
     # This ensures we show the most recent activity, not just position packets
-    Packets.get_latest_packet_for_callsign(callsign)
-  end
-
-  defp enrich_packet_with_device_info(nil), do: nil
-
-  defp enrich_packet_with_device_info(packet) do
-    device_identifier = Map.get(packet, :device_identifier) || Map.get(packet, "device_identifier")
-
-    device =
-      if is_binary(device_identifier), do: Aprsme.DeviceIdentification.lookup_device_by_identifier(device_identifier)
-
-    model = if device, do: device.model
-    vendor = if device, do: device.vendor
-    contact = if device, do: device.contact
-    class = if device, do: device.class
-
-    packet
-    |> Map.put(:device_model, model)
-    |> Map.put(:device_vendor, vendor)
-    |> Map.put(:device_contact, contact)
-    |> Map.put(:device_class, class)
+    # Use cached version for better performance
+    Aprsme.CachedQueries.get_latest_packet_for_callsign_cached(callsign)
   end
 
   defp get_neighbors(nil, _callsign, _locale), do: []
@@ -107,50 +89,36 @@ defmodule AprsmeWeb.InfoLive.Show do
     if is_nil(lat) or is_nil(lon) do
       []
     else
-      # Simple bounding box for ~10km radius
-      delta = @neighbor_radius_km / 111.0
-      min_lat = lat - delta
-      max_lat = lat + delta
-      min_lon = lon - delta
-      max_lon = lon + delta
-      opts = %{bounds: [min_lon, min_lat, max_lon, max_lat], limit: 50}
+      # Convert Decimal to float if needed
+      lat_float = to_float(lat)
+      lon_float = to_float(lon)
 
-      opts
-      |> Packets.get_recent_packets()
-      |> Enum.filter(fn p ->
-        (p.sender != callsign and p.lat) && p.lon
-      end)
-      |> uniq_by(& &1.sender)
-      |> Enum.map(fn p ->
+      # Use the spatial query to get the closest stations
+      # The query already returns them sorted by distance
+      nearby_packets =
+        Packets.get_nearby_stations(
+          lat_float,
+          lon_float,
+          callsign,
+          %{limit: @neighbor_limit}
+        )
+
+      # Calculate distance and course for each neighbor
+      # The packets are already sorted by distance from the database
+      Enum.map(nearby_packets, fn p ->
         dist = haversine(lat, lon, p.lat, p.lon)
         course = calculate_course(lat, lon, p.lat, p.lon)
 
         %{
           callsign: p.sender,
           distance: format_distance(dist, locale),
+          distance_km: dist,
           course: course,
           last_heard: format_timestamp_for_display(p),
           packet: p
         }
       end)
-      |> Enum.sort_by(& &1.distance)
-      |> Enum.take(@neighbor_limit)
     end
-  end
-
-  defp uniq_by(list, fun) do
-    list
-    |> Enum.reduce({MapSet.new(), []}, fn item, {set, acc} ->
-      key = fun.(item)
-
-      if MapSet.member?(set, key) do
-        {set, acc}
-      else
-        {MapSet.put(set, key), [item | acc]}
-      end
-    end)
-    |> elem(1)
-    |> Enum.reverse()
   end
 
   def haversine(lat1, lon1, lat2, lon2) do
@@ -174,18 +142,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     r * c
   end
 
-  defp to_float(%Decimal{} = decimal), do: Decimal.to_float(decimal)
-  defp to_float(value) when is_float(value), do: value
-  defp to_float(value) when is_integer(value), do: value * 1.0
-
-  defp to_float(value) when is_binary(value) do
-    case Float.parse(value) do
-      {f, _} -> f
-      :error -> 0.0
-    end
-  end
-
-  defp to_float(_), do: 0.0
+  defp to_float(value), do: EncodingUtils.to_float(value) || 0.0
 
   defp format_timestamp_for_display(packet) do
     received_at = get_received_at(packet)
@@ -265,46 +222,57 @@ defmodule AprsmeWeb.InfoLive.Show do
   end
 
   defp get_other_ssids(callsign) do
-    import Ecto.Query
-
     alias Aprsme.Packet
     alias Aprsme.Repo
     # Extract base callsign from the full callsign (remove SSID if present)
     base_callsign = extract_base_callsign(callsign)
 
-    # Query directly for packets with the same base_callsign
-
     # Get recent packets for the base callsign to find other SSIDs
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+    one_hour_ago = TimeUtils.one_hour_ago()
 
-    query =
-      from p in Packet,
-        where: p.base_callsign == ^base_callsign,
-        where: p.received_at >= ^one_hour_ago,
-        order_by: [desc: p.received_at],
-        limit: 100
+    # Use a window function to get the most recent packet per sender
+    # This is much more efficient than fetching 100 packets and filtering in Elixir
+    query = """
+    WITH recent_ssids AS (
+      SELECT DISTINCT ON (sender) 
+        sender, ssid, received_at, id
+      FROM packets
+      WHERE base_callsign = $1
+        AND received_at >= $2
+        AND sender != $3
+      ORDER BY sender, received_at DESC
+    )
+    SELECT * FROM recent_ssids
+    ORDER BY received_at DESC
+    LIMIT 10
+    """
 
-    query
-    |> Repo.all()
-    |> Enum.map(fn p ->
-      %{
-        callsign: p.sender,
-        ssid: p.ssid,
-        last_heard: format_timestamp_for_display(p),
-        packet: p
-      }
-    end)
-    |> uniq_by(& &1.callsign)
-    |> Enum.filter(fn ssid_info -> ssid_info.callsign != callsign end)
-    |> Enum.sort_by(& &1.last_heard, :desc)
-    |> Enum.take(10)
+    case Repo.query(query, [base_callsign, one_hour_ago, callsign]) do
+      {:ok, result} ->
+        Enum.map(result.rows, fn [sender, ssid, received_at, id] ->
+          # Create a minimal packet struct for display
+          packet = %Packet{
+            id: id,
+            sender: sender,
+            ssid: ssid,
+            received_at: received_at
+          }
+
+          %{
+            callsign: sender,
+            ssid: ssid,
+            last_heard: format_timestamp_for_display(packet),
+            packet: packet
+          }
+        end)
+
+      {:error, _} ->
+        []
+    end
   end
 
   defp extract_base_callsign(callsign) do
-    case String.split(callsign, "-") do
-      [base, _ssid] -> base
-      [base] -> base
-    end
+    Callsign.extract_base(callsign)
   end
 
   @doc """

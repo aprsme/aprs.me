@@ -4,18 +4,20 @@ defmodule AprsmeWeb.PacketsLive.CallsignView do
 
   import Ecto.Query
 
+  alias Aprsme.Callsign
   alias Aprsme.DeviceParser
   alias Aprsme.EncodingUtils
   alias Aprsme.Packet
   alias Aprsme.Repo
   alias AprsmeWeb.Endpoint
+  alias AprsmeWeb.Live.SharedPacketHandler
 
   @impl true
   def mount(%{"callsign" => callsign}, _session, socket) do
     # Validate and normalize callsign
-    normalized_callsign = String.upcase(String.trim(callsign))
+    normalized_callsign = Callsign.normalize(callsign)
 
-    if valid_callsign?(normalized_callsign) do
+    if Callsign.valid?(normalized_callsign) do
       # Subscribe to live packet updates if connected
       if connected?(socket) do
         Endpoint.subscribe("aprs_messages")
@@ -55,20 +57,17 @@ defmodule AprsmeWeb.PacketsLive.CallsignView do
 
   @impl true
   def handle_info(%{event: "packet", payload: payload}, socket) do
-    # Handle incoming live packets - only process if they match our callsign
-    if packet_matches_callsign?(payload, socket.assigns.callsign) do
-      process_matching_packet(payload, socket)
-    else
-      {:noreply, socket}
-    end
+    SharedPacketHandler.handle_packet_update(payload, socket,
+      filter_fn: SharedPacketHandler.callsign_filter(socket.assigns.callsign),
+      process_fn: &process_matching_packet/2
+    )
   end
 
   def handle_info(_message, socket), do: {:noreply, socket}
 
-  defp process_matching_packet(payload, socket) do
-    sanitized_payload = EncodingUtils.sanitize_packet(payload)
-    enriched_payload = enrich_packet_with_device_identifier(sanitized_payload)
-    enriched_payload = enrich_packet_with_device_info(enriched_payload)
+  defp process_matching_packet(enriched_payload, socket) do
+    # Device identifier enrichment specific to this module
+    enriched_payload = enrich_packet_with_device_identifier(enriched_payload)
 
     current_live = socket.assigns.live_packets
     current_stored = socket.assigns.packets
@@ -123,25 +122,13 @@ defmodule AprsmeWeb.PacketsLive.CallsignView do
     filtered_query
     |> Repo.all()
     |> Enum.map(&EncodingUtils.sanitize_packet/1)
-    |> Enum.map(&enrich_packet_with_device_info/1)
+    |> Enum.map(&SharedPacketHandler.enrich_with_device_info/1)
   rescue
     error ->
       require Logger
 
       Logger.error("Failed to fetch stored packets for callsign #{callsign}: #{inspect(error)}")
       []
-  end
-
-  defp packet_matches_callsign?(packet, target_callsign) do
-    # Check exact match for sender field only
-    sender = packet.sender || ""
-
-    # Convert to uppercase for case-insensitive comparison
-    sender_upper = String.upcase(sender)
-    target_upper = String.upcase(target_callsign)
-
-    # Exact match only
-    sender_upper == target_upper
   end
 
   # Helper to get all packets (stored + live) in chronological order
@@ -188,17 +175,6 @@ defmodule AprsmeWeb.PacketsLive.CallsignView do
     end
   end
 
-  # Validates if the callsign format is reasonable
-  defp valid_callsign?(callsign) do
-    # Basic validation for amateur radio callsign format
-    # Should be 3-8 characters, can contain letters, numbers, and one hyphen for SSID
-    case String.trim(callsign) do
-      "" -> false
-      cs when byte_size(cs) < 3 or byte_size(cs) > 15 -> false
-      cs -> Regex.match?(~r/^[A-Z0-9]+(-[A-Z0-9]{1,2})?$/i, cs)
-    end
-  end
-
   # Helper to extract symbol table and code from a packet
   defp extract_symbol_info(nil), do: {"/", ">"}
 
@@ -207,19 +183,5 @@ defmodule AprsmeWeb.PacketsLive.CallsignView do
     table = Map.get(data, :symbol_table_id) || Map.get(data, "symbol_table_id") || "/"
     code = Map.get(data, :symbol_code) || Map.get(data, "symbol_code") || ">"
     {table, code}
-  end
-
-  defp enrich_packet_with_device_info(packet) do
-    device_identifier = Map.get(packet, :device_identifier) || Map.get(packet, "device_identifier")
-
-    device =
-      if is_binary(device_identifier), do: Aprsme.DeviceIdentification.lookup_device_by_identifier(device_identifier)
-
-    model = if device, do: device.model
-    vendor = if device, do: device.vendor
-
-    packet
-    |> Map.put(:device_model, model)
-    |> Map.put(:device_vendor, vendor)
   end
 end

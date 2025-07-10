@@ -221,8 +221,6 @@ defmodule Aprsme.PacketConsumer do
     # Remove embedded field for batch insert
     |> Map.delete(:data_extended)
     |> normalize_numeric_types()
-    |> sanitize_raw_packet()
-    |> then(fn attrs -> Map.new(attrs, fn {k, v} -> {k, sanitize_packet_strings(v)} end) end)
     |> truncate_datetimes_to_second()
     # Explicitly remove raw_weather_data to prevent insert_all errors
     |> Map.delete(:raw_weather_data)
@@ -441,10 +439,5 @@ defmodule Aprsme.PacketConsumer do
         _ -> acc
       end
     end)
-  end
-
-  defp sanitize_raw_packet(attrs) do
-    # Use the exact same sanitization approach as the original working code
-    sanitize_packet_strings(attrs)
   end
 end

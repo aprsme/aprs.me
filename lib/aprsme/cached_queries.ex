@@ -3,7 +3,9 @@ defmodule Aprsme.CachedQueries do
   Caching layer for database queries to improve performance
   """
 
+  alias Aprsme.Packet
   alias Aprsme.Packets
+  alias Aprsme.Repo
 
   # 2 minutes for frequently changing data
   @cache_ttl_short to_timeout(minute: 2)
@@ -80,12 +82,62 @@ defmodule Aprsme.CachedQueries do
   end
 
   @doc """
+  Get latest weather packet for callsign with caching.
+  Uses the optimized query that checks recent data first.
+  """
+  def get_latest_weather_packet_cached(callsign) do
+    cache_key = generate_cache_key("latest_weather_packet", callsign)
+
+    case Cachex.get(:query_cache, cache_key) do
+      {:ok, result} when not is_nil(result) ->
+        result
+
+      _ ->
+        result = Packets.get_latest_weather_packet_optimized(callsign)
+        # Cache for 5 minutes since weather updates are less frequent
+        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_short)
+        result
+    end
+  end
+
+  @doc """
+  Check if a callsign has weather packets with caching.
+  Uses exact match for performance.
+  """
+  def has_weather_packets_cached?(callsign) do
+    cache_key = generate_cache_key("has_weather_packets", callsign)
+
+    case Cachex.get(:query_cache, cache_key) do
+      {:ok, result} when not is_nil(result) ->
+        result
+
+      _ ->
+        # Use exact match with proper index instead of ilike
+        import Ecto.Query
+
+        query =
+          from p in Packet,
+            where: p.sender == ^callsign,
+            where: p.data_type == "weather" or (p.symbol_table_id == "/" and p.symbol_code == "_"),
+            limit: 1,
+            select: true
+
+        result = Repo.exists?(query)
+        # Cache for 15 minutes
+        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_medium)
+        result
+    end
+  end
+
+  @doc """
   Invalidate cache entries for a specific callsign
   """
   def invalidate_callsign_cache(callsign) do
     # Pattern-based cache invalidation
     patterns = [
       "latest_packet:#{callsign}",
+      "latest_weather_packet:#{callsign}",
+      "has_weather_packets:#{callsign}",
       "weather:#{callsign}:*"
     ]
 

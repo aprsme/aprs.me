@@ -16,6 +16,14 @@ defmodule Aprsme.MockHelpers do
     Mox.stub(Aprsme.PacketsMock, :get_packets_for_callsign_with_date_range, fn _callsign, _start_date, _end_date ->
       {:ok, []}
     end)
+
+    Mox.stub(Aprsme.PacketsMock, :get_recent_packets_optimized, fn _opts ->
+      []
+    end)
+
+    Mox.stub(Aprsme.PacketsMock, :get_nearby_stations, fn _lat, _lon, _exclude, _opts ->
+      []
+    end)
   end
 
   def stub_badpackets_mock do

@@ -12,6 +12,7 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.MapLive.MapHelpers
   alias AprsmeWeb.MapLive.PacketUtils
   alias AprsmeWeb.MapLive.PopupComponent
+  alias AprsmeWeb.TimeUtils
   alias Phoenix.HTML.Safe
   alias Phoenix.LiveView.Socket
 
@@ -79,7 +80,7 @@ defmodule AprsmeWeb.MapLive.Index do
     deployed_at = Aprsme.Release.deployed_at()
 
     # Show 24 hours for more symbol variety
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -24 * 3600, :second)
+    one_hour_ago = TimeUtils.one_day_ago()
 
     # Parse map state from URL parameters
     {map_center, map_zoom} = parse_map_params(params)
@@ -1655,12 +1656,7 @@ defmodule AprsmeWeb.MapLive.Index do
   @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
   defp handle_bounds_update(bounds, socket) do
     # Update the map bounds from the client, converting to atom keys
-    map_bounds = %{
-      north: bounds["north"],
-      south: bounds["south"],
-      east: bounds["east"],
-      west: bounds["west"]
-    }
+    map_bounds = MapHelpers.normalize_bounds(bounds)
 
     # Validate bounds to prevent invalid coordinates
     if valid_bounds?(map_bounds) do

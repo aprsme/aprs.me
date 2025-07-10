@@ -61,6 +61,7 @@ defmodule AprsmeWeb.ApiDocsLive do
 
   defp make_http_request(callsign) do
     alias Aprsme.Packets
+    alias AprsmeWeb.TimeUtils
 
     # Validate callsign format (same as controller)
     callsign_regex = ~r/^[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(-[0-9]{1,2})?$/
@@ -76,7 +77,7 @@ defmodule AprsmeWeb.ApiDocsLive do
       {:ok, Jason.encode!(response, pretty: true)}
     else
       # Get packet data (same logic as controller)
-      thirty_days_ago = DateTime.add(DateTime.utc_now(), -30, :day)
+      thirty_days_ago = TimeUtils.days_ago(30)
 
       opts = %{
         callsign: callsign,

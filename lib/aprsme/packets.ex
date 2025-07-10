@@ -10,7 +10,9 @@ defmodule Aprsme.Packets do
   alias Aprs.Types.MicE
   alias Aprsme.BadPacket
   alias Aprsme.Packet
+  alias Aprsme.Packets.QueryBuilder
   alias Aprsme.Repo
+  alias AprsmeWeb.TimeUtils
 
   @doc """
   Stores a packet in the database.
@@ -23,9 +25,14 @@ defmodule Aprsme.Packets do
     require Logger
 
     try do
+      # First sanitize the input data
+      sanitized_packet_data = Aprsme.EncodingUtils.sanitize_packet(packet_data)
+
       packet_attrs =
-        packet_data
-        |> Aprsme.Packet.extract_additional_data(packet_data[:raw_packet] || packet_data["raw_packet"] || "")
+        sanitized_packet_data
+        |> Aprsme.Packet.extract_additional_data(
+          sanitized_packet_data[:raw_packet] || sanitized_packet_data["raw_packet"] || ""
+        )
         |> normalize_packet_attrs()
         |> set_received_at()
         |> patch_lat_lon_from_data_extended()
@@ -40,11 +47,9 @@ defmodule Aprsme.Packets do
           canonical_identifier = if matched_device, do: matched_device.identifier, else: device_identifier
           Map.put(attrs, :device_identifier, canonical_identifier)
         end)
-        |> sanitize_packet_strings()
 
       # require Logger
       # Logger.debug("Sanitized packet_attrs before insert: #{inspect(packet_attrs)}")
-      packet_attrs = Map.new(packet_attrs, fn {k, v} -> {k, sanitize_packet_strings(v)} end)
       # Set device_identifier to parsed value, fallback to destination if nil
       parsed_device_id = Aprsme.DeviceParser.extract_device_identifier(packet_data)
       device_id = parsed_device_id || Map.get(packet_attrs, :destination)
@@ -74,7 +79,7 @@ defmodule Aprsme.Packets do
       end
 
     case_result
-    |> sanitize_packet_strings()
+    |> Aprsme.EncodingUtils.sanitize_packet()
     |> normalize_data_type()
   end
 
@@ -166,6 +171,34 @@ defmodule Aprsme.Packets do
   end
 
   defp insert_packet(attrs, packet_data) do
+    # Ensure data_extended is properly sanitized before insertion
+    attrs =
+      if attrs[:data_extended] do
+        sanitized_extended = Aprsme.EncodingUtils.sanitize_data_extended(attrs[:data_extended])
+        # Double-check all values are sanitized
+        # Only do additional sanitization for plain maps, not structs
+        sanitized_extended =
+          if is_struct(sanitized_extended) do
+            sanitized_extended
+          else
+            Enum.reduce(sanitized_extended, %{}, fn {k, v}, acc ->
+              sanitized_value = if is_binary(v), do: Aprsme.EncodingUtils.sanitize_string(v), else: v
+              Map.put(acc, k, sanitized_value)
+            end)
+          end
+
+        Map.put(attrs, :data_extended, sanitized_extended)
+      else
+        attrs
+      end
+
+    # Debug log to see what we're trying to insert
+    if attrs[:data_extended] do
+      require Logger
+
+      Logger.debug("Final data_extended before insert: #{inspect(attrs[:data_extended], binaries: :as_binaries)}")
+    end
+
     case %Packet{} |> Packet.changeset(attrs) |> Repo.insert() do
       {:ok, packet} ->
         # Invalidate cache for this packet's callsign
@@ -335,19 +368,34 @@ defmodule Aprsme.Packets do
   """
   @impl true
   def get_packets_for_replay(opts \\ %{}) do
-    base_query = from(p in Packet, order_by: [asc: p.received_at], where: p.has_position == true)
+    limit = Map.get(opts, :limit, 1000)
+    bounds = Map.get(opts, :bounds)
 
     query =
-      base_query
-      |> filter_by_time(opts)
-      |> filter_by_region(opts)
-      |> filter_by_callsign(opts)
-      |> filter_by_map_bounds(opts)
-      |> limit_results(opts)
-      |> select_with_virtual_coordinates()
+      Packet
+      |> QueryBuilder.with_position()
+      |> QueryBuilder.with_time_range(opts)
+      |> QueryBuilder.maybe_filter_region(opts)
+      |> maybe_filter_by_callsign(opts)
+      |> maybe_filter_by_bounds(bounds)
+      |> QueryBuilder.chronological()
+      |> QueryBuilder.paginate(limit)
+      |> QueryBuilder.with_coordinates()
 
     Repo.all(query)
   end
+
+  defp maybe_filter_by_callsign(query, %{callsign: callsign}) when not is_nil(callsign) do
+    QueryBuilder.for_callsign(query, callsign)
+  end
+
+  defp maybe_filter_by_callsign(query, _), do: query
+
+  defp maybe_filter_by_bounds(query, bounds) when is_list(bounds) and length(bounds) == 4 do
+    QueryBuilder.within_bounds(query, bounds)
+  end
+
+  defp maybe_filter_by_bounds(query, _), do: query
 
   @doc """
   Gets historical packet count for a map area.
@@ -355,43 +403,19 @@ defmodule Aprsme.Packets do
   @impl true
   @spec get_historical_packet_count(map()) :: non_neg_integer()
   def get_historical_packet_count(opts \\ %{}) do
-    base_query = from(p in Packet, select: count(p.id), where: p.has_position == true)
+    bounds = Map.get(opts, :bounds)
 
     query =
-      base_query
-      |> filter_by_time(opts)
-      |> filter_by_region(opts)
-      |> filter_by_callsign(opts)
-      |> filter_by_map_bounds(opts)
+      Packet
+      |> QueryBuilder.with_position()
+      |> QueryBuilder.with_time_range(opts)
+      |> QueryBuilder.maybe_filter_region(opts)
+      |> maybe_filter_by_callsign(opts)
+      |> maybe_filter_by_bounds(bounds)
+      |> select(count())
 
-    Repo.one(query)
+    Repo.one(query) || 0
   end
-
-  # Adds a select clause to populate virtual lat/lon fields from PostGIS geometry.
-  defp select_with_virtual_coordinates(query) do
-    from p in query,
-      select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
-  end
-
-  # Query building helpers
-  # Handle both start_time and end_time
-  defp filter_by_time(query, %{start_time: start_time, end_time: end_time}) do
-    from p in query,
-      where: p.received_at >= ^start_time and p.received_at <= ^end_time
-  end
-
-  # Handle only start_time
-  defp filter_by_time(query, %{start_time: start_time}) do
-    from p in query, where: p.received_at >= ^start_time
-  end
-
-  # Handle only end_time
-  defp filter_by_time(query, %{end_time: end_time}) do
-    from p in query, where: p.received_at <= ^end_time
-  end
-
-  # Default case
-  defp filter_by_time(query, _), do: query
 
   @doc """
   Gets recent packets for the map view.
@@ -401,22 +425,22 @@ defmodule Aprsme.Packets do
   @spec get_recent_packets(map()) :: [struct()]
   def get_recent_packets(opts \\ %{}) do
     # Always limit to the last 24 hours for more symbol variety
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -24 * 3600, :second)
+    opts_with_time = Map.put(opts, :hours_back, 24)
 
-    # Merge the one-hour limit with any other filters
-    opts_with_time = Map.put(opts, :start_time, one_hour_ago)
-
-    get_packets_for_replay(opts_with_time)
+    opts_with_time
+    |> QueryBuilder.recent_position_packets()
+    |> Repo.all()
   end
 
   @doc """
   Gets recent packets optimized for initial map load.
   This uses a more efficient query pattern for the most common use case.
   """
+  @impl true
   @spec get_recent_packets_optimized(map()) :: [struct()]
   def get_recent_packets_optimized(opts \\ %{}) do
     # Always limit to the last 24 hours for more symbol variety
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -24 * 3600, :second)
+    one_hour_ago = TimeUtils.one_day_ago()
     limit = Map.get(opts, :limit, 200)
     offset = Map.get(opts, :offset, 0)
 
@@ -429,17 +453,66 @@ defmodule Aprsme.Packets do
 
     # Apply spatial and other filters BEFORE limiting
     # This ensures we get the most recent packets within the specified bounds
+    bounds = Map.get(opts, :bounds)
+
     query =
       base_query
-      |> filter_by_region(opts)
-      |> filter_by_callsign(opts)
-      |> filter_by_map_bounds(opts)
+      |> QueryBuilder.maybe_filter_region(opts)
+      |> maybe_filter_by_callsign(opts)
+      |> maybe_filter_by_bounds(bounds)
       |> order_by(desc: :received_at)
       |> limit(^limit)
       |> offset(^offset)
-      |> select_with_virtual_coordinates()
+      |> QueryBuilder.with_coordinates()
 
     Repo.all(query)
+  end
+
+  @doc """
+  Gets the closest stations to a given point.
+  Uses PostGIS spatial indexes for efficient querying.
+  Returns only the most recent packet per callsign, ordered by distance.
+  """
+  @impl true
+  @spec get_nearby_stations(float(), float(), String.t() | nil, map()) :: [struct()]
+  def get_nearby_stations(lat, lon, exclude_callsign \\ nil, opts \\ %{}) do
+    limit = Map.get(opts, :limit, 10)
+    hours_back = Map.get(opts, :hours_back, 1)
+    cutoff_time = TimeUtils.hours_ago(hours_back)
+
+    # Use a CTE with window function to get the most recent packet per callsign
+    # This approach maintains proper distance ordering while deduplicating by callsign
+    query = """
+    WITH ranked_packets AS (
+      SELECT p.*,
+             ST_Distance(p.location::geography, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) as distance,
+             ROW_NUMBER() OVER (PARTITION BY p.base_callsign ORDER BY p.received_at DESC) as row_num
+      FROM packets p
+      WHERE p.has_position = true
+        AND p.received_at >= $3
+        #{if exclude_callsign, do: "AND p.sender != $4", else: ""}
+    )
+    SELECT *
+    FROM ranked_packets
+    WHERE row_num = 1
+    ORDER BY distance ASC
+    LIMIT #{if exclude_callsign, do: "$5", else: "$4"}
+    """
+
+    params =
+      if exclude_callsign do
+        [lat, lon, cutoff_time, exclude_callsign, limit]
+      else
+        [lat, lon, cutoff_time, limit]
+      end
+
+    case Repo.query(query, params) do
+      {:ok, result} ->
+        Enum.map(result.rows, &Repo.load(Packet, {result.columns, &1}))
+
+      {:error, _} ->
+        []
+    end
   end
 
   @doc """
@@ -449,26 +522,21 @@ defmodule Aprsme.Packets do
   @impl true
   @spec get_weather_packets(String.t(), DateTime.t(), DateTime.t(), map()) :: [struct()]
   def get_weather_packets(callsign, start_time, end_time, opts \\ %{}) do
-    limit = Map.get(opts, :limit, 500)
+    opts =
+      Map.merge(opts, %{
+        callsign: callsign,
+        start_time: start_time,
+        end_time: end_time,
+        limit: Map.get(opts, :limit, 500)
+      })
 
-    base_query = from(p in Packet, order_by: [desc: p.received_at])
-
-    query =
-      base_query
-      |> filter_by_time(%{start_time: start_time, end_time: end_time})
-      |> filter_by_callsign(%{callsign: callsign})
-      |> filter_weather_packets()
-      |> limit_results(%{limit: limit})
-      |> select_with_virtual_coordinates()
-
-    Repo.all(query)
+    opts
+    |> QueryBuilder.weather_packets()
+    |> QueryBuilder.with_coordinates()
+    |> Repo.all()
   end
 
   # Filter for weather packets at the database level
-  defp filter_weather_packets(query) do
-    from p in query,
-      where: p.data_type == "weather" or (p.symbol_table_id == "/" and p.symbol_code == "_")
-  end
 
   @doc """
   Retrieves a continuous stream of stored packets for replay in chronological order.
@@ -503,72 +571,6 @@ defmodule Aprsme.Packets do
         {{adjusted_delay, next}, {rest, next}}
     end)
   end
-
-  defp filter_by_region(query, %{region: region}) do
-    from p in query, where: p.region == ^region
-  end
-
-  defp filter_by_region(query, _), do: query
-
-  defp filter_by_callsign(query, %{callsign: callsign}) do
-    # Use sender field for exact callsign matching
-    # Sanitize callsign to prevent SQL injection
-    sanitized_callsign = sanitize_callsign(callsign)
-    from p in query, where: ilike(p.sender, ^sanitized_callsign)
-  end
-
-  defp filter_by_callsign(query, _), do: query
-
-  defp filter_by_map_bounds(query, %{bounds: [min_lon, min_lat, max_lon, max_lat]})
-       when not is_nil(min_lon) and not is_nil(min_lat) and not is_nil(max_lon) and not is_nil(max_lat) do
-    bbox_wkt = create_bounding_box_wkt(min_lon, min_lat, max_lon, max_lat)
-
-    from p in query,
-      where: p.has_position == true,
-      # Use PostGIS spatial query if location is available
-      # Fall back to lat/lon comparison if location is null
-      where:
-        fragment(
-          "(? IS NOT NULL and ST_Within(?, ST_GeomFromText(?, 4326))) or (? IS NULL and ? >= ? and ? <= ? and ? >= ? and ? <= ?)",
-          p.location,
-          p.location,
-          ^bbox_wkt,
-          p.location,
-          p.lat,
-          ^min_lat,
-          p.lat,
-          ^max_lat,
-          p.lon,
-          ^min_lon,
-          p.lon,
-          ^max_lon
-        )
-  end
-
-  defp filter_by_map_bounds(query, _), do: query
-
-  defp create_bounding_box_wkt(min_lon, min_lat, max_lon, max_lat) do
-    # Validate and sanitize coordinates to prevent SQL injection
-    with {:ok, min_lon} <- validate_coordinate(min_lon),
-         {:ok, min_lat} <- validate_coordinate(min_lat),
-         {:ok, max_lon} <- validate_coordinate(max_lon),
-         {:ok, max_lat} <- validate_coordinate(max_lat) do
-      "POLYGON((#{min_lon} #{min_lat}, #{max_lon} #{min_lat}, #{max_lon} #{max_lat}, #{min_lon} #{max_lat}, #{min_lon} #{min_lat}))"
-    else
-      _ -> raise ArgumentError, "Invalid coordinates provided"
-    end
-  end
-
-  defp limit_results(query, %{limit: limit, page: page}) when not is_nil(limit) and not is_nil(page) do
-    offset = (page - 1) * limit
-    from p in query, limit: ^limit, offset: ^offset
-  end
-
-  defp limit_results(query, %{limit: limit}) when not is_nil(limit) do
-    from p in query, limit: ^limit
-  end
-
-  defp limit_results(query, _), do: query
 
   @doc """
   Gets the total count of stored packets in the database.
@@ -636,20 +638,12 @@ defmodule Aprsme.Packets do
   # Helper to convert various types to Decimal
   defp to_decimal(value), do: Aprsme.EncodingUtils.to_decimal(value)
 
-  # Helper to sanitize all string fields in packet data before database storage
-  defp sanitize_packet_strings(value), do: Aprsme.EncodingUtils.sanitize_packet_strings(value)
-
   # Get packets from last hour only - used to initialize the map
   @spec get_last_hour_packets() :: [struct()]
   def get_last_hour_packets do
-    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
-
-    Packet
-    |> where([p], p.has_position == true)
-    |> where([p], p.received_at >= ^one_hour_ago)
-    |> order_by([p], asc: p.received_at)
-    |> limit(500)
-    |> select_with_virtual_coordinates()
+    %{hours_back: 1, limit: 500}
+    |> QueryBuilder.recent_position_packets()
+    |> QueryBuilder.chronological()
     |> Repo.all()
   end
 
@@ -735,44 +729,49 @@ defmodule Aprsme.Packets do
   """
   @spec get_latest_packet_for_callsign(String.t()) :: struct() | nil
   def get_latest_packet_for_callsign(callsign) when is_binary(callsign) do
-    sanitized_callsign = sanitize_callsign(callsign)
-
-    from(p in Packet,
-      where: ilike(p.sender, ^sanitized_callsign),
-      order_by: [desc: p.received_at],
-      limit: 1
-    )
-    |> select_with_virtual_coordinates()
+    callsign
+    |> QueryBuilder.callsign_history(%{limit: 1})
+    |> QueryBuilder.with_coordinates()
     |> Repo.one()
   end
 
-  # Sanitization functions to prevent SQL injection
-  defp sanitize_callsign(callsign) when is_binary(callsign) do
-    # APRS callsigns are alphanumeric with hyphens and up to 9 characters
-    # Remove any characters that could be used for SQL injection
-    callsign
-    |> String.upcase()
-    |> String.replace(~r/[^A-Z0-9\-]/, "")
-    |> String.slice(0, 9)
-  end
+  @doc """
+  Gets the most recent weather packet for a callsign.
+  Optimized to check only recent data first before expanding the search window.
+  """
+  @spec get_latest_weather_packet_optimized(String.t()) :: struct() | nil
+  def get_latest_weather_packet_optimized(callsign) when is_binary(callsign) do
+    # First try last 24 hours
+    one_day_ago = TimeUtils.one_day_ago()
 
-  defp sanitize_callsign(_), do: ""
+    recent_packet =
+      Repo.one(
+        from(p in Packet,
+          where: p.sender == ^callsign,
+          where: p.data_type == "weather",
+          where: p.received_at >= ^one_day_ago,
+          order_by: [desc: p.received_at],
+          limit: 1
+        )
+      )
 
-  defp validate_coordinate(coord) when is_number(coord) do
-    # Validate coordinate ranges
-    if coord >= -180 and coord <= 180 do
-      {:ok, coord}
-    else
-      {:error, :invalid_coordinate}
+    case recent_packet do
+      nil ->
+        # If no recent packet, expand to 7 days
+        one_week_ago = TimeUtils.one_week_ago()
+
+        Repo.one(
+          from(p in Packet,
+            where: p.sender == ^callsign,
+            where: p.data_type == "weather",
+            where: p.received_at >= ^one_week_ago,
+            order_by: [desc: p.received_at],
+            limit: 1
+          )
+        )
+
+      packet ->
+        packet
     end
   end
-
-  defp validate_coordinate(coord) when is_binary(coord) do
-    case Float.parse(coord) do
-      {float_val, ""} -> validate_coordinate(float_val)
-      _ -> {:error, :invalid_coordinate}
-    end
-  end
-
-  defp validate_coordinate(_), do: {:error, :invalid_coordinate}
 end

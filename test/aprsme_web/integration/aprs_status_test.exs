@@ -96,6 +96,12 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
 
   describe "LiveView event handling without APRS" do
     test "map events work without APRS connection", %{conn: conn} do
+      # Set the mock to allow calls from any process
+      Mox.set_mox_global()
+
+      # Stub the function that will be called during bounds changes
+      Mox.stub(Aprsme.PacketsMock, :get_recent_packets_optimized, fn _opts -> [] end)
+
       {:ok, view, _html} = live(conn, "/")
 
       # Test map bounds change event
@@ -110,6 +116,9 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
 
       # Should not crash when handling events without APRS connection
       assert render_hook(view, "bounds_changed", bounds_params)
+
+      # Wait a bit for any async processes
+      Process.sleep(50)
 
       # Test map ready event
       assert render_hook(view, "map_ready", %{})
