@@ -18,8 +18,27 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
     if conn.request_path == "/" && conn.method == "GET" do
       case get_session(conn, :ip_geolocation) do
         nil ->
-          # No cached geolocation, fetch it
-          perform_geolocation(conn)
+          # Check if we've had recent failures to prevent cascading timeouts
+          case get_session(conn, :ip_geolocation_failed_at) do
+            nil ->
+              # No recent failures, try geolocation
+              perform_geolocation(conn)
+
+            failed_at when is_integer(failed_at) ->
+              # Check if enough time has passed since last failure (5 minutes)
+              now = System.system_time(:second)
+
+              if now - failed_at > 300 do
+                # Try again
+                perform_geolocation(conn)
+              else
+                Logger.info("IP geolocation: Skipping due to recent failure")
+                conn
+              end
+
+            _ ->
+              perform_geolocation(conn)
+          end
 
         _cached ->
           # Already have geolocation in session
@@ -32,17 +51,43 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
 
   defp perform_geolocation(conn) do
     ip = get_client_ip(conn)
+    Logger.info("IP geolocation: Starting lookup for IP #{ip}")
 
     if valid_ip_for_geolocation?(ip) do
-      case fetch_ip_location(ip) do
-        {:ok, location} ->
+      start_time = System.monotonic_time(:millisecond)
+
+      # Run geolocation in a task with a hard timeout
+      task = Task.async(fn -> fetch_ip_location(ip) end)
+
+      case Task.yield(task, 600) || Task.shutdown(task, :brutal_kill) do
+        {:ok, {:ok, location}} ->
+          duration = System.monotonic_time(:millisecond) - start_time
+
+          Logger.info(
+            "IP geolocation: Successfully located #{ip} at #{location["lat"]}, #{location["lng"]} in #{duration}ms"
+          )
+
           put_session(conn, :ip_geolocation, location)
 
-        {:error, reason} ->
-          Logger.debug("IP geolocation failed for #{ip}: #{inspect(reason)}")
+        {:ok, {:error, reason}} ->
+          duration = System.monotonic_time(:millisecond) - start_time
+          Logger.warning("IP geolocation: Failed for #{ip} after #{duration}ms - #{inspect(reason)}")
+          # Mark the failure time to implement circuit breaker
           conn
+          |> put_session(:ip_geolocation_failed_at, System.system_time(:second))
+          |> delete_session(:ip_geolocation)
+
+        nil ->
+          # Task timed out
+          duration = System.monotonic_time(:millisecond) - start_time
+          Logger.warning("IP geolocation: Task timeout for #{ip} after #{duration}ms")
+
+          conn
+          |> put_session(:ip_geolocation_failed_at, System.system_time(:second))
+          |> delete_session(:ip_geolocation)
       end
     else
+      Logger.info("IP geolocation: Skipping private/local IP #{ip}")
       conn
     end
   end
@@ -96,14 +141,30 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
   defp valid_ip_for_geolocation?(_), do: false
 
   defp fetch_ip_location(ip) do
-    case Req.get("https://ip-api.com/json/#{ip}") do
+    url = "https://ip-api.com/json/#{ip}"
+    Logger.info("IP geolocation: Making HTTP request to #{url}")
+
+    # Configure very short timeout to prevent blocking page load
+    req_options = [
+      # 500ms timeout - fail fast
+      receive_timeout: 500,
+      # No retries - we want fast failure
+      retry: false,
+      # Also limit connection pool wait time
+      pool_timeout: 500
+    ]
+
+    case Req.get(url, req_options) do
       {:ok, %Req.Response{status: 200, body: body}} ->
+        Logger.info("IP geolocation: Got 200 response with body: #{inspect(body)}")
         parse_ip_api_response(body)
 
-      {:ok, _response} ->
+      {:ok, response} ->
+        Logger.warning("IP geolocation: Got non-200 response: #{response.status}")
         {:error, :invalid_response}
 
       {:error, reason} ->
+        Logger.error("IP geolocation: HTTP request failed: #{inspect(reason)}")
         {:error, reason}
     end
   end
@@ -113,12 +174,19 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
       %{"status" => "success", "lat" => lat, "lon" => lon}
       when is_number(lat) and is_number(lon) ->
         if lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 do
+          Logger.info("IP geolocation: Parsed coordinates lat=#{lat}, lon=#{lon}")
           {:ok, %{"lat" => lat / 1.0, "lng" => lon / 1.0}}
         else
+          Logger.warning("IP geolocation: Invalid coordinates lat=#{lat}, lon=#{lon}")
           {:error, :invalid_coordinates}
         end
 
-      _data ->
+      %{"status" => "fail", "message" => message} ->
+        Logger.warning("IP geolocation: API returned failure: #{message}")
+        {:error, :api_failure}
+
+      data ->
+        Logger.warning("IP geolocation: Unexpected response format: #{inspect(data)}")
         {:error, :api_failure}
     end
   end
