@@ -63,10 +63,12 @@ defmodule AprsmeWeb.ConnCase do
       end
 
   """
-  # def log_in_user(conn, _user) do
-  #   user = Aprsme.AccountsFixtures.user_fixture()
-  #   token = Aprsme.Accounts.generate_user_session_token(user)
+  def log_in_user(conn, user) do
+    token = Aprsme.Accounts.generate_user_session_token(user)
 
-  #   Plug.Conn.put_req_header(conn, "authorization", "Bearer #{token}")
-  # end
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:user_token, token)
+    |> Plug.Conn.put_session(:live_socket_id, "users_sessions:#{Base.url_encode64(token)}")
+  end
 end

@@ -2,6 +2,8 @@ defmodule AprsmeWeb.UserRegistrationLive do
   @moduledoc false
   use AprsmeWeb, :live_view
 
+  import AprsmeWeb.CoreComponents, only: [translate_error: 1, simple_form: 1]
+
   alias Aprsme.Accounts
   alias Aprsme.Accounts.User
 
@@ -44,10 +46,18 @@ defmodule AprsmeWeb.UserRegistrationLive do
                     type="email"
                     name={Phoenix.HTML.Form.input_name(f, :email)}
                     value={Phoenix.HTML.Form.input_value(f, :email) || ""}
-                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    class={[
+                      "input input-bordered w-full bg-base-100 text-base-content",
+                      Keyword.has_key?(@changeset.errors, :email) && "input-error"
+                    ]}
                     placeholder="Enter your email"
                     required
                   />
+                  <label :if={Keyword.has_key?(@changeset.errors, :email)} class="label">
+                    <span class="label-text-alt text-error">
+                      {translate_error(Keyword.get(@changeset.errors, :email))}
+                    </span>
+                  </label>
                 </div>
 
                 <div class="form-control w-full">
@@ -58,10 +68,18 @@ defmodule AprsmeWeb.UserRegistrationLive do
                     type="password"
                     name={Phoenix.HTML.Form.input_name(f, :password)}
                     value={Phoenix.HTML.Form.input_value(f, :password) || ""}
-                    class="input input-bordered w-full bg-base-100 text-base-content"
+                    class={[
+                      "input input-bordered w-full bg-base-100 text-base-content",
+                      Keyword.has_key?(@changeset.errors, :password) && "input-error"
+                    ]}
                     placeholder="Enter your password"
                     required
                   />
+                  <label :if={Keyword.has_key?(@changeset.errors, :password)} class="label">
+                    <span class="label-text-alt text-error">
+                      {translate_error(Keyword.get(@changeset.errors, :password))}
+                    </span>
+                  </label>
                 </div>
 
                 <div class="form-control mt-6">
