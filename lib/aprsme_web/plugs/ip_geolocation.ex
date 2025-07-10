@@ -18,27 +18,8 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
     if conn.request_path == "/" && conn.method == "GET" do
       case get_session(conn, :ip_geolocation) do
         nil ->
-          # Check if we've had recent failures to prevent cascading timeouts
-          case get_session(conn, :ip_geolocation_failed_at) do
-            nil ->
-              # No recent failures, try geolocation
-              perform_geolocation(conn)
-
-            failed_at when is_integer(failed_at) ->
-              # Check if enough time has passed since last failure (5 minutes)
-              now = System.system_time(:second)
-
-              if now - failed_at > 300 do
-                # Try again
-                perform_geolocation(conn)
-              else
-                Logger.info("IP geolocation: Skipping due to recent failure")
-                conn
-              end
-
-            _ ->
-              perform_geolocation(conn)
-          end
+          # No cached geolocation, fetch it
+          perform_geolocation(conn)
 
         _cached ->
           # Already have geolocation in session
@@ -72,19 +53,13 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
         {:ok, {:error, reason}} ->
           duration = System.monotonic_time(:millisecond) - start_time
           Logger.warning("IP geolocation: Failed for #{ip} after #{duration}ms - #{inspect(reason)}")
-          # Mark the failure time to implement circuit breaker
           conn
-          |> put_session(:ip_geolocation_failed_at, System.system_time(:second))
-          |> delete_session(:ip_geolocation)
 
         nil ->
           # Task timed out
           duration = System.monotonic_time(:millisecond) - start_time
           Logger.warning("IP geolocation: Task timeout for #{ip} after #{duration}ms")
-
           conn
-          |> put_session(:ip_geolocation_failed_at, System.system_time(:second))
-          |> delete_session(:ip_geolocation)
       end
     else
       Logger.info("IP geolocation: Skipping private/local IP #{ip}")
