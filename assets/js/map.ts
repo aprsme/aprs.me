@@ -12,6 +12,7 @@ import type { Map as LeafletMap, Marker, TileLayer, LayerGroup, DivIcon, LatLngB
 // Declare Leaflet as a global variable with proper typing
 declare const L: typeof import('leaflet') & {
   heatLayer?: (latlngs: Array<[number, number, number?]>, options?: any) => any;
+  markerClusterGroup?: (options?: any) => any;
 };
 declare const OverlappingMarkerSpiderfier: any;
 
@@ -211,7 +212,43 @@ let MapAPRSMap = {
 
     // Store markers for management
     self.markers = new Map<string, any>();
-    self.markerLayer = L.layerGroup().addTo(self.map);
+    
+    // Create marker cluster group for medium zoom levels (9-14)
+    if (L.markerClusterGroup) {
+      self.markerClusterGroup = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        disableClusteringAtZoom: 11, // Show individual markers at zoom 11+
+        maxClusterRadius: 80,
+        iconCreateFunction: function(cluster: any) {
+          const count = cluster.getChildCount();
+          let size = 'small';
+          let className = 'marker-cluster-small';
+          
+          if (count > 10) {
+            size = 'medium';
+            className = 'marker-cluster-medium';
+          }
+          if (count > 50) {
+            size = 'large';
+            className = 'marker-cluster-large';
+          }
+          
+          return L.divIcon({
+            html: '<div><span>' + count + '</span></div>',
+            className: 'marker-cluster ' + className,
+            iconSize: [40, 40]
+          });
+        }
+      });
+      self.markerClusterGroup.addTo(self.map);
+      self.markerLayer = self.markerClusterGroup;
+    } else {
+      // Fallback to regular layer group if clustering not available
+      self.markerLayer = L.layerGroup().addTo(self.map);
+    }
 
     // Create heat layer (hidden by default)
     try {
@@ -332,6 +369,21 @@ let MapAPRSMap = {
         const currentZoom = self.map!.getZoom();
         const zoomDifference = self.lastZoom ? Math.abs(currentZoom - self.lastZoom) : 0;
 
+        // Handle OMS markers when crossing zoom threshold
+        if (self.oms) {
+          if (currentZoom >= 11 && (!self.lastZoom || self.lastZoom < 11)) {
+            // We just zoomed in past clustering threshold, add all markers to OMS
+            self.markers.forEach((marker) => {
+              if (marker && !marker._isHistorical) {
+                self.oms.addMarker(marker);
+              }
+            });
+          } else if (currentZoom < 11 && self.lastZoom && self.lastZoom >= 11) {
+            // We just zoomed out below clustering threshold, remove all markers from OMS
+            self.oms.clearMarkers();
+          }
+        }
+
         // If zoom changed significantly (more than 2 levels), request reload of normal markers
         // but preserve historical ones and current position
         if (zoomDifference > 2) {
@@ -380,8 +432,28 @@ let MapAPRSMap = {
     // Set up event delegation for popup navigation links
     self.setupPopupNavigation();
 
+    // Only initialize OMS if clustering is not available or at high zoom levels
     if (typeof OverlappingMarkerSpiderfier !== "undefined") {
-      self.oms = new OverlappingMarkerSpiderfier(self.map);
+      self.oms = new OverlappingMarkerSpiderfier(self.map, {
+        keepSpiderfied: true,
+        nearbyDistance: 40,
+        circleSpiralSwitchover: 9,
+        legWeight: 2
+      });
+      
+      // Add click handler for spiderfied markers
+      self.oms.addListener('click', function(marker: any) {
+        if (marker.openPopup) marker.openPopup();
+      });
+      
+      // Style the spider legs
+      self.oms.addListener('spiderfy', function(markers: any) {
+        self.map.closePopup();
+      });
+      
+      self.oms.addListener('unspiderfy', function(markers: any) {
+        // Markers return to normal positions
+      });
     }
   },
 
@@ -1071,6 +1143,7 @@ let MapAPRSMap = {
         lng: lng,
       });
     });
+    
 
     // Mark historical markers for identification
     if (data.historical) {
@@ -1116,7 +1189,8 @@ let MapAPRSMap = {
       marker.openPopup();
     }
 
-    if (self.oms && marker) {
+    // Only add to OMS if we're at zoom level 11+ (when clustering is disabled)
+    if (self.oms && marker && self.map && self.map.getZoom() >= 11) {
       self.oms.addMarker(marker);
     }
   },
@@ -1142,7 +1216,11 @@ let MapAPRSMap = {
     }
 
     if (self.oms && marker) {
-      self.oms.removeMarker(marker);
+      try {
+        self.oms.removeMarker(marker);
+      } catch (e) {
+        console.debug("Error removing marker from OMS:", e);
+      }
     }
   },
 
@@ -1476,6 +1554,19 @@ let MapAPRSMap = {
       });
     }
     
+    // Clean up OMS (OverlappingMarkerSpiderfier)
+    if (self.oms !== undefined) {
+      try {
+        self.oms.clearMarkers();
+        self.oms.clearListeners('click');
+        self.oms.clearListeners('spiderfy');
+        self.oms.clearListeners('unspiderfy');
+        self.oms = undefined;
+      } catch (e) {
+        console.debug("Error cleaning up OMS:", e);
+      }
+    }
+    
     // Clean up heat layer
     if (self.heatLayer !== undefined && self.map !== undefined) {
       try {
@@ -1490,6 +1581,15 @@ let MapAPRSMap = {
     
     if (self.markerLayer !== undefined) {
       self.markerLayer!.clearLayers();
+      // If it's a cluster group, remove it from the map
+      if (self.markerClusterGroup !== undefined && self.map !== undefined) {
+        try {
+          self.map.removeLayer(self.markerClusterGroup);
+          self.markerClusterGroup = undefined;
+        } catch (e) {
+          console.debug("Error removing cluster group:", e);
+        }
+      }
     }
     if (self.markers !== undefined) {
       self.markers!.clear();

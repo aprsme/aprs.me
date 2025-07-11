@@ -704,6 +704,10 @@ defmodule AprsmeWeb.MapLive.Index do
     </script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js">
     </script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"
+    >
+    </script>
 
     <style>
       #aprs-map {
