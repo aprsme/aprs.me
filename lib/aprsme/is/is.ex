@@ -71,31 +71,42 @@ defmodule Aprsme.Is do
       last_second_timestamp: System.system_time(:second)
     }
 
-    with {:ok, socket} <- connect_to_aprs_is(server, port),
-         :ok <- send_login_string(socket, aprs_user_id, aprs_passcode, default_filter) do
-      timer = create_timer(@aprs_timeout)
-      keepalive_timer = create_keepalive_timer(@keepalive_interval)
+    # Initialize state without requiring immediate connection
+    state = %{
+      server: server,
+      port: port,
+      socket: nil,
+      timer: nil,
+      keepalive_timer: nil,
+      connected_at: connected_at,
+      packet_stats: packet_stats,
+      buffer: "",
+      login_params: %{
+        user_id: aprs_user_id,
+        passcode: aprs_passcode,
+        filter: default_filter
+      }
+    }
 
-      {:ok,
-       %{
-         server: server,
-         port: port,
-         socket: socket,
-         timer: timer,
-         keepalive_timer: keepalive_timer,
-         connected_at: connected_at,
-         packet_stats: packet_stats,
-         buffer: "",
-         login_params: %{
-           user_id: aprs_user_id,
-           passcode: aprs_passcode,
-           filter: default_filter
-         }
-       }}
-    else
-      _ ->
-        Logger.error("Unable to establish connection or log in to APRS-IS")
-        {:stop, :aprsme_connection_failed}
+    # Try to connect initially, but don't fail if it doesn't work
+    case connect_to_aprs_is(server, port) do
+      {:ok, socket} ->
+        case send_login_string(socket, aprs_user_id, aprs_passcode, default_filter) do
+          :ok ->
+            timer = create_timer(@aprs_timeout)
+            keepalive_timer = create_keepalive_timer(@keepalive_interval)
+            {:ok, %{state | socket: socket, timer: timer, keepalive_timer: keepalive_timer}}
+
+          error ->
+            Logger.warning("Failed to login to APRS-IS: #{inspect(error)}, will retry")
+            schedule_reconnect(5000)
+            {:ok, state}
+        end
+
+      error ->
+        Logger.warning("Unable to establish initial connection to APRS-IS: #{inspect(error)}, will retry")
+        schedule_reconnect(5000)
+        {:ok, state}
     end
   end
 
@@ -213,22 +224,38 @@ defmodule Aprsme.Is do
 
   @impl true
   def handle_call({:send_message, message}, _from, state) do
-    next_ack_number = :ets.update_counter(:aprsme, :message_number, 1)
-    # Append ack number
-    message = message <> "{" <> to_string(next_ack_number) <> "\r"
+    case state.socket do
+      nil ->
+        Logger.warning("Attempted to send message while not connected to APRS-IS")
+        {:reply, {:error, :not_connected}, state}
 
-    Logger.info("Sending message: #{inspect(message)}")
-    :gen_tcp.send(state.socket, message)
-    {:reply, :ok, state}
+      socket ->
+        next_ack_number = :ets.update_counter(:aprsme, :message_number, 1)
+        # Append ack number
+        message = message <> "{" <> to_string(next_ack_number) <> "\r"
+
+        Logger.info("Sending message: #{inspect(message)}")
+
+        case :gen_tcp.send(socket, message) do
+          :ok ->
+            {:reply, :ok, state}
+
+          error ->
+            Logger.error("Failed to send message to APRS-IS: #{inspect(error)}")
+            {:reply, {:error, error}, state}
+        end
+    end
   end
 
   def handle_call(:get_status, _from, state) do
+    connected = state.socket != nil
+
     status = %{
-      connected: true,
+      connected: connected,
       server: server_to_string(state.server),
       port: state.port,
-      connected_at: state.connected_at,
-      uptime_seconds: DateTime.diff(DateTime.utc_now(), state.connected_at),
+      connected_at: if(connected, do: state.connected_at, else: nil),
+      uptime_seconds: if(connected, do: DateTime.diff(DateTime.utc_now(), state.connected_at), else: 0),
       login_id: state.login_params.user_id,
       filter: state.login_params.filter,
       packet_stats: state.packet_stats,
@@ -240,21 +267,36 @@ defmodule Aprsme.Is do
 
   @impl true
   def handle_info(:aprsme_no_message_timeout, state) do
-    Logger.error("Socket timeout detected. Killing genserver.")
-    {:stop, :aprsme_timeout, state}
+    case state.socket do
+      nil ->
+        Logger.debug("Timeout occurred while not connected - ignoring")
+        {:noreply, state}
+
+      _socket ->
+        Logger.error("Socket timeout detected. Killing genserver.")
+        {:stop, :aprsme_timeout, state}
+    end
   end
 
   def handle_info(:send_keepalive, state) do
-    # Send a comment line as keepalive (APRS-IS standard)
-    case :gen_tcp.send(state.socket, "# keepalive\r\n") do
-      :ok ->
-        Logger.debug("Sent keepalive")
-        keepalive_timer = create_keepalive_timer(@keepalive_interval)
-        {:noreply, %{state | keepalive_timer: keepalive_timer}}
+    case state.socket do
+      nil ->
+        Logger.debug("Skipping keepalive - not connected to APRS-IS")
+        # Don't schedule another keepalive if we're not connected
+        {:noreply, state}
 
-      {:error, reason} ->
-        Logger.error("Failed to send keepalive: #{inspect(reason)}")
-        {:stop, :normal, state}
+      socket ->
+        # Send a comment line as keepalive (APRS-IS standard)
+        case :gen_tcp.send(socket, "# keepalive\r\n") do
+          :ok ->
+            Logger.debug("Sent keepalive")
+            keepalive_timer = create_keepalive_timer(@keepalive_interval)
+            {:noreply, %{state | keepalive_timer: keepalive_timer}}
+
+          {:error, reason} ->
+            Logger.error("Failed to send keepalive: #{inspect(reason)}")
+            {:stop, :normal, state}
+        end
     end
   end
 
@@ -332,12 +374,49 @@ defmodule Aprsme.Is do
 
   def handle_info({:tcp_closed, _socket}, state) do
     Logger.warning("Socket has been closed by remote server - will reconnect")
-    {:stop, :normal, state}
+    # Cancel any existing timers
+    if state.timer, do: Process.cancel_timer(state.timer)
+    if state.keepalive_timer, do: Process.cancel_timer(state.keepalive_timer)
+
+    # Schedule reconnect
+    schedule_reconnect(5000)
+    {:noreply, %{state | socket: nil, timer: nil, keepalive_timer: nil}}
   end
 
   def handle_info({:tcp_error, _socket, reason}, state) do
-    Logger.error("Connection error: #{inspect(reason)}")
-    {:stop, :normal, state}
+    Logger.error("Connection error: #{inspect(reason)} - will reconnect")
+    # Cancel any existing timers
+    if state.timer, do: Process.cancel_timer(state.timer)
+    if state.keepalive_timer, do: Process.cancel_timer(state.keepalive_timer)
+
+    # Schedule reconnect
+    schedule_reconnect(5000)
+    {:noreply, %{state | socket: nil, timer: nil, keepalive_timer: nil}}
+  end
+
+  def handle_info(:reconnect, state) do
+    Logger.info("Attempting to reconnect to APRS-IS...")
+
+    case connect_to_aprs_is(state.server, state.port) do
+      {:ok, socket} ->
+        case send_login_string(socket, state.login_params.user_id, state.login_params.passcode, state.login_params.filter) do
+          :ok ->
+            Logger.info("Successfully reconnected to APRS-IS")
+            timer = create_timer(@aprs_timeout)
+            keepalive_timer = create_keepalive_timer(@keepalive_interval)
+            {:noreply, %{state | socket: socket, timer: timer, keepalive_timer: keepalive_timer}}
+
+          error ->
+            Logger.warning("Failed to login to APRS-IS: #{inspect(error)}, will retry in 10 seconds")
+            schedule_reconnect(10000)
+            {:noreply, state}
+        end
+
+      error ->
+        Logger.warning("Unable to reconnect to APRS-IS: #{inspect(error)}, will retry in 10 seconds")
+        schedule_reconnect(10000)
+        {:noreply, state}
+    end
   end
 
   # Extract complete lines from buffer, returning {complete_lines, remaining_buffer}
@@ -519,4 +598,9 @@ defmodule Aprsme.Is do
   end
 
   defp struct_to_map(value), do: value
+
+  @spec schedule_reconnect(non_neg_integer()) :: reference()
+  defp schedule_reconnect(delay) do
+    Process.send_after(self(), :reconnect, delay)
+  end
 end
