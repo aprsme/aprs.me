@@ -319,6 +319,22 @@ defmodule AprsmeWeb.MapLive.Index do
       |> assign(map_ready: true)
       |> assign(needs_initial_historical_load: true)
 
+    # If we have non-default center coordinates (e.g., from geolocation), apply them now
+    socket =
+      if socket.assigns.map_center == @default_center do
+        socket
+      else
+        Logger.info(
+          "MapLive: Applying geolocation center after map ready - center: #{inspect(socket.assigns.map_center)}, zoom: #{socket.assigns.map_zoom}"
+        )
+
+        push_event(socket, "zoom_to_location", %{
+          lat: socket.assigns.map_center.lat,
+          lng: socket.assigns.map_center.lng,
+          zoom: socket.assigns.map_zoom
+        })
+      end
+
     # Wait for JavaScript to send the actual map bounds before loading historical packets
     # The calculated bounds might be too small/inaccurate
     Logger.debug("Map ready - waiting for JavaScript to send actual bounds before loading historical packets")
