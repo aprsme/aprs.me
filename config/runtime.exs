@@ -69,7 +69,7 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base,
     server: true,
-    check_origin: ["https://#{host}"]
+    check_origin: ["https://#{host}", "http://10.0.19.222:33897", "https://s.aprs.me"]
 
   config :aprsme,
     ecto_repos: [Aprsme.Repo],
