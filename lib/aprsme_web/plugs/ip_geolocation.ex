@@ -89,7 +89,10 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
           ip_from_remote =
             case conn.remote_ip do
               {a, b, c, d} -> "#{a}.#{b}.#{c}.#{d}"
-              {a, b, c, d, e, f, g, h} -> "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
+              {a, b, c, d, e, f, g, h} ->
+                # Convert IPv6 tuple to proper IPv6 format
+                :inet.ntoa({a, b, c, d, e, f, g, h})
+                |> to_string()
               _ -> nil
             end
 

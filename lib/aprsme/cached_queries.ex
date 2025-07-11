@@ -7,10 +7,10 @@ defmodule Aprsme.CachedQueries do
   alias Aprsme.Packets
   alias Aprsme.Repo
 
-  # 2 minutes for frequently changing data
-  @cache_ttl_short to_timeout(minute: 2)
-  # 15 minutes for moderately changing data
-  @cache_ttl_medium to_timeout(minute: 15)
+  # 1 minute for frequently changing data
+  @cache_ttl_short to_timeout(minute: 1)
+  # 1 minute for moderately changing data
+  @cache_ttl_medium to_timeout(minute: 1)
 
   @doc """
   Get recent packets with caching
