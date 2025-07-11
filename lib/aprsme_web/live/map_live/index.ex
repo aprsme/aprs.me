@@ -311,7 +311,11 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("map_ready", _params, socket) do
     require Logger
 
-    Logger.debug("map_ready event received - current bounds: #{inspect(socket.assigns.map_bounds)}")
+    Logger.info(
+      "map_ready event received - current map_center: #{inspect(socket.assigns.map_center)}, map_zoom: #{socket.assigns.map_zoom}"
+    )
+
+    Logger.info("map_ready - default center for comparison: #{inspect(@default_center)}")
 
     # Mark map as ready and that we need to load historical packets
     socket =
@@ -321,11 +325,16 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # If we have non-default center coordinates (e.g., from geolocation), apply them now
     socket =
-      if socket.assigns.map_center == @default_center do
+      if socket.assigns.map_center.lat == @default_center.lat and
+           socket.assigns.map_center.lng == @default_center.lng do
+        Logger.info(
+          "MapLive: Map center is default (#{socket.assigns.map_center.lat}, #{socket.assigns.map_center.lng}), not applying geolocation"
+        )
+
         socket
       else
         Logger.info(
-          "MapLive: Applying geolocation center after map ready - center: #{inspect(socket.assigns.map_center)}, zoom: #{socket.assigns.map_zoom}"
+          "MapLive: Sending zoom_to_location event - center: #{inspect(socket.assigns.map_center)}, zoom: #{socket.assigns.map_zoom}"
         )
 
         push_event(socket, "zoom_to_location", %{
