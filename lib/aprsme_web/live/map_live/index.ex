@@ -547,25 +547,33 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_params(params, _url, socket) do
-    # Parse new map state from URL parameters
-    {map_center, map_zoom} = parse_map_params(params)
+    # Check if we should skip this update (e.g., when using IP geolocation on initial load)
+    if Map.get(socket.assigns, :should_skip_initial_url_update, false) and
+         not Map.get(socket.assigns, :map_ready, false) do
+      # Skip the URL parameter update to preserve IP geolocation
+      socket = assign(socket, should_skip_initial_url_update: false)
+      {:noreply, socket}
+    else
+      # Parse new map state from URL parameters
+      {map_center, map_zoom} = parse_map_params(params)
 
-    # Update socket state
-    socket = assign(socket, map_center: map_center, map_zoom: map_zoom)
+      # Update socket state
+      socket = assign(socket, map_center: map_center, map_zoom: map_zoom)
 
-    # If map is ready, update the client-side map
-    socket =
-      if socket.assigns.map_ready do
-        push_event(socket, "zoom_to_location", %{
-          lat: map_center.lat,
-          lng: map_center.lng,
-          zoom: map_zoom
-        })
-      else
-        socket
-      end
+      # If map is ready, update the client-side map
+      socket =
+        if socket.assigns.map_ready do
+          push_event(socket, "zoom_to_location", %{
+            lat: map_center.lat,
+            lng: map_center.lng,
+            zoom: map_zoom
+          })
+        else
+          socket
+        end
 
-    {:noreply, socket}
+      {:noreply, socket}
+    end
   end
 
   @impl true
