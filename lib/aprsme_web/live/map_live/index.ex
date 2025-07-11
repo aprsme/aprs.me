@@ -92,19 +92,24 @@ defmodule AprsmeWeb.MapLive.Index do
     Logger.info("MapLive: Checking IP geolocation. Session data: #{inspect(session["ip_geolocation"])}")
     Logger.info("MapLive: URL params: #{inspect(params)}")
 
-    {map_center, map_zoom} =
+    # Check if URL params were explicitly provided (not just defaults)
+    has_explicit_url_params = params["lat"] || params["lng"] || params["z"]
+
+    {map_center, map_zoom, should_skip_initial_url_update} =
       case session["ip_geolocation"] do
         %{"lat" => lat, "lng" => lng} when is_number(lat) and is_number(lng) ->
-          # Use IP geolocation if available and no URL params specified
-          if params["lat"] || params["lng"] do
-            # URL params take precedence
-            Logger.info("MapLive: URL params present, using URL center: #{inspect(url_center)}, zoom: #{url_zoom}")
-            {url_center, url_zoom}
+          if has_explicit_url_params do
+            # URL params explicitly provided - use them
+            Logger.info(
+              "MapLive: Explicit URL params present, using URL center: #{inspect(url_center)}, zoom: #{url_zoom}"
+            )
+
+            {url_center, url_zoom, false}
           else
-            # Use IP geolocation with closer zoom
+            # No explicit URL params - use IP geolocation
             geo_center = %{lat: lat, lng: lng}
-            Logger.info("MapLive: Using IP geolocation center: #{inspect(geo_center)}, zoom: 11")
-            {geo_center, 11}
+            Logger.info("MapLive: Using IP geolocation center: #{inspect(geo_center)}, zoom: 12")
+            {geo_center, 12, true}
           end
 
         _ ->
@@ -113,7 +118,8 @@ defmodule AprsmeWeb.MapLive.Index do
             "MapLive: No IP geolocation found, using URL/default center: #{inspect(url_center)}, zoom: #{url_zoom}"
           )
 
-          {url_center, url_zoom}
+          # Skip initial URL update if no explicit params were provided
+          {url_center, url_zoom, !has_explicit_url_params}
       end
 
     Logger.info("MapLive: Final map params - center: #{inspect(map_center)}, zoom: #{map_zoom}")
@@ -139,6 +145,7 @@ defmodule AprsmeWeb.MapLive.Index do
        map_bounds: initial_bounds,
        map_center: map_center,
        map_zoom: map_zoom,
+       should_skip_initial_url_update: should_skip_initial_url_update,
        visible_packets: %{},
        historical_packets: %{},
        overlay_callsign: "",
@@ -450,10 +457,18 @@ defmodule AprsmeWeb.MapLive.Index do
         socket
       end
 
-    # Update URL without page reload
-    new_path = "/?lat=#{lat}&lng=#{lng}&z=#{zoom}"
-    Logger.debug("Updating URL to: #{new_path}")
-    socket = push_patch(socket, to: new_path, replace: true)
+    # Update URL without page reload, but skip on initial load if requested
+    socket =
+      if socket.assigns[:should_skip_initial_url_update] && !socket.assigns[:initial_bounds_loaded] do
+        # Skip URL update on initial load
+        Logger.debug("Skipping URL update on initial load")
+        # Clear the flag after first update
+        assign(socket, should_skip_initial_url_update: false)
+      else
+        new_path = "/?lat=#{lat}&lng=#{lng}&z=#{zoom}"
+        Logger.debug("Updating URL to: #{new_path}")
+        push_patch(socket, to: new_path, replace: true)
+      end
 
     # If bounds are included, also process bounds update
     socket =

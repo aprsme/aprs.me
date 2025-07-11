@@ -254,7 +254,7 @@ defmodule Aprsme.Is do
       connected: connected,
       server: server_to_string(state.server),
       port: state.port,
-      connected_at: if(connected, do: state.connected_at, else: nil),
+      connected_at: if(connected, do: state.connected_at),
       uptime_seconds: if(connected, do: DateTime.diff(DateTime.utc_now(), state.connected_at), else: 0),
       login_id: state.login_params.user_id,
       filter: state.login_params.filter,
@@ -408,13 +408,13 @@ defmodule Aprsme.Is do
 
           error ->
             Logger.warning("Failed to login to APRS-IS: #{inspect(error)}, will retry in 10 seconds")
-            schedule_reconnect(10000)
+            schedule_reconnect(10_000)
             {:noreply, state}
         end
 
       error ->
         Logger.warning("Unable to reconnect to APRS-IS: #{inspect(error)}, will retry in 10 seconds")
-        schedule_reconnect(10000)
+        schedule_reconnect(10_000)
         {:noreply, state}
     end
   end
