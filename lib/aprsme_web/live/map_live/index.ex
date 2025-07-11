@@ -89,8 +89,6 @@ defmodule AprsmeWeb.MapLive.Index do
     {url_center, url_zoom} = parse_map_params(params)
 
     # Check for IP geolocation in session
-    Logger.info("MapLive: Checking IP geolocation. Session data: #{inspect(session["ip_geolocation"])}")
-    Logger.info("MapLive: URL params: #{inspect(params)}")
 
     # Check if URL params were explicitly provided (not just defaults)
     has_explicit_url_params = params["lat"] || params["lng"] || params["z"]
@@ -100,29 +98,19 @@ defmodule AprsmeWeb.MapLive.Index do
         %{"lat" => lat, "lng" => lng} when is_number(lat) and is_number(lng) ->
           if has_explicit_url_params do
             # URL params explicitly provided - use them
-            Logger.info(
-              "MapLive: Explicit URL params present, using URL center: #{inspect(url_center)}, zoom: #{url_zoom}"
-            )
 
             {url_center, url_zoom, false}
           else
             # No explicit URL params - use IP geolocation
             geo_center = %{lat: lat, lng: lng}
-            Logger.info("MapLive: Using IP geolocation center: #{inspect(geo_center)}, zoom: 12")
-            {geo_center, 12, true}
+            {geo_center, 11, true}
           end
 
         _ ->
           # No geolocation available, use URL params or defaults
-          Logger.info(
-            "MapLive: No IP geolocation found, using URL/default center: #{inspect(url_center)}, zoom: #{url_zoom}"
-          )
-
           # Skip initial URL update if no explicit params were provided
           {url_center, url_zoom, !has_explicit_url_params}
       end
-
-    Logger.info("MapLive: Final map params - center: #{inspect(map_center)}, zoom: #{map_zoom}")
 
     socket = assign_defaults(socket, one_hour_ago)
 
@@ -136,8 +124,6 @@ defmodule AprsmeWeb.MapLive.Index do
       Endpoint.subscribe("aprs_messages")
       Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
     end
-
-    Logger.info("MapLive: Mount completed with assigns - map_center: #{inspect(map_center)}, map_zoom: #{map_zoom}")
 
     {:ok,
      assign(socket,
@@ -311,12 +297,6 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("map_ready", _params, socket) do
     require Logger
 
-    Logger.info(
-      "map_ready event received - current map_center: #{inspect(socket.assigns.map_center)}, map_zoom: #{socket.assigns.map_zoom}"
-    )
-
-    Logger.info("map_ready - default center for comparison: #{inspect(@default_center)}")
-
     # Mark map as ready and that we need to load historical packets
     socket =
       socket
@@ -327,16 +307,8 @@ defmodule AprsmeWeb.MapLive.Index do
     socket =
       if socket.assigns.map_center.lat == @default_center.lat and
            socket.assigns.map_center.lng == @default_center.lng do
-        Logger.info(
-          "MapLive: Map center is default (#{socket.assigns.map_center.lat}, #{socket.assigns.map_center.lng}), not applying geolocation"
-        )
-
         socket
       else
-        Logger.info(
-          "MapLive: Sending zoom_to_location event - center: #{inspect(socket.assigns.map_center)}, zoom: #{socket.assigns.map_zoom}"
-        )
-
         push_event(socket, "zoom_to_location", %{
           lat: socket.assigns.map_center.lat,
           lng: socket.assigns.map_center.lng,

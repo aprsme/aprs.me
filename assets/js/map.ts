@@ -61,16 +61,11 @@ let MapAPRSMap = {
     try {
       const centerData = self.el.dataset.center;
       const zoomData = self.el.dataset.zoom;
-      console.log("Map data attributes - center:", centerData, "zoom:", zoomData);
-      console.log("Full element dataset:", self.el.dataset);
-      console.log("Window location:", window.location.href);
-      console.log("Element HTML:", self.el.outerHTML.substring(0, 200));
       
       if (!centerData || !zoomData) throw new Error("Missing map data attributes");
       initialCenter = JSON.parse(centerData);
       initialZoom = parseInt(zoomData);
       
-      console.log("Parsed initial values - center:", initialCenter, "zoom:", initialZoom);
       
       if (
         !initialCenter ||
@@ -549,8 +544,6 @@ let MapAPRSMap = {
 
     // Zoom to location
     self.handleEvent("zoom_to_location", (data: { lat: number; lng: number; zoom?: number }) => {
-      console.log("Received zoom_to_location event:", data);
-      
       if (!self.map) {
         console.error("Map not initialized, cannot zoom");
         return;
@@ -560,8 +553,6 @@ let MapAPRSMap = {
         const lat = parseFloat(data.lat.toString());
         const lng = parseFloat(data.lng.toString());
         const zoom = parseInt(data.zoom?.toString() || "12");
-        
-        console.log("Zooming to location:", { lat, lng, zoom });
 
         // Validate coordinates
         if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
