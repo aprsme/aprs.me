@@ -26,9 +26,11 @@ ENV MIX_ENV="prod"
 
 # Install dependencies
 COPY mix.exs mix.lock ./
+# Copy vendor directory for local dependencies
+COPY vendor vendor
 RUN mix deps.get --only $MIX_ENV
-# Extract the APRS parser hash from the fetched GitHub dependency
-RUN cd deps/aprs && git rev-parse HEAD | cut -c1-7 > /tmp/aprs_hash.txt
+# Extract the APRS parser hash from the vendored directory
+RUN cd vendor/aprs && git rev-parse HEAD | cut -c1-7 > /tmp/aprs_hash.txt
 RUN mix deps.compile
 
 # Copy application code
