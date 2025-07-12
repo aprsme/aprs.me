@@ -93,7 +93,7 @@ defmodule Aprsme.CachedQueries do
         result
 
       _ ->
-        result = Packets.get_latest_weather_packet_optimized(callsign)
+        result = Packets.get_latest_weather_packet(callsign)
         # Cache for 5 minutes since weather updates are less frequent
         Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_short)
         result
@@ -118,7 +118,9 @@ defmodule Aprsme.CachedQueries do
         query =
           from p in Packet,
             where: p.sender == ^callsign,
-            where: p.data_type == "weather" or (p.symbol_table_id == "/" and p.symbol_code == "_"),
+            where:
+              not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
+                not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
             limit: 1,
             select: true
 

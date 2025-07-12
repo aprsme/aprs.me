@@ -737,10 +737,10 @@ defmodule Aprsme.Packets do
 
   @doc """
   Gets the most recent weather packet for a callsign.
-  Optimized to check only recent data first before expanding the search window.
+  Looks for any packet containing weather data fields.
   """
-  @spec get_latest_weather_packet_optimized(String.t()) :: struct() | nil
-  def get_latest_weather_packet_optimized(callsign) when is_binary(callsign) do
+  @spec get_latest_weather_packet(String.t()) :: struct() | nil
+  def get_latest_weather_packet(callsign) when is_binary(callsign) do
     # First try last 24 hours
     one_day_ago = TimeUtils.one_day_ago()
 
@@ -748,7 +748,9 @@ defmodule Aprsme.Packets do
       Repo.one(
         from(p in Packet,
           where: p.sender == ^callsign,
-          where: p.data_type == "weather",
+          where:
+            not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
+              not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
           where: p.received_at >= ^one_day_ago,
           order_by: [desc: p.received_at],
           limit: 1
@@ -763,7 +765,9 @@ defmodule Aprsme.Packets do
         Repo.one(
           from(p in Packet,
             where: p.sender == ^callsign,
-            where: p.data_type == "weather",
+            where:
+              not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
+                not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
             where: p.received_at >= ^one_week_ago,
             order_by: [desc: p.received_at],
             limit: 1

@@ -74,8 +74,13 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
 
   # Keep the old handler for backward compatibility
   def handle_info({:postgres_packet, packet}, socket) do
-    # Only process if it's a weather packet for this callsign
-    if packet.sender == socket.assigns.callsign && packet.data_type == "weather" do
+    # Only process if it's a packet with weather data for this callsign
+    has_weather_data =
+      not is_nil(packet.temperature) or not is_nil(packet.humidity) or
+        not is_nil(packet.pressure) or not is_nil(packet.wind_speed) or
+        not is_nil(packet.wind_direction) or not is_nil(packet.rain_1h)
+
+    if packet.sender == socket.assigns.callsign && has_weather_data do
       handle_info({:weather_packet, packet}, socket)
     else
       {:noreply, socket}

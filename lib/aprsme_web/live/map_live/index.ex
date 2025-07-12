@@ -1464,7 +1464,9 @@ defmodule AprsmeWeb.MapLive.Index do
     query =
       from p in Aprsme.Packet,
         where: fragment("UPPER(?)", p.sender) in ^normalized_callsigns,
-        where: p.data_type == "weather" or (p.symbol_table_id == "/" and p.symbol_code == "_"),
+        where:
+          not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
+            not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
         select: fragment("UPPER(?)", p.sender),
         distinct: true
 

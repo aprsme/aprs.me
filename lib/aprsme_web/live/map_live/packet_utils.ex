@@ -76,10 +76,17 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   """
   @spec weather_packet?(map()) :: boolean()
   def weather_packet?(packet) do
-    data_type = get_packet_field(packet, :data_type, "")
-    {symbol_table_id, symbol_code} = get_symbol_info(packet)
-
-    data_type == "weather" or (symbol_table_id == "/" and symbol_code == "_")
+    # Check if packet contains any weather data fields
+    not is_nil(get_packet_field(packet, :temperature, nil)) or
+      not is_nil(get_packet_field(packet, :humidity, nil)) or
+      not is_nil(get_packet_field(packet, :pressure, nil)) or
+      not is_nil(get_packet_field(packet, :wind_speed, nil)) or
+      not is_nil(get_packet_field(packet, :wind_direction, nil)) or
+      not is_nil(get_packet_field(packet, :rain_1h, nil)) or
+      not is_nil(get_packet_field(packet, :rain_24h, nil)) or
+      not is_nil(get_packet_field(packet, :rain_since_midnight, nil)) or
+      not is_nil(get_packet_field(packet, :snow, nil)) or
+      not is_nil(get_packet_field(packet, :luminosity, nil))
   end
 
   @doc """

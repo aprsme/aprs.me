@@ -76,7 +76,11 @@ defmodule Aprsme.Packets.QueryBuilder do
   @spec weather_only(Ecto.Query.t()) :: Ecto.Query.t()
   def weather_only(query) do
     from p in query,
-      where: p.data_type == "weather" or (p.symbol_table_id == "/" and p.symbol_code == "_")
+      where:
+        not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
+          not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h) or
+          not is_nil(p.rain_24h) or not is_nil(p.rain_since_midnight) or not is_nil(p.snow) or
+          not is_nil(p.luminosity)
   end
 
   @doc """
