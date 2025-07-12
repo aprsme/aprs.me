@@ -40,12 +40,8 @@ defmodule Aprsme.Callsign do
   def valid?(callsign) when is_binary(callsign) do
     trimmed = String.trim(callsign)
 
-    cond do
-      trimmed == "" -> false
-      byte_size(trimmed) < 3 -> false
-      byte_size(trimmed) > 15 -> false
-      true -> Regex.match?(~r/^[A-Z0-9]+(-[A-Z0-9]{1,2})?$/i, trimmed)
-    end
+    # Accept any non-empty callsign
+    trimmed != ""
   end
 
   def valid?(_), do: false
@@ -74,10 +70,13 @@ defmodule Aprsme.Callsign do
   def extract_base(nil), do: ""
 
   def extract_base(callsign) when is_binary(callsign) do
+    # Split on last hyphen to get base callsign
     case String.split(callsign, "-") do
-      [base, _ssid] -> base
-      [base] -> base
-      _ -> ""
+      parts when length(parts) > 1 ->
+        parts |> Enum.drop(-1) |> Enum.join("-")
+
+      _ ->
+        callsign
     end
   end
 
@@ -98,9 +97,9 @@ defmodule Aprsme.Callsign do
   def extract_ssid(nil), do: "0"
 
   def extract_ssid(callsign) when is_binary(callsign) do
+    # Extract whatever comes after the last hyphen as SSID
     case String.split(callsign, "-") do
-      [_base, ssid] -> ssid
-      [_base] -> "0"
+      parts when length(parts) > 1 -> List.last(parts)
       _ -> "0"
     end
   end
@@ -122,10 +121,15 @@ defmodule Aprsme.Callsign do
   def extract_parts(nil), do: {"", "0"}
 
   def extract_parts(callsign) when is_binary(callsign) do
+    # Split on last hyphen to separate base and SSID
     case String.split(callsign, "-") do
-      [base, ssid] -> {base, ssid}
-      [base] -> {base, "0"}
-      _ -> {"", "0"}
+      parts when length(parts) > 1 ->
+        ssid = List.last(parts)
+        base = parts |> Enum.drop(-1) |> Enum.join("-")
+        {base, ssid}
+
+      _ ->
+        {callsign, "0"}
     end
   end
 
