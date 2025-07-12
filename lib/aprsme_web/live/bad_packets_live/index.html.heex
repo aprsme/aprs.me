@@ -1,88 +1,91 @@
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 my-8">
-  <div class="mb-8">
-    <!-- Remove the <.header /> component from this template -->
-  </div>
+<div class="container mx-auto px-4 py-8">
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-sm text-base-content/70">
+          {gettext("Auto-refreshes every 5 seconds")}
+        </span>
+        <%= if @loading do %>
+          <span class="flex items-center gap-2 text-sm text-primary">
+            <span class="loading loading-spinner loading-xs"></span>
+            {gettext("Updating...")}
+          </span>
+        <% end %>
+      </div>
 
-  <div class="mt-6 bg-white shadow-sm rounded-lg overflow-hidden">
-    <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-      <span class="text-xs text-gray-500">
-        {gettext("Auto-refreshes every 5 seconds")}
-      </span>
-      <%= if @loading do %>
-        <span class="flex items-center text-xs text-blue-600">
-          <svg
-            class="animate-spin -ml-1 mr-1 h-3 w-3"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            >
-            </circle>
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            >
-            </path>
-          </svg>
-          {gettext("Updating...")}
-        </span>
-      <% end %>
-    </div>
-    <.table id="bad_packets" rows={@bad_packets}>
-      <:col :let={bad_packet} label={gettext("Attempted At")}>
-        <span class="text-sm text-gray-900">
-          {Calendar.strftime(
-            bad_packet.attempted_at || bad_packet.inserted_at,
-            "%Y-%m-%d %H:%M:%S UTC"
-          )}
-        </span>
-      </:col>
-      <:col :let={bad_packet} label={gettext("Error Type")}>
-        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-          {bad_packet.error_type || gettext("Unknown")}
-        </span>
-      </:col>
-      <:col :let={bad_packet} label={gettext("Error Message")}>
-        <span class="text-sm text-red-600 font-mono">
-          {bad_packet.error_message || gettext("No error message")}
-        </span>
-      </:col>
-      <:col :let={bad_packet} label={gettext("Raw Packet")}>
-        <div class="max-w-md">
-          <div class="text-xs font-mono text-gray-700 break-all">
-            <%= if is_binary(bad_packet.raw_packet) do %>
-              {Aprsme.EncodingUtils.sanitize_string(bad_packet.raw_packet)}
-            <% else %>
-              {bad_packet.raw_packet}
+      <div class="overflow-x-auto">
+        <table class="table table-zebra">
+          <thead>
+            <tr>
+              <th>{gettext("Attempted At")}</th>
+              <th>{gettext("Error Type")}</th>
+              <th>{gettext("Error Message")}</th>
+              <th>{gettext("Raw Packet")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for bad_packet <- @bad_packets do %>
+              <tr>
+                <td>
+                  <span class="text-sm">
+                    {Calendar.strftime(
+                      bad_packet.attempted_at || bad_packet.inserted_at,
+                      "%Y-%m-%d %H:%M:%S UTC"
+                    )}
+                  </span>
+                </td>
+                <td>
+                  <div class="badge badge-error badge-sm">
+                    {bad_packet.error_type || gettext("Unknown")}
+                  </div>
+                </td>
+                <td>
+                  <span class="text-sm text-error font-mono">
+                    {bad_packet.error_message || gettext("No error message")}
+                  </span>
+                </td>
+                <td>
+                  <div class="max-w-md">
+                    <div class="text-xs font-mono text-base-content/80 break-all">
+                      <%= if is_binary(bad_packet.raw_packet) do %>
+                        {Aprsme.EncodingUtils.sanitize_string(bad_packet.raw_packet)}
+                      <% else %>
+                        {bad_packet.raw_packet}
+                      <% end %>
+                    </div>
+                  </div>
+                </td>
+              </tr>
             <% end %>
-          </div>
-        </div>
-      </:col>
-    </.table>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <%= if length(@bad_packets) == 0 do %>
-    <div class="mt-8 text-center">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100">
-        <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
+    <div class="card bg-base-100 shadow-xl mt-8">
+      <div class="card-body text-center">
+        <div class="flex justify-center mb-4">
+          <div class="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center">
+            <svg
+              class="w-8 h-8 text-success"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+        </div>
+        <h3 class="text-lg font-semibold">{gettext("No bad packets")}</h3>
+        <p class="text-base-content/70">{gettext("All packets are parsing successfully!")}</p>
       </div>
-      <h3 class="mt-2 text-sm font-medium text-gray-900">{gettext("No bad packets")}</h3>
-      <p class="mt-1 text-sm text-gray-500">{gettext("All packets are parsing successfully!")}</p>
     </div>
   <% end %>
 </div>
