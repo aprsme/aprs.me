@@ -52,6 +52,12 @@ defmodule Aprsme.Packet do
     field(:speed, :float)
     field(:altitude, :float)
 
+    # PHG (Power-Height-Gain) fields
+    field(:phg_power, :integer)
+    field(:phg_height, :integer)
+    field(:phg_gain, :integer)
+    field(:phg_directivity, :integer)
+
     # Message-specific fields
     field(:addressee, :string)
     field(:message_text, :string)
@@ -109,6 +115,10 @@ defmodule Aprsme.Packet do
       :course,
       :speed,
       :altitude,
+      :phg_power,
+      :phg_height,
+      :phg_gain,
+      :phg_directivity,
       :addressee,
       :message_text,
       :message_number,
@@ -352,6 +362,21 @@ defmodule Aprsme.Packet do
     |> maybe_put(:course, data_extended[:course] || data_extended["course"])
     |> maybe_put(:speed, data_extended[:speed] || data_extended["speed"])
     |> maybe_put(:altitude, data_extended[:altitude] || data_extended["altitude"])
+    |> put_phg_fields(data_extended)
+  end
+
+  defp put_phg_fields(map, data_extended) do
+    phg = data_extended[:phg] || data_extended["phg"]
+
+    if phg && is_map(phg) do
+      map
+      |> maybe_put(:phg_power, phg[:power] || phg["power"])
+      |> maybe_put(:phg_height, phg[:height] || phg["height"])
+      |> maybe_put(:phg_gain, phg[:gain] || phg["gain"])
+      |> maybe_put(:phg_directivity, phg[:directivity] || phg["directivity"])
+    else
+      map
+    end
   end
 
   defp put_message_fields(map, data_extended) do

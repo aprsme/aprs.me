@@ -139,6 +139,45 @@
                   </dd>
                 </div>
               <% end %>
+              <%= if @packet.phg_power || @packet.phg_height || @packet.phg_gain do %>
+                <div class="col-span-2 border-t pt-3 mt-3">
+                  <dt class="text-xs font-medium opacity-70 mb-2">
+                    {gettext("PHG (Power-Height-Gain)")}
+                  </dt>
+                  <dd class="grid grid-cols-2 gap-2 text-sm">
+                    <%= if @packet.phg_power do %>
+                      <div>
+                        <span class="opacity-70">{gettext("Power:")}</span>
+                        <span class="font-semibold">{@packet.phg_power} W</span>
+                      </div>
+                    <% end %>
+                    <%= if @packet.phg_height do %>
+                      <div>
+                        <span class="opacity-70">{gettext("HAAT:")}</span>
+                        <span class="font-semibold">{@packet.phg_height} ft</span>
+                      </div>
+                    <% end %>
+                    <%= if @packet.phg_gain do %>
+                      <div>
+                        <span class="opacity-70">{gettext("Gain:")}</span>
+                        <span class="font-semibold">{@packet.phg_gain} dBi</span>
+                      </div>
+                    <% end %>
+                    <%= if @packet.phg_directivity do %>
+                      <div>
+                        <span class="opacity-70">{gettext("Dir:")}</span>
+                        <span class="font-semibold">
+                          <%= if @packet.phg_directivity == 0 or @packet.phg_directivity == 360 do %>
+                            {gettext("Omni")}
+                          <% else %>
+                            {@packet.phg_directivity}°
+                          <% end %>
+                        </span>
+                      </div>
+                    <% end %>
+                  </dd>
+                </div>
+              <% end %>
             </dl>
           </div>
         </div>
