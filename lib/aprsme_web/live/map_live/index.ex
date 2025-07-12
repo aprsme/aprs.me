@@ -8,6 +8,7 @@ defmodule AprsmeWeb.MapLive.Index do
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_navigate: 2, push_patch: 2]
 
+  alias Aprsme.GeoUtils
   alias Aprsme.Packets.Clustering
   alias AprsmeWeb.Endpoint
   alias AprsmeWeb.MapLive.MapHelpers
@@ -638,6 +639,23 @@ defmodule AprsmeWeb.MapLive.Index do
       should_add_marker?(lat, lon, callsign_key, socket) ->
         handle_valid_postgres_packet(packet, lat, lon, socket)
 
+      should_update_marker?(lat, lon, callsign_key, socket) ->
+        # Marker exists and is within bounds - check if there's significant movement
+        existing_packet = socket.assigns.visible_packets[callsign_key]
+        {existing_lat, existing_lon, _} = MapHelpers.get_coordinates(existing_packet)
+
+        # Check if we have valid existing coordinates
+        if is_number(existing_lat) and is_number(existing_lon) and
+             GeoUtils.significant_movement?(existing_lat, existing_lon, lat, lon, 15) do
+          # Significant movement detected (more than 15 meters), update the marker
+          handle_valid_postgres_packet(packet, lat, lon, socket)
+        else
+          # Just GPS drift or invalid coordinates, update the packet data but don't send visual update
+          new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
+          socket = assign(socket, visible_packets: new_visible_packets)
+          {:noreply, socket}
+        end
+
       true ->
         {:noreply, socket}
     end
@@ -652,6 +670,12 @@ defmodule AprsmeWeb.MapLive.Index do
   defp should_add_marker?(lat, lon, callsign_key, socket) do
     !is_nil(lat) and !is_nil(lon) and
       not Map.has_key?(socket.assigns.visible_packets, callsign_key) and
+      MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
+  end
+
+  defp should_update_marker?(lat, lon, callsign_key, socket) do
+    !is_nil(lat) and !is_nil(lon) and
+      Map.has_key?(socket.assigns.visible_packets, callsign_key) and
       MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
   end
 
