@@ -127,6 +127,18 @@
                   <dd class="mt-1 text-sm font-semibold">{@packet.speed} MPH</dd>
                 </div>
               <% end %>
+              <%= if @packet.comment do %>
+                <div class="col-span-2">
+                  <dt class="text-xs font-medium opacity-70">{gettext("Comment")}</dt>
+                  <dd class="mt-1 text-sm">
+                    <%= if is_binary(@packet.comment) do %>
+                      {Aprsme.EncodingUtils.sanitize_string(@packet.comment)}
+                    <% else %>
+                      {@packet.comment}
+                    <% end %>
+                  </dd>
+                </div>
+              <% end %>
             </dl>
           </div>
         </div>
