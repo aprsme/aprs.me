@@ -1132,6 +1132,23 @@ let MapAPRSMap = {
     // Handle marker click
     marker.on("click", () => {
       if (marker.openPopup) marker.openPopup();
+      
+      // Bring the clicked marker to front
+      if (marker.getElement) {
+        const element = marker.getElement();
+        if (element) {
+          // Find the highest z-index among all markers
+          let maxZIndex = 1000;
+          document.querySelectorAll('.leaflet-marker-icon').forEach((el) => {
+            const zIndex = parseInt((el as HTMLElement).style.zIndex || '0', 10);
+            if (zIndex > maxZIndex) maxZIndex = zIndex;
+          });
+          
+          // Set this marker's z-index higher than all others
+          element.style.zIndex = (maxZIndex + 1).toString();
+        }
+      }
+      
       safePushEvent(self.pushEvent, "marker_clicked", {
         id: data.id,
         callsign: data.callsign,

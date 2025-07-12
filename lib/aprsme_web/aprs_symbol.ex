@@ -290,7 +290,7 @@ defmodule AprsmeWeb.AprsSymbol do
           white-space: nowrap;
           border: 1px solid rgba(30, 64, 175, 0.3);
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-          pointer-events: none;
+          pointer-events: auto;
           z-index: 1000;
         ">#{callsign}</div>
       </div>
