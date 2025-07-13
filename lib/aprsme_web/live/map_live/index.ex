@@ -546,7 +546,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
   defp update_map_state(socket, map_center, zoom) do
     old_zoom = socket.assigns.map_zoom
-    crossing_threshold = is_crossing_zoom_threshold?(old_zoom, zoom)
+    crossing_threshold = crossing_zoom_threshold?(old_zoom, zoom)
 
     socket = assign(socket, map_center: map_center, map_zoom: zoom)
 
@@ -557,7 +557,7 @@ defmodule AprsmeWeb.MapLive.Index do
     end
   end
 
-  defp is_crossing_zoom_threshold?(old_zoom, new_zoom) do
+  defp crossing_zoom_threshold?(old_zoom, new_zoom) do
     (old_zoom <= 8 and new_zoom > 8) or (old_zoom > 8 and new_zoom <= 8)
   end
 
@@ -2050,17 +2050,6 @@ defmodule AprsmeWeb.MapLive.Index do
     })
   end
 
-  # Helper function to parse coordinates from various formats
-  @spec parse_coordinate(any()) :: float()
-  defp parse_coordinate(coord) do
-    cond do
-      is_binary(coord) -> String.to_float(coord)
-      is_integer(coord) -> coord / 1.0
-      is_float(coord) -> coord
-      true -> 0.0
-    end
-  end
-
   defp trigger_marker_display(socket) do
     # Clear heat map and show markers
     socket = push_event(socket, "show_markers", %{})
@@ -2100,7 +2089,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Only clear historical packets if:
     # 1. Bounds actually changed AND
-    # 2. This is not the initial load AND  
+    # 2. This is not the initial load AND
     # 3. We've already completed the initial historical load
     socket =
       if bounds_changed and not is_initial_load and initial_historical_completed do
@@ -2138,21 +2127,20 @@ defmodule AprsmeWeb.MapLive.Index do
     path
     |> String.split(",")
     |> Enum.map(&String.trim/1)
-    |> Enum.reject(&(&1 == ""))
-    # Skip TCPIP entries and qA* entries (but preserve the actual digipeater/igate callsigns)
-    |> Enum.reject(&String.contains?(&1, "TCPIP"))
-    |> Enum.reject(&String.starts_with?(&1, "qA"))
+    # Skip empty strings, TCPIP entries and qA* entries
+    |> Enum.reject(fn callsign ->
+      callsign == "" || String.contains?(callsign, "TCPIP") || String.starts_with?(callsign, "qA")
+    end)
     |> Enum.map(fn callsign ->
       # Remove any asterisk (used to mark heard stations) and WIDE patterns
       callsign
       |> String.replace("*", "")
       |> String.trim()
     end)
-    # Filter out WIDE patterns (both WIDE1-1 and WIDE1 forms)
+    # Filter out APRS built-in beacon patterns
     |> Enum.reject(fn callsign ->
-      String.starts_with?(callsign, "WIDE")
+      callsign == "" || aprs_beacon?(callsign)
     end)
-    |> Enum.reject(&(&1 == ""))
     |> Enum.uniq()
   end
 
@@ -2165,4 +2153,59 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp get_path_station_positions(_, _), do: []
+
+  # Check if a callsign is an APRS built-in beacon pattern
+  @spec aprs_beacon?(String.t()) :: boolean()
+  defp aprs_beacon?(callsign) do
+    # Common APRS beacon patterns to exclude
+    patterns = [
+      # WIDE1, WIDE2, WIDE1-1, etc.
+      ~r/^WIDE\d(-\d)?$/i,
+      # TRACE patterns
+      ~r/^TRACE\d(-\d)?$/i,
+      # RELAY
+      ~r/^RELAY$/i,
+      # ECHO
+      ~r/^ECHO$/i,
+      # GATE
+      ~r/^GATE$/i,
+      # UNPROTO
+      ~r/^UNPROTO$/i,
+      # BEACON
+      ~r/^BEACON$/i,
+      # CQ
+      ~r/^CQ$/i,
+      # QTH
+      ~r/^QTH$/i,
+      # MAIL
+      ~r/^MAIL$/i,
+      # TEMP1, TEMP2, etc.
+      ~r/^TEMP\d+$/i,
+      # ID
+      ~r/^ID$/i,
+      # GPS
+      ~r/^GPS$/i,
+      # DF
+      ~r/^DF$/i,
+      # DGPS
+      ~r/^DGPS$/i,
+      # PHG patterns
+      ~r/^PHG\d+$/i,
+      # RNG patterns
+      ~r/^RNG\d+$/i,
+      # DFS patterns
+      ~r/^DFS\d+$/i,
+      # HOP patterns
+      ~r/^HOP\d+(-\d)?$/i,
+      # REGION patterns
+      ~r/^REGION\d+(-\d)?$/i,
+      # STATE patterns
+      ~r/^STATE\d+(-\d)?$/i
+    ]
+
+    # Check if the callsign matches any beacon pattern
+    Enum.any?(patterns, fn pattern ->
+      Regex.match?(pattern, callsign)
+    end)
+  end
 end

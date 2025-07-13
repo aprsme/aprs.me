@@ -6,6 +6,7 @@ defmodule Aprsme.CachedQueries do
   alias Aprsme.Packet
   alias Aprsme.Packets
   alias Aprsme.Repo
+  alias Ecto.Adapters.SQL
 
   # 1 minute for frequently changing data
   @cache_ttl_short to_timeout(minute: 1)
@@ -195,7 +196,7 @@ defmodule Aprsme.CachedQueries do
         """
 
         result =
-          case Ecto.Adapters.SQL.query(Repo, query, [callsigns]) do
+          case SQL.query(Repo, query, [callsigns]) do
             {:ok, %{rows: rows}} ->
               Enum.map(rows, fn [callsign, lat, lon] ->
                 %{

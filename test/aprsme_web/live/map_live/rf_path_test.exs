@@ -73,15 +73,12 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
 
     test "handles paths with asterisks correctly", %{conn: conn} do
       {:ok, _station} =
-        Repo.insert(%Packet{
+        create_test_packet(%{
           sender: "WA5VHU-8",
           base_callsign: "WA5VHU",
           ssid: "8",
           lat: Decimal.new("33.1500"),
-          lon: Decimal.new("-96.5500"),
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second),
-          data_type: "position"
+          lon: Decimal.new("-96.5500")
         })
 
       {:ok, view, _html} = live(conn, "/")
@@ -113,6 +110,31 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
       assert view.module == Index
     end
 
+    test "filters out APRS beacon patterns from paths", %{conn: conn} do
+      # Create a real station that should be included
+      {:ok, _station} =
+        create_test_packet(%{
+          sender: "KC5ABC-9",
+          base_callsign: "KC5ABC",
+          ssid: "9",
+          lat: Decimal.new("33.2500"),
+          lon: Decimal.new("-96.6500")
+        })
+
+      {:ok, view, _html} = live(conn, "/")
+
+      # Send a hover event with various beacon patterns that should be filtered
+      render_hook(view, "marker_hover_start", %{
+        "id" => "test-beacons",
+        "path" => "KC5ABC-9,WIDE1-1,WIDE2-1,TRACE3-3,RELAY,ECHO,HOP7-7",
+        "lat" => 33.2837,
+        "lng" => -96.5728
+      })
+
+      # Should filter out all beacon patterns but keep KC5ABC-9
+      assert view.module == Index
+    end
+
     test "handles empty paths gracefully", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
 
@@ -138,27 +160,21 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
     setup do
       # Create test packets with positions
       {:ok, _digi1} =
-        Repo.insert(%Packet{
+        create_test_packet(%{
           sender: "K5GVL-10",
           base_callsign: "K5GVL",
           ssid: "10",
           lat: Decimal.new("33.1000"),
-          lon: Decimal.new("-96.6000"),
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second),
-          data_type: "position"
+          lon: Decimal.new("-96.6000")
         })
 
       {:ok, _digi2} =
-        Repo.insert(%Packet{
+        create_test_packet(%{
           sender: "N5TXZ-10",
           base_callsign: "N5TXZ",
           ssid: "10",
           lat: Decimal.new("33.2000"),
-          lon: Decimal.new("-96.5000"),
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second),
-          data_type: "position"
+          lon: Decimal.new("-96.5000")
         })
 
       :ok
@@ -185,32 +201,26 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
       # Create test packets - one inside a small bounds, one outside
       # Station inside typical Texas bounds
       {:ok, _inside_station} =
-        Repo.insert(%Packet{
+        create_test_packet(%{
           sender: "K5INSIDE-10",
           base_callsign: "K5INSIDE",
           ssid: "10",
           # Inside Texas area
           lat: Decimal.new("32.5000"),
           # Inside Texas area
-          lon: Decimal.new("-96.5000"),
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second),
-          data_type: "position"
+          lon: Decimal.new("-96.5000")
         })
 
       # Station outside bounds (way outside in Boston area)
       {:ok, _outside_station} =
-        Repo.insert(%Packet{
+        create_test_packet(%{
           sender: "W1OUTSIDE-10",
           base_callsign: "W1OUTSIDE",
           ssid: "10",
           # Boston area - far from Texas
           lat: Decimal.new("42.0000"),
           # Boston area - far from Texas
-          lon: Decimal.new("-71.0000"),
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second),
-          data_type: "position"
+          lon: Decimal.new("-71.0000")
         })
 
       :ok
