@@ -342,6 +342,38 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   defp decode_aprs_path(_), do: nil
 
+  @doc """
+  Parses the APRS path and creates linked callsigns where appropriate.
+  Returns a list of tuples: {:text, string} or {:link, callsign, display_text}
+  """
+  def parse_path_with_links(path) when is_binary(path) and path != "" do
+    path
+    |> String.split(",")
+    |> Enum.map(&parse_path_element_with_link/1)
+  end
+
+  def parse_path_with_links(_), do: []
+
+  defp parse_path_element_with_link(element) do
+    element = String.trim(element)
+
+    # Check if it's a callsign (with or without SSID)
+    if Regex.match?(~r/^[A-Z0-9]{1,6}(-\d{1,2})?(\*)?$/, element) and
+         not String.starts_with?(element, "WIDE") and
+         not String.starts_with?(element, "TRACE") and
+         not String.starts_with?(element, "RELAY") and
+         not String.starts_with?(element, "TCPIP") and
+         not String.starts_with?(element, "q") do
+      # Remove asterisk if present (indicates the packet was digipeated through this station)
+      callsign = String.replace(element, "*", "")
+      display = if String.ends_with?(element, "*"), do: "#{callsign}*", else: callsign
+      {:link, callsign, display}
+    else
+      # Not a linkable callsign, just return as text
+      {:text, element, element}
+    end
+  end
+
   defp decode_path_element(element) do
     element = String.trim(element)
 

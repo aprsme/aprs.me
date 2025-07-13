@@ -229,7 +229,22 @@
               </div>
               <div>
                 <dt class="text-xs font-medium opacity-70">{gettext("Path")}</dt>
-                <dd class="mt-1 text-sm font-semibold">{@packet.path || ""}</dd>
+                <dd class="mt-1 text-sm font-semibold">
+                  <% path_elements = parse_path_with_links(@packet.path) %>
+                  <%= for {{type, content, display}, index} <- Enum.with_index(path_elements) do %>
+                    <%= case type do %>
+                      <% :link -> %>
+                        <.link navigate={~p"/info/#{content}"} class="link link-primary">
+                          {display}
+                        </.link>
+                      <% :text -> %>
+                        {content}
+                    <% end %>
+                    <%= if index < length(path_elements) - 1 do %>
+                      <span class="opacity-50">,</span>
+                    <% end %>
+                  <% end %>
+                </dd>
               </div>
               <%= if @packet.path && @packet.path != "" do %>
                 <div class="col-span-2">
