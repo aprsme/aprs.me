@@ -1,10 +1,9 @@
 defmodule AprsmeWeb.MapLive.RfPathTest do
   use AprsmeWeb.ConnCase
 
+  import AprsmeWeb.TestHelpers
   import Phoenix.LiveViewTest
 
-  alias Aprsme.Packet
-  alias Aprsme.Repo
   alias AprsmeWeb.MapLive.Index
 
   describe "RF path parsing" do
@@ -13,15 +12,12 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
       # Since it's a private function, we test the behavior
 
       {:ok, _digi1} =
-        Repo.insert(%Packet{
+        create_test_packet(%{
           sender: "K5GVL-10",
           base_callsign: "K5GVL",
           ssid: "10",
           lat: Decimal.new("33.1000"),
           lon: Decimal.new("-96.6000"),
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second),
-          data_type: "position",
           symbol_table_id: "#",
           symbol_code: "r"
         })
@@ -44,27 +40,21 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
     test "parses complex RF paths with multiple stations", %{conn: conn} do
       # Create multiple stations that could be in the path
       {:ok, _station1} =
-        Repo.insert(%Packet{
+        create_test_packet(%{
           sender: "N5ABC",
           base_callsign: "N5ABC",
           ssid: nil,
           lat: Decimal.new("33.2000"),
-          lon: Decimal.new("-96.6000"),
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second),
-          data_type: "position"
+          lon: Decimal.new("-96.6000")
         })
 
       {:ok, _station2} =
-        Repo.insert(%Packet{
+        create_test_packet(%{
           sender: "WB5DEF-1",
           base_callsign: "WB5DEF",
           ssid: "1",
           lat: Decimal.new("33.3000"),
-          lon: Decimal.new("-96.7000"),
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second),
-          data_type: "position"
+          lon: Decimal.new("-96.7000")
         })
 
       {:ok, view, _html} = live(conn, "/")
@@ -230,12 +220,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
       {:ok, view, _html} = live(conn, "/")
 
       # Set map bounds to a small area around Texas that excludes the outside station
-      bounds = %{
-        "north" => "33.0",
-        "south" => "32.0",
-        "east" => "-96.0",
-        "west" => "-97.0"
-      }
+      bounds = texas_bounds()
 
       render_hook(view, "bounds_changed", %{"bounds" => bounds})
 
@@ -257,12 +242,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
       {:ok, view, _html} = live(conn, "/")
 
       # Set very restrictive bounds that exclude both stations
-      bounds = %{
-        "north" => "31.0",
-        "south" => "30.0",
-        "east" => "-95.0",
-        "west" => "-96.0"
-      }
+      bounds = restrictive_bounds()
 
       render_hook(view, "bounds_changed", %{"bounds" => bounds})
 

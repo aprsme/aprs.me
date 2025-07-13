@@ -163,6 +163,58 @@ defmodule Aprsme.CachedQueries do
     stats
   end
 
+  @doc """
+  Get path station positions with caching
+  """
+  def get_path_station_positions_cached(callsigns) when is_list(callsigns) do
+    cache_key = generate_cache_key("path_stations", Enum.sort(callsigns))
+
+    case Cachex.get(:query_cache, cache_key) do
+      {:ok, result} when not is_nil(result) ->
+        result
+
+      _ ->
+        query = """
+        WITH latest_positions AS (
+          SELECT DISTINCT ON (sender)
+            sender,
+            lat,
+            lon,
+            received_at
+          FROM packets
+          WHERE 
+            sender = ANY($1::text[])
+            AND lat IS NOT NULL
+            AND lon IS NOT NULL
+            AND received_at > NOW() - INTERVAL '7 days'
+          ORDER BY sender, received_at DESC
+        )
+        SELECT sender, lat, lon
+        FROM latest_positions
+        ORDER BY array_position($1::text[], sender)
+        """
+
+        result =
+          case Ecto.Adapters.SQL.query(Repo, query, [callsigns]) do
+            {:ok, %{rows: rows}} ->
+              Enum.map(rows, fn [callsign, lat, lon] ->
+                %{
+                  callsign: callsign,
+                  lat: Decimal.to_float(lat),
+                  lng: Decimal.to_float(lon)
+                }
+              end)
+
+            {:error, _} ->
+              []
+          end
+
+        # Cache for 5 minutes
+        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_medium)
+        result
+    end
+  end
+
   # Private helper functions
 
   defp generate_cache_key(prefix, data) do

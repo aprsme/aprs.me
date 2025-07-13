@@ -234,6 +234,27 @@ defmodule AprsmeWeb.AprsSymbol do
       "<div style=\"position: relative; width: 32px; height: 32px; display: flex; align-items: center;\">..."
   """
   def render_marker_html(symbol_table, symbol_code, callsign \\ nil, size \\ 32) do
+    # For symbols without callsigns, use Cachex for better caching
+    if is_nil(callsign) do
+      cache_key = "symbol_html:#{symbol_table}:#{symbol_code}:#{size}"
+
+      case Cachex.get(:symbol_cache, cache_key) do
+        {:ok, html} when not is_nil(html) ->
+          html
+
+        _ ->
+          html = generate_marker_html(symbol_table, symbol_code, nil, size)
+          # Cache for 1 hour since symbols don't change
+          Cachex.put(:symbol_cache, cache_key, html, ttl: to_timeout(hour: 1))
+          html
+      end
+    else
+      # For symbols with callsigns, generate directly (callsigns are dynamic)
+      generate_marker_html(symbol_table, symbol_code, callsign, size)
+    end
+  end
+
+  defp generate_marker_html(symbol_table, symbol_code, callsign, size) do
     sprite_info = get_sprite_info(symbol_table, symbol_code)
 
     # Check if this is an overlay symbol
