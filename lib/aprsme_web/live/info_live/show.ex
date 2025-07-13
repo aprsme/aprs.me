@@ -30,6 +30,9 @@ defmodule AprsmeWeb.InfoLive.Show do
     has_weather_packets = PacketUtils.has_weather_packets?(normalized_callsign)
     other_ssids = get_other_ssids(normalized_callsign)
 
+    heard_by_stations = get_heard_by_stations(normalized_callsign, locale)
+    stations_heard_by = get_stations_heard_by(normalized_callsign, locale)
+
     socket =
       socket
       |> assign(:callsign, normalized_callsign)
@@ -38,6 +41,8 @@ defmodule AprsmeWeb.InfoLive.Show do
       |> assign(:page_title, "APRS station #{normalized_callsign}")
       |> assign(:has_weather_packets, has_weather_packets)
       |> assign(:other_ssids, other_ssids)
+      |> assign(:heard_by_stations, heard_by_stations)
+      |> assign(:stations_heard_by, stations_heard_by)
 
     {:ok, socket}
   end
@@ -62,6 +67,8 @@ defmodule AprsmeWeb.InfoLive.Show do
     neighbors = get_neighbors(packet, socket.assigns.callsign, locale)
     has_weather_packets = PacketUtils.has_weather_packets?(socket.assigns.callsign)
     other_ssids = get_other_ssids(socket.assigns.callsign)
+    heard_by_stations = get_heard_by_stations(socket.assigns.callsign, locale)
+    stations_heard_by = get_stations_heard_by(socket.assigns.callsign, locale)
 
     socket =
       socket
@@ -69,6 +76,8 @@ defmodule AprsmeWeb.InfoLive.Show do
       |> assign(:neighbors, neighbors)
       |> assign(:has_weather_packets, has_weather_packets)
       |> assign(:other_ssids, other_ssids)
+      |> assign(:heard_by_stations, heard_by_stations)
+      |> assign(:stations_heard_by, stations_heard_by)
 
     {:noreply, socket}
   end
@@ -273,6 +282,237 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   defp extract_base_callsign(callsign) do
     Callsign.extract_base(callsign)
+  end
+
+  defp get_heard_by_stations(callsign, locale) do
+    alias Aprsme.Repo
+
+    # Get packets from the last month where this callsign was heard on RF
+    one_month_ago = DateTime.add(DateTime.utc_now(), -30, :day)
+
+    # Query to find stations that heard this callsign directly
+    # In APRS, the first station with an asterisk (*) in the path is the one that heard the packet directly
+    query = """
+    WITH parsed_paths AS (
+      SELECT 
+        id,
+        sender,
+        path,
+        received_at,
+        lat,
+        lon,
+        location,
+        -- Extract the first digipeater from the path
+        CASE 
+          WHEN path ~ '[A-Z0-9]+-?[0-9]*\\*' THEN
+            substring(path from '([A-Z0-9]+-?[0-9]*)\\*')
+          ELSE NULL
+        END as first_digipeater
+      FROM packets
+      WHERE sender = $1
+        AND received_at >= $2
+        AND path IS NOT NULL
+        AND path != ''
+        AND path !~ '^TCPIP'
+        AND path !~ ',TCPIP'
+    ),
+    digipeater_stats AS (
+      SELECT 
+        first_digipeater as digipeater,
+        MIN(received_at) as first_heard,
+        MAX(received_at) as last_heard,
+        COUNT(*) as packet_count,
+        -- Find the packet with maximum distance for this digipeater
+        (SELECT pp2.id 
+         FROM parsed_paths pp2 
+         WHERE pp2.first_digipeater = pp.first_digipeater 
+           AND pp2.lat IS NOT NULL 
+           AND pp2.lon IS NOT NULL
+         ORDER BY 
+           ST_Distance(
+             pp2.location::geography,
+             (SELECT location::geography 
+              FROM packets 
+              WHERE sender = pp2.first_digipeater 
+                AND location IS NOT NULL 
+              ORDER BY received_at DESC 
+              LIMIT 1)
+           ) DESC NULLS LAST
+         LIMIT 1
+        ) as longest_path_packet_id
+      FROM parsed_paths pp
+      WHERE first_digipeater IS NOT NULL
+      GROUP BY first_digipeater
+    )
+    SELECT 
+      ds.digipeater,
+      ds.first_heard,
+      ds.last_heard,
+      ds.packet_count,
+      p.received_at as longest_path_time,
+      CASE 
+        WHEN p.location IS NOT NULL AND dig_loc.location IS NOT NULL THEN
+          ST_Distance(p.location::geography, dig_loc.location::geography) / 1000.0
+        ELSE NULL
+      END as longest_distance_km
+    FROM digipeater_stats ds
+    LEFT JOIN packets p ON p.id = ds.longest_path_packet_id
+    LEFT JOIN LATERAL (
+      SELECT location 
+      FROM packets 
+      WHERE sender = ds.digipeater 
+        AND location IS NOT NULL 
+      ORDER BY received_at DESC 
+      LIMIT 1
+    ) dig_loc ON true
+    ORDER BY ds.last_heard DESC
+    LIMIT 50
+    """
+
+    case Repo.query(query, [callsign, one_month_ago]) do
+      {:ok, result} ->
+        result.rows
+        |> Enum.map(fn row ->
+          case row do
+            [digipeater, first_heard, last_heard, packet_count, longest_path_time, longest_distance_km] ->
+              %{
+                digipeater: digipeater || "",
+                first_heard: first_heard,
+                last_heard: last_heard,
+                packet_count: packet_count || 0,
+                longest_distance_km: longest_distance_km,
+                longest_distance: if(longest_distance_km, do: format_distance(longest_distance_km, locale)),
+                longest_path_time: longest_path_time
+              }
+
+            _ ->
+              nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+
+      {:error, error} ->
+        require Logger
+
+        Logger.error("Error in get_heard_by_stations: #{inspect(error)}")
+        []
+    end
+  end
+
+  defp get_stations_heard_by(callsign, locale) do
+    alias Aprsme.Repo
+
+    # Get packets from the last month where this callsign heard other stations on RF
+    one_month_ago = DateTime.add(DateTime.utc_now(), -30, :day)
+
+    # Query to find stations that were heard directly by this callsign
+    # We look for packets where this callsign appears as the first digipeater with an asterisk
+    query = """
+    WITH parsed_paths AS (
+      SELECT 
+        id,
+        sender,
+        path,
+        received_at,
+        lat,
+        lon,
+        location,
+        -- Extract the first digipeater from the path
+        CASE 
+          WHEN path ~ '[A-Z0-9]+-?[0-9]*\\*' THEN
+            substring(path from '([A-Z0-9]+-?[0-9]*)\\*')
+          ELSE NULL
+        END as first_digipeater
+      FROM packets
+      WHERE path ~ ($1 || '\\*')
+        AND received_at >= $2
+        AND path IS NOT NULL
+        AND path != ''
+        AND path !~ '^TCPIP'
+        AND path !~ ',TCPIP'
+    ),
+    station_stats AS (
+      SELECT 
+        sender as station,
+        MIN(received_at) as first_heard,
+        MAX(received_at) as last_heard,
+        COUNT(*) as packet_count,
+        -- Find the packet with maximum distance for this station
+        (SELECT pp2.id 
+         FROM parsed_paths pp2 
+         WHERE pp2.sender = pp.sender 
+           AND pp2.first_digipeater = $1
+           AND pp2.lat IS NOT NULL 
+           AND pp2.lon IS NOT NULL
+         ORDER BY 
+           ST_Distance(
+             pp2.location::geography,
+             (SELECT location::geography 
+              FROM packets 
+              WHERE sender = $1 
+                AND location IS NOT NULL 
+              ORDER BY received_at DESC 
+              LIMIT 1)
+           ) DESC NULLS LAST
+         LIMIT 1
+        ) as longest_path_packet_id
+      FROM parsed_paths pp
+      WHERE first_digipeater = $1
+      GROUP BY sender
+    )
+    SELECT 
+      ss.station,
+      ss.first_heard,
+      ss.last_heard,
+      ss.packet_count,
+      p.received_at as longest_path_time,
+      CASE 
+        WHEN p.location IS NOT NULL AND dig_loc.location IS NOT NULL THEN
+          ST_Distance(p.location::geography, dig_loc.location::geography) / 1000.0
+        ELSE NULL
+      END as longest_distance_km
+    FROM station_stats ss
+    LEFT JOIN packets p ON p.id = ss.longest_path_packet_id
+    LEFT JOIN LATERAL (
+      SELECT location 
+      FROM packets 
+      WHERE sender = $1 
+        AND location IS NOT NULL 
+      ORDER BY received_at DESC 
+      LIMIT 1
+    ) dig_loc ON true
+    ORDER BY ss.last_heard DESC
+    LIMIT 50
+    """
+
+    case Repo.query(query, [callsign, one_month_ago]) do
+      {:ok, result} ->
+        result.rows
+        |> Enum.map(fn row ->
+          case row do
+            [station, first_heard, last_heard, packet_count, longest_path_time, longest_distance_km] ->
+              %{
+                station: station || "",
+                first_heard: first_heard,
+                last_heard: last_heard,
+                packet_count: packet_count || 0,
+                longest_distance_km: longest_distance_km,
+                longest_distance: if(longest_distance_km, do: format_distance(longest_distance_km, locale)),
+                longest_path_time: longest_path_time
+              }
+
+            _ ->
+              nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+
+      {:error, error} ->
+        require Logger
+
+        Logger.error("Error in get_stations_heard_by: #{inspect(error)}")
+        []
+    end
   end
 
   @doc """
