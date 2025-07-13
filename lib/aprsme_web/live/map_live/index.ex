@@ -126,6 +126,9 @@ defmodule AprsmeWeb.MapLive.Index do
       Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
     end
 
+    # Check for callsign parameter
+    tracked_callsign = Map.get(params, "call", "")
+
     {:ok,
      assign(socket,
        map_ready: false,
@@ -136,6 +139,7 @@ defmodule AprsmeWeb.MapLive.Index do
        visible_packets: %{},
        historical_packets: %{},
        overlay_callsign: "",
+       tracked_callsign: tracked_callsign,
        trail_duration: "1",
        historical_hours: "1",
        packet_age_threshold: one_hour_ago,
@@ -333,6 +337,36 @@ defmodule AprsmeWeb.MapLive.Index do
   @impl true
   def handle_event("update_callsign", %{"callsign" => callsign}, socket) do
     {:noreply, assign(socket, overlay_callsign: callsign)}
+  end
+
+  @impl true
+  def handle_event("track_callsign", %{"callsign" => callsign}, socket) do
+    normalized_callsign = String.upcase(String.trim(callsign))
+
+    socket =
+      if normalized_callsign == "" do
+        # Clear tracking
+        socket
+        |> assign(tracked_callsign: "")
+        |> push_patch(to: "/")
+      else
+        # Set tracking
+        socket
+        |> assign(tracked_callsign: normalized_callsign)
+        |> push_patch(to: "/?call=#{normalized_callsign}")
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("clear_tracking", _params, socket) do
+    socket =
+      socket
+      |> assign(tracked_callsign: "", overlay_callsign: "")
+      |> push_patch(to: "/")
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -614,6 +648,23 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp handle_info_postgres_packet(packet, socket) do
+    # Check if we're tracking a specific callsign
+    # Only process if this packet is from the tracked callsign
+    if socket.assigns.tracked_callsign == "" do
+      # No tracking - show all packets
+      process_packet_for_display(packet, socket)
+    else
+      packet_sender = Map.get(packet, :sender, Map.get(packet, "sender", ""))
+
+      if String.upcase(packet_sender) == String.upcase(socket.assigns.tracked_callsign) do
+        process_packet_for_display(packet, socket)
+      else
+        {:noreply, socket}
+      end
+    end
+  end
+
+  defp process_packet_for_display(packet, socket) do
     {lat, lon, _data_extended} = MapHelpers.get_coordinates(packet)
     callsign_key = get_callsign_key(packet)
 
@@ -1012,21 +1063,37 @@ defmodule AprsmeWeb.MapLive.Index do
             </svg>
             <span>{gettext("Search Callsign")}</span>
           </label>
-          <form phx-submit="search_callsign" class="flex space-x-2">
-            <input
-              type="text"
-              name="callsign"
-              value={@overlay_callsign}
-              phx-change="update_callsign"
-              placeholder={gettext("Enter callsign...")}
-              class="flex-1 px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm uppercase placeholder-slate-400 transition-all duration-200 hover:border-slate-400"
-            />
-            <button
-              type="submit"
-              class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl"
-            >
-              {gettext("Search")}
-            </button>
+          <form phx-submit="track_callsign" class="flex flex-col space-y-2">
+            <div class="flex space-x-2">
+              <input
+                type="text"
+                name="callsign"
+                value={@tracked_callsign || @overlay_callsign}
+                phx-change="update_callsign"
+                placeholder={gettext("Enter callsign...")}
+                class="flex-1 px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm uppercase placeholder-slate-400 transition-all duration-200 hover:border-slate-400"
+              />
+              <button
+                type="submit"
+                class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl"
+              >
+                {gettext("Track")}
+              </button>
+            </div>
+            <%= if @tracked_callsign != "" do %>
+              <div class="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-lg">
+                <span class="text-sm text-blue-700 font-medium">
+                  {gettext("Tracking:")} <span class="font-bold">{@tracked_callsign}</span>
+                </span>
+                <button
+                  type="button"
+                  phx-click="clear_tracking"
+                  class="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                >
+                  {gettext("Clear")}
+                </button>
+              </div>
+            <% end %>
           </form>
         </div>
         
@@ -1589,12 +1656,22 @@ defmodule AprsmeWeb.MapLive.Index do
           if packets_module == Aprsme.Packets do
             # Use cached queries for better performance
             # Include zoom level in cache key for better cache efficiency
-            Aprsme.CachedQueries.get_recent_packets_cached(%{
+            params = %{
               bounds: bounds,
               limit: batch_size,
               offset: offset,
               zoom: zoom
-            })
+            }
+
+            # Add callsign filter if tracking
+            params =
+              if socket.assigns.tracked_callsign == "" do
+                params
+              else
+                Map.put(params, :callsign, socket.assigns.tracked_callsign)
+              end
+
+            Aprsme.CachedQueries.get_recent_packets_cached(params)
           else
             # Fallback for testing
             packets_module.get_recent_packets_optimized(%{

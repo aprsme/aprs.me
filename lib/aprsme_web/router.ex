@@ -93,8 +93,10 @@ defmodule AprsmeWeb.Router do
       live "/api", ApiDocsLive, :index
       live "/info/:callsign", InfoLive.Show, :show
       live "/", MapLive.Index, :index
-      live "/:callsign", MapLive.CallsignView, :index
     end
+
+    # Redirect old callsign map URLs to new format
+    get "/:callsign", RedirectController, :callsign_to_map
   end
 
   # API v1 routes

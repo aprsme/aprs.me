@@ -45,7 +45,7 @@
               <.link navigate={~p"/packets/#{@callsign}"} class="btn btn-outline btn-sm">
                 {gettext("View packets")}
               </.link>
-              <.link navigate={~p"/#{@callsign}"} class="btn btn-primary btn-sm">
+              <.link navigate={"/?call=#{@callsign}"} class="btn btn-primary btn-sm">
                 {gettext("View on map")}
               </.link>
             </div>

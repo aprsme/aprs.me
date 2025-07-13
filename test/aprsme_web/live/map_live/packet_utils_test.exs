@@ -66,8 +66,17 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
         symbol_code: "_",
         lat: 32.7767,
         lon: -96.7970,
-        received_at: DateTime.utc_now()
-        # No weather data fields
+        received_at: DateTime.utc_now(),
+        # Add at least one non-nil weather field to make it a weather packet
+        temperature: 75,
+        humidity: nil,
+        pressure: nil,
+        wind_speed: nil,
+        wind_direction: nil,
+        wind_gust: nil,
+        rain_1h: nil,
+        rain_24h: nil,
+        rain_since_midnight: nil
       }
 
       result = PacketUtils.build_packet_data(packet, true)
@@ -81,8 +90,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
       assert popup =~ "Weather Report"
       assert popup =~ "data-timestamp="
 
-      # Check weather data shows N/A
-      assert popup =~ "Temperature: N/A°F"
+      # Check temperature is shown, others show N/A
+      assert popup =~ "Temperature: 75°F"
       assert popup =~ "Humidity: N/A%"
       assert popup =~ "Wind: N/A° at N/A mph, gusts to N/A mph"
       assert popup =~ "Pressure: N/A hPa"
@@ -265,21 +274,23 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
   end
 
   describe "weather packet detection" do
-    test "identifies weather packets by symbol" do
+    test "identifies weather packets by weather data fields" do
       weather_packet = %{
         data_type: "position",
         symbol_table_id: "/",
-        symbol_code: "_"
+        symbol_code: "_",
+        temperature: 75
       }
 
       assert PacketUtils.weather_packet?(weather_packet)
     end
 
-    test "identifies weather packets by data_type" do
+    test "identifies weather packets with humidity" do
       weather_packet = %{
         data_type: "weather",
         symbol_table_id: "/",
-        symbol_code: ">"
+        symbol_code: ">",
+        humidity: 80
       }
 
       assert PacketUtils.weather_packet?(weather_packet)

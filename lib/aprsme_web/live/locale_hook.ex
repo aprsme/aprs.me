@@ -39,7 +39,6 @@ defmodule AprsmeWeb.LocaleHook do
     # Only check the view module from socket private data
     case socket.private[:phoenix_live_view] do
       %{view: AprsmeWeb.MapLive.Index} -> true
-      %{view: AprsmeWeb.MapLive.CallsignView} -> true
       _ -> false
     end
   end

@@ -9,7 +9,7 @@ defmodule AprsmeWeb.MapLive.PopupComponent do
     ~H"""
     <div class="aprs-popup" data-timestamp={@cache_buster}>
       <div class="aprs-callsign">
-        <strong><.link navigate={"/#{@callsign}"}>{@callsign}</.link></strong>
+        <strong><.link navigate={"/?call=#{@callsign}"}>{@callsign}</.link></strong>
         <.link navigate={"/info/#{@callsign}"} class="aprs-info-link">
           {gettext(AprsmeWeb.Gettext, "info")}
         </.link>
