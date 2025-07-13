@@ -7,6 +7,14 @@ defmodule AprsmeWeb.TimeHelpers do
   @doc """
   Returns a human-readable string for how long ago the given DateTime was.
   """
+  def time_ago_in_words(nil), do: gettext("unknown time") <> " " <> gettext("ago")
+
+  def time_ago_in_words(%NaiveDateTime{} = naive_datetime) do
+    # Convert NaiveDateTime to DateTime assuming UTC
+    datetime = DateTime.from_naive!(naive_datetime, "Etc/UTC")
+    time_ago_in_words(datetime)
+  end
+
   def time_ago_in_words(datetime) do
     now = DateTime.utc_now()
     diff_seconds = DateTime.diff(now, datetime, :second)

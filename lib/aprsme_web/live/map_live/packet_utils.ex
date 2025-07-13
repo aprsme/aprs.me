@@ -268,6 +268,8 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
         32
       )
 
+    path_value = get_packet_field(packet, :path, "")
+
     %{
       "id" => packet_id,
       "callsign" => packet_info.callsign,
@@ -276,7 +278,7 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
       "lat" => to_float(lat),
       "lng" => to_float(lon),
       "data_type" => to_string(get_packet_field(packet, :data_type, "unknown")),
-      "path" => get_packet_field(packet, :path, ""),
+      "path" => path_value,
       "comment" => packet_info.comment,
       "data_extended" => packet_info.safe_data_extended || %{},
       "symbol_table_id" => packet_info.symbol_table_id,

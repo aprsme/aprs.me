@@ -8,6 +8,7 @@ defmodule AprsmeWeb.MapLive.Index do
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_navigate: 2, push_patch: 2]
 
+  alias Aprsme.CachedQueries
   alias Aprsme.GeoUtils
   alias Aprsme.Packets.Clustering
   alias AprsmeWeb.Endpoint
@@ -92,7 +93,7 @@ defmodule AprsmeWeb.MapLive.Index do
     # Check for IP geolocation in session
 
     # Check if URL params were explicitly provided (not just defaults)
-    has_explicit_url_params = params["lat"] || params["lng"] || params["z"]
+    has_explicit_url_params = !!(params["lat"] || params["lng"] || params["z"])
 
     {map_center, map_zoom, should_skip_initial_url_update} =
       case session["ip_geolocation"] do
@@ -118,9 +119,6 @@ defmodule AprsmeWeb.MapLive.Index do
     # Initialize the flag to track if initial historical load is completed
     socket = assign(socket, initial_historical_completed: false)
 
-    # Calculate initial bounds based on center and zoom level
-    initial_bounds = calculate_bounds_from_center_and_zoom(map_center, map_zoom)
-
     if connected?(socket) do
       Endpoint.subscribe("aprs_messages")
       Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
@@ -129,12 +127,29 @@ defmodule AprsmeWeb.MapLive.Index do
     # Check for callsign parameter
     tracked_callsign = Map.get(params, "call", "")
 
+    # If tracking a callsign and no explicit map parameters, center on that callsign
+    {final_map_center, final_map_zoom} =
+      if tracked_callsign != "" and not has_explicit_url_params do
+        case CachedQueries.get_latest_packet_for_callsign_cached(tracked_callsign) do
+          %{lat: lat, lon: lon} when is_number(lat) and is_number(lon) ->
+            {%{lat: lat, lng: lon}, 12}
+
+          _ ->
+            {map_center, map_zoom}
+        end
+      else
+        {map_center, map_zoom}
+      end
+
+    # Calculate initial bounds based on final center and zoom level
+    initial_bounds = calculate_bounds_from_center_and_zoom(final_map_center, final_map_zoom)
+
     {:ok,
      assign(socket,
        map_ready: false,
        map_bounds: initial_bounds,
-       map_center: map_center,
-       map_zoom: map_zoom,
+       map_center: final_map_center,
+       map_zoom: final_map_zoom,
        should_skip_initial_url_update: should_skip_initial_url_update,
        visible_packets: %{},
        historical_packets: %{},
@@ -151,7 +166,7 @@ defmodule AprsmeWeb.MapLive.Index do
        all_packets: %{},
        station_popup_open: false,
        initial_bounds_loaded: false,
-       needs_initial_historical_load: false
+       needs_initial_historical_load: tracked_callsign != ""
      )}
   end
 
@@ -302,11 +317,9 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("map_ready", _params, socket) do
     require Logger
 
-    # Mark map as ready and that we need to load historical packets
-    socket =
-      socket
-      |> assign(map_ready: true)
-      |> assign(needs_initial_historical_load: true)
+    # Mark map as ready - preserve existing needs_initial_historical_load state
+    # (it's already set correctly in mount based on whether we're tracking a callsign)
+    socket = assign(socket, map_ready: true)
 
     # If we have non-default center coordinates (e.g., from geolocation), apply them now
     socket =
@@ -332,6 +345,41 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("marker_clicked", _params, socket) do
     # When a marker is clicked, mark that a station popup is open
     {:noreply, assign(socket, station_popup_open: true)}
+  end
+
+  @impl true
+  def handle_event("marker_hover_start", %{"id" => _id, "path" => path, "lat" => lat, "lng" => lng}, socket) do
+    require Logger
+
+    Logger.info("RF path hover start - path: #{inspect(path)}")
+
+    # Parse the path to find digipeater/igate stations
+    path_stations = parse_rf_path(path)
+    Logger.info("Parsed path stations: #{inspect(path_stations)}")
+
+    # Query for positions of path stations
+    path_station_positions = get_path_station_positions(path_stations, socket)
+    Logger.info("Found #{length(path_station_positions)} station positions")
+
+    # Send event to draw the RF path lines
+    socket =
+      if length(path_station_positions) > 0 do
+        push_event(socket, "draw_rf_path", %{
+          station_lat: lat,
+          station_lng: lng,
+          path_stations: path_station_positions
+        })
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("marker_hover_end", _params, socket) do
+    # Clear the RF path lines
+    {:noreply, push_event(socket, "clear_rf_path", %{})}
   end
 
   @impl true
@@ -1222,7 +1270,13 @@ defmodule AprsmeWeb.MapLive.Index do
             </svg>
             <span class="font-medium">{gettext("Navigation")}</span>
           </div>
-          <.navigation variant={:vertical} class="text-sm" current_user={@current_user} />
+          <.navigation
+            variant={:vertical}
+            class="text-sm"
+            current_user={@current_user}
+            map_state={%{lat: @map_center.lat, lng: @map_center.lng, zoom: @map_zoom}}
+            tracked_callsign={@tracked_callsign}
+          />
         </div>
         
     <!-- Deployment Information -->
@@ -1461,6 +1515,7 @@ defmodule AprsmeWeb.MapLive.Index do
         "timestamp" => DateTime.to_unix(packet.received_at || DateTime.utc_now(), :millisecond),
         "historical" => !is_most_recent,
         "is_most_recent_for_callsign" => is_most_recent,
+        "path" => packet.path || "",
         "popup" => build_simple_popup(packet, has_weather)
       }
     end
@@ -1670,6 +1725,10 @@ defmodule AprsmeWeb.MapLive.Index do
               else
                 Map.put(params, :callsign, socket.assigns.tracked_callsign)
               end
+
+            # Use the historical_hours setting from the UI dropdown
+            historical_hours = String.to_integer(socket.assigns.historical_hours || "1")
+            params = Map.put(params, :hours_back, historical_hours)
 
             Aprsme.CachedQueries.get_recent_packets_cached(params)
           else
@@ -1993,4 +2052,77 @@ defmodule AprsmeWeb.MapLive.Index do
       socket
     end
   end
+
+  # Parse RF path string to extract digipeater/igate callsigns
+  defp parse_rf_path(path) when is_binary(path) do
+    # Split by comma and filter out empty strings
+    path
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    # Skip TCPIP entries and qA* entries (but preserve the actual digipeater/igate callsigns)
+    |> Enum.reject(&String.contains?(&1, "TCPIP"))
+    |> Enum.reject(&String.starts_with?(&1, "qA"))
+    |> Enum.map(fn callsign ->
+      # Remove any asterisk (used to mark heard stations) and WIDE patterns
+      callsign
+      |> String.replace("*", "")
+      |> String.trim()
+    end)
+    # Filter out WIDE patterns (both WIDE1-1 and WIDE1 forms)
+    |> Enum.reject(fn callsign ->
+      String.starts_with?(callsign, "WIDE")
+    end)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+  end
+
+  defp parse_rf_path(_), do: []
+
+  # Get positions of path stations from database
+  defp get_path_station_positions(callsigns, socket) when is_list(callsigns) do
+    # Query for the most recent position of each station
+    # Show complete RF path regardless of map bounds - only the originating station needs to be visible
+    _bounds = socket.assigns.map_bounds
+
+    query = """
+    WITH latest_positions AS (
+      SELECT DISTINCT ON (sender)
+        sender,
+        lat,
+        lon,
+        received_at
+      FROM packets
+      WHERE 
+        sender = ANY($1::text[])
+        AND lat IS NOT NULL
+        AND lon IS NOT NULL
+        AND received_at > NOW() - INTERVAL '7 days'
+      ORDER BY sender, received_at DESC
+    )
+    SELECT sender, lat, lon
+    FROM latest_positions
+    ORDER BY array_position($1::text[], sender)
+    """
+
+    case Ecto.Adapters.SQL.query(
+           Aprsme.Repo,
+           query,
+           [callsigns]
+         ) do
+      {:ok, %{rows: rows}} ->
+        Enum.map(rows, fn [callsign, lat, lon] ->
+          %{
+            callsign: callsign,
+            lat: Decimal.to_float(lat),
+            lng: Decimal.to_float(lon)
+          }
+        end)
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  defp get_path_station_positions(_, _), do: []
 end

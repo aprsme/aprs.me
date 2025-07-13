@@ -271,6 +271,9 @@ let MapAPRSMap = {
 
     // Track marker states to prevent unnecessary operations
     self.markerStates = new Map<string, MarkerState>();
+    
+    // Store RF path lines for hover visualization
+    self.rfPathLines = [];
 
     // Force initial size calculation
     try {
@@ -897,6 +900,76 @@ let MapAPRSMap = {
       }
     });
 
+    // Handle drawing RF path lines when hovering over a station
+    self.handleEvent("draw_rf_path", (data: { 
+      station_lat: number, 
+      station_lng: number, 
+      path_stations: Array<{callsign: string, lat: number, lng: number}> 
+    }) => {
+      if (!self.map || !data.path_stations || data.path_stations.length === 0) return;
+
+      // Clear any existing path lines
+      if (self.rfPathLines) {
+        self.rfPathLines.forEach(line => self.map!.removeLayer(line));
+      }
+      self.rfPathLines = [];
+
+      // Draw lines from station to each digipeater/igate in sequence
+      let prevLat = data.station_lat;
+      let prevLng = data.station_lng;
+
+      data.path_stations.forEach((station, index) => {
+        // Draw line from previous position to this station
+        const line = L.polyline(
+          [[prevLat, prevLng], [station.lat, station.lng]], 
+          {
+            color: '#FF6B6B',
+            weight: 3,
+            opacity: 0.8,
+            dashArray: index === 0 ? null : '5, 10', // Solid line for first hop, dashed for subsequent
+          }
+        );
+
+        line.addTo(self.map!);
+        self.rfPathLines.push(line);
+
+        // Add a small circle marker at the digipeater/igate location
+        const circle = L.circleMarker([station.lat, station.lng], {
+          radius: 6,
+          fillColor: '#2563eb',
+          color: '#fff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.8
+        });
+        
+        circle.bindTooltip(station.callsign, {
+          permanent: false,
+          direction: 'top',
+          offset: [0, -10]
+        });
+
+        circle.addTo(self.map!);
+        self.rfPathLines.push(circle);
+
+        // Update prev position for next line
+        prevLat = station.lat;
+        prevLng = station.lng;
+      });
+    });
+
+    // Handle clearing RF path lines
+    self.handleEvent("clear_rf_path", () => {
+      if (self.rfPathLines) {
+        self.rfPathLines.forEach(line => {
+          if (self.map && self.map.hasLayer(line)) {
+            self.map.removeLayer(line);
+          }
+        });
+        self.rfPathLines = [];
+      }
+    });
+
     // Handle bounds-based marker filtering
     self.handleEvent("filter_markers_by_bounds", (data: { bounds: BoundsData }) => {
       if (data.bounds) {
@@ -1156,6 +1229,45 @@ let MapAPRSMap = {
         lng: lng,
       });
     });
+
+    // Handle marker hover for RF path visualization
+    // Check for non-empty RF path (not TCPIP and not empty string)
+    if (data.path && data.path.trim() !== "" && !data.path.includes("TCPIP")) {
+      console.log("Adding hover handlers for RF packet:", data.callsign, "path:", data.path);
+      marker.on("mouseover", () => {
+        console.log("Marker hover start for:", data.callsign);
+        // Check if LiveView is still connected before sending event
+        if (self.pushEvent && !self.isDestroyed) {
+          try {
+            self.pushEvent("marker_hover_start", {
+              id: data.id,
+              callsign: data.callsign,
+              path: data.path,
+              lat: lat,
+              lng: lng,
+            });
+          } catch (error) {
+            console.warn("Failed to send marker_hover_start event:", error);
+          }
+        } else {
+          console.warn("LiveView not connected, cannot send hover event");
+        }
+      });
+
+      marker.on("mouseout", () => {
+        console.log("Marker hover end for:", data.callsign);
+        // Check if LiveView is still connected before sending event
+        if (self.pushEvent && !self.isDestroyed) {
+          try {
+            self.pushEvent("marker_hover_end", {
+              id: data.id,
+            });
+          } catch (error) {
+            console.warn("Failed to send marker_hover_end event:", error);
+          }
+        }
+      });
+    }
     
 
     // Mark historical markers for identification

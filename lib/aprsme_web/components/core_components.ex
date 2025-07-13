@@ -752,13 +752,33 @@ defmodule AprsmeWeb.CoreComponents do
   attr :class, :string, default: ""
   attr :variant, :atom, values: [:horizontal, :vertical], default: :horizontal
   attr :current_user, :any, default: nil
+  attr :map_state, :map, default: nil
+  attr :tracked_callsign, :string, default: ""
 
   def navigation(assigns) do
+    # Build home URL with map state if available
+    home_url =
+      if assigns[:map_state] do
+        base_url = "/?lat=#{assigns.map_state.lat}&lng=#{assigns.map_state.lng}&z=#{assigns.map_state.zoom}"
+
+        if assigns[:tracked_callsign] && assigns.tracked_callsign != "" do
+          base_url <> "&call=#{assigns.tracked_callsign}"
+        else
+          base_url
+        end
+      else
+        "/"
+      end
+
+    assigns = assign(assigns, :home_url, home_url)
+
     ~H"""
     <%= if @variant == :horizontal do %>
       <ul class="menu menu-horizontal px-1">
         <li>
-          <.link navigate="/" class="text-gray-900 hover:text-gray-700">{gettext("Home")}</.link>
+          <.link navigate={@home_url} class="text-gray-900 hover:text-gray-700">
+            {gettext("Home")}
+          </.link>
         </li>
         <li><.link navigate="/api" class="text-gray-900 hover:text-gray-700">API</.link></li>
         <li>
@@ -791,7 +811,11 @@ defmodule AprsmeWeb.CoreComponents do
         <% end %>
       </ul>
     <% else %>
-      <li><.link navigate="/" class="text-gray-900 hover:text-gray-700">{gettext("Home")}</.link></li>
+      <li>
+        <.link navigate={@home_url} class="text-gray-900 hover:text-gray-700">
+          {gettext("Home")}
+        </.link>
+      </li>
       <li><.link navigate="/api" class="text-gray-900 hover:text-gray-700">API</.link></li>
       <li>
         <.link navigate="/about" class="text-gray-900 hover:text-gray-700">{gettext("About")}</.link>

@@ -28,6 +28,9 @@ export interface LiveViewHookContext {
   popupNavigationHandler?: (e: Event) => void;
   moveEndHandler?: () => void;
   zoomEndHandler?: () => void;
+  rfPathLines?: any[]; // Array of Leaflet polylines and markers for RF path visualization
+  trailLayer?: LayerGroup;
+  markerClusterGroup?: any;
   [key: string]: any;
 }
 
@@ -48,6 +51,7 @@ export interface MarkerData {
   callsign_group?: string;
   symbol_html?: string;
   openPopup?: boolean;
+  path?: string;
 }
 
 export interface BoundsData {

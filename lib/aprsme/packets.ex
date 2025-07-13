@@ -424,8 +424,13 @@ defmodule Aprsme.Packets do
   @impl true
   @spec get_recent_packets(map()) :: [struct()]
   def get_recent_packets(opts \\ %{}) do
-    # Always limit to the last 24 hours for more symbol variety
-    opts_with_time = Map.put(opts, :hours_back, 24)
+    # Use provided hours_back or default to 24 hours
+    opts_with_time =
+      if Map.has_key?(opts, :hours_back) do
+        opts
+      else
+        Map.put(opts, :hours_back, 24)
+      end
 
     opts_with_time
     |> QueryBuilder.recent_position_packets()
@@ -439,8 +444,9 @@ defmodule Aprsme.Packets do
   @impl true
   @spec get_recent_packets_optimized(map()) :: [struct()]
   def get_recent_packets_optimized(opts \\ %{}) do
-    # Always limit to the last 24 hours for more symbol variety
-    one_hour_ago = TimeUtils.one_day_ago()
+    # Use hours_back from opts if provided, otherwise default to 24 hours
+    hours_back = Map.get(opts, :hours_back, 24)
+    time_ago = DateTime.add(DateTime.utc_now(), -hours_back * 3600, :second)
     limit = Map.get(opts, :limit, 200)
     offset = Map.get(opts, :offset, 0)
 
@@ -448,7 +454,7 @@ defmodule Aprsme.Packets do
     base_query =
       from(p in Packet,
         where: p.has_position == true,
-        where: p.received_at >= ^one_hour_ago
+        where: p.received_at >= ^time_ago
       )
 
     # Apply spatial and other filters BEFORE limiting
