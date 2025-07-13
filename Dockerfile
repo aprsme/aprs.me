@@ -29,8 +29,6 @@ COPY mix.exs mix.lock ./
 # Copy vendor directory for local dependencies
 COPY vendor vendor
 RUN mix deps.get --only $MIX_ENV
-# Extract the APRS parser hash from the vendored directory
-RUN cd vendor/aprs && git rev-parse HEAD | cut -c1-7 > /tmp/aprs_hash.txt
 RUN mix deps.compile
 
 # Copy application code
@@ -64,12 +62,6 @@ RUN mkdir -p /app
 
 # Set deployment timestamp to current time during runtime container build
 RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > /app/deployed_at.txt
-
-# Copy APRS parser hash from builder stage
-COPY --from=builder /tmp/aprs_hash.txt /app/aprs_hash.txt
-
-# Set APRS parser hash environment variable for runtime
-RUN APRS_HASH=$(cat /app/aprs_hash.txt) && echo "APRS_PARSER_HASH=$APRS_HASH" >> /etc/environment
 
 # Copy release from builder
 COPY --from=builder --chown=nobody:root /app/release ./
