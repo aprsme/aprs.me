@@ -5,6 +5,7 @@ defmodule AprsmeWeb.MapLive.Index do
   use AprsmeWeb, :live_view
 
   import AprsmeWeb.Components.ErrorBoundary
+  import AprsmeWeb.Live.Shared.PacketUtils, only: [get_callsign_key: 1]
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_patch: 2, put_flash: 3]
 
@@ -20,6 +21,7 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.MapLive.HistoricalLoader
   alias AprsmeWeb.MapLive.MapHelpers
   alias AprsmeWeb.MapLive.Navigation
+  alias AprsmeWeb.MapLive.PacketManager
   alias AprsmeWeb.MapLive.PacketProcessor
   alias AprsmeWeb.MapLive.RfPath
   alias AprsmeWeb.MapLive.UrlParams
@@ -126,8 +128,7 @@ defmodule AprsmeWeb.MapLive.Index do
       map_center: final_map_center,
       map_zoom: final_map_zoom,
       should_skip_initial_url_update: should_skip_initial_url_update,
-      visible_packets: %{},
-      historical_packets: %{},
+      packet_state: PacketManager.init_packet_state(),
       overlay_callsign: "",
       tracked_callsign: tracked_callsign,
       trail_duration: "1",
@@ -138,7 +139,6 @@ defmodule AprsmeWeb.MapLive.Index do
       map_page: true,
       packet_buffer: [],
       buffer_timer: nil,
-      all_packets: %{},
       station_popup_open: false,
       initial_bounds_loaded: false,
       needs_initial_historical_load: tracked_callsign != "",
@@ -154,7 +154,7 @@ defmodule AprsmeWeb.MapLive.Index do
     assign(socket,
       packets: [],
       page_title: "APRS Map",
-      visible_packets: %{},
+      packet_state: PacketManager.init_packet_state(),
       station_popup_open: false,
       map_bounds: %{
         north: 49.0,
@@ -164,7 +164,6 @@ defmodule AprsmeWeb.MapLive.Index do
       },
       map_center: UrlParams.default_center(),
       map_zoom: UrlParams.default_zoom(),
-      historical_packets: %{},
       packet_age_threshold: one_hour_ago,
       map_ready: false,
       historical_loaded: false,
@@ -215,17 +214,20 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_event("clear_and_reload_markers", _params, socket) do
-    # Only filter the current visible_packets, do not re-query the database
+    # Get current visible packets from PacketManager
+    current_packets = PacketManager.get_visible_packets(socket.assigns.packet_state)
+
+    # Filter by time and bounds
     filtered_packets =
       filter_packets_by_time_and_bounds(
-        socket.assigns.visible_packets,
+        Map.new(current_packets, fn packet ->
+          {get_callsign_key(packet), packet}
+        end),
         socket.assigns.map_bounds,
         socket.assigns.packet_age_threshold
       )
 
     visible_packets_list = DataBuilder.build_packet_data_list_from_map(filtered_packets, false, socket)
-
-    socket = assign(socket, visible_packets: filtered_packets)
 
     # Check zoom level to decide between heat map and markers
     socket =
@@ -1202,20 +1204,29 @@ defmodule AprsmeWeb.MapLive.Index do
     # Use the current packet_age_threshold instead of hardcoded one hour
     threshold = socket.assigns.packet_age_threshold
 
-    # Remove expired packets from visible_packets
-    expired_keys =
-      socket.assigns.visible_packets
-      |> Enum.filter(fn {_key, packet} ->
-        not SharedPacketUtils.packet_within_time_threshold?(packet, threshold)
+    # Remove expired packets using PacketManager predicate
+    updated_packet_state =
+      PacketManager.remove_packets_where(socket.assigns.packet_state, fn packet ->
+        SharedPacketUtils.packet_within_time_threshold?(packet, threshold)
       end)
-      |> Enum.map(fn {key, _} -> key end)
+
+    # Get expired packet IDs that need to be removed from client
+    current_packets = PacketManager.get_visible_packets(socket.assigns.packet_state)
+    remaining_packets = PacketManager.get_visible_packets(updated_packet_state)
+
+    expired_keys =
+      current_packets
+      |> Enum.reject(fn current_packet ->
+        Enum.any?(remaining_packets, fn remaining_packet ->
+          get_callsign_key(current_packet) == get_callsign_key(remaining_packet)
+        end)
+      end)
+      |> Enum.map(&get_callsign_key/1)
 
     # Only update the client if there are expired markers
     socket = DisplayManager.remove_markers_batch(socket, expired_keys)
 
-    # Use Map.drop/2 for better performance
-    updated_visible_packets = Map.drop(socket.assigns.visible_packets, expired_keys)
-    {:noreply, assign(socket, visible_packets: updated_visible_packets)}
+    {:noreply, assign(socket, packet_state: updated_packet_state)}
   end
 
   defp handle_reload_historical_packets(socket) do
@@ -1444,8 +1455,11 @@ defmodule AprsmeWeb.MapLive.Index do
     )
 
     # Remove out-of-bounds packets and markers immediately
-    new_visible_packets = filter_packets_by_bounds(socket.assigns.visible_packets, map_bounds)
-    packets_to_remove = reject_packets_by_bounds(socket.assigns.visible_packets, map_bounds)
+    current_packets = PacketManager.get_visible_packets(socket.assigns.packet_state)
+    current_packets_map = Map.new(current_packets, fn packet -> {get_callsign_key(packet), packet} end)
+
+    new_visible_packets = filter_packets_by_bounds(current_packets_map, map_bounds)
+    packets_to_remove = reject_packets_by_bounds(current_packets_map, map_bounds)
 
     # Remove markers for out-of-bounds packets
     socket = remove_markers_batch(socket, packets_to_remove)
@@ -1466,10 +1480,14 @@ defmodule AprsmeWeb.MapLive.Index do
     # Always filter markers by bounds
     socket = push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
 
+    # Update packet state to keep only packets within bounds
+    filtered_packets = Map.values(new_visible_packets)
+    {updated_packet_state, _} = PacketManager.add_visible_packets(socket.assigns.packet_state, filtered_packets)
+
     # Update map bounds FIRST so progressive loading uses the correct bounds
     socket =
       socket
-      |> assign(map_bounds: map_bounds, visible_packets: new_visible_packets)
+      |> assign(map_bounds: map_bounds, packet_state: updated_packet_state)
       |> assign(needs_initial_historical_load: false)
 
     # Load historical packets for the new bounds (now socket.assigns.map_bounds is correct)

@@ -160,18 +160,21 @@ defmodule Aprsme.SpatialPubSub do
         # Find all clients whose viewports contain this location
         client_ids = find_clients_for_location(state, lat, lon)
 
-        # Broadcast to each matching client's topic
-        Enum.each(client_ids, fn client_id ->
-          case Map.get(state.clients, client_id) do
-            %{topic: topic} ->
-              PubSub.broadcast(Aprsme.PubSub, topic, {:spatial_packet, packet})
+        # Optimize: Batch collect topics then spawn async task for broadcasts
+        topics =
+          client_ids
+          |> Enum.map(fn client_id -> Map.get(state.clients, client_id) end)
+          |> Enum.reject(&is_nil/1)
+          |> Enum.map(& &1.topic)
 
-            _ ->
-              :ok
-          end
+        # Spawn async task to avoid blocking GenServer for broadcasts
+        Task.start(fn ->
+          Enum.each(topics, fn topic ->
+            PubSub.broadcast(Aprsme.PubSub, topic, {:spatial_packet, packet})
+          end)
         end)
 
-        # Update statistics
+        # Update statistics (immediately return control to GenServer)
         state =
           state
           |> update_in([:stats, :total_broadcasts], &(&1 + length(client_ids)))

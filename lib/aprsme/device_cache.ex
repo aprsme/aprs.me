@@ -29,9 +29,9 @@ defmodule Aprsme.DeviceCache do
   def lookup_device(identifier) when is_binary(identifier) do
     case Cachex.get(@cache_name, :all_devices) do
       {:ok, nil} ->
-        # Cache miss - load devices
-        GenServer.call(__MODULE__, :refresh_cache)
-        lookup_device(identifier)
+        # Cache miss - trigger async refresh and return nil for now
+        GenServer.cast(__MODULE__, :refresh_cache_async)
+        nil
 
       {:ok, devices} when is_list(devices) ->
         find_matching_device(devices, identifier)
@@ -65,6 +65,12 @@ defmodule Aprsme.DeviceCache do
   def handle_call(:refresh_cache, _from, state) do
     result = load_devices_into_cache()
     {:reply, result, state}
+  end
+
+  @impl true
+  def handle_cast(:refresh_cache_async, state) do
+    load_devices_into_cache()
+    {:noreply, state}
   end
 
   @impl true

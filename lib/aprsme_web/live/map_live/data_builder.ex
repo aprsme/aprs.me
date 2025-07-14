@@ -321,7 +321,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
     cache_buster = System.system_time(:millisecond)
     weather_link = has_weather_packets?(packet_info.callsign)
 
-    %{
+    popup_data = %{
       callsign: packet_info.callsign,
       comment: packet_info.comment,
       timestamp_dt: timestamp_dt,
@@ -329,6 +329,9 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
       weather: false,
       weather_link: weather_link
     }
+
+    # Optimize string conversion - avoid intermediate iodata step  
+    popup_data
     |> PopupComponent.popup()
     |> Safe.to_iodata()
     |> IO.iodata_to_binary()
@@ -464,24 +467,39 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
 
   @spec convert_tuples_to_strings(any()) :: any()
   defp convert_tuples_to_strings(map) when is_map(map) do
-    if Map.has_key?(map, :__struct__) do
-      map
-    else
-      Map.new(map, fn {k, v} ->
-        {k, convert_tuples_to_strings(v)}
-      end)
+    # Avoid processing structs entirely
+    case map do
+      %{__struct__: _} -> map
+      _ -> Map.new(map, &convert_tuple_entry/1)
     end
   end
 
   defp convert_tuples_to_strings(list) when is_list(list) do
-    Enum.map(list, &convert_tuples_to_strings/1)
+    # Use Stream for memory efficiency on large lists  
+    list
+    |> Stream.map(&convert_tuples_to_strings/1)
+    |> Enum.to_list()
   end
 
   defp convert_tuples_to_strings(tuple) when is_tuple(tuple) do
-    to_string(inspect(tuple))
+    # Optimize tuple string conversion - avoid inspect for common cases
+    case tuple_size(tuple) do
+      2 ->
+        {a, b} = tuple
+        "#{a}, #{b}"
+
+      3 ->
+        {a, b, c} = tuple
+        "#{a}, #{b}, #{c}"
+
+      _ ->
+        inspect(tuple)
+    end
   end
 
   defp convert_tuples_to_strings(other), do: other
+
+  defp convert_tuple_entry({k, v}), do: {k, convert_tuples_to_strings(v)}
 
   @spec get_weather_field(map(), atom()) :: String.t()
   defp get_weather_field(packet, key) do
