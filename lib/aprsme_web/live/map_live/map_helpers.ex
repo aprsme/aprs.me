@@ -2,6 +2,7 @@ defmodule AprsmeWeb.MapLive.MapHelpers do
   @moduledoc false
 
   alias Aprs.Types.MicE
+  alias AprsmeWeb.Live.Shared.BoundsUtils
 
   @spec get_coordinates(map() | struct()) :: {number() | nil, number() | nil, map() | nil}
   def get_coordinates(%{data_extended: %MicE{} = mic_e}) do
@@ -58,83 +59,10 @@ defmodule AprsmeWeb.MapLive.MapHelpers do
 
   @spec within_bounds?(map() | tuple(), map()) :: boolean()
   def within_bounds?(packet_or_coords, bounds) do
-    if is_nil(bounds) do
-      false
-    else
-      {lat, lon} = extract_lat_lon(packet_or_coords)
-
-      if is_nil(lat) or is_nil(lon) do
-        false
-      else
-        check_bounds(lat, lon, bounds)
-      end
-    end
+    # Delegate to shared bounds utility
+    BoundsUtils.within_bounds?(packet_or_coords, bounds)
   end
 
-  defp check_bounds(lat, lon, bounds) do
-    lat = to_float(lat)
-    lon = to_float(lon)
-    south = to_float(bounds.south)
-    north = to_float(bounds.north)
-    west = to_float(bounds.west)
-    east = to_float(bounds.east)
-
-    lat_in_bounds = lat >= south && lat <= north
-    lng_in_bounds = check_longitude_bounds(lon, west, east)
-
-    lat_in_bounds && lng_in_bounds
-  end
-
-  defp check_longitude_bounds(lon, west, east) do
-    if west <= east do
-      lon >= west && lon <= east
-    else
-      lon >= west || lon <= east
-    end
-  end
-
-  defp extract_lat_lon(%{lat: lat, lon: lon}), do: extract_lat_lon_atom(%{lat: lat, lon: lon})
-
-  defp extract_lat_lon(%{"lat" => lat, "lon" => lon}), do: extract_lat_lon_string(%{"lat" => lat, "lon" => lon})
-
-  defp extract_lat_lon(%{latitude: lat, longitude: lon}), do: extract_lat_lon_atom_alt(%{latitude: lat, longitude: lon})
-
-  defp extract_lat_lon({lat, lon}) when is_number(lat) and is_number(lon), do: {lat, lon}
-  defp extract_lat_lon(_), do: {nil, nil}
-
-  defp extract_lat_lon_atom(packet), do: {packet.lat, packet.lon}
-  defp extract_lat_lon_string(packet), do: {packet["lat"], packet["lon"]}
-  defp extract_lat_lon_atom_alt(packet), do: {packet.latitude, packet.longitude}
-
-  defp to_float(value) do
-    Aprsme.EncodingUtils.to_float(value) || 0.0
-  end
-
-  @doc """
-  Normalizes map bounds from string keys to atom keys and converts values to floats.
-
-  ## Examples
-
-      iex> normalize_bounds(%{"north" => "40.5", "south" => "40.0", "east" => "-73.5", "west" => "-74.0"})
-      %{north: 40.5, south: 40.0, east: -73.5, west: -74.0}
-      
-      iex> normalize_bounds(%{"north" => 40.5, "south" => 40.0, "east" => -73.5, "west" => -74.0})
-      %{north: 40.5, south: 40.0, east: -73.5, west: -74.0}
-  """
-  @spec normalize_bounds(map()) :: map()
-  def normalize_bounds(%{"north" => n, "south" => s, "east" => e, "west" => w}) do
-    %{
-      north: to_float(n),
-      south: to_float(s),
-      east: to_float(e),
-      west: to_float(w)
-    }
-  end
-
-  def normalize_bounds(%{north: _, south: _, east: _, west: _} = bounds) do
-    # Already normalized with atom keys
-    bounds
-  end
-
-  def normalize_bounds(_), do: nil
+  # Delegate normalize_bounds to shared utility
+  defdelegate normalize_bounds(bounds), to: BoundsUtils
 end

@@ -27,8 +27,8 @@ defmodule Aprsme.PacketParsingTest do
       # PHG xxx0 = omni (360°)
       assert position_data[:phg][:directivity] == 360
 
-      # Verify comment is cleaned
-      assert position_data[:comment] == "Collin Cty Wide Digi"
+      # Verify comment includes PHG data (parser doesn't extract it from comment)
+      assert position_data[:comment] == "PHG5530 Collin Cty Wide Digi"
     end
 
     test "packet changeset includes altitude and PHG fields" do
