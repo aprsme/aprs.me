@@ -201,7 +201,5 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
     )
   end
 
-  defp packets_module do
-    Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
-  end
+
 end
