@@ -807,7 +807,8 @@ defmodule AprsmeWeb.MapLive.Index do
     socket = assign(socket, all_packets: all_packets)
 
     # Handle packet visibility logic
-    handle_packet_visibility(packet, lat, lon, callsign_key, socket)
+    socket = handle_packet_visibility(packet, lat, lon, callsign_key, socket)
+    {:noreply, socket}
   end
 
   defp get_callsign_key(packet) do
@@ -838,11 +839,11 @@ defmodule AprsmeWeb.MapLive.Index do
           # Just GPS drift or invalid coordinates, update the packet data but don't send visual update
           new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
           socket = assign(socket, visible_packets: new_visible_packets)
-          {:noreply, socket}
+          socket
         end
 
       true ->
-        {:noreply, socket}
+        socket
     end
   end
 
@@ -867,7 +868,7 @@ defmodule AprsmeWeb.MapLive.Index do
   defp remove_marker_from_map(callsign_key, socket) do
     socket = push_event(socket, "remove_marker", %{id: callsign_key})
     new_visible_packets = Map.delete(socket.assigns.visible_packets, callsign_key)
-    {:noreply, assign(socket, visible_packets: new_visible_packets)}
+    assign(socket, visible_packets: new_visible_packets)
   end
 
   defp handle_valid_postgres_packet(packet, _lat, _lon, socket) do
@@ -890,28 +891,25 @@ defmodule AprsmeWeb.MapLive.Index do
     socket = assign(socket, visible_packets: new_visible_packets)
 
     # Check zoom level to decide how to display the packet
-    socket =
-      if socket.assigns.map_zoom <= 8 do
-        # We're in heat map mode - update the heat map with all current data
-        send_heat_map_for_current_bounds(socket)
-      else
-        # We're in marker mode - send individual marker
-        marker_data = PacketUtils.build_packet_data(packet, true, get_locale(socket))
+    if socket.assigns.map_zoom <= 8 do
+      # We're in heat map mode - update the heat map with all current data
+      send_heat_map_for_current_bounds(socket)
+    else
+      # We're in marker mode - send individual marker
+      marker_data = PacketUtils.build_packet_data(packet, true, get_locale(socket))
 
-        if marker_data do
-          # Only show new packet popup if no station popup is currently open
-          if socket.assigns.station_popup_open do
-            # Send without opening popup to avoid interrupting user
-            push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
-          else
-            push_event(socket, "new_packet", marker_data)
-          end
+      if marker_data do
+        # Only show new packet popup if no station popup is currently open
+        if socket.assigns.station_popup_open do
+          # Send without opening popup to avoid interrupting user
+          push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
         else
-          socket
+          push_event(socket, "new_packet", marker_data)
         end
+      else
+        socket
       end
-
-    {:noreply, socket}
+    end
   end
 
   # Handle replaying the next historical packet

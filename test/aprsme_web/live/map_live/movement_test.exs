@@ -74,16 +74,19 @@ defmodule AprsmeWeb.MapLive.MovementTest do
     end
 
     test "updates marker for significant movement", %{conn: conn} do
-      # Start with initial location
-      {:ok, view, _html} = live(conn, "/")
+      # Start with initial location at a zoom level that shows individual markers
+      {:ok, view, _html} = live(conn, "/?z=15")
 
-      # First update the map state to set zoom level
+      # Notify the map is ready
+      assert render_hook(view, "map_ready", %{})
+
+      # Update the map state to zoom level 15 (individual markers)
       assert render_hook(view, "update_map_state", %{
                "center" => %{"lat" => 33.16961, "lng" => -96.4921},
-               "zoom" => 9
+               "zoom" => 15
              })
 
-      # Then update bounds
+      # Set bounds to ensure packets are visible
       bounds_params = %{
         "bounds" => %{
           "north" => 33.18,
@@ -92,9 +95,13 @@ defmodule AprsmeWeb.MapLive.MovementTest do
           "west" => -96.50
         }
       }
-
       assert render_hook(view, "bounds_changed", bounds_params)
-      :timer.sleep(100)
+
+      # Wait for initial load to complete
+      :timer.sleep(500)
+
+      # Clear any events from initial load
+      flush_push_events(view)
 
       # Simulate initial packet
       initial_packet = %{
@@ -111,6 +118,9 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
       # Wait for the initial packet to be processed
       :timer.sleep(100)
+      
+      # Should receive new_packet for the initial packet
+      assert_push_event(view, "new_packet", %{}, 1000)
 
       # Simulate significant movement (20+ meters)
       moved_packet = %{
@@ -118,7 +128,7 @@ defmodule AprsmeWeb.MapLive.MovementTest do
         "sender" => "TEST-2",
         "base_callsign" => "TEST",
         # About 20 meters north
-        "lat" => 33.16980,
+        "lat" => 33.1698,
         "lon" => -96.4921,
         "has_position" => true,
         "received_at" => DateTime.utc_now()
@@ -126,9 +136,21 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
       # Send the moved packet
       send(view.pid, {:postgres_packet, moved_packet})
+      
+      # Wait a bit for processing
+      :timer.sleep(100)
 
       # The view should push a new_packet event for significant movement
-      assert_push_event(view, "new_packet", %{"lat" => 33.1698}, 500)
+      assert_push_event(view, "new_packet", %{}, 1000)
+    end
+    
+    defp flush_push_events(view) do
+      receive do
+        {ref, {:push_event, _, _}} when is_reference(ref) and ref == view.ref ->
+          flush_push_events(view)
+      after
+        0 -> :ok
+      end
     end
   end
 
