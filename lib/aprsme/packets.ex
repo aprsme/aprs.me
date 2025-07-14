@@ -486,21 +486,29 @@ defmodule Aprsme.Packets do
     hours_back = Map.get(opts, :hours_back, 1)
     cutoff_time = TimeUtils.hours_ago(hours_back)
 
-    # Use a CTE with window function to get the most recent packet per callsign
-    # This approach maintains proper distance ordering while deduplicating by callsign
+    # Use named prepared statement for better performance (future optimization)
+    # _statement_name = if exclude_callsign, do: "nearby_stations_exclude", else: "nearby_stations"
+
+    # Use DISTINCT ON for better performance than window functions
+    # First get most recent packet per callsign, then order by distance
+    # Add spatial bounds to use indexes effectively
     query = """
-    WITH ranked_packets AS (
-      SELECT p.*,
-             ST_Distance(p.location::geography, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) as distance,
-             ROW_NUMBER() OVER (PARTITION BY p.base_callsign ORDER BY p.received_at DESC) as row_num
+    SELECT * FROM (
+      SELECT DISTINCT ON (p.base_callsign)
+        p.*,
+        ST_Distance(p.location::geography, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) as distance
       FROM packets p
       WHERE p.has_position = true
         AND p.received_at >= $3
+        AND p.location IS NOT NULL
         #{if exclude_callsign, do: "AND p.sender != $4", else: ""}
-    )
-    SELECT *
-    FROM ranked_packets
-    WHERE row_num = 1
+        AND ST_DWithin(
+          p.location::geography,
+          ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+          100000  -- 100km radius for initial filtering
+        )
+      ORDER BY p.base_callsign, p.received_at DESC
+    ) AS recent_packets
     ORDER BY distance ASC
     LIMIT #{if exclude_callsign, do: "$5", else: "$4"}
     """
@@ -580,11 +588,32 @@ defmodule Aprsme.Packets do
 
   @doc """
   Gets the total count of stored packets in the database.
+  Uses the efficient packet_counters table with triggers for O(1) performance.
   """
   @spec get_total_packet_count() :: non_neg_integer()
   def get_total_packet_count do
-    # Use the new index for faster counting
-    Repo.one(from p in Packet, select: count(p.id)) || 0
+    # Use the PostgreSQL function for instant count retrieval
+    case Repo.query("SELECT get_packet_count()", []) do
+      {:ok, %{rows: [[count]]}} when is_integer(count) ->
+        count
+
+      {:ok, %{rows: [[nil]]}} ->
+        # Fallback to actual count if counter is not initialized
+        Repo.one(from p in Packet, select: count(p.id)) || 0
+
+      {:error, _} ->
+        # Try the faster counter table directly as a fallback
+        query = """
+        SELECT count FROM packet_counters 
+        WHERE counter_type = 'total_packets'
+        LIMIT 1
+        """
+
+        case Repo.query(query, []) do
+          {:ok, %{rows: [[count]]}} -> count
+          _ -> 0
+        end
+    end
   rescue
     DBConnection.ConnectionError ->
       require Logger

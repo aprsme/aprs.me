@@ -88,7 +88,35 @@ defmodule AprsmeWeb.Telemetry do
         description: "Number of successful inserts per batch"
       ),
       summary("aprsme.packet_pipeline.batch.error", unit: :event, description: "Number of errors per batch"),
-      summary("aprsme.packet_pipeline.batch.duration_ms", unit: :millisecond, description: "Batch insert duration (ms)")
+      summary("aprsme.packet_pipeline.batch.duration_ms", unit: :millisecond, description: "Batch insert duration (ms)"),
+
+      # System Monitor Metrics
+      last_value("aprsme.system.memory.total", unit: {:byte, :megabyte}, description: "Total memory usage"),
+      last_value("aprsme.system.memory.process", unit: {:byte, :megabyte}, description: "Process memory usage"),
+      last_value("aprsme.system.memory.binary", unit: {:byte, :megabyte}, description: "Binary memory usage"),
+      last_value("aprsme.system.memory.pressure", unit: :percent, description: "Memory pressure (0-1)"),
+      last_value("aprsme.system.cpu.load1", description: "1-minute load average"),
+      last_value("aprsme.system.cpu.load5", description: "5-minute load average"),
+      last_value("aprsme.system.cpu.load15", description: "15-minute load average"),
+      last_value("aprsme.system.cpu.pressure", unit: :percent, description: "CPU pressure (0-1)"),
+      last_value("aprsme.system.processes.count", description: "Number of Erlang processes"),
+      last_value("aprsme.system.processes.pressure", unit: :percent, description: "Process count pressure (0-1)"),
+      last_value("aprsme.system.db_pool.size", description: "Database pool size"),
+      last_value("aprsme.system.db_pool.available", description: "Available database connections"),
+      last_value("aprsme.system.db_pool.pressure", unit: :percent, description: "Database pool pressure (0-1)"),
+      last_value("aprsme.system.batch_size.current", description: "Current adaptive batch size"),
+      last_value("aprsme.system.batch_size.min", description: "Minimum batch size"),
+      last_value("aprsme.system.batch_size.max", description: "Maximum batch size"),
+
+      # Spatial PubSub Metrics
+      last_value("aprsme.spatial_pubsub.clients.count", description: "Number of connected clients"),
+      last_value("aprsme.spatial_pubsub.clients.grid_cells", description: "Number of active grid cells"),
+      last_value("aprsme.spatial_pubsub.clients.avg_clients_per_cell", description: "Average clients per grid cell"),
+      counter("aprsme.spatial_pubsub.broadcasts.total", description: "Total spatial broadcasts sent"),
+      counter("aprsme.spatial_pubsub.broadcasts.filtered", description: "Broadcasts filtered by viewport"),
+      counter("aprsme.spatial_pubsub.broadcasts.packets", description: "Total packets processed"),
+      last_value("aprsme.spatial_pubsub.efficiency.ratio", unit: :percent, description: "Broadcast efficiency ratio"),
+      counter("aprsme.spatial_pubsub.efficiency.saved_broadcasts", description: "Number of broadcasts saved by filtering")
     ]
   end
 

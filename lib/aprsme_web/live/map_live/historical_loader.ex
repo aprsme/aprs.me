@@ -13,6 +13,20 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
 
   @max_historical_packets 5000
 
+  # Viewport-based loading limits by zoom level
+  @zoom_packet_limits %{
+    # Very low zoom (world/continent view) - show only major stations
+    (1..5) => 100,
+    # Low zoom (country/state view) - show moderate amount
+    (6..8) => 500,
+    # Medium zoom (city view) - show more detail
+    (9..11) => 1500,
+    # High zoom (neighborhood view) - show most packets
+    (12..14) => 3000,
+    # Very high zoom (street view) - show all available
+    (15..20) => 5000
+  }
+
   @doc """
   Start progressive historical loading based on zoom level.
   """
@@ -94,19 +108,39 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
 
   # Private functions
 
-  defp do_load_historical_batch(socket, batch_offset) do
-    if socket.assigns.map_bounds do
-      bounds = [
-        socket.assigns.map_bounds.west,
-        socket.assigns.map_bounds.south,
-        socket.assigns.map_bounds.east,
-        socket.assigns.map_bounds.north
-      ]
+  defp get_packet_limit_for_zoom(zoom) do
+    @zoom_packet_limits
+    |> Enum.find(fn {range, _} -> zoom in range end)
+    |> case do
+      {_, limit} -> limit
+      nil -> @max_historical_packets
+    end
+  end
 
-      # Calculate zoom-based batch size - higher zoom = smaller batches for faster response
-      zoom = socket.assigns.map_zoom || 5
-      batch_size = calculate_batch_size_for_zoom(zoom)
-      offset = batch_offset * batch_size
+  defp do_load_historical_batch(%{assigns: %{map_bounds: nil}} = socket, _batch_offset), do: socket
+
+  defp do_load_historical_batch(%{assigns: %{map_bounds: bounds}} = socket, batch_offset) do
+    bounds_list = [
+      bounds.west,
+      bounds.south,
+      bounds.east,
+      bounds.north
+    ]
+
+    # Calculate zoom-based batch size - higher zoom = smaller batches for faster response
+    zoom = socket.assigns.map_zoom || 5
+    batch_size = calculate_batch_size_for_zoom(zoom)
+    offset = batch_offset * batch_size
+
+    # Get total packet limit based on zoom level
+    max_packets_for_zoom = get_packet_limit_for_zoom(zoom)
+
+    # Check if we've reached the zoom-based limit
+    if offset >= max_packets_for_zoom do
+      finish_historical_loading(socket)
+    else
+      # Adjust batch size if it would exceed the limit
+      adjusted_batch_size = min(batch_size, max_packets_for_zoom - offset)
 
       packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
 
@@ -116,19 +150,14 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
             # Use cached queries for better performance
             # Include zoom level in cache key for better cache efficiency
             params = %{
-              bounds: bounds,
-              limit: batch_size,
+              bounds: bounds_list,
+              limit: adjusted_batch_size,
               offset: offset,
               zoom: zoom
             }
 
             # Add callsign filter if tracking
-            params =
-              if socket.assigns.tracked_callsign == "" do
-                params
-              else
-                Map.put(params, :callsign, socket.assigns.tracked_callsign)
-              end
+            params = add_callsign_filter(params, socket.assigns.tracked_callsign)
 
             # Use the historical_hours setting from the UI dropdown with validation
             historical_hours = SharedPacketUtils.parse_historical_hours(socket.assigns.historical_hours || "1")
@@ -166,73 +195,94 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
               []
           end
 
-        if Enum.any?(packet_data_list) do
-          # Check zoom level to decide between heat map and markers
-          total_batches = socket.assigns.total_batches || 4
-          is_final_batch = batch_offset >= total_batches - 1
-
-          socket =
-            if socket.assigns.map_zoom <= 8 do
-              # For heat maps, store historical packets and update heat map when all batches are loaded
-              # Add packets to historical_packets assign
-              new_historical =
-                Enum.reduce(historical_packets, socket.assigns.historical_packets, fn packet, acc ->
-                  key = if Map.has_key?(packet, :id), do: to_string(packet.id), else: to_string(packet["id"])
-                  Map.put(acc, key, packet)
-                end)
-
-              # Apply memory limit
-              new_historical =
-                if map_size(new_historical) > @max_historical_packets do
-                  SharedPacketUtils.prune_oldest_packets(new_historical, @max_historical_packets)
-                else
-                  new_historical
-                end
-
-              socket = assign(socket, :historical_packets, new_historical)
-
-              # If this is the final batch, update the heat map
-              if is_final_batch do
-                send_heat_map_for_current_bounds(socket)
-              else
-                socket
-              end
-            else
-              # Use LiveView's efficient push_event for incremental updates
-              LiveView.push_event(socket, "add_historical_packets_batch", %{
-                packets: packet_data_list,
-                batch: batch_offset,
-                is_final: is_final_batch
-              })
-            end
-
-          # Update progress for user feedback
-          socket = assign(socket, :loading_batch, batch_offset + 1)
-
-          # Mark loading as complete if this was the final batch
-          socket =
-            if is_final_batch do
-              assign(socket, :historical_loading, false)
-            else
-              socket
-            end
-
-          # Process any pending bounds update if loading is complete
-          if is_final_batch && socket.assigns.pending_bounds do
-            send(self(), {:process_pending_bounds})
-          end
-
-          socket
-        else
-          socket
-        end
+        process_loaded_packets(socket, historical_packets, packet_data_list, batch_offset)
       else
         socket
       end
+    end
+  end
+
+  defp add_callsign_filter(params, ""), do: params
+  defp add_callsign_filter(params, callsign), do: Map.put(params, :callsign, callsign)
+
+  defp process_loaded_packets(socket, _historical_packets, [], _batch_offset), do: socket
+
+  defp process_loaded_packets(socket, historical_packets, packet_data_list, batch_offset) do
+    # Check zoom level to decide between heat map and markers
+    total_batches = socket.assigns.total_batches || 4
+    is_final_batch = batch_offset >= total_batches - 1
+
+    socket = handle_zoom_based_display(socket, historical_packets, packet_data_list, is_final_batch, batch_offset)
+
+    # Update progress for user feedback
+    socket = assign(socket, :loading_batch, batch_offset + 1)
+
+    # Mark loading as complete if this was the final batch
+    socket = update_loading_status(socket, is_final_batch)
+
+    # Process any pending bounds update if loading is complete
+    handle_pending_bounds(socket, is_final_batch)
+  end
+
+  # Handle low zoom (heat map)
+  defp handle_zoom_based_display(
+         %{assigns: %{map_zoom: zoom}} = socket,
+         historical_packets,
+         _packet_data_list,
+         is_final_batch,
+         _batch_offset
+       )
+       when zoom <= 8 do
+    # For heat maps, store historical packets and update heat map when all batches are loaded
+    new_historical = add_packets_to_historical(socket.assigns.historical_packets, historical_packets)
+
+    # Apply memory limit
+    new_historical = apply_memory_limit(new_historical, @max_historical_packets)
+
+    socket = assign(socket, :historical_packets, new_historical)
+
+    # If this is the final batch, update the heat map
+    if is_final_batch do
+      send_heat_map_for_current_bounds(socket)
     else
       socket
     end
   end
+
+  # Handle high zoom (markers)
+  defp handle_zoom_based_display(socket, _historical_packets, packet_data_list, is_final_batch, batch_offset) do
+    # Use LiveView's efficient push_event for incremental updates
+    LiveView.push_event(socket, "add_historical_packets_batch", %{
+      packets: packet_data_list,
+      batch: batch_offset,
+      is_final: is_final_batch
+    })
+  end
+
+  defp add_packets_to_historical(existing_historical, new_packets) do
+    Enum.reduce(new_packets, existing_historical, fn packet, acc ->
+      key = get_packet_key(packet)
+      Map.put(acc, key, packet)
+    end)
+  end
+
+  defp get_packet_key(%{id: id}), do: to_string(id)
+  defp get_packet_key(%{"id" => id}), do: to_string(id)
+
+  defp apply_memory_limit(packets, limit) when map_size(packets) > limit do
+    SharedPacketUtils.prune_oldest_packets(packets, limit)
+  end
+
+  defp apply_memory_limit(packets, _limit), do: packets
+
+  defp update_loading_status(socket, true), do: assign(socket, :historical_loading, false)
+  defp update_loading_status(socket, false), do: socket
+
+  defp handle_pending_bounds(%{assigns: %{pending_bounds: pending}} = _socket, true) when not is_nil(pending) do
+    send(self(), {:process_pending_bounds})
+  end
+
+  defp handle_pending_bounds(socket, _), do: socket
 
   # Consolidated zoom-based loading parameters
   @spec get_loading_params_for_zoom(integer()) :: {batch_size :: integer(), batch_count :: integer()}
@@ -264,6 +314,19 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
   # All packet data building functions have been moved to AprsmeWeb.MapLive.DataBuilder
 
   # Placeholder for heat map function - this should be moved to DisplayManager
+  defp finish_historical_loading(socket) do
+    socket
+    |> assign(:historical_loading, false)
+    |> assign(:loading_batch, socket.assigns.total_batches)
+    |> then(fn s ->
+      if s.assigns.pending_bounds do
+        send(self(), {:process_pending_bounds})
+      end
+
+      s
+    end)
+  end
+
   defp send_heat_map_for_current_bounds(socket) do
     # This function should be moved to DisplayManager module
     socket

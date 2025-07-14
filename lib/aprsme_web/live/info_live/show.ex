@@ -243,7 +243,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     # This is much more efficient than fetching 100 packets and filtering in Elixir
     query = """
     WITH recent_ssids AS (
-      SELECT DISTINCT ON (sender) 
+      SELECT DISTINCT ON (sender)
         sender, ssid, received_at, id
       FROM packets
       WHERE base_callsign = $1
@@ -294,7 +294,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     # In APRS, the first station with an asterisk (*) in the path is the one that heard the packet directly
     query = """
     WITH parsed_paths AS (
-      SELECT 
+      SELECT
         id,
         sender,
         path,
@@ -303,7 +303,7 @@ defmodule AprsmeWeb.InfoLive.Show do
         lon,
         location,
         -- Extract the first digipeater from the path
-        CASE 
+        CASE
           WHEN path ~ '[A-Z0-9]+-?[0-9]*\\*' THEN
             substring(path from '([A-Z0-9]+-?[0-9]*)\\*')
           ELSE NULL
@@ -317,25 +317,25 @@ defmodule AprsmeWeb.InfoLive.Show do
         AND path !~ ',TCPIP'
     ),
     digipeater_stats AS (
-      SELECT 
+      SELECT
         first_digipeater as digipeater,
         MIN(received_at) as first_heard,
         MAX(received_at) as last_heard,
         COUNT(*) as packet_count,
         -- Find the packet with maximum distance for this digipeater
-        (SELECT pp2.id 
-         FROM parsed_paths pp2 
-         WHERE pp2.first_digipeater = pp.first_digipeater 
-           AND pp2.lat IS NOT NULL 
+        (SELECT pp2.id
+         FROM parsed_paths pp2
+         WHERE pp2.first_digipeater = pp.first_digipeater
+           AND pp2.lat IS NOT NULL
            AND pp2.lon IS NOT NULL
-         ORDER BY 
+         ORDER BY
            ST_Distance(
              pp2.location::geography,
-             (SELECT location::geography 
-              FROM packets 
-              WHERE sender = pp2.first_digipeater 
-                AND location IS NOT NULL 
-              ORDER BY received_at DESC 
+             (SELECT location::geography
+              FROM packets
+              WHERE sender = pp2.first_digipeater
+                AND location IS NOT NULL
+              ORDER BY received_at DESC
               LIMIT 1)
            ) DESC NULLS LAST
          LIMIT 1
@@ -344,13 +344,13 @@ defmodule AprsmeWeb.InfoLive.Show do
       WHERE first_digipeater IS NOT NULL
       GROUP BY first_digipeater
     )
-    SELECT 
+    SELECT
       ds.digipeater,
       ds.first_heard,
       ds.last_heard,
       ds.packet_count,
       p.received_at as longest_path_time,
-      CASE 
+      CASE
         WHEN p.location IS NOT NULL AND dig_loc.location IS NOT NULL THEN
           ST_Distance(p.location::geography, dig_loc.location::geography) / 1000.0
         ELSE NULL
@@ -358,11 +358,11 @@ defmodule AprsmeWeb.InfoLive.Show do
     FROM digipeater_stats ds
     LEFT JOIN packets p ON p.id = ds.longest_path_packet_id
     LEFT JOIN LATERAL (
-      SELECT location 
-      FROM packets 
-      WHERE sender = ds.digipeater 
-        AND location IS NOT NULL 
-      ORDER BY received_at DESC 
+      SELECT location
+      FROM packets
+      WHERE sender = ds.digipeater
+        AND location IS NOT NULL
+      ORDER BY received_at DESC
       LIMIT 1
     ) dig_loc ON true
     ORDER BY ds.last_heard DESC
@@ -405,11 +405,20 @@ defmodule AprsmeWeb.InfoLive.Show do
     # Get packets from the last month where this callsign heard other stations on RF
     one_month_ago = DateTime.add(DateTime.utc_now(), -30, :day)
 
-    # Query to find stations that were heard directly by this callsign
-    # We look for packets where this callsign appears as the first digipeater with an asterisk
+    # Optimized query to find stations that were heard directly by this callsign
+    # Eliminates correlated subqueries and reduces redundant operations
     query = """
-    WITH parsed_paths AS (
-      SELECT 
+    WITH digipeater_location AS (
+      -- Get the most recent location for the digipeater (cached once)
+      SELECT location::geography as dig_loc
+      FROM packets
+      WHERE sender = $1
+        AND location IS NOT NULL
+      ORDER BY received_at DESC
+      LIMIT 1
+    ),
+    parsed_paths AS (
+      SELECT
         id,
         sender,
         path,
@@ -417,10 +426,10 @@ defmodule AprsmeWeb.InfoLive.Show do
         lat,
         lon,
         location,
-        -- Extract the first digipeater from the path
-        CASE 
-          WHEN path ~ '[A-Z0-9]+-?[0-9]*\\*' THEN
-            substring(path from '([A-Z0-9]+-?[0-9]*)\\*')
+        -- Extract the first digipeater from the path more efficiently
+        CASE
+          WHEN path ~ ($1 || '\\*') THEN
+            substring(path from ($1 || '\\*'))
           ELSE NULL
         END as first_digipeater
       FROM packets
@@ -430,57 +439,46 @@ defmodule AprsmeWeb.InfoLive.Show do
         AND path != ''
         AND path !~ '^TCPIP'
         AND path !~ ',TCPIP'
+        AND lat IS NOT NULL
+        AND lon IS NOT NULL
     ),
     station_stats AS (
-      SELECT 
+      SELECT
         sender as station,
         MIN(received_at) as first_heard,
         MAX(received_at) as last_heard,
-        COUNT(*) as packet_count,
-        -- Find the packet with maximum distance for this station
-        (SELECT pp2.id 
-         FROM parsed_paths pp2 
-         WHERE pp2.sender = pp.sender 
-           AND pp2.first_digipeater = $1
-           AND pp2.lat IS NOT NULL 
-           AND pp2.lon IS NOT NULL
-         ORDER BY 
-           ST_Distance(
-             pp2.location::geography,
-             (SELECT location::geography 
-              FROM packets 
-              WHERE sender = $1 
-                AND location IS NOT NULL 
-              ORDER BY received_at DESC 
-              LIMIT 1)
-           ) DESC NULLS LAST
-         LIMIT 1
-        ) as longest_path_packet_id
-      FROM parsed_paths pp
+        COUNT(*) as packet_count
+      FROM parsed_paths
       WHERE first_digipeater = $1
       GROUP BY sender
+    ),
+    longest_paths AS (
+      -- Find the longest path packet for each station in a single pass
+      SELECT DISTINCT ON (pp.sender)
+        pp.sender,
+        pp.id as longest_path_packet_id,
+        pp.received_at as longest_path_time,
+        CASE
+          WHEN pp.location IS NOT NULL AND dl.dig_loc IS NOT NULL THEN
+            ST_Distance(pp.location::geography, dl.dig_loc) / 1000.0
+          ELSE NULL
+        END as longest_distance_km
+      FROM parsed_paths pp
+      CROSS JOIN digipeater_location dl
+      WHERE pp.first_digipeater = $1
+      ORDER BY pp.sender,
+               ST_Distance(pp.location::geography, dl.dig_loc) DESC NULLS LAST,
+               pp.received_at DESC
     )
-    SELECT 
+    SELECT
       ss.station,
       ss.first_heard,
       ss.last_heard,
       ss.packet_count,
-      p.received_at as longest_path_time,
-      CASE 
-        WHEN p.location IS NOT NULL AND dig_loc.location IS NOT NULL THEN
-          ST_Distance(p.location::geography, dig_loc.location::geography) / 1000.0
-        ELSE NULL
-      END as longest_distance_km
+      lp.longest_path_time,
+      lp.longest_distance_km
     FROM station_stats ss
-    LEFT JOIN packets p ON p.id = ss.longest_path_packet_id
-    LEFT JOIN LATERAL (
-      SELECT location 
-      FROM packets 
-      WHERE sender = $1 
-        AND location IS NOT NULL 
-      ORDER BY received_at DESC 
-      LIMIT 1
-    ) dig_loc ON true
+    LEFT JOIN longest_paths lp ON lp.sender = ss.station
     ORDER BY ss.last_heard DESC
     LIMIT 50
     """

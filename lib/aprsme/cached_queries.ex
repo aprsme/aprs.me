@@ -48,7 +48,8 @@ defmodule Aprsme.CachedQueries do
   end
 
   @doc """
-  Get packet count with caching
+  Get packet count with caching.
+  Now uses the efficient packet_counters table for O(1) performance.
   """
   def get_total_packet_count_cached do
     cache_key = "total_packet_count"
@@ -58,8 +59,10 @@ defmodule Aprsme.CachedQueries do
         result
 
       _ ->
+        # This is now extremely fast due to the counter table
         result = Packets.get_total_packet_count()
-        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_medium)
+        # Cache for only 5 seconds since the query is now instant
+        Cachex.put(:query_cache, cache_key, result, ttl: to_timeout(second: 5))
         result
     end
   end

@@ -4,23 +4,30 @@ defmodule AprsmeWeb.StatusLive.Index do
   """
   use AprsmeWeb, :live_view
 
-  # 30 seconds
-  @refresh_interval 1_000
+  # 5 seconds - reduced from 1 second to improve performance
+  @refresh_interval 5_000
 
   @impl true
   def mount(_params, _session, socket) do
+    # Load cached status on mount for fast initial load
+    aprs_status = get_cached_aprs_status()
+
     socket =
       assign(socket,
         page_title: "System Status",
-        aprs_status: get_aprs_status(),
+        aprs_status: aprs_status,
         version: get_app_version(),
         current_time: DateTime.utc_now(),
-        health_score: calculate_health_score(get_aprs_status())
+        health_score: calculate_health_score(aprs_status),
+        loading: false
       )
 
     if connected?(socket) do
-      # Schedule the first refresh
-      schedule_refresh()
+      # Subscribe to status updates via PubSub
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, "aprs_status")
+
+      # Schedule the first refresh with a slight delay
+      Process.send_after(self(), :refresh_status, 500)
     end
 
     {:ok, socket}
@@ -28,9 +35,38 @@ defmodule AprsmeWeb.StatusLive.Index do
 
   @impl true
   def handle_info(:refresh_status, socket) do
-    socket = refresh_status(socket)
+    # Refresh status asynchronously
+    self_pid = self()
+
+    Task.start(fn ->
+      status = get_aprs_status()
+      send(self_pid, {:status_updated, status})
+    end)
+
     # Schedule next refresh
     schedule_refresh()
+    {:noreply, assign(socket, loading: true)}
+  end
+
+  @impl true
+  def handle_info({:status_updated, status}, socket) do
+    socket =
+      assign(socket,
+        aprs_status: status,
+        current_time: DateTime.utc_now(),
+        health_score: calculate_health_score(status),
+        loading: false
+      )
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:aprs_status_update, status}, socket) do
+    # Handle real-time status updates via PubSub
+    socket =
+      assign(socket, aprs_status: status, current_time: DateTime.utc_now(), health_score: calculate_health_score(status))
+
     {:noreply, socket}
   end
 
@@ -253,35 +289,43 @@ defmodule AprsmeWeb.StatusLive.Index do
 
       Logger.error("Error getting APRS status: #{inspect(error)}")
       # Return a default status when database is unavailable
-      %{
-        connected: false,
-        server: "unknown",
-        port: 0,
-        connected_at: nil,
-        uptime_seconds: 0,
-        login_id: "unknown",
-        filter: "unknown",
-        packet_stats: %{
-          total_packets: 0,
-          packets_per_second: 0,
-          last_packet_at: nil
-        },
-        stored_packet_count: 0
-      }
+      default_status()
+  end
+
+  defp get_cached_aprs_status do
+    # Try to get cached status for instant load
+    case Cachex.get(:query_cache, "aprs_status") do
+      {:ok, status} when not is_nil(status) ->
+        status
+
+      _ ->
+        # Fallback to direct query if cache miss
+        status = get_aprs_status()
+        Cachex.put(:query_cache, "aprs_status", status, ttl: to_timeout(second: 5))
+        status
+    end
+  end
+
+  defp default_status do
+    %{
+      connected: false,
+      server: "unknown",
+      port: 0,
+      connected_at: nil,
+      uptime_seconds: 0,
+      login_id: "unknown",
+      filter: "unknown",
+      packet_stats: %{
+        total_packets: 0,
+        packets_per_second: 0,
+        last_packet_at: nil
+      },
+      stored_packet_count: 0
+    }
   end
 
   defp get_app_version do
     :aprsme |> Application.spec(:vsn) |> List.to_string()
-  end
-
-  defp refresh_status(socket) do
-    aprs_status = get_aprs_status()
-
-    assign(socket,
-      aprs_status: aprs_status,
-      current_time: DateTime.utc_now(),
-      health_score: calculate_health_score(aprs_status)
-    )
   end
 
   defp schedule_refresh do

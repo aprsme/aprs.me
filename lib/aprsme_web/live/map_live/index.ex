@@ -76,10 +76,25 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp do_setup_subscriptions(socket, true) do
-    Phoenix.PubSub.subscribe(Aprsme.PubSub, "packets")
+    # Generate a unique client ID for this LiveView instance
+    client_id = "liveview_#{:erlang.phash2(self())}"
+
+    # Register with spatial PubSub (will get viewport later)
+    # Start with a default viewport that will be updated when we get actual bounds
+    default_bounds = %{north: 90.0, south: -90.0, east: 180.0, west: -180.0}
+    {:ok, spatial_topic} = Aprsme.SpatialPubSub.register_viewport(client_id, default_bounds)
+
+    # Subscribe to the spatial topic for this client
+    Phoenix.PubSub.subscribe(Aprsme.PubSub, spatial_topic)
+
+    # Still subscribe to bad packets (they don't have location)
     Phoenix.PubSub.subscribe(Aprsme.PubSub, "bad_packets")
+
     Process.send_after(self(), :cleanup_old_packets, 60_000)
+
     socket
+    |> assign(:spatial_client_id, client_id)
+    |> assign(:spatial_topic, spatial_topic)
   end
 
   defp do_setup_subscriptions(socket, false), do: socket
@@ -574,6 +589,8 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_info(:reload_historical_packets, socket), do: handle_reload_historical_packets(socket)
 
   def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
+
+  def handle_info({:spatial_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
 
   def handle_info({:process_pending_bounds}, socket) do
     if socket.assigns.pending_bounds && !socket.assigns.historical_loading do
@@ -1310,6 +1327,11 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def terminate(_reason, socket) do
+    # Cleanup spatial registration if we have a client ID
+    if socket.assigns[:spatial_client_id] do
+      Aprsme.SpatialPubSub.unregister_client(socket.assigns.spatial_client_id)
+    end
+
     if socket.assigns.buffer_timer, do: Process.cancel_timer(socket.assigns.buffer_timer)
     # Clean up any pending bounds update timer
     if socket.assigns[:bounds_update_timer] do
@@ -1404,6 +1426,11 @@ defmodule AprsmeWeb.MapLive.Index do
     require Logger
 
     Logger.debug("process_bounds_update called with bounds: #{inspect(map_bounds)}")
+
+    # Update spatial viewport if we have a client ID
+    if socket.assigns[:spatial_client_id] do
+      Aprsme.SpatialPubSub.update_viewport(socket.assigns.spatial_client_id, map_bounds)
+    end
 
     # Check if this is the initial load or if bounds have actually changed
     is_initial_load = socket.assigns[:needs_initial_historical_load] || !socket.assigns[:initial_bounds_loaded]

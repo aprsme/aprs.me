@@ -16,7 +16,8 @@ defmodule Aprsme.PacketConsumer do
 
   @impl true
   def init(opts) do
-    batch_size = opts[:batch_size] || 100
+    # Use dynamic batch sizing from system monitor
+    initial_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
     batch_timeout = opts[:batch_timeout] || 1000
     # Maximum batch size to prevent unbounded memory growth
     max_batch_size = opts[:max_batch_size] || 1000
@@ -24,18 +25,26 @@ defmodule Aprsme.PacketConsumer do
     # Start a timer for batch processing
     timer = Process.send_after(self(), :process_batch, batch_timeout)
 
+    # Schedule periodic batch size adjustment
+    Process.send_after(self(), :adjust_batch_size, 10_000)
+
     {:consumer,
      %{
        batch: [],
-       batch_size: batch_size,
+       batch_size: initial_batch_size,
        batch_timeout: batch_timeout,
        max_batch_size: max_batch_size,
-       timer: timer
+       timer: timer,
+       last_adjustment: System.monotonic_time(:millisecond)
      }}
   end
 
   @impl true
-  def handle_events(events, _from, %{batch: batch, batch_size: batch_size, max_batch_size: max_batch_size} = state) do
+  def handle_events(events, _from, %{batch: batch, batch_size: _batch_size, max_batch_size: max_batch_size} = state) do
+    # Get current recommended batch size
+    current_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
+    state = %{state | batch_size: current_batch_size}
+
     new_batch = batch ++ events
     new_batch_length = length(new_batch)
 
@@ -59,7 +68,7 @@ defmodule Aprsme.PacketConsumer do
 
         {:noreply, [], %{state | batch: []}}
 
-      new_batch_length >= batch_size ->
+      new_batch_length >= current_batch_size ->
         # Process the batch immediately
         process_batch(new_batch)
         {:noreply, [], %{state | batch: []}}
@@ -91,6 +100,28 @@ defmodule Aprsme.PacketConsumer do
     # Start a new timer
     timer = Process.send_after(self(), :process_batch, timeout)
     {:noreply, [], %{state | batch: [], timer: timer}}
+  end
+
+  @impl true
+  def handle_info(:adjust_batch_size, state) do
+    # Get current system metrics and recommended batch size
+    new_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
+
+    if new_batch_size != state.batch_size do
+      Logger.info("Adjusting batch size based on system load",
+        batch_adjustment:
+          LogSanitizer.log_data(
+            old_size: state.batch_size,
+            new_size: new_batch_size,
+            reason: "system_load_adaptation"
+          )
+      )
+    end
+
+    # Schedule next adjustment
+    Process.send_after(self(), :adjust_batch_size, 10_000)
+
+    {:noreply, [], %{state | batch_size: new_batch_size}}
   end
 
   defp process_batch(packets) do

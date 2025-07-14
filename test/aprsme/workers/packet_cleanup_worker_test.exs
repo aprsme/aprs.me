@@ -1,32 +1,45 @@
 defmodule Aprsme.Workers.PacketCleanupWorkerTest do
   use Aprsme.DataCase, async: true
 
-  import Mox
-
-  alias Aprsme.PacketsMock
+  alias Aprsme.Packet
   alias Aprsme.Workers.PacketCleanupWorker
 
-  # Make sure mocks are verified when the test exits
-  setup :verify_on_exit!
+  defp insert_packet(attrs) do
+    attrs =
+      Map.merge(
+        %{
+          sender: "TEST-#{System.unique_integer([:positive])}",
+          received_at: DateTime.truncate(DateTime.utc_now(), :second),
+          has_position: false
+        },
+        attrs
+      )
+
+    {:ok, packet} = %Packet{} |> Map.merge(attrs) |> Repo.insert()
+    packet
+  end
+
+  defp insert_packets(count, attrs) do
+    for _ <- 1..count, do: insert_packet(attrs)
+  end
 
   describe "perform/1 with cleanup_days" do
     test "cleans up packets older than the specified number of days" do
       days = 30
       job = %Oban.Job{args: %{"cleanup_days" => days}}
 
-      # Mock the Repo.all call for get_packet_ids_for_deletion
-      expect(Aprsme.Repo, :all, fn _query ->
-        # Return some packet IDs
-        [1, 2, 3, 4, 5]
-      end)
+      # Create old packets that should be deleted
+      old_time = DateTime.utc_now() |> DateTime.add(-(days + 1) * 86_400, :second) |> DateTime.truncate(:second)
+      insert_packets(5, %{received_at: old_time})
 
-      # Mock the Repo.delete_all call
-      expect(Aprsme.Repo, :delete_all, fn _query ->
-        # Return deleted count
-        {5, nil}
-      end)
+      # Create recent packets that should NOT be deleted
+      recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
+      insert_packets(3, %{received_at: recent_time})
 
       assert :ok = PacketCleanupWorker.perform(job)
+
+      # Verify only recent packets remain
+      assert Repo.aggregate(Packet, :count, :id) == 3
     end
   end
 
@@ -34,40 +47,37 @@ defmodule Aprsme.Workers.PacketCleanupWorkerTest do
     test "cleans up packets using the default retention period" do
       job = %Oban.Job{args: %{}}
 
-      # Mock the Repo.all call for get_packet_ids_for_deletion
-      expect(Aprsme.Repo, :all, fn _query ->
-        # Return some packet IDs
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-      end)
+      # Create very old packets that should be deleted (older than 365 days)
+      old_time = DateTime.utc_now() |> DateTime.add(-400 * 86_400, :second) |> DateTime.truncate(:second)
+      insert_packets(10, %{received_at: old_time})
 
-      # Mock the Repo.delete_all call
-      expect(Aprsme.Repo, :delete_all, fn _query ->
-        # Return deleted count
-        {10, nil}
-      end)
+      # Create recent packets that should NOT be deleted
+      recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
+      insert_packets(3, %{received_at: recent_time})
 
       assert :ok = PacketCleanupWorker.perform(job)
+
+      # Verify only recent packets remain
+      assert Repo.aggregate(Packet, :count, :id) == 3
     end
   end
 
   describe "cleanup_packets_older_than/1" do
     test "cleans up packets older than the given number of days" do
       days = 60
-      deleted_count = 15
 
-      # Mock the Repo.all call for get_packet_ids_for_deletion
-      expect(Aprsme.Repo, :all, fn _query ->
-        # Return packet IDs
-        Enum.to_list(1..deleted_count)
-      end)
+      # Create old packets that should be deleted
+      old_time = DateTime.utc_now() |> DateTime.add(-(days + 10) * 86_400, :second) |> DateTime.truncate(:second)
+      insert_packets(15, %{received_at: old_time})
 
-      # Mock the Repo.delete_all call
-      expect(Aprsme.Repo, :delete_all, fn _query ->
-        # Return deleted count
-        {deleted_count, nil}
-      end)
+      # Create recent packets that should NOT be deleted
+      recent_time = DateTime.utc_now() |> DateTime.add(-30 * 86_400, :second) |> DateTime.truncate(:second)
+      insert_packets(5, %{received_at: recent_time})
 
-      assert ^deleted_count = PacketCleanupWorker.cleanup_packets_older_than(days)
+      deleted_count = PacketCleanupWorker.cleanup_packets_older_than(days)
+
+      assert deleted_count == 15
+      assert Repo.aggregate(Packet, :count, :id) == 5
     end
   end
 
@@ -75,42 +85,45 @@ defmodule Aprsme.Workers.PacketCleanupWorkerTest do
     test "returns correct tuple format with deleted count and batches" do
       days = 30
 
-      # Mock the Repo.all call for get_packet_ids_for_deletion
-      expect(Aprsme.Repo, :all, fn _query ->
-        # Return some packet IDs
-        [1, 2, 3, 4, 5]
-      end)
+      # Create old packets that should be deleted
+      old_time = DateTime.utc_now() |> DateTime.add(-(days + 1) * 86_400, :second) |> DateTime.truncate(:second)
+      insert_packets(5, %{received_at: old_time})
 
-      # Mock the Repo.delete_all call
-      expect(Aprsme.Repo, :delete_all, fn _query ->
-        # Return deleted count
-        {5, nil}
-      end)
+      # Create recent packets that should NOT be deleted
+      recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
+      insert_packets(3, %{received_at: recent_time})
 
       {deleted_count, batches} = PacketCleanupWorker.cleanup_packets_older_than_batched(days)
 
       assert is_integer(deleted_count)
       assert is_integer(batches)
-      assert deleted_count >= 0
-      assert batches >= 0
+      assert deleted_count == 5
+      assert batches >= 1
+      assert Repo.aggregate(Packet, :count, :id) == 3
     end
   end
 
   describe "get_packet_ids_for_deletion/2" do
     test "returns list of packet IDs within batch size limit" do
-      cutoff_time = DateTime.add(DateTime.utc_now(), -30, :day)
-      batch_size = 100
+      cutoff_time = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.truncate(:second)
+      batch_size = 10
 
-      # Mock the Repo.all call
-      expect(Aprsme.Repo, :all, fn _query ->
-        # Return some mock packet IDs
-        [1, 2, 3, 4, 5]
-      end)
+      # Create old packets that should be included
+      old_time = DateTime.utc_now() |> DateTime.add(-40 * 86_400, :second) |> DateTime.truncate(:second)
+      old_packets = insert_packets(15, %{received_at: old_time})
+
+      # Create recent packets that should NOT be included
+      recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
+      insert_packets(5, %{received_at: recent_time})
 
       result = PacketCleanupWorker.get_packet_ids_for_deletion(cutoff_time, batch_size)
 
       assert is_list(result)
-      assert length(result) <= batch_size
+      assert length(result) == batch_size
+
+      # Verify that returned IDs are from old packets
+      old_packet_ids = Enum.map(old_packets, & &1.id)
+      assert Enum.all?(result, &(&1 in old_packet_ids))
     end
   end
 end

@@ -200,6 +200,4 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
       )
     )
   end
-
-
 end
