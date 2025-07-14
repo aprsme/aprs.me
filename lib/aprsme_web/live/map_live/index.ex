@@ -6,120 +6,25 @@ defmodule AprsmeWeb.MapLive.Index do
 
   import AprsmeWeb.Components.ErrorBoundary
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
-  import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_navigate: 2, push_patch: 2, put_flash: 3]
+  import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_patch: 2, put_flash: 3]
 
-  alias Aprsme.CachedQueries
-  alias Aprsme.GeoUtils
   alias Aprsme.Packets.Clustering
   alias AprsmeWeb.Endpoint
+  alias AprsmeWeb.Live.Shared.BoundsUtils
+  alias AprsmeWeb.Live.Shared.CoordinateUtils
+  alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
+  alias AprsmeWeb.Live.Shared.ParamUtils
+  alias AprsmeWeb.MapLive.BoundsManager
+  alias AprsmeWeb.MapLive.DataBuilder
+  alias AprsmeWeb.MapLive.DisplayManager
+  alias AprsmeWeb.MapLive.HistoricalLoader
   alias AprsmeWeb.MapLive.MapHelpers
-  alias AprsmeWeb.MapLive.PacketUtils
-  alias AprsmeWeb.MapLive.PopupComponent
+  alias AprsmeWeb.MapLive.Navigation
+  alias AprsmeWeb.MapLive.PacketProcessor
+  alias AprsmeWeb.MapLive.RfPath
+  alias AprsmeWeb.MapLive.UrlParams
   alias AprsmeWeb.TimeUtils
-  alias Phoenix.HTML.Safe
   alias Phoenix.LiveView.Socket
-
-  @default_center %{lat: 39.8283, lng: -98.5795}
-  @default_zoom 5
-
-  # Memory limits to prevent unbounded growth
-  @max_visible_packets 1000
-  @max_historical_packets 5000
-  @max_all_packets 2000
-
-  # Parse map state from URL parameters
-  @spec parse_map_params(map()) :: {map(), integer()}
-  defp parse_map_params(params) do
-    lat = parse_latitude(Map.get(params, "lat"))
-    lng = parse_longitude(Map.get(params, "lng"))
-    zoom = parse_zoom(Map.get(params, "z"))
-
-    map_center = %{lat: lat, lng: lng}
-    {map_center, zoom}
-  end
-
-  defp parse_latitude(nil), do: @default_center.lat
-
-  defp parse_latitude(lat_str) do
-    parse_float_in_range(lat_str, @default_center.lat, -90, 90)
-  end
-
-  defp parse_longitude(nil), do: @default_center.lng
-
-  defp parse_longitude(lng_str) do
-    parse_float_in_range(lng_str, @default_center.lng, -180, 180)
-  end
-
-  defp parse_zoom(nil), do: @default_zoom
-
-  defp parse_zoom(zoom_str) do
-    parse_int_in_range(zoom_str, @default_zoom, 1, 20)
-  end
-
-  defp parse_float_in_range(str, default, min, max) when is_binary(str) do
-    # Sanitize input first
-    sanitized = sanitize_numeric_string(str)
-
-    case Float.parse(sanitized) do
-      {val, ""} when val >= min and val <= max ->
-        if finite?(val), do: val, else: default
-
-      {val, _remainder} when val >= min and val <= max ->
-        # Accept even with trailing characters, but validate the number
-        if finite?(val), do: val, else: default
-
-      _ ->
-        default
-    end
-  end
-
-  defp parse_float_in_range(_, default, _, _), do: default
-
-  defp parse_int_in_range(str, default, min, max) when is_binary(str) do
-    # Sanitize input first
-    sanitized = sanitize_numeric_string(str)
-
-    case Integer.parse(sanitized) do
-      {val, ""} when val >= min and val <= max ->
-        val
-
-      {val, _remainder} when val >= min and val <= max ->
-        # Accept even with trailing characters
-        val
-
-      _ ->
-        default
-    end
-  end
-
-  defp parse_int_in_range(_, default, _, _), do: default
-
-  # Sanitize numeric strings to prevent injection attacks
-  defp sanitize_numeric_string(str) when is_binary(str) do
-    # Remove any potentially dangerous characters, keeping only numbers, dots, minus, and e/E for scientific notation
-    str
-    |> String.trim()
-    |> String.replace(~r/[^\d\.\-eE]/, "")
-    # Prevent extremely long inputs
-    |> limit_string_length(20)
-  end
-
-  defp sanitize_numeric_string(_), do: ""
-
-  # Limit string length to prevent DoS
-  defp limit_string_length(str, max_length) when byte_size(str) > max_length do
-    :binary.part(str, 0, max_length)
-  end
-
-  defp limit_string_length(str, _), do: str
-
-  # Check if a float is finite (not infinity or NaN)
-  defp finite?(float) when is_float(float) do
-    # NaN != NaN
-    float != :infinity and float != :neg_infinity and float == float
-  end
-
-  defp finite?(_), do: false
 
   @impl true
   def mount(params, session, socket) do
@@ -130,7 +35,7 @@ defmodule AprsmeWeb.MapLive.Index do
     one_hour_ago = TimeUtils.one_day_ago()
 
     # Parse and determine map location
-    {map_center, map_zoom, should_skip_initial_url_update} = determine_map_location(params, session)
+    {map_center, map_zoom, should_skip_initial_url_update} = Navigation.determine_map_location(params, session)
 
     # Setup defaults
     socket = assign_defaults(socket, one_hour_ago)
@@ -143,15 +48,15 @@ defmodule AprsmeWeb.MapLive.Index do
     tracked_callsign = Map.get(params, "call", "")
 
     {final_map_center, final_map_zoom} =
-      handle_callsign_tracking(
+      Navigation.handle_callsign_tracking(
         tracked_callsign,
         map_center,
         map_zoom,
-        has_explicit_url_params?(params)
+        UrlParams.has_explicit_url_params?(params)
       )
 
     # Calculate initial bounds
-    initial_bounds = calculate_bounds_from_center_and_zoom(final_map_center, final_map_zoom)
+    initial_bounds = BoundsManager.calculate_bounds_from_center_and_zoom(final_map_center, final_map_zoom)
 
     # Final socket assignment
     {:ok,
@@ -191,41 +96,6 @@ defmodule AprsmeWeb.MapLive.Index do
 
   defp do_setup_additional_subscriptions(socket, false), do: socket
 
-  defp has_explicit_url_params?(params) do
-    !!(params["lat"] || params["lng"] || params["z"])
-  end
-
-  defp determine_map_location(params, session) do
-    {url_center, url_zoom} = parse_map_params(params)
-    has_explicit_url_params = has_explicit_url_params?(params)
-
-    case session["ip_geolocation"] do
-      %{"lat" => lat, "lng" => lng} when is_number(lat) and is_number(lng) ->
-        if has_explicit_url_params do
-          {url_center, url_zoom, false}
-        else
-          {%{lat: lat, lng: lng}, 11, true}
-        end
-
-      _ ->
-        {url_center, url_zoom, !has_explicit_url_params}
-    end
-  end
-
-  defp handle_callsign_tracking(tracked_callsign, map_center, map_zoom, has_explicit_url_params) do
-    if tracked_callsign != "" and not has_explicit_url_params do
-      case CachedQueries.get_latest_packet_for_callsign_cached(tracked_callsign) do
-        %{lat: lat, lon: lon} when is_number(lat) and is_number(lon) ->
-          {%{lat: lat, lng: lon}, 12}
-
-        _ ->
-          {map_center, map_zoom}
-      end
-    else
-      {map_center, map_zoom}
-    end
-  end
-
   defp finalize_mount_assigns(socket, %{
          initial_bounds: initial_bounds,
          final_map_center: final_map_center,
@@ -264,28 +134,6 @@ defmodule AprsmeWeb.MapLive.Index do
     )
   end
 
-  # Calculate approximate bounds based on center point and zoom level
-  # This provides initial bounds for database queries before client sends actual bounds
-  @spec calculate_bounds_from_center_and_zoom(map(), integer()) :: map()
-  defp calculate_bounds_from_center_and_zoom(center, zoom) do
-    # Approximate degrees per pixel at different zoom levels
-    # These are rough estimates for initial bounds calculation
-    degrees_per_pixel = calculate_degrees_per_pixel(zoom)
-
-    # Assume viewport is roughly 800x600 pixels
-    # Half of 600px height
-    lat_offset = degrees_per_pixel * 300
-    # Half of 800px width
-    lng_offset = degrees_per_pixel * 400
-
-    %{
-      north: center.lat + lat_offset,
-      south: center.lat - lat_offset,
-      east: center.lng + lng_offset,
-      west: center.lng - lng_offset
-    }
-  end
-
   @spec assign_defaults(Socket.t(), DateTime.t()) :: Socket.t()
   defp assign_defaults(socket, one_hour_ago) do
     assign(socket,
@@ -299,8 +147,8 @@ defmodule AprsmeWeb.MapLive.Index do
         east: -66.0,
         west: -125.0
       },
-      map_center: @default_center,
-      map_zoom: @default_zoom,
+      map_center: UrlParams.default_center(),
+      map_zoom: UrlParams.default_zoom(),
       historical_packets: %{},
       packet_age_threshold: one_hour_ago,
       map_ready: false,
@@ -337,12 +185,12 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("set_location", %{"lat" => lat, "lng" => lng}, socket) do
     # Update map center and zoom when location is received
     # Parse and validate coordinates
-    lat_float = parse_latitude(lat)
-    lng_float = parse_longitude(lng)
+    lat_float = UrlParams.parse_latitude(lat)
+    lng_float = UrlParams.parse_longitude(lng)
 
     # Additional validation - ensure we got valid coordinates
-    if valid_coordinates?(lat_float, lng_float) do
-      socket = update_and_zoom_to_location(socket, lat_float, lng_float, 12)
+    if UrlParams.valid_coordinates?(lat_float, lng_float) do
+      socket = Navigation.update_and_zoom_to_location(socket, lat_float, lng_float, 12)
       {:noreply, socket}
     else
       # Invalid coordinates - ignore the event
@@ -360,7 +208,7 @@ defmodule AprsmeWeb.MapLive.Index do
         socket.assigns.packet_age_threshold
       )
 
-    visible_packets_list = build_packet_data_list_from_map(filtered_packets, false, socket)
+    visible_packets_list = DataBuilder.build_packet_data_list_from_map(filtered_packets, false, socket)
 
     socket = assign(socket, visible_packets: filtered_packets)
 
@@ -386,12 +234,14 @@ defmodule AprsmeWeb.MapLive.Index do
     socket = assign(socket, map_ready: true)
 
     # If we have non-default center coordinates (e.g., from geolocation), apply them now
+    default_center = UrlParams.default_center()
+
     socket =
-      if socket.assigns.map_center.lat == @default_center.lat and
-           socket.assigns.map_center.lng == @default_center.lng do
+      if socket.assigns.map_center.lat == default_center.lat and
+           socket.assigns.map_center.lng == default_center.lng do
         socket
       else
-        zoom_to_current_location(socket)
+        Navigation.zoom_to_current_location(socket)
       end
 
     # Wait for JavaScript to send the actual map bounds before loading historical packets
@@ -412,20 +262,20 @@ defmodule AprsmeWeb.MapLive.Index do
     require Logger
 
     # Validate coordinates first
-    lat_float = safe_parse_coordinate(lat, 0.0, -90.0, 90.0)
-    lng_float = safe_parse_coordinate(lng, 0.0, -180.0, 180.0)
+    lat_float = ParamUtils.safe_parse_coordinate(lat, 0.0, -90.0, 90.0)
+    lng_float = ParamUtils.safe_parse_coordinate(lng, 0.0, -180.0, 180.0)
 
     # Validate path string
-    safe_path = sanitize_path_string(path)
+    safe_path = ParamUtils.sanitize_path_string(path)
 
     Logger.info("RF path hover start - path: #{inspect(safe_path)}")
 
     # Parse the path to find digipeater/igate stations
-    path_stations = parse_rf_path(safe_path)
+    path_stations = RfPath.parse_rf_path(safe_path)
     Logger.info("Parsed path stations: #{inspect(path_stations)}")
 
     # Query for positions of path stations
-    path_station_positions = get_path_station_positions(path_stations, socket)
+    path_station_positions = RfPath.get_path_station_positions(path_stations, socket)
     Logger.info("Found #{length(path_station_positions)} station positions")
 
     # Send event to draw the RF path lines
@@ -597,80 +447,16 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp parse_center_coordinates(center, socket) when is_map(center) do
-    default_lat = socket.assigns.map_center.lat
-    default_lng = socket.assigns.map_center.lng
-
-    lat = safe_parse_coordinate(Map.get(center, "lat"), default_lat, -90.0, 90.0)
-    lng = safe_parse_coordinate(Map.get(center, "lng"), default_lng, -180.0, 180.0)
-
-    {lat, lng}
+    CoordinateUtils.parse_center_coordinates(center, socket)
   end
 
   defp parse_center_coordinates(_, socket) do
-    # Invalid center format, return current center
-    {socket.assigns.map_center.lat, socket.assigns.map_center.lng}
+    CoordinateUtils.parse_center_coordinates(nil, socket)
   end
 
-  defp safe_parse_coordinate(value, default, min, max) when is_binary(value) do
-    case parse_float_in_range(value, default, min, max) do
-      ^default -> default
-      parsed -> clamp_coordinate(parsed, min, max)
-    end
+  defp clamp_zoom(zoom) do
+    ParamUtils.clamp_zoom(zoom)
   end
-
-  defp safe_parse_coordinate(value, default, min, max) when is_number(value) do
-    if finite_number?(value) do
-      clamp_coordinate(value, min, max)
-    else
-      default
-    end
-  end
-
-  defp safe_parse_coordinate(_, default, _, _), do: default
-
-  defp clamp_coordinate(value, min, max) when is_number(value) do
-    value |> max(min) |> min(max)
-  end
-
-  defp clamp_coordinate(_, _, _), do: 0.0
-
-  defp clamp_zoom(zoom) when is_binary(zoom) do
-    parse_int_in_range(zoom, @default_zoom, 1, 20)
-  end
-
-  defp clamp_zoom(zoom) when is_integer(zoom) do
-    max(1, min(20, zoom))
-  end
-
-  defp clamp_zoom(zoom) when is_float(zoom) do
-    max(1, min(20, trunc(zoom)))
-  end
-
-  defp clamp_zoom(_), do: @default_zoom
-
-  # Helper to check if a number is finite
-  defp finite_number?(num) when is_number(num) do
-    # Convert integer to float for check
-    finite?(num / 1.0)
-  end
-
-  defp finite_number?(_), do: false
-
-  # Validate that coordinates are within reasonable ranges
-  defp valid_coordinates?(lat, lng) when is_number(lat) and is_number(lng) do
-    lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180
-  end
-
-  defp valid_coordinates?(_, _), do: false
-
-  # Calculate degrees per pixel based on zoom level
-  defp calculate_degrees_per_pixel(zoom) when zoom >= 15, do: 0.000005
-  defp calculate_degrees_per_pixel(zoom) when zoom >= 12, do: 0.00005
-  defp calculate_degrees_per_pixel(zoom) when zoom >= 10, do: 0.0002
-  defp calculate_degrees_per_pixel(zoom) when zoom >= 8, do: 0.001
-  defp calculate_degrees_per_pixel(zoom) when zoom >= 6, do: 0.005
-  defp calculate_degrees_per_pixel(zoom) when zoom >= 4, do: 0.02
-  defp calculate_degrees_per_pixel(_), do: 0.1
 
   defp update_map_state(socket, map_center, zoom) do
     old_zoom = socket.assigns.map_zoom
@@ -686,19 +472,11 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp crossing_zoom_threshold?(old_zoom, new_zoom) do
-    (old_zoom <= 8 and new_zoom > 8) or (old_zoom > 8 and new_zoom <= 8)
+    DisplayManager.crossing_zoom_threshold?(old_zoom, new_zoom)
   end
 
   defp handle_zoom_threshold_crossing(socket, zoom) do
-    if zoom <= 8 do
-      # Switching to heat map
-      socket
-      |> push_event("clear_all_markers", %{})
-      |> send_heat_map_for_current_bounds()
-    else
-      # Switching to markers
-      trigger_marker_display(socket)
-    end
+    DisplayManager.handle_zoom_threshold_crossing(socket, zoom)
   end
 
   defp handle_url_update(socket, lat, lng, zoom) do
@@ -745,14 +523,8 @@ defmodule AprsmeWeb.MapLive.Index do
       socket.assigns[:needs_initial_historical_load]
   end
 
-  defp handle_callsign_search("", socket), do: {:noreply, socket}
-
   defp handle_callsign_search(callsign, socket) do
-    if valid_callsign?(callsign) do
-      {:noreply, push_navigate(socket, to: "/#{callsign}")}
-    else
-      {:noreply, put_flash(socket, :error, gettext("Invalid callsign format"))}
-    end
+    Navigation.handle_callsign_search(callsign, socket)
   end
 
   @impl true
@@ -765,7 +537,7 @@ defmodule AprsmeWeb.MapLive.Index do
       {:noreply, socket}
     else
       # Parse new map state from URL parameters
-      {map_center, map_zoom} = parse_map_params(params)
+      {map_center, map_zoom} = UrlParams.parse_map_params(params)
 
       # Update socket state
       socket = assign(socket, map_center: map_center, map_zoom: map_zoom)
@@ -787,32 +559,10 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   # Parse trail duration with validation and bounds checking
-  defp parse_trail_duration(duration) when is_binary(duration) do
-    case Integer.parse(duration) do
-      {hours, ""} when hours in [1, 6, 12, 24, 48, 168] ->
-        hours
-
-      _ ->
-        # Default to 1 hour if invalid
-        1
-    end
-  end
-
-  defp parse_trail_duration(_), do: 1
+  defp parse_trail_duration(duration), do: SharedPacketUtils.parse_trail_duration(duration)
 
   # Parse historical hours with validation
-  defp parse_historical_hours(hours) when is_binary(hours) do
-    case Integer.parse(hours) do
-      {h, ""} when h in [1, 3, 6, 12, 24] ->
-        h
-
-      _ ->
-        # Default to 1 hour if invalid
-        1
-    end
-  end
-
-  defp parse_historical_hours(_), do: 1
+  defp parse_historical_hours(hours), do: SharedPacketUtils.parse_historical_hours(hours)
 
   @impl true
   def handle_info({:process_bounds_update, map_bounds}, socket), do: handle_info_process_bounds_update(map_bounds, socket)
@@ -838,14 +588,14 @@ defmodule AprsmeWeb.MapLive.Index do
 
   def handle_info({:load_historical_batch, batch_offset}, socket) do
     # For backward compatibility with old messages
-    socket = load_historical_batch(socket, batch_offset, socket.assigns.loading_generation)
+    socket = HistoricalLoader.load_historical_batch(socket, batch_offset, socket.assigns.loading_generation)
     {:noreply, socket}
   end
 
   def handle_info({:load_historical_batch, batch_offset, generation}, socket) do
     # Only process if generation matches current loading generation
     if generation == socket.assigns.loading_generation do
-      socket = load_historical_batch(socket, batch_offset, generation)
+      socket = HistoricalLoader.load_historical_batch(socket, batch_offset, generation)
       {:noreply, socket}
     else
       # Stale request, ignore it
@@ -870,7 +620,7 @@ defmodule AprsmeWeb.MapLive.Index do
     should_process =
       !socket.assigns[:initial_bounds_loaded] or
         socket.assigns[:needs_initial_historical_load] or
-        not compare_bounds(map_bounds, socket.assigns.map_bounds)
+        not BoundsUtils.compare_bounds(map_bounds, socket.assigns.map_bounds)
 
     Logger.debug(
       "handle_info_process_bounds_update - should_process: #{should_process}, initial_bounds_loaded: #{socket.assigns[:initial_bounds_loaded]}, needs_initial_historical_load: #{socket.assigns[:needs_initial_historical_load]}"
@@ -892,7 +642,7 @@ defmodule AprsmeWeb.MapLive.Index do
       # Only proceed if we have actual map bounds - don't use world bounds
       if socket.assigns.map_bounds do
         # Use progressive loading for better performance
-        socket = start_progressive_historical_loading(socket)
+        socket = HistoricalLoader.start_progressive_historical_loading(socket)
         socket = assign(socket, historical_loaded: true)
         {:noreply, socket}
       else
@@ -924,125 +674,7 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp process_packet_for_display(packet, socket) do
-    {lat, lon, _data_extended} = MapHelpers.get_coordinates(packet)
-    callsign_key = get_callsign_key(packet)
-
-    # Update all_packets with memory limit
-    all_packets = Map.put(socket.assigns.all_packets, callsign_key, packet)
-
-    all_packets =
-      if map_size(all_packets) > @max_all_packets do
-        prune_oldest_packets(all_packets, @max_all_packets)
-      else
-        all_packets
-      end
-
-    socket = assign(socket, all_packets: all_packets)
-
-    # Handle packet visibility logic
-    socket = handle_packet_visibility(packet, lat, lon, callsign_key, socket)
-    {:noreply, socket}
-  end
-
-  defp get_callsign_key(packet) do
-    if Map.has_key?(packet, "id"),
-      do: to_string(packet["id"]),
-      else: System.unique_integer([:positive])
-  end
-
-  defp handle_packet_visibility(packet, lat, lon, callsign_key, socket) do
-    cond do
-      should_remove_marker?(lat, lon, callsign_key, socket) ->
-        remove_marker_from_map(callsign_key, socket)
-
-      should_add_marker?(lat, lon, callsign_key, socket) ->
-        handle_valid_postgres_packet(packet, lat, lon, socket)
-
-      should_update_marker?(lat, lon, callsign_key, socket) ->
-        # Marker exists and is within bounds - check if there's significant movement
-        existing_packet = socket.assigns.visible_packets[callsign_key]
-        {existing_lat, existing_lon, _} = MapHelpers.get_coordinates(existing_packet)
-
-        # Check if we have valid existing coordinates
-        if is_number(existing_lat) and is_number(existing_lon) and
-             GeoUtils.significant_movement?(existing_lat, existing_lon, lat, lon, 15) do
-          # Significant movement detected (more than 15 meters), update the marker
-          handle_valid_postgres_packet(packet, lat, lon, socket)
-        else
-          # Just GPS drift or invalid coordinates, update the packet data but don't send visual update
-          new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
-          socket = assign(socket, visible_packets: new_visible_packets)
-          socket
-        end
-
-      true ->
-        socket
-    end
-  end
-
-  defp should_remove_marker?(lat, lon, callsign_key, socket) do
-    !is_nil(lat) and !is_nil(lon) and
-      Map.has_key?(socket.assigns.visible_packets, callsign_key) and
-      not MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
-  end
-
-  defp should_add_marker?(lat, lon, callsign_key, socket) do
-    !is_nil(lat) and !is_nil(lon) and
-      not Map.has_key?(socket.assigns.visible_packets, callsign_key) and
-      MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
-  end
-
-  defp should_update_marker?(lat, lon, callsign_key, socket) do
-    !is_nil(lat) and !is_nil(lon) and
-      Map.has_key?(socket.assigns.visible_packets, callsign_key) and
-      MapHelpers.within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
-  end
-
-  defp remove_marker_from_map(callsign_key, socket) do
-    socket = push_event(socket, "remove_marker", %{id: callsign_key})
-    new_visible_packets = Map.delete(socket.assigns.visible_packets, callsign_key)
-    assign(socket, visible_packets: new_visible_packets)
-  end
-
-  defp handle_valid_postgres_packet(packet, _lat, _lon, socket) do
-    # Add the packet to visible_packets and push a marker immediately
-    callsign_key =
-      if Map.has_key?(packet, "id"),
-        do: to_string(packet["id"]),
-        else: System.unique_integer([:positive])
-
-    new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
-
-    # Enforce memory limits
-    new_visible_packets =
-      if map_size(new_visible_packets) > @max_visible_packets do
-        prune_oldest_packets(new_visible_packets, @max_visible_packets)
-      else
-        new_visible_packets
-      end
-
-    socket = assign(socket, visible_packets: new_visible_packets)
-
-    # Check zoom level to decide how to display the packet
-    if socket.assigns.map_zoom <= 8 do
-      # We're in heat map mode - update the heat map with all current data
-      send_heat_map_for_current_bounds(socket)
-    else
-      # We're in marker mode - send individual marker
-      marker_data = PacketUtils.build_packet_data(packet, true, get_locale(socket))
-
-      if marker_data do
-        # Only show new packet popup if no station popup is currently open
-        if socket.assigns.station_popup_open do
-          # Send without opening popup to avoid interrupting user
-          push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
-        else
-          push_event(socket, "new_packet", marker_data)
-        end
-      else
-        socket
-      end
-    end
+    PacketProcessor.process_packet_for_display(packet, socket)
   end
 
   # Handle replaying the next historical packet
@@ -1264,7 +896,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     <!-- Loading Indicator -->
     <%= if @historical_loading do %>
-      <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-[1000] 
+      <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-[1000]
                   bg-white rounded-lg shadow-lg px-4 py-2 flex items-center space-x-2">
         <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
         <span class="text-sm text-gray-600">
@@ -1557,12 +1189,12 @@ defmodule AprsmeWeb.MapLive.Index do
     expired_keys =
       socket.assigns.visible_packets
       |> Enum.filter(fn {_key, packet} ->
-        not packet_within_time_threshold?(packet, threshold)
+        not SharedPacketUtils.packet_within_time_threshold?(packet, threshold)
       end)
       |> Enum.map(fn {key, _} -> key end)
 
     # Only update the client if there are expired markers
-    socket = remove_markers_batch(socket, expired_keys)
+    socket = DisplayManager.remove_markers_batch(socket, expired_keys)
 
     # Use Map.drop/2 for better performance
     updated_visible_packets = Map.drop(socket.assigns.visible_packets, expired_keys)
@@ -1581,7 +1213,7 @@ defmodule AprsmeWeb.MapLive.Index do
       socket = push_event(socket, "clear_historical_packets", %{})
 
       # Start progressive loading using LiveView's efficient batching
-      socket = start_progressive_historical_loading(socket)
+      socket = HistoricalLoader.start_progressive_historical_loading(socket)
 
       {:noreply, socket}
     else
@@ -1590,492 +1222,11 @@ defmodule AprsmeWeb.MapLive.Index do
     end
   end
 
-  # Check if a packet is within the time threshold (not too old)
-  @spec packet_within_time_threshold?(struct(), any()) :: boolean()
-  defp packet_within_time_threshold?(packet, threshold) do
-    case packet do
-      %{received_at: received_at} when not is_nil(received_at) ->
-        threshold_dt = convert_threshold_to_datetime(threshold)
-        DateTime.compare(received_at, threshold_dt) in [:gt, :eq]
-
-      _ ->
-        # If no timestamp, treat as current
-        true
-    end
-  end
-
-  defp convert_threshold_to_datetime(threshold) when is_integer(threshold) do
-    # Assume seconds since epoch
-    DateTime.from_unix!(threshold)
-  end
-
-  defp convert_threshold_to_datetime(threshold) when is_binary(threshold) do
-    case DateTime.from_iso8601(threshold) do
-      {:ok, dt, _} -> dt
-      _ -> DateTime.utc_now()
-    end
-  end
-
-  defp convert_threshold_to_datetime(%DateTime{} = threshold), do: threshold
-  defp convert_threshold_to_datetime(_), do: DateTime.utc_now()
-
   # Helper functions
 
   # Fetch historical packets from the database
 
   # Select the best packet to display for a callsign - prioritize position over weather
-  defp select_best_packet_for_display(packets) do
-    # Separate position and weather packets using the same logic as PacketUtils.weather_packet?
-    {position_packets, weather_packets} =
-      Enum.split_with(packets, fn packet ->
-        # A packet is a position packet if it's NOT a weather packet
-        not PacketUtils.weather_packet?(packet)
-      end)
-
-    # Prefer the most recent position packet, fall back to most recent weather packet
-    case position_packets do
-      [] ->
-        # No position packets, use most recent weather packet
-        hd(weather_packets)
-
-      [single_position] ->
-        # Only one position packet, use it
-        single_position
-
-      position_list ->
-        # Multiple position packets, use most recent one
-        Enum.max_by(position_list, & &1.received_at, DateTime)
-    end
-  end
-
-  defp build_packet_data_list(historical_packets) do
-    # Include weather data in initial grouping to avoid separate query
-    grouped_packets =
-      Enum.group_by(historical_packets, fn packet ->
-        packet.sender || "unknown"
-      end)
-
-    # Build weather callsign set from packets themselves (no DB query needed)
-    weather_callsigns = build_weather_callsign_set(historical_packets)
-
-    # For each callsign group, find the most recent packet and mark it appropriately
-    grouped_packets
-    |> Enum.flat_map(fn {callsign, packets} ->
-      # Sort by received_at to find most recent
-      sorted_packets = Enum.sort_by(packets, & &1.received_at, {:desc, DateTime})
-
-      case sorted_packets do
-        [] ->
-          []
-
-        packets_list ->
-          # Find the best packet to display as "current" - prioritize position over weather
-          selected_packet = select_best_packet_for_display(packets_list)
-          historical = Enum.reject(packets_list, &(&1.id == selected_packet.id))
-
-          # Always include the selected packet
-          has_weather = MapSet.member?(weather_callsigns, String.upcase(callsign))
-          most_recent_data = build_minimal_packet_data(selected_packet, true, has_weather)
-
-          # Get coordinates of selected packet for distance filtering
-          {most_recent_lat, most_recent_lon, _} = MapHelpers.get_coordinates(selected_packet)
-
-          # Filter historical packets that are too close to most recent position
-          filtered_historical =
-            if most_recent_lat && most_recent_lon do
-              Enum.filter(historical, fn packet ->
-                {lat, lon, _} = MapHelpers.get_coordinates(packet)
-
-                if lat && lon do
-                  distance_meters = calculate_distance_meters(most_recent_lat, most_recent_lon, lat, lon)
-                  # Only show if 10+ meters away
-                  distance_meters >= 10.0
-                else
-                  # Skip packets without coordinates
-                  false
-                end
-              end)
-            else
-              # If most recent has no coordinates, include all historical
-              historical
-            end
-
-          # Build data for remaining historical packets
-          historical_data =
-            filtered_historical
-            |> Enum.map(fn packet -> build_minimal_packet_data(packet, false, has_weather) end)
-            |> Enum.filter(& &1)
-
-          # Combine most recent and filtered historical
-          Enum.filter([most_recent_data | historical_data], & &1)
-      end
-    end)
-    |> Enum.filter(& &1)
-  end
-
-  defp build_minimal_packet_data(packet, is_most_recent, has_weather) do
-    # Build minimal packet data without calling expensive PacketUtils.build_packet_data
-    {lat, lon, _} = MapHelpers.get_coordinates(packet)
-
-    if lat && lon do
-      # Use PacketUtils to get symbol information properly (includes data_extended fallback)
-      symbol_table_id = PacketUtils.get_packet_field(packet, :symbol_table_id, "/")
-      symbol_code = PacketUtils.get_packet_field(packet, :symbol_code, ">")
-
-      # Generate symbol HTML using the SymbolRenderer
-      symbol_html =
-        AprsmeWeb.SymbolRenderer.render_marker_symbol(
-          symbol_table_id,
-          symbol_code,
-          packet.sender || "",
-          32
-        )
-
-      %{
-        "id" => if(is_most_recent, do: "current_#{packet.id}", else: "hist_#{packet.id}"),
-        "lat" => lat,
-        "lng" => lon,
-        "callsign" => packet.sender || "",
-        "symbol_table_id" => symbol_table_id,
-        "symbol_code" => symbol_code,
-        "symbol_html" => symbol_html,
-        "comment" => packet.comment || "",
-        "timestamp" => DateTime.to_unix(packet.received_at || DateTime.utc_now(), :millisecond),
-        "historical" => !is_most_recent,
-        "is_most_recent_for_callsign" => is_most_recent,
-        "path" => packet.path || "",
-        "popup" => build_simple_popup(packet, has_weather)
-      }
-    end
-  end
-
-  defp build_simple_popup(packet, has_weather) do
-    # Build popup HTML directly without database queries
-    callsign = packet.sender || "Unknown"
-    timestamp_dt = packet.received_at || DateTime.utc_now()
-    cache_buster = System.system_time(:millisecond)
-
-    # Check if this packet itself is a weather packet
-    is_weather = PacketUtils.weather_packet?(packet)
-
-    if is_weather do
-      # Build weather popup
-      %{
-        callsign: callsign,
-        comment: nil,
-        timestamp_dt: timestamp_dt,
-        cache_buster: cache_buster,
-        weather: true,
-        weather_link: true,
-        temperature: PacketUtils.get_weather_field(packet, :temperature),
-        temp_unit: "°F",
-        humidity: PacketUtils.get_weather_field(packet, :humidity),
-        wind_direction: PacketUtils.get_weather_field(packet, :wind_direction),
-        wind_speed: PacketUtils.get_weather_field(packet, :wind_speed),
-        wind_unit: "mph",
-        wind_gust: PacketUtils.get_weather_field(packet, :wind_gust),
-        gust_unit: "mph",
-        pressure: PacketUtils.get_weather_field(packet, :pressure),
-        rain_1h: PacketUtils.get_weather_field(packet, :rain_1h),
-        rain_24h: PacketUtils.get_weather_field(packet, :rain_24h),
-        rain_since_midnight: PacketUtils.get_weather_field(packet, :rain_since_midnight),
-        rain_1h_unit: "in",
-        rain_24h_unit: "in",
-        rain_since_midnight_unit: "in"
-      }
-      |> PopupComponent.popup()
-      |> Safe.to_iodata()
-      |> IO.iodata_to_binary()
-    else
-      # Build standard popup
-      %{
-        callsign: callsign,
-        comment: packet.comment || "",
-        timestamp_dt: timestamp_dt,
-        cache_buster: cache_buster,
-        weather: false,
-        # Use pre-fetched weather info
-        weather_link: has_weather
-      }
-      |> PopupComponent.popup()
-      |> Safe.to_iodata()
-      |> IO.iodata_to_binary()
-    end
-  end
-
-  # Build weather callsign set from packets themselves (avoids DB query)
-  defp build_weather_callsign_set(packets) do
-    packets
-    |> Enum.filter(&PacketUtils.weather_packet?/1)
-    |> MapSet.new(fn packet -> String.upcase(packet.sender || "") end)
-  end
-
-  # Calculate distance between two lat/lon points in meters using Haversine formula
-  defp calculate_distance_meters(lat1, lon1, lat2, lon2) do
-    # Convert latitude and longitude from degrees to radians
-    lat1_rad = lat1 * :math.pi() / 180
-    lon1_rad = lon1 * :math.pi() / 180
-    lat2_rad = lat2 * :math.pi() / 180
-    lon2_rad = lon2 * :math.pi() / 180
-
-    # Haversine formula
-    dlat = lat2_rad - lat1_rad
-    dlon = lon2_rad - lon1_rad
-
-    a =
-      :math.sin(dlat / 2) * :math.sin(dlat / 2) +
-        :math.cos(lat1_rad) * :math.cos(lat2_rad) *
-          :math.sin(dlon / 2) * :math.sin(dlon / 2)
-
-    c = 2 * :math.atan2(:math.sqrt(a), :math.sqrt(1 - a))
-
-    # Earth's radius in meters
-    earth_radius_meters = 6_371_000
-
-    # Distance in meters
-    earth_radius_meters * c
-  end
-
-  # Progressive loading functions using LiveView's efficient update mechanisms
-  @spec start_progressive_historical_loading(Socket.t()) :: Socket.t()
-  defp start_progressive_historical_loading(socket) do
-    require Logger
-
-    Logger.debug(
-      "start_progressive_historical_loading called with zoom: #{socket.assigns.map_zoom}, bounds: #{inspect(socket.assigns.map_bounds)}"
-    )
-
-    # Increment generation to invalidate any in-flight loads
-    new_generation = socket.assigns.loading_generation + 1
-
-    # Cancel any pending batch tasks
-    socket = cancel_pending_loads(socket)
-
-    # For high zoom levels, load everything in one batch for maximum speed
-    zoom = socket.assigns.map_zoom || 5
-
-    if zoom >= 10 do
-      # High zoom - load everything at once for maximum speed
-      Logger.debug("High zoom (#{zoom}), loading in single batch")
-
-      socket
-      |> assign(
-        loading_batch: 0,
-        total_batches: 1,
-        historical_loading: true,
-        loading_generation: new_generation
-      )
-      |> load_historical_batch(0, new_generation)
-    else
-      # Low zoom - use progressive loading to prevent overwhelming
-      total_batches = calculate_batch_count_for_zoom(zoom)
-
-      # Start with first batch
-      socket =
-        socket
-        |> assign(
-          loading_batch: 0,
-          total_batches: total_batches,
-          historical_loading: true,
-          loading_generation: new_generation
-        )
-        |> load_historical_batch(0, new_generation)
-
-      # Schedule remaining batches with generation check
-      batch_refs =
-        Enum.map(1..(total_batches - 1), fn batch_index ->
-          Process.send_after(self(), {:load_historical_batch, batch_index, new_generation}, batch_index * 50)
-        end)
-
-      socket = assign(socket, pending_batch_tasks: batch_refs)
-
-      socket
-    end
-  end
-
-  defp cancel_pending_loads(socket) do
-    # Cancel any pending batch load messages
-    Enum.each(socket.assigns.pending_batch_tasks, &Process.cancel_timer/1)
-    assign(socket, pending_batch_tasks: [])
-  end
-
-  # Consolidated zoom-based loading parameters
-  @spec get_loading_params_for_zoom(integer()) :: {batch_size :: integer(), batch_count :: integer()}
-  # Very zoomed in - load everything at once, minimal batches
-  defp get_loading_params_for_zoom(zoom) when zoom >= 15, do: {500, 2}
-  # Moderately zoomed in
-  defp get_loading_params_for_zoom(zoom) when zoom >= 12, do: {500, 3}
-  # High zoom - still load a lot
-  defp get_loading_params_for_zoom(zoom) when zoom >= 10, do: {500, 4}
-  # Medium zoom
-  defp get_loading_params_for_zoom(zoom) when zoom >= 8, do: {100, 4}
-  # Zoomed out
-  defp get_loading_params_for_zoom(zoom) when zoom >= 5, do: {75, 5}
-  # Very zoomed out - smaller batches, more of them
-  defp get_loading_params_for_zoom(_), do: {50, 5}
-
-  @spec calculate_batch_size_for_zoom(integer()) :: integer()
-  defp calculate_batch_size_for_zoom(zoom) do
-    {batch_size, _} = get_loading_params_for_zoom(zoom)
-    batch_size
-  end
-
-  @spec calculate_batch_count_for_zoom(integer()) :: integer()
-  defp calculate_batch_count_for_zoom(zoom) do
-    {_, batch_count} = get_loading_params_for_zoom(zoom)
-    batch_count
-  end
-
-  @spec load_historical_batch(Socket.t(), integer(), integer() | nil) :: Socket.t()
-  defp load_historical_batch(socket, batch_offset, generation) do
-    # Check generation if provided
-    if generation && generation != socket.assigns.loading_generation do
-      # Stale request, return unchanged socket
-      socket
-    else
-      do_load_historical_batch(socket, batch_offset)
-    end
-  end
-
-  defp do_load_historical_batch(socket, batch_offset) do
-    if socket.assigns.map_bounds do
-      bounds = [
-        socket.assigns.map_bounds.west,
-        socket.assigns.map_bounds.south,
-        socket.assigns.map_bounds.east,
-        socket.assigns.map_bounds.north
-      ]
-
-      # Calculate zoom-based batch size - higher zoom = smaller batches for faster response
-      zoom = socket.assigns.map_zoom || 5
-      batch_size = calculate_batch_size_for_zoom(zoom)
-      offset = batch_offset * batch_size
-
-      packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
-
-      historical_packets =
-        try do
-          if packets_module == Aprsme.Packets do
-            # Use cached queries for better performance
-            # Include zoom level in cache key for better cache efficiency
-            params = %{
-              bounds: bounds,
-              limit: batch_size,
-              offset: offset,
-              zoom: zoom
-            }
-
-            # Add callsign filter if tracking
-            params =
-              if socket.assigns.tracked_callsign == "" do
-                params
-              else
-                Map.put(params, :callsign, socket.assigns.tracked_callsign)
-              end
-
-            # Use the historical_hours setting from the UI dropdown with validation
-            historical_hours = parse_historical_hours(socket.assigns.historical_hours || "1")
-            params = Map.put(params, :hours_back, historical_hours)
-
-            Aprsme.CachedQueries.get_recent_packets_cached(params)
-          else
-            # Fallback for testing
-            packets_module.get_recent_packets_optimized(%{
-              bounds: bounds,
-              limit: batch_size,
-              offset: offset
-            })
-          end
-        rescue
-          error ->
-            require Logger
-
-            Logger.error("Error loading historical packets: #{inspect(error)}")
-            # Return empty list and notify user
-            send(self(), {:show_error, gettext("Failed to load historical data. Please try again.")})
-            []
-        end
-
-      if Enum.any?(historical_packets) do
-        # Process this batch and send to frontend
-        packet_data_list =
-          try do
-            build_packet_data_list(historical_packets)
-          rescue
-            e ->
-              require Logger
-
-              Logger.error("Error building packet data list: #{inspect(e)}")
-              []
-          end
-
-        if Enum.any?(packet_data_list) do
-          # Check zoom level to decide between heat map and markers
-          total_batches = socket.assigns.total_batches || 4
-          is_final_batch = batch_offset >= total_batches - 1
-
-          socket =
-            if socket.assigns.map_zoom <= 8 do
-              # For heat maps, store historical packets and update heat map when all batches are loaded
-              # Add packets to historical_packets assign
-              new_historical =
-                Enum.reduce(historical_packets, socket.assigns.historical_packets, fn packet, acc ->
-                  key = if Map.has_key?(packet, :id), do: to_string(packet.id), else: to_string(packet["id"])
-                  Map.put(acc, key, packet)
-                end)
-
-              # Apply memory limit
-              new_historical =
-                if map_size(new_historical) > @max_historical_packets do
-                  prune_oldest_packets(new_historical, @max_historical_packets)
-                else
-                  new_historical
-                end
-
-              socket = assign(socket, historical_packets: new_historical)
-
-              # If this is the final batch, update the heat map
-              if is_final_batch do
-                send_heat_map_for_current_bounds(socket)
-              else
-                socket
-              end
-            else
-              # Use LiveView's efficient push_event for incremental updates
-              push_event(socket, "add_historical_packets_batch", %{
-                packets: packet_data_list,
-                batch: batch_offset,
-                is_final: is_final_batch
-              })
-            end
-
-          # Update progress for user feedback
-          socket = assign(socket, loading_batch: batch_offset + 1)
-
-          # Mark loading as complete if this was the final batch
-          socket =
-            if is_final_batch do
-              assign(socket, historical_loading: false)
-            else
-              socket
-            end
-
-          # Process any pending bounds update if loading is complete
-          if is_final_batch && socket.assigns.pending_bounds do
-            send(self(), {:process_pending_bounds})
-          end
-
-          socket
-        else
-          socket
-        end
-      else
-        socket
-      end
-    else
-      socket
-    end
-  end
 
   @spec within_bounds?(map() | struct(), map()) :: boolean()
   defp within_bounds?(packet, bounds) do
@@ -2134,7 +1285,7 @@ defmodule AprsmeWeb.MapLive.Index do
     packets
     |> Enum.filter(fn {_callsign, packet} ->
       within_bounds?(packet, bounds) &&
-        packet_within_time_threshold?(packet, time_threshold)
+        SharedPacketUtils.packet_within_time_threshold?(packet, time_threshold)
     end)
     |> Map.new()
   end
@@ -2173,22 +1324,7 @@ defmodule AprsmeWeb.MapLive.Index do
     :ok
   end
 
-  # Add a helper for robust bounds comparison
-
-  defp compare_bounds(nil, nil), do: true
-  defp compare_bounds(nil, _), do: false
-  defp compare_bounds(_, nil), do: false
-  defp compare_bounds(b1, b2), do: compare_bounds_maps(b1, b2)
-
-  defp compare_bounds_maps(b1, b2) do
-    Enum.all?([:north, :south, :east, :west], fn key ->
-      round_to_4_places(Map.get(b1, key)) == round_to_4_places(Map.get(b2, key))
-    end)
-  end
-
-  defp round_to_4_places(n) when is_float(n), do: Float.round(n, 4)
-  defp round_to_4_places(n) when is_integer(n), do: n * 1.0
-  defp round_to_4_places(x), do: x
+  # Bounds comparison now handled by shared utilities
 
   # --- Private bounds update helpers ---
   @spec handle_bounds_update(map(), Socket.t()) :: {:noreply, Socket.t()}
@@ -2225,7 +1361,7 @@ defmodule AprsmeWeb.MapLive.Index do
         socket = process_bounds_update(map_bounds, socket)
         {:noreply, socket}
 
-      compare_bounds(map_bounds, socket.assigns.map_bounds) ->
+      BoundsUtils.compare_bounds(map_bounds, socket.assigns.map_bounds) ->
         {:noreply, socket}
 
       true ->
@@ -2250,23 +1386,6 @@ defmodule AprsmeWeb.MapLive.Index do
     send_heat_map_for_packets(socket, packet_list)
   end
 
-  defp send_heat_map_for_current_bounds(socket) do
-    # Get all packets within current bounds
-    all_packets =
-      Map.values(socket.assigns.visible_packets) ++
-        Map.values(socket.assigns.historical_packets)
-
-    # Filter by bounds
-    filtered_packets =
-      all_packets
-      |> filter_packets_by_bounds(socket.assigns.map_bounds)
-      |> Enum.uniq_by(fn packet ->
-        Map.get(packet, :id) || Map.get(packet, "id")
-      end)
-
-    send_heat_map_for_packets(socket, filtered_packets)
-  end
-
   # Common heat map display logic
   defp send_heat_map_for_packets(socket, packets) do
     # Get clustering data
@@ -2280,51 +1399,6 @@ defmodule AprsmeWeb.MapLive.Index do
     end
   end
 
-  # Helper to build packet data list from a map of packets
-  defp build_packet_data_list_from_map(packets_map, is_most_recent, socket) do
-    locale = get_locale(socket)
-
-    packets_map
-    |> Enum.map(fn {_callsign, packet} ->
-      PacketUtils.build_packet_data(packet, is_most_recent, locale)
-    end)
-    |> Enum.filter(& &1)
-  end
-
-  # Helper to get locale from socket
-  defp get_locale(socket) do
-    Map.get(socket.assigns, :locale, "en")
-  end
-
-  # Helper to update map center and zoom to location
-  defp update_and_zoom_to_location(socket, lat, lng, zoom) do
-    socket
-    |> assign(map_center: %{lat: lat, lng: lng}, map_zoom: zoom)
-    |> push_event("zoom_to_location", %{lat: lat, lng: lng, zoom: zoom})
-  end
-
-  # Helper to zoom to current location
-  defp zoom_to_current_location(socket) do
-    push_event(socket, "zoom_to_location", %{
-      lat: socket.assigns.map_center.lat,
-      lng: socket.assigns.map_center.lng,
-      zoom: socket.assigns.map_zoom
-    })
-  end
-
-  defp trigger_marker_display(socket) do
-    # Clear heat map and show markers
-    socket = push_event(socket, "show_markers", %{})
-
-    # Re-send all visible packets as markers
-    visible_packets_list = build_packet_data_list_from_map(socket.assigns.visible_packets, true, socket)
-
-    socket = add_markers_if_any(socket, visible_packets_list)
-
-    # Trigger historical packet reload for markers
-    start_progressive_historical_loading(socket)
-  end
-
   @spec process_bounds_update(map(), Socket.t()) :: Socket.t()
   defp process_bounds_update(map_bounds, socket) do
     require Logger
@@ -2333,7 +1407,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Check if this is the initial load or if bounds have actually changed
     is_initial_load = socket.assigns[:needs_initial_historical_load] || !socket.assigns[:initial_bounds_loaded]
-    bounds_changed = socket.assigns.map_bounds && not compare_bounds(map_bounds, socket.assigns.map_bounds)
+    bounds_changed = socket.assigns.map_bounds && not BoundsUtils.compare_bounds(map_bounds, socket.assigns.map_bounds)
 
     # Check if we've completed the initial historical load
     initial_historical_completed = socket.assigns[:initial_historical_completed] || false
@@ -2373,7 +1447,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Load historical packets for the new bounds (now socket.assigns.map_bounds is correct)
     Logger.debug("Starting progressive historical loading for new bounds")
-    socket = start_progressive_historical_loading(socket)
+    socket = HistoricalLoader.start_progressive_historical_loading(socket)
 
     # Mark initial historical as completed if this was the initial load
     if is_initial_load do
@@ -2381,169 +1455,5 @@ defmodule AprsmeWeb.MapLive.Index do
     else
       socket
     end
-  end
-
-  # Sanitize path string to prevent injection attacks
-  defp sanitize_path_string(path) when is_binary(path) do
-    # Limit length and remove any potentially dangerous characters
-    # APRS paths should only contain callsigns, commas, asterisks, and dashes
-    path
-    # Reasonable max length for APRS path
-    |> String.slice(0, 200)
-    |> String.replace(~r/[^A-Za-z0-9,\-\*\s]/, "")
-  end
-
-  defp sanitize_path_string(_), do: ""
-
-  # Parse RF path string to extract digipeater/igate callsigns
-  defp parse_rf_path(path) when is_binary(path) do
-    # Split by comma and filter out empty strings
-    path
-    |> String.split(",")
-    |> Enum.map(&String.trim/1)
-    # Skip empty strings, TCPIP entries and qA* entries
-    |> Enum.reject(fn callsign ->
-      callsign == "" || String.contains?(callsign, "TCPIP") || String.starts_with?(callsign, "qA")
-    end)
-    |> Enum.map(fn callsign ->
-      # Remove any asterisk (used to mark heard stations) and WIDE patterns
-      callsign
-      |> String.replace("*", "")
-      |> String.trim()
-    end)
-    # Filter out APRS built-in beacon patterns
-    |> Enum.reject(fn callsign ->
-      callsign == "" || aprs_beacon?(callsign)
-    end)
-    |> Enum.uniq()
-  end
-
-  defp parse_rf_path(_), do: []
-
-  # Get positions of path stations from database with caching
-  defp get_path_station_positions(callsigns, _socket) when is_list(callsigns) do
-    # Use cached queries for better performance
-    CachedQueries.get_path_station_positions_cached(callsigns)
-  end
-
-  defp get_path_station_positions(_, _), do: []
-
-  # Memory management helpers with optimized pruning
-  # Performance optimization: Use different strategies based on overage size
-  # - Small overages (< 10): Only sort and remove what's needed
-  # - Large overages: Batch prune with buffer to reduce frequency
-  defp prune_oldest_packets(packets_map, max_size) when map_size(packets_map) > max_size do
-    current_size = map_size(packets_map)
-
-    # For small overages, use a more targeted approach
-    if current_size - max_size < 10 do
-      # Just remove the few oldest packets
-      prune_small_overage(packets_map, max_size)
-    else
-      # For larger overages, do batch pruning
-      prune_large_overage(packets_map, max_size)
-    end
-  end
-
-  defp prune_oldest_packets(packets_map, _max_size), do: packets_map
-
-  # Efficient pruning for small overages (< 10 packets over limit)
-  defp prune_small_overage(packets_map, max_size) do
-    to_remove = map_size(packets_map) - max_size
-
-    # Find just the oldest packets we need to remove
-    # Using Stream for lazy evaluation until we need to materialize
-    oldest_keys =
-      packets_map
-      |> Stream.map(fn {id, packet} -> {id, get_packet_timestamp(packet)} end)
-      |> Enum.sort_by(fn {_id, timestamp} -> timestamp end, {:asc, DateTime})
-      |> Enum.take(to_remove)
-      |> Enum.map(fn {id, _timestamp} -> id end)
-
-    # Map.drop is more efficient than reduce + delete
-    Map.drop(packets_map, oldest_keys)
-  end
-
-  # Batch pruning for large overages
-  defp prune_large_overage(packets_map, max_size) do
-    # Remove 20% more than needed to avoid frequent pruning
-    target_size = max_size - div(max_size, 5)
-
-    # Get timestamps and sort only once
-    sorted_by_time =
-      packets_map
-      |> Enum.map(fn {id, packet} -> {id, get_packet_timestamp(packet)} end)
-      |> Enum.sort_by(fn {_id, timestamp} -> timestamp end, {:desc, DateTime})
-      |> Enum.take(target_size)
-
-    # Rebuild map with only the newest packets
-    Map.new(sorted_by_time, fn {id, _timestamp} ->
-      {id, Map.get(packets_map, id)}
-    end)
-  end
-
-  defp get_packet_timestamp(%{received_at: timestamp}), do: timestamp
-  defp get_packet_timestamp(%{"received_at" => timestamp}), do: timestamp
-  defp get_packet_timestamp(_), do: DateTime.utc_now()
-
-  # Validate callsign format for security
-  defp valid_callsign?(callsign) do
-    # APRS callsign pattern: 1-2 letters, 1 digit, 0-3 letters, optional -SSID
-    Regex.match?(~r/^[A-Z]{1,2}\d[A-Z]{0,3}(-\d{1,2})?$/, callsign)
-  end
-
-  # Check if a callsign is an APRS built-in beacon pattern
-  @spec aprs_beacon?(String.t()) :: boolean()
-  defp aprs_beacon?(callsign) do
-    # Common APRS beacon patterns to exclude
-    patterns = [
-      # WIDE1, WIDE2, WIDE1-1, etc.
-      ~r/^WIDE\d(-\d)?$/i,
-      # TRACE patterns
-      ~r/^TRACE\d(-\d)?$/i,
-      # RELAY
-      ~r/^RELAY$/i,
-      # ECHO
-      ~r/^ECHO$/i,
-      # GATE
-      ~r/^GATE$/i,
-      # UNPROTO
-      ~r/^UNPROTO$/i,
-      # BEACON
-      ~r/^BEACON$/i,
-      # CQ
-      ~r/^CQ$/i,
-      # QTH
-      ~r/^QTH$/i,
-      # MAIL
-      ~r/^MAIL$/i,
-      # TEMP1, TEMP2, etc.
-      ~r/^TEMP\d+$/i,
-      # ID
-      ~r/^ID$/i,
-      # GPS
-      ~r/^GPS$/i,
-      # DF
-      ~r/^DF$/i,
-      # DGPS
-      ~r/^DGPS$/i,
-      # PHG patterns
-      ~r/^PHG\d+$/i,
-      # RNG patterns
-      ~r/^RNG\d+$/i,
-      # DFS patterns
-      ~r/^DFS\d+$/i,
-      # HOP patterns
-      ~r/^HOP\d+(-\d)?$/i,
-      # REGION patterns
-      ~r/^REGION\d+(-\d)?$/i,
-      # STATE patterns
-      ~r/^STATE\d+(-\d)?$/i
-    ]
-
-    # Check if the callsign matches any beacon pattern
-    Enum.any?(patterns, fn pattern ->
-      Regex.match?(pattern, callsign)
-    end)
   end
 end

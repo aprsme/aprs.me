@@ -101,21 +101,19 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec to_float(any()) :: float() | nil
   def to_float(value) when is_float(value) do
-    if finite_float?(value), do: value, else: nil
+    if finite_float?(value), do: value
   end
 
   def to_float(value) when is_integer(value) do
     # Protect against integer overflow when converting to float
     if value >= -9.0e15 and value <= 9.0e15 do
       value * 1.0
-    else
-      nil
     end
   end
 
   def to_float(%Decimal{} = value) do
     float = Decimal.to_float(value)
-    if finite_float?(float), do: float, else: nil
+    if finite_float?(float), do: float
   end
 
   def to_float(value) when is_binary(value) do
@@ -129,7 +127,7 @@ defmodule Aprsme.EncodingUtils do
 
     case Float.parse(sanitized) do
       {float, _} when is_float(float) ->
-        if finite_float?(float), do: float, else: nil
+        if finite_float?(float), do: float
 
       :error ->
         nil
