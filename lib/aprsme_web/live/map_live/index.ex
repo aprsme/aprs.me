@@ -2313,24 +2313,59 @@ defmodule AprsmeWeb.MapLive.Index do
 
   defp get_path_station_positions(_, _), do: []
 
-  # Memory management helpers
+  # Memory management helpers with optimized pruning
+  # Performance optimization: Use different strategies based on overage size
+  # - Small overages (< 10): Only sort and remove what's needed
+  # - Large overages: Batch prune with buffer to reduce frequency
   defp prune_oldest_packets(packets_map, max_size) when map_size(packets_map) > max_size do
-    # Convert to list and sort by received_at timestamp
-    sorted_packets =
-      packets_map
-      |> Enum.sort_by(
-        fn {_id, packet} ->
-          get_packet_timestamp(packet)
-        end,
-        {:desc, DateTime}
-      )
-      |> Enum.take(max_size)
-      |> Map.new()
-
-    sorted_packets
+    current_size = map_size(packets_map)
+    
+    # For small overages, use a more targeted approach
+    if current_size - max_size < 10 do
+      # Just remove the few oldest packets
+      prune_small_overage(packets_map, max_size)
+    else
+      # For larger overages, do batch pruning
+      prune_large_overage(packets_map, max_size)
+    end
   end
 
   defp prune_oldest_packets(packets_map, _max_size), do: packets_map
+
+  # Efficient pruning for small overages (< 10 packets over limit)
+  defp prune_small_overage(packets_map, max_size) do
+    to_remove = map_size(packets_map) - max_size
+    
+    # Find just the oldest packets we need to remove
+    # Using Stream for lazy evaluation until we need to materialize
+    oldest_keys =
+      packets_map
+      |> Stream.map(fn {id, packet} -> {id, get_packet_timestamp(packet)} end)
+      |> Enum.sort_by(fn {_id, timestamp} -> timestamp end, {:asc, DateTime})
+      |> Enum.take(to_remove)
+      |> Enum.map(fn {id, _timestamp} -> id end)
+    
+    # Map.drop is more efficient than reduce + delete
+    Map.drop(packets_map, oldest_keys)
+  end
+
+  # Batch pruning for large overages
+  defp prune_large_overage(packets_map, max_size) do
+    # Remove 20% more than needed to avoid frequent pruning
+    target_size = max_size - div(max_size, 5)
+    
+    # Get timestamps and sort only once
+    sorted_by_time =
+      packets_map
+      |> Enum.map(fn {id, packet} -> {id, get_packet_timestamp(packet)} end)
+      |> Enum.sort_by(fn {_id, timestamp} -> timestamp end, {:desc, DateTime})
+      |> Enum.take(target_size)
+    
+    # Rebuild map with only the newest packets
+    Map.new(sorted_by_time, fn {id, _timestamp} -> 
+      {id, Map.get(packets_map, id)}
+    end)
+  end
 
   defp get_packet_timestamp(%{received_at: timestamp}), do: timestamp
   defp get_packet_timestamp(%{"received_at" => timestamp}), do: timestamp

@@ -182,4 +182,5 @@ defmodule AprsmeWeb.MapLive.MovementTest do
       assert distance3 > 20
     end
   end
+  
 end
