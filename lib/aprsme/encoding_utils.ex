@@ -101,9 +101,9 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec to_float(any()) :: float() | nil
   def to_float(value) when is_float(value) do
-    if is_finite_float?(value), do: value, else: nil
+    if finite_float?(value), do: value, else: nil
   end
-  
+
   def to_float(value) when is_integer(value) do
     # Protect against integer overflow when converting to float
     if value >= -9.0e15 and value <= 9.0e15 do
@@ -112,36 +112,39 @@ defmodule Aprsme.EncodingUtils do
       nil
     end
   end
-  
+
   def to_float(%Decimal{} = value) do
     float = Decimal.to_float(value)
-    if is_finite_float?(float), do: float, else: nil
+    if finite_float?(float), do: float, else: nil
   end
 
   def to_float(value) when is_binary(value) do
     # Sanitize input first to prevent injection attacks
-    sanitized = 
+    sanitized =
       value
       |> sanitize_string()
       |> to_string()
-      |> String.slice(0, 30) # Reasonable max length for a number
-      
+      # Reasonable max length for a number
+      |> String.slice(0, 30)
+
     case Float.parse(sanitized) do
       {float, _} when is_float(float) ->
-        if is_finite_float?(float), do: float, else: nil
-      :error -> 
+        if finite_float?(float), do: float, else: nil
+
+      :error ->
         nil
     end
   end
 
   def to_float(_), do: nil
-  
+
   # Helper to check if a float is finite (not infinity or NaN)
-  defp is_finite_float?(float) when is_float(float) do
-    float != :infinity and float != :neg_infinity and float == float # NaN != NaN
+  defp finite_float?(float) when is_float(float) do
+    # NaN != NaN
+    float != :infinity and float != :neg_infinity and float == float
   end
-  
-  defp is_finite_float?(_), do: false
+
+  defp finite_float?(_), do: false
 
   @doc """
   Converts various types to Decimal for database storage.

@@ -95,6 +95,7 @@ defmodule AprsmeWeb.MapLive.MovementTest do
           "west" => -96.50
         }
       }
+
       assert render_hook(view, "bounds_changed", bounds_params)
 
       # Wait for initial load to complete
@@ -118,7 +119,7 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
       # Wait for the initial packet to be processed
       :timer.sleep(100)
-      
+
       # Should receive new_packet for the initial packet
       assert_push_event(view, "new_packet", %{}, 1000)
 
@@ -136,14 +137,14 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
       # Send the moved packet
       send(view.pid, {:postgres_packet, moved_packet})
-      
+
       # Wait a bit for processing
       :timer.sleep(100)
 
       # The view should push a new_packet event for significant movement
       assert_push_event(view, "new_packet", %{}, 1000)
     end
-    
+
     defp flush_push_events(view) do
       receive do
         {ref, {:push_event, _, _}} when is_reference(ref) and ref == view.ref ->
@@ -182,5 +183,4 @@ defmodule AprsmeWeb.MapLive.MovementTest do
       assert distance3 > 20
     end
   end
-  
 end

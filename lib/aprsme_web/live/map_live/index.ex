@@ -59,35 +59,39 @@ defmodule AprsmeWeb.MapLive.Index do
   defp parse_float_in_range(str, default, min, max) when is_binary(str) do
     # Sanitize input first
     sanitized = sanitize_numeric_string(str)
-    
+
     case Float.parse(sanitized) do
-      {val, ""} when val >= min and val <= max -> 
-        if is_finite?(val), do: val, else: default
-      {val, _remainder} when val >= min and val <= max -> 
+      {val, ""} when val >= min and val <= max ->
+        if finite?(val), do: val, else: default
+
+      {val, _remainder} when val >= min and val <= max ->
         # Accept even with trailing characters, but validate the number
-        if is_finite?(val), do: val, else: default
-      _ -> 
+        if finite?(val), do: val, else: default
+
+      _ ->
         default
     end
   end
-  
+
   defp parse_float_in_range(_, default, _, _), do: default
 
   defp parse_int_in_range(str, default, min, max) when is_binary(str) do
     # Sanitize input first
     sanitized = sanitize_numeric_string(str)
-    
+
     case Integer.parse(sanitized) do
-      {val, ""} when val >= min and val <= max -> 
+      {val, ""} when val >= min and val <= max ->
         val
-      {val, _remainder} when val >= min and val <= max -> 
+
+      {val, _remainder} when val >= min and val <= max ->
         # Accept even with trailing characters
         val
-      _ -> 
+
+      _ ->
         default
     end
   end
-  
+
   defp parse_int_in_range(_, default, _, _), do: default
 
   # Sanitize numeric strings to prevent injection attacks
@@ -96,25 +100,26 @@ defmodule AprsmeWeb.MapLive.Index do
     str
     |> String.trim()
     |> String.replace(~r/[^\d\.\-eE]/, "")
-    |> limit_string_length(20) # Prevent extremely long inputs
+    # Prevent extremely long inputs
+    |> limit_string_length(20)
   end
-  
+
   defp sanitize_numeric_string(_), do: ""
-  
+
   # Limit string length to prevent DoS
   defp limit_string_length(str, max_length) when byte_size(str) > max_length do
     :binary.part(str, 0, max_length)
   end
-  
-  defp limit_string_length(str, _), do: str
-  
-  # Check if a float is finite (not infinity or NaN)
-  defp is_finite?(float) when is_float(float) do
-    float != :infinity and float != :neg_infinity and float == float # NaN != NaN
-  end
-  
-  defp is_finite?(_), do: false
 
+  defp limit_string_length(str, _), do: str
+
+  # Check if a float is finite (not infinity or NaN)
+  defp finite?(float) when is_float(float) do
+    # NaN != NaN
+    float != :infinity and float != :neg_infinity and float == float
+  end
+
+  defp finite?(_), do: false
 
   @impl true
   def mount(params, session, socket) do
@@ -409,7 +414,7 @@ defmodule AprsmeWeb.MapLive.Index do
     # Validate coordinates first
     lat_float = safe_parse_coordinate(lat, 0.0, -90.0, 90.0)
     lng_float = safe_parse_coordinate(lng, 0.0, -180.0, 180.0)
-    
+
     # Validate path string
     safe_path = sanitize_path_string(path)
 
@@ -483,7 +488,7 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("update_trail_duration", %{"trail_duration" => duration}, socket) do
     # Validate and convert duration string to hours
     hours = parse_trail_duration(duration)
-    
+
     # Calculate new threshold safely
     new_threshold = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
 
@@ -594,13 +599,13 @@ defmodule AprsmeWeb.MapLive.Index do
   defp parse_center_coordinates(center, socket) when is_map(center) do
     default_lat = socket.assigns.map_center.lat
     default_lng = socket.assigns.map_center.lng
-    
+
     lat = safe_parse_coordinate(Map.get(center, "lat"), default_lat, -90.0, 90.0)
     lng = safe_parse_coordinate(Map.get(center, "lng"), default_lng, -180.0, 180.0)
 
     {lat, lng}
   end
-  
+
   defp parse_center_coordinates(_, socket) do
     # Invalid center format, return current center
     {socket.assigns.map_center.lat, socket.assigns.map_center.lng}
@@ -612,49 +617,50 @@ defmodule AprsmeWeb.MapLive.Index do
       parsed -> clamp_coordinate(parsed, min, max)
     end
   end
-  
+
   defp safe_parse_coordinate(value, default, min, max) when is_number(value) do
-    if is_finite_number?(value) do
+    if finite_number?(value) do
       clamp_coordinate(value, min, max)
     else
       default
     end
   end
-  
+
   defp safe_parse_coordinate(_, default, _, _), do: default
 
   defp clamp_coordinate(value, min, max) when is_number(value) do
     value |> max(min) |> min(max)
   end
-  
+
   defp clamp_coordinate(_, _, _), do: 0.0
 
   defp clamp_zoom(zoom) when is_binary(zoom) do
     parse_int_in_range(zoom, @default_zoom, 1, 20)
   end
-  
+
   defp clamp_zoom(zoom) when is_integer(zoom) do
     max(1, min(20, zoom))
   end
-  
+
   defp clamp_zoom(zoom) when is_float(zoom) do
     max(1, min(20, trunc(zoom)))
   end
-  
+
   defp clamp_zoom(_), do: @default_zoom
-  
+
   # Helper to check if a number is finite
-  defp is_finite_number?(num) when is_number(num) do
-    is_finite?(num / 1.0) # Convert integer to float for check
+  defp finite_number?(num) when is_number(num) do
+    # Convert integer to float for check
+    finite?(num / 1.0)
   end
-  
-  defp is_finite_number?(_), do: false
-  
+
+  defp finite_number?(_), do: false
+
   # Validate that coordinates are within reasonable ranges
   defp valid_coordinates?(lat, lng) when is_number(lat) and is_number(lng) do
     lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180
   end
-  
+
   defp valid_coordinates?(_, _), do: false
 
   # Calculate degrees per pixel based on zoom level
@@ -785,6 +791,7 @@ defmodule AprsmeWeb.MapLive.Index do
     case Integer.parse(duration) do
       {hours, ""} when hours in [1, 6, 12, 24, 48, 168] ->
         hours
+
       _ ->
         # Default to 1 hour if invalid
         1
@@ -798,6 +805,7 @@ defmodule AprsmeWeb.MapLive.Index do
     case Integer.parse(hours) do
       {h, ""} when h in [1, 3, 6, 12, 24] ->
         h
+
       _ ->
         # Default to 1 hour if invalid
         1
@@ -2380,10 +2388,11 @@ defmodule AprsmeWeb.MapLive.Index do
     # Limit length and remove any potentially dangerous characters
     # APRS paths should only contain callsigns, commas, asterisks, and dashes
     path
-    |> String.slice(0, 200) # Reasonable max length for APRS path
+    # Reasonable max length for APRS path
+    |> String.slice(0, 200)
     |> String.replace(~r/[^A-Za-z0-9,\-\*\s]/, "")
   end
-  
+
   defp sanitize_path_string(_), do: ""
 
   # Parse RF path string to extract digipeater/igate callsigns
@@ -2425,7 +2434,7 @@ defmodule AprsmeWeb.MapLive.Index do
   # - Large overages: Batch prune with buffer to reduce frequency
   defp prune_oldest_packets(packets_map, max_size) when map_size(packets_map) > max_size do
     current_size = map_size(packets_map)
-    
+
     # For small overages, use a more targeted approach
     if current_size - max_size < 10 do
       # Just remove the few oldest packets
@@ -2441,7 +2450,7 @@ defmodule AprsmeWeb.MapLive.Index do
   # Efficient pruning for small overages (< 10 packets over limit)
   defp prune_small_overage(packets_map, max_size) do
     to_remove = map_size(packets_map) - max_size
-    
+
     # Find just the oldest packets we need to remove
     # Using Stream for lazy evaluation until we need to materialize
     oldest_keys =
@@ -2450,7 +2459,7 @@ defmodule AprsmeWeb.MapLive.Index do
       |> Enum.sort_by(fn {_id, timestamp} -> timestamp end, {:asc, DateTime})
       |> Enum.take(to_remove)
       |> Enum.map(fn {id, _timestamp} -> id end)
-    
+
     # Map.drop is more efficient than reduce + delete
     Map.drop(packets_map, oldest_keys)
   end
@@ -2459,16 +2468,16 @@ defmodule AprsmeWeb.MapLive.Index do
   defp prune_large_overage(packets_map, max_size) do
     # Remove 20% more than needed to avoid frequent pruning
     target_size = max_size - div(max_size, 5)
-    
+
     # Get timestamps and sort only once
     sorted_by_time =
       packets_map
       |> Enum.map(fn {id, packet} -> {id, get_packet_timestamp(packet)} end)
       |> Enum.sort_by(fn {_id, timestamp} -> timestamp end, {:desc, DateTime})
       |> Enum.take(target_size)
-    
+
     # Rebuild map with only the newest packets
-    Map.new(sorted_by_time, fn {id, _timestamp} -> 
+    Map.new(sorted_by_time, fn {id, _timestamp} ->
       {id, Map.get(packets_map, id)}
     end)
   end
