@@ -429,8 +429,10 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_event("update_trail_duration", %{"trail_duration" => duration}, socket) do
-    # Convert duration string to hours and calculate new threshold
-    hours = String.to_integer(duration)
+    # Validate and convert duration string to hours
+    hours = parse_trail_duration(duration)
+    
+    # Calculate new threshold safely
     new_threshold = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
 
     socket = assign(socket, trail_duration: duration, packet_age_threshold: new_threshold)
@@ -443,7 +445,9 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_event("update_historical_hours", %{"historical_hours" => hours}, socket) do
-    socket = assign(socket, historical_hours: hours)
+    # Validate hours value
+    validated_hours = parse_historical_hours(hours)
+    socket = assign(socket, historical_hours: to_string(validated_hours))
 
     # Trigger a reload of historical packets with the new time range
     if socket.assigns.map_ready do
@@ -680,6 +684,32 @@ defmodule AprsmeWeb.MapLive.Index do
       {:noreply, socket}
     end
   end
+
+  # Parse trail duration with validation and bounds checking
+  defp parse_trail_duration(duration) when is_binary(duration) do
+    case Integer.parse(duration) do
+      {hours, ""} when hours in [1, 6, 12, 24, 48, 168] ->
+        hours
+      _ ->
+        # Default to 1 hour if invalid
+        1
+    end
+  end
+
+  defp parse_trail_duration(_), do: 1
+
+  # Parse historical hours with validation
+  defp parse_historical_hours(hours) when is_binary(hours) do
+    case Integer.parse(hours) do
+      {h, ""} when h in [1, 3, 6, 12, 24] ->
+        h
+      _ ->
+        # Default to 1 hour if invalid
+        1
+    end
+  end
+
+  defp parse_historical_hours(_), do: 1
 
   @impl true
   def handle_info({:process_bounds_update, map_bounds}, socket), do: handle_info_process_bounds_update(map_bounds, socket)
@@ -1840,8 +1870,8 @@ defmodule AprsmeWeb.MapLive.Index do
                 Map.put(params, :callsign, socket.assigns.tracked_callsign)
               end
 
-            # Use the historical_hours setting from the UI dropdown
-            historical_hours = String.to_integer(socket.assigns.historical_hours || "1")
+            # Use the historical_hours setting from the UI dropdown with validation
+            historical_hours = parse_historical_hours(socket.assigns.historical_hours || "1")
             params = Map.put(params, :hours_back, historical_hours)
 
             Aprsme.CachedQueries.get_recent_packets_cached(params)
