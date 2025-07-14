@@ -124,7 +124,7 @@ defmodule AprsmeWeb.PacketsLive.CallsignView do
     filtered_query
     |> Repo.all()
     |> Enum.map(&EncodingUtils.sanitize_packet/1)
-    |> Enum.map(&SharedPacketHandler.enrich_with_device_info/1)
+    |> SharedPacketHandler.enrich_packets_with_device_info()
   rescue
     error ->
       require Logger

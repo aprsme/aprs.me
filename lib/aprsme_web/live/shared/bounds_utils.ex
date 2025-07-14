@@ -10,13 +10,11 @@ defmodule AprsmeWeb.Live.Shared.BoundsUtils do
   Validate bounds to prevent invalid coordinates.
   """
   @spec valid_bounds?(map()) :: boolean()
-  def valid_bounds?(map_bounds) do
-    map_bounds.north <= 90 and
-      map_bounds.south >= -90 and
-      map_bounds.north > map_bounds.south and
-      map_bounds.east >= -180 and
-      map_bounds.west <= 180
-  end
+  def valid_bounds?(%{north: north, south: south, east: east, west: west})
+      when is_number(north) and is_number(south) and is_number(east) and is_number(west) and north <= 90 and south >= -90 and
+             north > south and east >= -180 and west <= 180, do: true
+
+  def valid_bounds?(_invalid_bounds), do: false
 
   @doc """
   Compare two bounds maps for equality (with rounding for floating point comparison).

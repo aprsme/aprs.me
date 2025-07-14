@@ -66,14 +66,9 @@ defmodule AprsmeWeb.Live.SharedPacketHandler do
   Enriches packet with device information.
   """
   def enrich_with_device_info(packet) do
-    device_identifier = Map.get(packet, :device_identifier) || Map.get(packet, "device_identifier")
+    device_identifier = get_device_identifier(packet)
 
-    device =
-      case device_identifier do
-        nil -> nil
-        "" -> nil
-        identifier -> DeviceCache.lookup_device(identifier)
-      end
+    device = lookup_device_info(device_identifier)
 
     packet
     |> Map.put(:device_model, device && device.model)
@@ -81,6 +76,50 @@ defmodule AprsmeWeb.Live.SharedPacketHandler do
     |> Map.put(:device_contact, device && device.contact)
     |> Map.put(:device_class, device && device.class)
   end
+
+  @doc """
+  Batch enrich multiple packets with device info for better performance.
+  """
+  def enrich_packets_with_device_info(packets) when is_list(packets) do
+    # Get unique device identifiers from all packets
+    device_identifiers =
+      packets
+      |> Enum.map(&get_device_identifier/1)
+      |> Enum.reject(&is_nil_or_empty/1)
+      |> Enum.uniq()
+
+    # Batch lookup devices (DeviceCache is already optimized with caching)
+    device_map =
+      Map.new(device_identifiers, fn identifier -> {identifier, DeviceCache.lookup_device(identifier)} end)
+
+    # Enrich packets using the cached device map
+    Enum.map(packets, fn packet ->
+      device_identifier = get_device_identifier(packet)
+      device = Map.get(device_map, device_identifier)
+
+      packet
+      |> Map.put(:device_model, device && device.model)
+      |> Map.put(:device_vendor, device && device.vendor)
+      |> Map.put(:device_contact, device && device.contact)
+      |> Map.put(:device_class, device && device.class)
+    end)
+  end
+
+  defp get_device_identifier(packet) do
+    Map.get(packet, :device_identifier) || Map.get(packet, "device_identifier")
+  end
+
+  defp lookup_device_info(device_identifier) do
+    case device_identifier do
+      nil -> nil
+      "" -> nil
+      identifier -> DeviceCache.lookup_device(identifier)
+    end
+  end
+
+  defp is_nil_or_empty(nil), do: true
+  defp is_nil_or_empty(""), do: true
+  defp is_nil_or_empty(_), do: false
 
   @doc """
   Creates a filter function that checks both callsign and weather data.

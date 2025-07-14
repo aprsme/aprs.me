@@ -108,6 +108,15 @@ defmodule AprsmeWeb.Telemetry do
       last_value("aprsme.system.batch_size.min", description: "Minimum batch size"),
       last_value("aprsme.system.batch_size.max", description: "Maximum batch size"),
 
+      # INSERT Performance Optimizer Metrics
+      last_value("aprsme.insert_optimizer.batch_size", description: "Current optimized INSERT batch size"),
+      summary("aprsme.insert_optimizer.throughput",
+        unit: {:hertz, :unit},
+        description: "INSERT throughput (packets/sec)"
+      ),
+      summary("aprsme.insert_optimizer.duration", unit: :millisecond, description: "INSERT duration per batch"),
+      counter("aprsme.insert_optimizer.optimizations", description: "Number of optimization adjustments made"),
+
       # Spatial PubSub Metrics
       last_value("aprsme.spatial_pubsub.clients.count", description: "Number of connected clients"),
       last_value("aprsme.spatial_pubsub.clients.grid_cells", description: "Number of active grid cells"),

@@ -37,6 +37,8 @@ defmodule Aprsme.Application do
       Aprsme.SystemMonitor,
       # Start spatial PubSub for viewport-based filtering
       Aprsme.SpatialPubSub,
+      # Start INSERT performance optimizer
+      Aprsme.Performance.InsertOptimizer,
       # Start packet store for efficient LiveView memory usage
       AprsmeWeb.MapLive.PacketStore,
 

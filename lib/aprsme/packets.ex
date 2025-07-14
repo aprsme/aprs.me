@@ -43,8 +43,7 @@ defmodule Aprsme.Packets do
         |> normalize_ssid()
         |> then(fn attrs ->
           device_identifier = Aprsme.DeviceParser.extract_device_identifier(packet_data)
-          matched_device = Aprsme.DeviceIdentification.lookup_device_by_identifier(device_identifier)
-          canonical_identifier = if matched_device, do: matched_device.identifier, else: device_identifier
+          canonical_identifier = get_canonical_device_identifier(device_identifier)
           Map.put(attrs, :device_identifier, canonical_identifier)
         end)
 
@@ -336,18 +335,29 @@ defmodule Aprsme.Packets do
     end
   end
 
-  defp extract_position_from_mic_e(data_extended) do
-    if is_number(data_extended[:lat_degrees]) and is_number(data_extended[:lat_minutes]) and
-         is_number(data_extended[:lon_degrees]) and is_number(data_extended[:lon_minutes]) do
-      lat = data_extended[:lat_degrees] + data_extended[:lat_minutes] / 60.0
-      lat = if data_extended[:lat_direction] == :south, do: -lat, else: lat
+  defp extract_position_from_mic_e(%{
+         lat_degrees: lat_deg,
+         lat_minutes: lat_min,
+         lat_direction: lat_dir,
+         lon_degrees: lon_deg,
+         lon_minutes: lon_min,
+         lon_direction: lon_dir
+       })
+       when is_number(lat_deg) and is_number(lat_min) and is_number(lon_deg) and is_number(lon_min) do
+    lat = apply_direction(lat_deg + lat_min / 60.0, lat_dir, :south)
+    lon = apply_direction(lon_deg + lon_min / 60.0, lon_dir, :west)
+    {lat, lon}
+  end
 
-      lon = data_extended[:lon_degrees] + data_extended[:lon_minutes] / 60.0
-      lon = if data_extended[:lon_direction] == :west, do: -lon, else: lon
+  defp extract_position_from_mic_e(_data_extended), do: {nil, nil}
 
-      {lat, lon}
-    else
-      {nil, nil}
+  defp apply_direction(value, direction, negative_direction) when direction == negative_direction, do: -value
+  defp apply_direction(value, _direction, _negative_direction), do: value
+
+  defp get_canonical_device_identifier(device_identifier) do
+    case Aprsme.DeviceIdentification.lookup_device_by_identifier(device_identifier) do
+      %{identifier: canonical_id} -> canonical_id
+      nil -> device_identifier
     end
   end
 

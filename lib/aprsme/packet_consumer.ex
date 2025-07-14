@@ -6,6 +6,7 @@ defmodule Aprsme.PacketConsumer do
   use GenStage
 
   alias Aprsme.LogSanitizer
+  alias Aprsme.Performance.InsertOptimizer
   alias Aprsme.Repo
 
   require Logger
@@ -131,9 +132,12 @@ defmodule Aprsme.PacketConsumer do
     {memory_before, _} = :erlang.statistics(:runtime)
     start_time = System.monotonic_time(:millisecond)
 
+    # Use optimized batch size for INSERT performance
+    batch_size = InsertOptimizer.get_optimal_batch_size()
+
     results =
       packets
-      |> Enum.chunk_every(50)
+      |> Enum.chunk_every(batch_size)
       |> Enum.map(&process_chunk/1)
 
     {success_count, error_count} =
@@ -192,27 +196,157 @@ defmodule Aprsme.PacketConsumer do
   end
 
   defp process_chunk(packets) do
-    # Prepare packets for batch insertion
-    packet_attrs =
-      packets
-      |> Enum.map(&prepare_packet_for_insert/1)
-      # Ensure truncation here
-      |> Enum.map(&truncate_datetimes_to_second/1)
+    # Get current timestamp once for the entire batch
+    current_time = DateTime.truncate(DateTime.utc_now(), :second)
+    start_time = System.monotonic_time(:millisecond)
 
-    # Filter out invalid packets
-    {valid_packets, invalid_packets} = Enum.split_with(packet_attrs, &valid_packet?/1)
+    # Prepare packets for batch insertion with optimized processing
+    {valid_packets, invalid_count} = prepare_packets_batch(packets, current_time)
 
-    # Insert valid packets in batch
-    case Repo.insert_all(Aprsme.Packet, valid_packets, returning: [:id]) do
-      {:error, error} ->
-        Logger.error("Batch insert failed: #{inspect(error)}")
-        {0, length(packets)}
+    # Skip database operation if no valid packets
+    if Enum.empty?(valid_packets) do
+      {0, invalid_count}
+    else
+      # Get optimized insert options
+      insert_options = InsertOptimizer.get_insert_options()
 
-      {inserted_count, _} ->
-        error_count = Enum.count(invalid_packets)
-        {inserted_count, error_count}
+      # Insert valid packets in batch with optimization
+      result = Repo.insert_all(Aprsme.Packet, valid_packets, insert_options)
+
+      # Record performance metrics for optimization
+      end_time = System.monotonic_time(:millisecond)
+      duration = end_time - start_time
+
+      case result do
+        {:error, error} ->
+          Logger.error("Batch insert failed: #{inspect(error)}")
+          {0, length(packets)}
+
+        {inserted_count, _} ->
+          # Record metrics for optimization
+          InsertOptimizer.record_insert_metrics(
+            length(valid_packets),
+            duration,
+            inserted_count
+          )
+
+          {inserted_count, invalid_count}
+      end
     end
   end
+
+  # Optimized batch preparation with reduced allocations and processing
+  defp prepare_packets_batch(packets, current_time) do
+    packets
+    |> Enum.reduce({[], 0}, fn packet_data, {valid_acc, invalid_count} ->
+      case prepare_packet_for_insert_fast(packet_data, current_time) do
+        nil -> {valid_acc, invalid_count + 1}
+        attrs -> {[attrs | valid_acc], invalid_count}
+      end
+    end)
+    |> then(fn {valid_packets, invalid_count} -> {Enum.reverse(valid_packets), invalid_count} end)
+  end
+
+  # Fast packet preparation with minimal processing overhead
+  defp prepare_packet_for_insert_fast(packet_data, current_time) do
+    # Convert to map efficiently
+    attrs = if is_struct(packet_data), do: Map.from_struct(packet_data), else: packet_data
+
+    # Essential processing only - skip expensive operations
+    attrs
+    |> Map.put(:received_at, current_time)
+    |> Map.put(:inserted_at, current_time)
+    |> Map.put(:updated_at, current_time)
+    |> extract_essential_fields()
+    |> create_location_geometry_fast()
+    |> validate_essential_fields()
+  rescue
+    # Return nil for invalid packets
+    _error -> nil
+  end
+
+  # Extract only essential fields for INSERT performance
+  defp extract_essential_fields(attrs) do
+    # Get device identifier efficiently
+    device_identifier = Aprsme.DeviceParser.extract_device_identifier(attrs)
+
+    # Extract position efficiently
+    {lat, lon} = extract_position_fast(attrs)
+
+    %{
+      sender: get_required_field(attrs, :sender),
+      destination: get_field(attrs, :destination),
+      path: get_field(attrs, :path),
+      information_field: get_field(attrs, :information_field),
+      data_type: normalize_data_type_fast(get_field(attrs, :data_type)),
+      base_callsign: extract_base_callsign_fast(get_required_field(attrs, :sender)),
+      ssid: extract_ssid_fast(get_required_field(attrs, :sender)),
+      lat: lat,
+      lon: lon,
+      has_position: lat != nil and lon != nil,
+      received_at: attrs[:received_at],
+      inserted_at: attrs[:inserted_at],
+      updated_at: attrs[:updated_at],
+      device_identifier: device_identifier,
+      raw_packet: get_field(attrs, :raw_packet),
+      symbol_code: get_field(attrs, :symbol_code),
+      symbol_table_id: get_field(attrs, :symbol_table_id),
+      comment: get_field(attrs, :comment),
+      region: get_field(attrs, :region)
+    }
+  end
+
+  # Fast position extraction with minimal processing
+  defp extract_position_fast(attrs) do
+    cond do
+      attrs[:lat] && attrs[:lon] -> {attrs[:lat], attrs[:lon]}
+      attrs["lat"] && attrs["lon"] -> {attrs["lat"], attrs["lon"]}
+      true -> {nil, nil}
+    end
+  end
+
+  # Fast data type normalization
+  defp normalize_data_type_fast(data_type) when is_atom(data_type), do: Atom.to_string(data_type)
+  defp normalize_data_type_fast(data_type), do: data_type
+
+  # Fast callsign parsing
+  defp extract_base_callsign_fast(sender) when is_binary(sender) do
+    case String.split(sender, "-", parts: 2) do
+      [base | _] -> base
+      _ -> sender
+    end
+  end
+
+  defp extract_base_callsign_fast(_), do: nil
+
+  defp extract_ssid_fast(sender) when is_binary(sender) do
+    case String.split(sender, "-", parts: 2) do
+      [_, ssid] -> ssid
+      _ -> nil
+    end
+  end
+
+  defp extract_ssid_fast(_), do: nil
+
+  # Fast field access with fallbacks
+  defp get_required_field(attrs, key) do
+    attrs[key] || attrs[Atom.to_string(key)] || ""
+  end
+
+  defp get_field(attrs, key) do
+    attrs[key] || attrs[Atom.to_string(key)]
+  end
+
+  # Fast location geometry creation (only if needed)
+  defp create_location_geometry_fast(%{lat: lat, lon: lon} = attrs) when is_number(lat) and is_number(lon) do
+    Map.put(attrs, :location, %Geo.Point{coordinates: {lon, lat}, srid: 4326})
+  end
+
+  defp create_location_geometry_fast(attrs), do: attrs
+
+  # Fast validation - only check critical fields
+  defp validate_essential_fields(%{sender: sender} = attrs) when sender != nil and sender != "", do: attrs
+  defp validate_essential_fields(_), do: nil
 
   defp prepare_packet_for_insert(packet_data) do
     # Always set received_at timestamp to ensure consistency
