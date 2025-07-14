@@ -56,25 +56,65 @@ defmodule AprsmeWeb.MapLive.Index do
     parse_int_in_range(zoom_str, @default_zoom, 1, 20)
   end
 
-  defp parse_float_in_range(str, default, min, max) do
-    case Float.parse(str) do
-      {val, _} when val >= min and val <= max -> val
-      _ -> default
+  defp parse_float_in_range(str, default, min, max) when is_binary(str) do
+    # Sanitize input first
+    sanitized = sanitize_numeric_string(str)
+    
+    case Float.parse(sanitized) do
+      {val, ""} when val >= min and val <= max -> 
+        if is_finite?(val), do: val, else: default
+      {val, _remainder} when val >= min and val <= max -> 
+        # Accept even with trailing characters, but validate the number
+        if is_finite?(val), do: val, else: default
+      _ -> 
+        default
     end
   end
+  
+  defp parse_float_in_range(_, default, _, _), do: default
 
-  defp parse_int_in_range(str, default, min, max) do
-    case Integer.parse(str) do
-      {val, _} when val >= min and val <= max -> val
-      _ -> default
+  defp parse_int_in_range(str, default, min, max) when is_binary(str) do
+    # Sanitize input first
+    sanitized = sanitize_numeric_string(str)
+    
+    case Integer.parse(sanitized) do
+      {val, ""} when val >= min and val <= max -> 
+        val
+      {val, _remainder} when val >= min and val <= max -> 
+        # Accept even with trailing characters
+        val
+      _ -> 
+        default
     end
   end
+  
+  defp parse_int_in_range(_, default, _, _), do: default
 
-  # Convert various types to float
-  defp to_float(value) when is_binary(value), do: String.to_float(value)
-  defp to_float(value) when is_integer(value), do: value / 1.0
-  defp to_float(value) when is_float(value), do: value
-  defp to_float(_), do: 0.0
+  # Sanitize numeric strings to prevent injection attacks
+  defp sanitize_numeric_string(str) when is_binary(str) do
+    # Remove any potentially dangerous characters, keeping only numbers, dots, minus, and e/E for scientific notation
+    str
+    |> String.trim()
+    |> String.replace(~r/[^\d\.\-eE]/, "")
+    |> limit_string_length(20) # Prevent extremely long inputs
+  end
+  
+  defp sanitize_numeric_string(_), do: ""
+  
+  # Limit string length to prevent DoS
+  defp limit_string_length(str, max_length) when byte_size(str) > max_length do
+    :binary.part(str, 0, max_length)
+  end
+  
+  defp limit_string_length(str, _), do: str
+  
+  # Check if a float is finite (not infinity or NaN)
+  defp is_finite?(float) when is_float(float) do
+    float != :infinity and float != :neg_infinity and float == float # NaN != NaN
+  end
+  
+  defp is_finite?(_), do: false
+
 
   @impl true
   def mount(params, session, socket) do
@@ -291,13 +331,18 @@ defmodule AprsmeWeb.MapLive.Index do
   @impl true
   def handle_event("set_location", %{"lat" => lat, "lng" => lng}, socket) do
     # Update map center and zoom when location is received
-    # Ensure coordinates are floats
-    lat_float = to_float(lat)
-    lng_float = to_float(lng)
+    # Parse and validate coordinates
+    lat_float = parse_latitude(lat)
+    lng_float = parse_longitude(lng)
 
-    socket = update_and_zoom_to_location(socket, lat_float, lng_float, 12)
-
-    {:noreply, socket}
+    # Additional validation - ensure we got valid coordinates
+    if valid_coordinates?(lat_float, lng_float) do
+      socket = update_and_zoom_to_location(socket, lat_float, lng_float, 12)
+      {:noreply, socket}
+    else
+      # Invalid coordinates - ignore the event
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -361,10 +406,17 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("marker_hover_start", %{"id" => _id, "path" => path, "lat" => lat, "lng" => lng}, socket) do
     require Logger
 
-    Logger.info("RF path hover start - path: #{inspect(path)}")
+    # Validate coordinates first
+    lat_float = safe_parse_coordinate(lat, 0.0, -90.0, 90.0)
+    lng_float = safe_parse_coordinate(lng, 0.0, -180.0, 180.0)
+    
+    # Validate path string
+    safe_path = sanitize_path_string(path)
+
+    Logger.info("RF path hover start - path: #{inspect(safe_path)}")
 
     # Parse the path to find digipeater/igate stations
-    path_stations = parse_rf_path(path)
+    path_stations = parse_rf_path(safe_path)
     Logger.info("Parsed path stations: #{inspect(path_stations)}")
 
     # Query for positions of path stations
@@ -375,8 +427,8 @@ defmodule AprsmeWeb.MapLive.Index do
     socket =
       if length(path_station_positions) > 0 do
         push_event(socket, "draw_rf_path", %{
-          station_lat: lat,
-          station_lng: lng,
+          station_lat: lat_float,
+          station_lng: lng_float,
           path_stations: path_station_positions
         })
       else
@@ -539,28 +591,71 @@ defmodule AprsmeWeb.MapLive.Index do
     {:noreply, socket}
   end
 
-  defp parse_center_coordinates(center, socket) do
-    lat = extract_coordinate(center, "lat", socket.assigns.map_center.lat)
-    lng = extract_coordinate(center, "lng", socket.assigns.map_center.lng)
-
-    # Validate and clamp values
-    lat = clamp_coordinate(lat, -90.0, 90.0)
-    lng = clamp_coordinate(lng, -180.0, 180.0)
+  defp parse_center_coordinates(center, socket) when is_map(center) do
+    default_lat = socket.assigns.map_center.lat
+    default_lng = socket.assigns.map_center.lng
+    
+    lat = safe_parse_coordinate(Map.get(center, "lat"), default_lat, -90.0, 90.0)
+    lng = safe_parse_coordinate(Map.get(center, "lng"), default_lng, -180.0, 180.0)
 
     {lat, lng}
   end
-
-  defp extract_coordinate(map, key, default) do
-    Map.get(map, key, default)
+  
+  defp parse_center_coordinates(_, socket) do
+    # Invalid center format, return current center
+    {socket.assigns.map_center.lat, socket.assigns.map_center.lng}
   end
 
-  defp clamp_coordinate(value, min, max) do
+  defp safe_parse_coordinate(value, default, min, max) when is_binary(value) do
+    case parse_float_in_range(value, default, min, max) do
+      ^default -> default
+      parsed -> clamp_coordinate(parsed, min, max)
+    end
+  end
+  
+  defp safe_parse_coordinate(value, default, min, max) when is_number(value) do
+    if is_finite_number?(value) do
+      clamp_coordinate(value, min, max)
+    else
+      default
+    end
+  end
+  
+  defp safe_parse_coordinate(_, default, _, _), do: default
+
+  defp clamp_coordinate(value, min, max) when is_number(value) do
     value |> max(min) |> min(max)
   end
+  
+  defp clamp_coordinate(_, _, _), do: 0.0
 
-  defp clamp_zoom(zoom) do
+  defp clamp_zoom(zoom) when is_binary(zoom) do
+    parse_int_in_range(zoom, @default_zoom, 1, 20)
+  end
+  
+  defp clamp_zoom(zoom) when is_integer(zoom) do
     max(1, min(20, zoom))
   end
+  
+  defp clamp_zoom(zoom) when is_float(zoom) do
+    max(1, min(20, trunc(zoom)))
+  end
+  
+  defp clamp_zoom(_), do: @default_zoom
+  
+  # Helper to check if a number is finite
+  defp is_finite_number?(num) when is_number(num) do
+    is_finite?(num / 1.0) # Convert integer to float for check
+  end
+  
+  defp is_finite_number?(_), do: false
+  
+  # Validate that coordinates are within reasonable ranges
+  defp valid_coordinates?(lat, lng) when is_number(lat) and is_number(lng) do
+    lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180
+  end
+  
+  defp valid_coordinates?(_, _), do: false
 
   # Calculate degrees per pixel based on zoom level
   defp calculate_degrees_per_pixel(zoom) when zoom >= 15, do: 0.000005
@@ -2279,6 +2374,17 @@ defmodule AprsmeWeb.MapLive.Index do
       socket
     end
   end
+
+  # Sanitize path string to prevent injection attacks
+  defp sanitize_path_string(path) when is_binary(path) do
+    # Limit length and remove any potentially dangerous characters
+    # APRS paths should only contain callsigns, commas, asterisks, and dashes
+    path
+    |> String.slice(0, 200) # Reasonable max length for APRS path
+    |> String.replace(~r/[^A-Za-z0-9,\-\*\s]/, "")
+  end
+  
+  defp sanitize_path_string(_), do: ""
 
   # Parse RF path string to extract digipeater/igate callsigns
   defp parse_rf_path(path) when is_binary(path) do
