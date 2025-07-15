@@ -133,7 +133,8 @@ defmodule Aprsme.Is do
           login_id: Application.get_env(:aprsme, :aprsme_is_login_id, "W5ISP"),
           filter: Application.get_env(:aprsme, :aprsme_is_default_filter, "r/33/-96/100"),
           packet_stats: default_packet_stats(),
-          stored_packet_count: Aprsme.Packets.get_total_packet_count()
+          stored_packet_count: Aprsme.Packets.get_total_packet_count(),
+          oldest_packet_timestamp: Aprsme.Packets.get_oldest_packet_timestamp()
         }
 
       _pid ->
@@ -154,7 +155,8 @@ defmodule Aprsme.Is do
               login_id: Application.get_env(:aprsme, :aprsme_is_login_id, "W5ISP"),
               filter: Application.get_env(:aprsme, :aprsme_is_default_filter, "r/33/-96/100"),
               packet_stats: default_packet_stats(),
-              stored_packet_count: Aprsme.Packets.get_total_packet_count()
+              stored_packet_count: Aprsme.Packets.get_total_packet_count(),
+              oldest_packet_timestamp: Aprsme.Packets.get_oldest_packet_timestamp()
             }
         end
     end
@@ -259,7 +261,8 @@ defmodule Aprsme.Is do
       login_id: state.login_params.user_id,
       filter: state.login_params.filter,
       packet_stats: state.packet_stats,
-      stored_packet_count: Aprsme.Packets.get_total_packet_count()
+      stored_packet_count: Aprsme.Packets.get_total_packet_count(),
+      oldest_packet_timestamp: Aprsme.Packets.get_oldest_packet_timestamp()
     }
 
     {:reply, status, state}

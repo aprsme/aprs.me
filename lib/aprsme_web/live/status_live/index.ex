@@ -16,7 +16,6 @@ defmodule AprsmeWeb.StatusLive.Index do
       assign(socket,
         page_title: "System Status",
         aprs_status: aprs_status,
-        version: get_app_version(),
         current_time: DateTime.utc_now(),
         health_score: calculate_health_score(aprs_status),
         loading: false
@@ -83,23 +82,7 @@ defmodule AprsmeWeb.StatusLive.Index do
               <span class="font-mono">{Calendar.strftime(@current_time, "%H:%M:%S UTC")}</span>
             </div>
           </div>
-          
-    <!-- Application Information -->
-          <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">{gettext("Application Information")}</h2>
-            <div class="card bg-base-200">
-              <div class="card-body">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Version:")}</span>
-                    <span class="text-sm font-mono">{@version}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-    <!-- Overall Status Alert -->
+          <!-- Overall Status Alert -->
           <%= if not @aprs_status.connected do %>
             <div class="alert alert-error mb-6">
               <svg
@@ -244,6 +227,29 @@ defmodule AprsmeWeb.StatusLive.Index do
                       </span>
                     </div>
                   </div>
+
+                  <div class="mt-2">
+                    <div class="flex items-center">
+                      <span class="text-sm font-medium opacity-70 mr-2">
+                        {gettext("Oldest Packet:")}
+                      </span>
+                      <span class="text-sm">
+                        <%= if @aprs_status[:oldest_packet_timestamp] do %>
+                          <span class="font-mono">
+                            {Calendar.strftime(
+                              @aprs_status.oldest_packet_timestamp,
+                              "%Y-%m-%d %H:%M:%S UTC"
+                            )}
+                          </span>
+                          <span class="opacity-70">
+                            ({format_time_ago(@aprs_status.oldest_packet_timestamp)})
+                          </span>
+                        <% else %>
+                          <span class="opacity-50">{gettext("No packets stored")}</span>
+                        <% end %>
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 
     <!-- Health Score -->
@@ -320,12 +326,9 @@ defmodule AprsmeWeb.StatusLive.Index do
         packets_per_second: 0,
         last_packet_at: nil
       },
-      stored_packet_count: 0
+      stored_packet_count: 0,
+      oldest_packet_timestamp: nil
     }
-  end
-
-  defp get_app_version do
-    :aprsme |> Application.spec(:vsn) |> List.to_string()
   end
 
   defp schedule_refresh do
@@ -372,6 +375,8 @@ defmodule AprsmeWeb.StatusLive.Index do
       _ -> gettext("Unknown status")
     end
   end
+
+  def format_time_ago(nil), do: gettext("Never")
 
   def format_time_ago(datetime) do
     diff_seconds = DateTime.diff(DateTime.utc_now(), datetime)

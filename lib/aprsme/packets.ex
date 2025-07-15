@@ -639,6 +639,18 @@ defmodule Aprsme.Packets do
   end
 
   @doc """
+  Gets the timestamp of the oldest stored packet in the database.
+  Returns nil if no packets exist.
+  """
+  @spec get_oldest_packet_timestamp() :: DateTime.t() | nil
+  def get_oldest_packet_timestamp do
+    Repo.one(
+      from p in Packet,
+        select: min(p.received_at)
+    )
+  end
+
+  @doc """
   Configure packet retention policy.
 
   Packets are retained based on these rules:
