@@ -47,6 +47,13 @@ defmodule Aprsme.PacketProducer do
           }
         )
 
+        # Emit telemetry for monitoring
+        :telemetry.execute(
+          [:aprsme, :packet_producer, :buffer_overflow],
+          %{dropped_count: 1, buffer_size: buffer_size},
+          %{max_size: max_size}
+        )
+
         {:noreply, [], %{state | buffer: Enum.take(new_buffer, max_size)}}
       else
         # Log when buffer is getting full
@@ -59,6 +66,13 @@ defmodule Aprsme.PacketProducer do
             }
           )
         end
+
+        # Emit telemetry for buffer utilization
+        :telemetry.execute(
+          [:aprsme, :packet_producer, :buffer_utilization],
+          %{buffer_size: buffer_size, utilization: buffer_size / max_size},
+          %{max_size: max_size}
+        )
 
         {:noreply, [], %{state | buffer: new_buffer}}
       end

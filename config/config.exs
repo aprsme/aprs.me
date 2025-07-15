@@ -59,10 +59,14 @@ config :aprsme,
   packet_retention_days: String.to_integer(System.get_env("PACKET_RETENTION_DAYS", "365")),
   # GenStage packet processing configuration
   packet_pipeline: [
-    max_buffer_size: 1000,
-    batch_size: 100,
-    batch_timeout: 1000,
-    max_demand: 50
+    # Increased from 1000 to handle traffic spikes
+    max_buffer_size: 10_000,
+    # Increased to process more packets per batch
+    batch_size: 200,
+    # Reduced timeout for faster processing
+    batch_timeout: 500,
+    # Increased demand for better throughput
+    max_demand: 100
   ]
 
 config :error_tracker,

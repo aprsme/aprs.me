@@ -6,7 +6,6 @@ defmodule Aprsme.PacketConsumer do
   use GenStage
 
   alias Aprsme.LogSanitizer
-  alias Aprsme.Performance.InsertOptimizer
   alias Aprsme.Repo
 
   require Logger
@@ -21,7 +20,7 @@ defmodule Aprsme.PacketConsumer do
     initial_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
     batch_timeout = opts[:batch_timeout] || 500
     # Maximum batch size to prevent unbounded memory growth
-    max_batch_size = opts[:max_batch_size] || 1000
+    max_batch_size = opts[:max_batch_size] || 2000
 
     # Start a timer for batch processing
     timer = Process.send_after(self(), :process_batch, batch_timeout)
@@ -138,8 +137,8 @@ defmodule Aprsme.PacketConsumer do
     {memory_before, _} = :erlang.statistics(:runtime)
     start_time = System.monotonic_time(:millisecond)
 
-    # Use optimized batch size for INSERT performance
-    batch_size = InsertOptimizer.get_optimal_batch_size()
+    # Use fixed batch size for consistent performance
+    batch_size = 200
 
     Logger.debug("Processing batch of #{length(packets)} packets with insert chunk size: #{batch_size}")
 
@@ -215,15 +214,19 @@ defmodule Aprsme.PacketConsumer do
     if Enum.empty?(valid_packets) do
       {0, invalid_count}
     else
-      # Get optimized insert options
-      insert_options = InsertOptimizer.get_insert_options()
+      # Use simple insert options for reliability
+      insert_options = [
+        returning: false,
+        on_conflict: :nothing,
+        timeout: 15_000
+      ]
 
-      # Insert valid packets in batch with optimization
+      # Insert valid packets in batch
       result = Repo.insert_all(Aprsme.Packet, valid_packets, insert_options)
 
       # Record performance metrics for optimization
       end_time = System.monotonic_time(:millisecond)
-      duration = end_time - start_time
+      _duration = end_time - start_time
 
       case result do
         {:error, error} ->
@@ -231,13 +234,6 @@ defmodule Aprsme.PacketConsumer do
           {0, length(packets)}
 
         {inserted_count, _} ->
-          # Record metrics for optimization
-          InsertOptimizer.record_insert_metrics(
-            length(valid_packets),
-            duration,
-            inserted_count
-          )
-
           {inserted_count, invalid_count}
       end
     end
