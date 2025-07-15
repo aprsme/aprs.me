@@ -155,6 +155,7 @@ defmodule AprsmeWeb.MapLive.Index do
       packets: [],
       all_packets: %{},
       visible_packets: %{},
+      historical_packets: %{},
       page_title: "APRS Map",
       packet_state: PacketManager.init_packet_state(),
       station_popup_open: false,
