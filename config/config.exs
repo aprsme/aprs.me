@@ -58,11 +58,16 @@ config :aprsme,
   # Packet retention period in days (default: 365 days = 1 year)
   packet_retention_days: String.to_integer(System.get_env("PACKET_RETENTION_DAYS", "365")),
   # GenStage packet processing configuration
+  # Optimized for PostgreSQL with work_mem=16MB and synchronous_commit=off
   packet_pipeline: [
-    max_buffer_size: 1000,
-    batch_size: 100,
-    batch_timeout: 1000,
-    max_demand: 50
+    # Larger buffer since inserts are async
+    max_buffer_size: 5000,
+    # ~32KB per packet, stays within work_mem
+    batch_size: 500,
+    # 2 seconds - longer timeout for larger batches
+    batch_timeout: 2000,
+    # Higher demand to keep pipeline flowing
+    max_demand: 250
   ]
 
 config :error_tracker,

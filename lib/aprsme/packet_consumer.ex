@@ -100,9 +100,13 @@ defmodule Aprsme.PacketConsumer do
     {memory_before, _} = :erlang.statistics(:runtime)
     start_time = System.monotonic_time(:millisecond)
 
+    # Chunk size optimized for PostgreSQL work_mem=16MB
+    # With ~32KB per packet, we can fit ~500 packets in work_mem
+    chunk_size = Application.get_env(:aprsme, :packet_pipeline)[:batch_size] || 500
+
     results =
       packets
-      |> Enum.chunk_every(50)
+      |> Enum.chunk_every(chunk_size)
       |> Enum.map(&process_chunk/1)
 
     {success_count, error_count} =
@@ -172,7 +176,19 @@ defmodule Aprsme.PacketConsumer do
     {valid_packets, invalid_packets} = Enum.split_with(packet_attrs, &valid_packet?/1)
 
     # Insert valid packets in batch
-    case Repo.insert_all(Aprsme.Packet, valid_packets, returning: [:id]) do
+    # Optimized for PostgreSQL with synchronous_commit=off
+    insert_opts = [
+      # Don't return IDs for better performance
+      returning: false,
+      # Skip conflicts to avoid blocking
+      on_conflict: :nothing,
+      # Increased timeout for large batches
+      timeout: 60_000,
+      # Use placeholders for better performance with large batches
+      placeholders: length(valid_packets) > 100
+    ]
+
+    case Repo.insert_all(Aprsme.Packet, valid_packets, insert_opts) do
       {:error, error} ->
         Logger.error("Batch insert failed: #{inspect(error)}")
         {0, length(packets)}

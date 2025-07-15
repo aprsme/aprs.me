@@ -14,11 +14,27 @@ config :aprsme, Aprsme.Repo,
   database: "aprsme_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
-  pool_size: 10,
-  pool_timeout: 5000,
-  timeout: 15_000,
+  # Optimized pool settings for development
+  pool_size: 15,
+  pool_timeout: 10_000,
+  timeout: 30_000,
+  queue_target: 100,
+  queue_interval: 1_000,
   log: :debug,
-  types: Aprsme.PostgresTypes
+  types: Aprsme.PostgresTypes,
+  # Use unnamed prepared statements for better development flexibility
+  prepare: :unnamed,
+  # Socket options for better performance
+  socket_options: [
+    keepalive: true,
+    nodelay: true
+  ],
+  # Development-specific parameters matching PostgreSQL config
+  parameters: [
+    application_name: "aprsme_dev",
+    work_mem: "16MB",
+    statement_timeout: "60s"
+  ]
 
 config :aprsme, AprsmeWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.

@@ -49,13 +49,41 @@ if config_env() == :prod do
   config :aprsme, Aprsme.Repo,
     # ssl: true,
     url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "20"),
-    pool_timeout: String.to_integer(System.get_env("POOL_TIMEOUT") || "5000"),
-    timeout: String.to_integer(System.get_env("DB_TIMEOUT") || "15000"),
-    socket_options: maybe_ipv6,
+    # Optimized for max_connections=100 with other apps on server
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "25"),
+    # Increased timeout for ARM system under load
+    pool_timeout: String.to_integer(System.get_env("POOL_TIMEOUT") || "10000"),
+    # Match PostgreSQL statement timeout capabilities
+    timeout: String.to_integer(System.get_env("DB_TIMEOUT") || "30000"),
+    socket_options:
+      maybe_ipv6 ++
+        [
+          # TCP optimizations for better connection handling
+          keepalive: true,
+          nodelay: true,
+          recbuf: 8192,
+          sndbuf: 8192
+        ],
     types: Aprsme.PostgresTypes,
-    queue_target: 10_000,
-    queue_interval: 20_000
+    # Reduced queue target for faster response
+    queue_target: 100,
+    # Check queue more frequently
+    queue_interval: 1_000,
+    # Optimize for unnamed prepared statements (better for dynamic queries)
+    prepare: :unnamed,
+    # Connection parameters to leverage PostgreSQL settings
+    parameters: [
+      # Application name for monitoring
+      application_name: "aprsme",
+      # Leverage synchronous_commit=off in postgresql.conf
+      synchronous_commit: "off",
+      # Match work_mem setting
+      work_mem: "16MB",
+      # Statement timeout as safety net
+      statement_timeout: "30s",
+      # Prevent idle transactions
+      idle_in_transaction_session_timeout: "60s"
+    ]
 
   config :aprsme, AprsmeWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
