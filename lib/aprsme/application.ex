@@ -33,12 +33,8 @@ defmodule Aprsme.Application do
       Aprsme.CircuitBreaker,
       # Start device cache manager
       Aprsme.DeviceCache,
-      # Start system monitor for adaptive performance tuning
-      Aprsme.SystemMonitor,
       # Start spatial PubSub for viewport-based filtering
       Aprsme.SpatialPubSub,
-      # Start INSERT performance optimizer
-      Aprsme.Performance.InsertOptimizer,
       # Start packet store for efficient LiveView memory usage
       AprsmeWeb.MapLive.PacketStore,
 

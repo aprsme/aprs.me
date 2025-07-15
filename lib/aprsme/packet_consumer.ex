@@ -16,40 +16,26 @@ defmodule Aprsme.PacketConsumer do
 
   @impl true
   def init(opts) do
-    # Use dynamic batch sizing from system monitor
-    initial_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
-    batch_timeout = opts[:batch_timeout] || 500
+    batch_size = opts[:batch_size] || 100
+    batch_timeout = opts[:batch_timeout] || 1000
     # Maximum batch size to prevent unbounded memory growth
-    max_batch_size = opts[:max_batch_size] || 2000
+    max_batch_size = opts[:max_batch_size] || 1000
 
     # Start a timer for batch processing
     timer = Process.send_after(self(), :process_batch, batch_timeout)
 
-    # Schedule periodic batch size adjustment
-    Process.send_after(self(), :adjust_batch_size, 5_000)
-
     {:consumer,
      %{
        batch: [],
-       batch_size: initial_batch_size,
+       batch_size: batch_size,
        batch_timeout: batch_timeout,
        max_batch_size: max_batch_size,
-       timer: timer,
-       last_adjustment: System.monotonic_time(:millisecond)
+       timer: timer
      }}
   end
 
   @impl true
-  def handle_events(events, _from, %{batch: batch, batch_size: _batch_size, max_batch_size: max_batch_size} = state) do
-    # Get current recommended batch size
-    current_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
-    state = %{state | batch_size: current_batch_size}
-
-    # Debug logging
-    Logger.debug(
-      "PacketConsumer received #{length(events)} events, current batch: #{length(batch)}, batch_size threshold: #{current_batch_size}"
-    )
-
+  def handle_events(events, _from, %{batch: batch, batch_size: batch_size, max_batch_size: max_batch_size} = state) do
     new_batch = batch ++ events
     new_batch_length = length(new_batch)
 
@@ -73,8 +59,7 @@ defmodule Aprsme.PacketConsumer do
 
         {:noreply, [], %{state | batch: []}}
 
-      # Process immediately if we reach 80% of target batch size to improve responsiveness
-      new_batch_length >= current_batch_size * 0.8 ->
+      new_batch_length >= batch_size ->
         # Process the batch immediately
         process_batch(new_batch)
         {:noreply, [], %{state | batch: []}}
@@ -108,28 +93,6 @@ defmodule Aprsme.PacketConsumer do
     {:noreply, [], %{state | batch: [], timer: timer}}
   end
 
-  @impl true
-  def handle_info(:adjust_batch_size, state) do
-    # Get current system metrics and recommended batch size
-    new_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
-
-    if new_batch_size != state.batch_size do
-      Logger.info("Adjusting batch size based on system load",
-        batch_adjustment:
-          LogSanitizer.log_data(
-            old_size: state.batch_size,
-            new_size: new_batch_size,
-            reason: "system_load_adaptation"
-          )
-      )
-    end
-
-    # Schedule next adjustment
-    Process.send_after(self(), :adjust_batch_size, 5_000)
-
-    {:noreply, [], %{state | batch_size: new_batch_size}}
-  end
-
   defp process_batch(packets) do
     require Logger
 
@@ -137,14 +100,9 @@ defmodule Aprsme.PacketConsumer do
     {memory_before, _} = :erlang.statistics(:runtime)
     start_time = System.monotonic_time(:millisecond)
 
-    # Use fixed batch size for consistent performance
-    batch_size = 200
-
-    Logger.debug("Processing batch of #{length(packets)} packets with insert chunk size: #{batch_size}")
-
     results =
       packets
-      |> Enum.chunk_every(batch_size)
+      |> Enum.chunk_every(50)
       |> Enum.map(&process_chunk/1)
 
     {success_count, error_count} =
@@ -203,152 +161,281 @@ defmodule Aprsme.PacketConsumer do
   end
 
   defp process_chunk(packets) do
-    # Get current timestamp once for the entire batch
-    current_time = DateTime.truncate(DateTime.utc_now(), :second)
-    start_time = System.monotonic_time(:millisecond)
+    # Prepare packets for batch insertion
+    packet_attrs =
+      packets
+      |> Enum.map(&prepare_packet_for_insert/1)
+      # Ensure truncation here
+      |> Enum.map(&truncate_datetimes_to_second/1)
 
-    # Prepare packets for batch insertion with optimized processing
-    {valid_packets, invalid_count} = prepare_packets_batch(packets, current_time)
+    # Filter out invalid packets
+    {valid_packets, invalid_packets} = Enum.split_with(packet_attrs, &valid_packet?/1)
 
-    # Skip database operation if no valid packets
-    if Enum.empty?(valid_packets) do
-      {0, invalid_count}
-    else
-      # Use simple insert options for reliability
-      insert_options = [
-        returning: false,
-        on_conflict: :nothing,
-        timeout: 15_000
-      ]
+    # Insert valid packets in batch
+    case Repo.insert_all(Aprsme.Packet, valid_packets, returning: [:id]) do
+      {:error, error} ->
+        Logger.error("Batch insert failed: #{inspect(error)}")
+        {0, length(packets)}
 
-      # Insert valid packets in batch
-      result = Repo.insert_all(Aprsme.Packet, valid_packets, insert_options)
-
-      # Record performance metrics for optimization
-      end_time = System.monotonic_time(:millisecond)
-      _duration = end_time - start_time
-
-      case result do
-        {:error, error} ->
-          Logger.error("Batch insert failed: #{inspect(error)}")
-          {0, length(packets)}
-
-        {inserted_count, _} ->
-          {inserted_count, invalid_count}
-      end
+      {inserted_count, _} ->
+        error_count = Enum.count(invalid_packets)
+        {inserted_count, error_count}
     end
   end
 
-  # Optimized batch preparation with reduced allocations and processing
-  defp prepare_packets_batch(packets, current_time) do
-    packets
-    |> Enum.reduce({[], 0}, fn packet_data, {valid_acc, invalid_count} ->
-      case prepare_packet_for_insert_fast(packet_data, current_time) do
-        nil -> {valid_acc, invalid_count + 1}
-        attrs -> {[attrs | valid_acc], invalid_count}
-      end
-    end)
-    |> then(fn {valid_packets, invalid_count} -> {Enum.reverse(valid_packets), invalid_count} end)
-  end
+  defp prepare_packet_for_insert(packet_data) do
+    # Always set received_at timestamp to ensure consistency
+    current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
+    packet_data = Map.put(packet_data, :received_at, current_time)
 
-  # Fast packet preparation with minimal processing overhead
-  defp prepare_packet_for_insert_fast(packet_data, current_time) do
-    # Convert to map efficiently
-    attrs = if is_struct(packet_data), do: Map.from_struct(packet_data), else: packet_data
+    # Convert to map before storing to avoid struct conversion issues
+    attrs = struct_to_map(packet_data)
 
-    # Essential processing only - skip expensive operations
+    # Extract additional data from the parsed packet including raw packet
+    attrs = Aprsme.Packet.extract_additional_data(attrs, attrs[:raw_packet] || "")
+
+    # Normalize data_type to string if it's an atom
+    attrs = normalize_data_type(attrs)
+
+    # Apply the same processing as the original store_packet function
     attrs
-    |> Map.put(:received_at, current_time)
+    |> normalize_packet_attrs()
+    |> set_received_at()
+    |> patch_lat_lon_from_data_extended()
+    |> then(fn attrs ->
+      {lat, lon} = extract_position(attrs)
+      set_lat_lon(attrs, lat, lon)
+    end)
+    |> normalize_ssid()
+    |> then(fn attrs ->
+      device_identifier = Aprsme.DeviceParser.extract_device_identifier(packet_data)
+      Map.put(attrs, :device_identifier, device_identifier)
+    end)
+    |> sanitize_packet_strings()
     |> Map.put(:inserted_at, current_time)
     |> Map.put(:updated_at, current_time)
-    |> extract_essential_fields()
-    |> create_location_geometry_fast()
-    |> validate_essential_fields()
+    |> Map.delete(:id)
+    |> Map.delete("id")
+    # Remove embedded field for batch insert
+    |> Map.delete(:data_extended)
+    |> normalize_numeric_types()
+    |> truncate_datetimes_to_second()
+    # Explicitly remove raw_weather_data to prevent insert_all errors
+    |> Map.delete(:raw_weather_data)
+    |> Map.delete("raw_weather_data")
+    # Create PostGIS geometry for location field
+    |> create_location_geometry()
   rescue
-    # Return nil for invalid packets
-    _error -> nil
+    error ->
+      Logger.error("Failed to prepare packet for batch insert: #{inspect(error)}")
+      nil
   end
 
-  # Extract only essential fields for INSERT performance
-  defp extract_essential_fields(attrs) do
-    # Get device identifier efficiently
-    device_identifier = Aprsme.DeviceParser.extract_device_identifier(attrs)
+  # Create PostGIS geometry from lat/lon coordinates
+  defp create_location_geometry(attrs) do
+    lat = attrs[:lat]
+    lon = attrs[:lon]
 
-    # Extract position efficiently
-    {lat, lon} = extract_position_fast(attrs)
+    if valid_coordinates?(lat, lon) do
+      location = create_point(lat, lon)
 
-    %{
-      sender: get_required_field(attrs, :sender),
-      destination: get_field(attrs, :destination),
-      path: get_field(attrs, :path),
-      information_field: get_field(attrs, :information_field),
-      data_type: normalize_data_type_fast(get_field(attrs, :data_type)),
-      base_callsign: extract_base_callsign_fast(get_required_field(attrs, :sender)),
-      ssid: extract_ssid_fast(get_required_field(attrs, :sender)),
-      lat: lat,
-      lon: lon,
-      has_position: lat != nil and lon != nil,
-      received_at: attrs[:received_at],
-      inserted_at: attrs[:inserted_at],
-      updated_at: attrs[:updated_at],
-      device_identifier: device_identifier,
-      raw_packet: get_field(attrs, :raw_packet),
-      symbol_code: get_field(attrs, :symbol_code),
-      symbol_table_id: get_field(attrs, :symbol_table_id),
-      comment: get_field(attrs, :comment),
-      region: get_field(attrs, :region)
-    }
-  end
-
-  # Fast position extraction with minimal processing
-  defp extract_position_fast(attrs) do
-    cond do
-      attrs[:lat] && attrs[:lon] -> {attrs[:lat], attrs[:lon]}
-      attrs["lat"] && attrs["lon"] -> {attrs["lat"], attrs["lon"]}
-      true -> {nil, nil}
+      if location do
+        Map.put(attrs, :location, location)
+      else
+        attrs
+      end
+    else
+      attrs
     end
   end
 
-  # Fast data type normalization
-  defp normalize_data_type_fast(data_type) when is_atom(data_type), do: Atom.to_string(data_type)
-  defp normalize_data_type_fast(data_type), do: data_type
+  # Helper functions for coordinate validation and point creation
+  defp valid_coordinates?(lat, lon) do
+    lat = normalize_coordinate(lat)
+    lon = normalize_coordinate(lon)
 
-  # Fast callsign parsing
-  defp extract_base_callsign_fast(sender) when is_binary(sender) do
-    case String.split(sender, "-", parts: 2) do
-      [base | _] -> base
-      _ -> sender
+    is_number(lat) && is_number(lon) &&
+      lat >= -90 && lat <= 90 &&
+      lon >= -180 && lon <= 180
+  end
+
+  defp normalize_coordinate(%Decimal{} = decimal), do: Decimal.to_float(decimal)
+  defp normalize_coordinate(coord), do: coord
+
+  defp create_point(lat, lon)
+       when (is_number(lat) or is_struct(lat, Decimal)) and (is_number(lon) or is_struct(lon, Decimal)) do
+    lat = normalize_coordinate(lat)
+    lon = normalize_coordinate(lon)
+
+    if valid_coordinates?(lat, lon) do
+      %Geo.Point{coordinates: {lon, lat}, srid: 4326}
     end
   end
 
-  defp extract_base_callsign_fast(_), do: nil
+  defp create_point(_, _), do: nil
 
-  defp extract_ssid_fast(sender) when is_binary(sender) do
-    case String.split(sender, "-", parts: 2) do
-      [_, ssid] -> ssid
-      _ -> nil
+  defp valid_packet?(nil), do: false
+  defp valid_packet?(%{sender: sender}) when is_binary(sender) and byte_size(sender) > 0, do: true
+  defp valid_packet?(_), do: false
+
+  # Helper functions copied from Packets module for consistency
+  defp normalize_packet_attrs(attrs) do
+    attrs
+    |> Map.put_new(:base_callsign, attrs[:sender])
+    |> Map.put_new(:data_type, "unknown")
+    |> Map.put_new(:destination, "")
+    |> Map.put_new(:information_field, "")
+    |> Map.put_new(:path, "")
+    |> Map.put_new(:ssid, "")
+    |> Map.put_new(:data_extended, %{})
+  end
+
+  defp set_received_at(attrs) do
+    received_at = attrs[:received_at] || DateTime.utc_now()
+    Map.put(attrs, :received_at, received_at)
+  end
+
+  defp patch_lat_lon_from_data_extended(attrs) do
+    case attrs[:data_extended] do
+      %{latitude: lat, longitude: lon} when not is_nil(lat) and not is_nil(lon) ->
+        attrs
+        |> Map.put(:lat, lat)
+        |> Map.put(:lon, lon)
+        |> Map.put(:has_position, true)
+
+      _ ->
+        attrs
     end
   end
 
-  defp extract_ssid_fast(_), do: nil
-
-  # Fast field access with fallbacks
-  defp get_required_field(attrs, key) do
-    attrs[key] || attrs[Atom.to_string(key)] || ""
+  defp extract_position(packet_data) do
+    if not is_nil(packet_data[:lat]) and not is_nil(packet_data[:lon]) do
+      {to_float(packet_data.lat), to_float(packet_data.lon)}
+    else
+      extract_position_from_data_extended(packet_data[:data_extended])
+    end
   end
 
-  defp get_field(attrs, key) do
-    attrs[key] || attrs[Atom.to_string(key)]
+  defp extract_position_from_data_extended(nil), do: {nil, nil}
+
+  defp extract_position_from_data_extended(data_extended) when is_map(data_extended) do
+    if has_standard_position?(data_extended) do
+      extract_standard_position(data_extended)
+    else
+      extract_position_from_data_extended_case(data_extended)
+    end
   end
 
-  # Fast location geometry creation (only if needed)
-  defp create_location_geometry_fast(%{lat: lat, lon: lon} = attrs) when is_number(lat) and is_number(lon) do
-    Map.put(attrs, :location, %Geo.Point{coordinates: {lon, lat}, srid: 4326})
+  defp extract_position_from_data_extended(_), do: {nil, nil}
+
+  defp has_standard_position?(data_extended) when is_map(data_extended) and not is_struct(data_extended) do
+    not is_nil(data_extended[:latitude]) and not is_nil(data_extended[:longitude])
   end
 
-  defp create_location_geometry_fast(attrs), do: attrs
+  defp has_standard_position?(_), do: false
 
-  # Fast validation - only check critical fields
-  defp validate_essential_fields(%{sender: sender} = attrs) when sender != nil and sender != "", do: attrs
-  defp validate_essential_fields(_), do: nil
+  defp extract_standard_position(data_extended) when is_map(data_extended) and not is_struct(data_extended) do
+    {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
+  end
+
+  defp extract_standard_position(_), do: {nil, nil}
+
+  defp extract_position_from_data_extended_case(data_extended) do
+    lat = extract_lat_from_ext_map(data_extended)
+    lon = extract_lon_from_ext_map(data_extended)
+    {to_float(lat), to_float(lon)}
+  end
+
+  defp extract_lat_from_ext_map(ext_map) do
+    ext_map[:latitude] || ext_map["latitude"] ||
+      (Map.has_key?(ext_map, :position) &&
+         (ext_map[:position][:latitude] || ext_map[:position]["latitude"])) ||
+      (Map.has_key?(ext_map, "position") &&
+         (ext_map["position"][:latitude] || ext_map["position"]["latitude"]))
+  end
+
+  defp extract_lon_from_ext_map(ext_map) do
+    ext_map[:longitude] || ext_map["longitude"] ||
+      (Map.has_key?(ext_map, :position) &&
+         (ext_map[:position][:longitude] || ext_map[:position]["longitude"])) ||
+      (Map.has_key?(ext_map, "position") &&
+         (ext_map["position"][:longitude] || ext_map["position"]["longitude"]))
+  end
+
+  defp set_lat_lon(attrs, lat, lon) do
+    round6 = fn
+      nil ->
+        nil
+
+      n when is_float(n) ->
+        Float.round(n, 6)
+    end
+
+    attrs
+    |> Map.put(:lat, round6.(lat))
+    |> Map.put(:lon, round6.(lon))
+    |> Map.put(:has_position, not is_nil(lat) and not is_nil(lon))
+  end
+
+  defp normalize_ssid(attrs) do
+    case Map.get(attrs, :ssid) do
+      nil -> attrs
+      ssid -> Map.put(attrs, :ssid, to_string(ssid))
+    end
+  end
+
+  defp sanitize_packet_strings(value), do: Aprsme.EncodingUtils.sanitize_packet_strings(value)
+
+  defp to_float(value), do: Aprsme.EncodingUtils.to_float(value)
+
+  defp normalize_data_type(attrs), do: Aprsme.EncodingUtils.normalize_data_type(attrs)
+
+  defp struct_to_map(%{__struct__: struct_type} = struct) do
+    converted_map =
+      struct
+      |> Map.from_struct()
+      |> Map.new(fn {k, v} -> {k, struct_to_map(v)} end)
+
+    Map.put(converted_map, :__original_struct__, struct_type)
+  end
+
+  defp struct_to_map(value) when is_list(value) do
+    Enum.map(value, &struct_to_map/1)
+  end
+
+  defp struct_to_map(value), do: value
+
+  defp truncate_datetimes_to_second(%DateTime{} = dt), do: DateTime.truncate(dt, :second)
+  defp truncate_datetimes_to_second({:ok, %DateTime{} = dt}), do: DateTime.truncate(dt, :second)
+
+  defp truncate_datetimes_to_second(term) when is_map(term) and not is_struct(term) do
+    Map.new(term, fn {k, v} -> {k, truncate_datetimes_to_second(v)} end)
+  end
+
+  defp truncate_datetimes_to_second(list) when is_list(list), do: Enum.map(list, &truncate_datetimes_to_second/1)
+  defp truncate_datetimes_to_second(other), do: other
+
+  defp normalize_numeric_types(attrs) do
+    # Convert integer values to floats for float fields
+    float_fields = [
+      :temperature,
+      :humidity,
+      :wind_speed,
+      :wind_gust,
+      :pressure,
+      :rain_1h,
+      :rain_24h,
+      :rain_since_midnight,
+      :snow,
+      :speed,
+      :altitude
+    ]
+
+    Enum.reduce(float_fields, attrs, fn field, acc ->
+      case Map.get(acc, field) do
+        value when is_integer(value) -> Map.put(acc, field, value * 1.0)
+        _ -> acc
+      end
+    end)
+  end
 end
