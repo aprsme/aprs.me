@@ -278,8 +278,9 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
   defp update_loading_status(socket, true), do: assign(socket, :historical_loading, false)
   defp update_loading_status(socket, false), do: socket
 
-  defp handle_pending_bounds(%{assigns: %{pending_bounds: pending}} = _socket, true) when not is_nil(pending) do
+  defp handle_pending_bounds(%{assigns: %{pending_bounds: pending}} = socket, true) when not is_nil(pending) do
     send(self(), {:process_pending_bounds})
+    socket
   end
 
   defp handle_pending_bounds(socket, _), do: socket
