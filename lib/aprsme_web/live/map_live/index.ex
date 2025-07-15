@@ -153,6 +153,8 @@ defmodule AprsmeWeb.MapLive.Index do
   defp assign_defaults(socket, one_hour_ago) do
     assign(socket,
       packets: [],
+      all_packets: %{},
+      visible_packets: %{},
       page_title: "APRS Map",
       packet_state: PacketManager.init_packet_state(),
       station_popup_open: false,
