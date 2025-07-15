@@ -19,7 +19,7 @@ defmodule Aprsme.PacketConsumer do
   def init(opts) do
     # Use dynamic batch sizing from system monitor
     initial_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
-    batch_timeout = opts[:batch_timeout] || 1000
+    batch_timeout = opts[:batch_timeout] || 500
     # Maximum batch size to prevent unbounded memory growth
     max_batch_size = opts[:max_batch_size] || 1000
 
@@ -27,7 +27,7 @@ defmodule Aprsme.PacketConsumer do
     timer = Process.send_after(self(), :process_batch, batch_timeout)
 
     # Schedule periodic batch size adjustment
-    Process.send_after(self(), :adjust_batch_size, 10_000)
+    Process.send_after(self(), :adjust_batch_size, 5_000)
 
     {:consumer,
      %{
@@ -45,6 +45,11 @@ defmodule Aprsme.PacketConsumer do
     # Get current recommended batch size
     current_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
     state = %{state | batch_size: current_batch_size}
+
+    # Debug logging
+    Logger.debug(
+      "PacketConsumer received #{length(events)} events, current batch: #{length(batch)}, batch_size threshold: #{current_batch_size}"
+    )
 
     new_batch = batch ++ events
     new_batch_length = length(new_batch)
@@ -69,7 +74,8 @@ defmodule Aprsme.PacketConsumer do
 
         {:noreply, [], %{state | batch: []}}
 
-      new_batch_length >= current_batch_size ->
+      # Process immediately if we reach 80% of target batch size to improve responsiveness
+      new_batch_length >= current_batch_size * 0.8 ->
         # Process the batch immediately
         process_batch(new_batch)
         {:noreply, [], %{state | batch: []}}
@@ -120,7 +126,7 @@ defmodule Aprsme.PacketConsumer do
     end
 
     # Schedule next adjustment
-    Process.send_after(self(), :adjust_batch_size, 10_000)
+    Process.send_after(self(), :adjust_batch_size, 5_000)
 
     {:noreply, [], %{state | batch_size: new_batch_size}}
   end
@@ -134,6 +140,8 @@ defmodule Aprsme.PacketConsumer do
 
     # Use optimized batch size for INSERT performance
     batch_size = InsertOptimizer.get_optimal_batch_size()
+
+    Logger.debug("Processing batch of #{length(packets)} packets with insert chunk size: #{batch_size}")
 
     results =
       packets

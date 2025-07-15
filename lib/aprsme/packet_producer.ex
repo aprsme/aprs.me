@@ -35,11 +35,31 @@ defmodule Aprsme.PacketProducer do
       # No demand, buffer the packet
       new_buffer = [packet_data | buffer]
 
-      if length(new_buffer) > max_size do
+      buffer_size = length(new_buffer)
+
+      if buffer_size > max_size do
         # Buffer is full, drop oldest packet
-        Logger.warning("Packet buffer full, dropping oldest packet")
+        Logger.warning("Packet buffer full, dropping oldest packet",
+          buffer_status: %{
+            current_size: buffer_size,
+            max_size: max_size,
+            dropped: 1
+          }
+        )
+
         {:noreply, [], %{state | buffer: Enum.take(new_buffer, max_size)}}
       else
+        # Log when buffer is getting full
+        if buffer_size > max_size * 0.8 do
+          Logger.warning("Packet buffer approaching capacity",
+            buffer_status: %{
+              current_size: buffer_size,
+              max_size: max_size,
+              utilization: Float.round(buffer_size / max_size * 100, 1)
+            }
+          )
+        end
+
         {:noreply, [], %{state | buffer: new_buffer}}
       end
     end

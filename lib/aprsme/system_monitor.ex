@@ -7,9 +7,9 @@ defmodule Aprsme.SystemMonitor do
   require Logger
 
   @check_interval 5_000
-  @min_batch_size 50
-  @max_batch_size 500
-  @default_batch_size 100
+  @min_batch_size 100
+  @max_batch_size 800
+  @default_batch_size 200
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)

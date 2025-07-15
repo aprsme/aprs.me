@@ -14,9 +14,9 @@ defmodule Aprsme.Performance.InsertOptimizer do
   require Logger
 
   # Configuration for INSERT optimization
-  @base_batch_size 100
-  @max_batch_size 500
-  @min_batch_size 50
+  @base_batch_size 200
+  @max_batch_size 800
+  @min_batch_size 100
   # 30 seconds
   @optimization_check_interval 30_000
 
@@ -163,24 +163,24 @@ defmodule Aprsme.Performance.InsertOptimizer do
 
     # If INSERTs are taking too long, use more aggressive optimizations
     if avg_duration > 3000 do
-      Map.merge(base_options, %{
+      Keyword.merge(base_options,
         returning: false,
         on_conflict: :nothing,
         timeout: 30_000
-      })
+      )
     else
       base_options
     end
   end
 
   defp default_insert_options do
-    %{
+    [
       # Don't return IDs unless needed
       returning: false,
       # Skip conflicts instead of raising
       on_conflict: :nothing,
       # 15 second timeout
       timeout: 15_000
-    }
+    ]
   end
 end
