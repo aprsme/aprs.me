@@ -90,32 +90,7 @@ defmodule AprsmeWeb.Telemetry do
       summary("aprsme.packet_pipeline.batch.error", unit: :event, description: "Number of errors per batch"),
       summary("aprsme.packet_pipeline.batch.duration_ms", unit: :millisecond, description: "Batch insert duration (ms)"),
 
-      # System Monitor Metrics
-      last_value("aprsme.system.memory.total", unit: {:byte, :megabyte}, description: "Total memory usage"),
-      last_value("aprsme.system.memory.process", unit: {:byte, :megabyte}, description: "Process memory usage"),
-      last_value("aprsme.system.memory.binary", unit: {:byte, :megabyte}, description: "Binary memory usage"),
-      last_value("aprsme.system.memory.pressure", unit: :percent, description: "Memory pressure (0-1)"),
-      last_value("aprsme.system.cpu.load1", description: "1-minute load average"),
-      last_value("aprsme.system.cpu.load5", description: "5-minute load average"),
-      last_value("aprsme.system.cpu.load15", description: "15-minute load average"),
-      last_value("aprsme.system.cpu.pressure", unit: :percent, description: "CPU pressure (0-1)"),
-      last_value("aprsme.system.processes.count", description: "Number of Erlang processes"),
-      last_value("aprsme.system.processes.pressure", unit: :percent, description: "Process count pressure (0-1)"),
-      last_value("aprsme.system.db_pool.size", description: "Database pool size"),
-      last_value("aprsme.system.db_pool.available", description: "Available database connections"),
-      last_value("aprsme.system.db_pool.pressure", unit: :percent, description: "Database pool pressure (0-1)"),
-      last_value("aprsme.system.batch_size.current", description: "Current adaptive batch size"),
-      last_value("aprsme.system.batch_size.min", description: "Minimum batch size"),
-      last_value("aprsme.system.batch_size.max", description: "Maximum batch size"),
-
-      # INSERT Performance Optimizer Metrics
-      last_value("aprsme.insert_optimizer.batch_size", description: "Current optimized INSERT batch size"),
-      summary("aprsme.insert_optimizer.throughput",
-        unit: {:hertz, :unit},
-        description: "INSERT throughput (packets/sec)"
-      ),
-      summary("aprsme.insert_optimizer.duration", unit: :millisecond, description: "INSERT duration per batch"),
-      counter("aprsme.insert_optimizer.optimizations", description: "Number of optimization adjustments made"),
+      # Note: SystemMonitor and InsertOptimizer metrics removed after reverting performance optimizations
 
       # Spatial PubSub Metrics
       last_value("aprsme.spatial_pubsub.clients.count", description: "Number of connected clients"),
