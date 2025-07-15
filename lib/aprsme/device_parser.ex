@@ -23,8 +23,8 @@ defmodule Aprsme.DeviceParser do
   end
 
   defp get_field_value(packet_data, key) do
-    if Map.has_key?(packet_data, key) and not is_nil(packet_data[key]) do
-      packet_data[key]
+    if Map.has_key?(packet_data, key) do
+      Map.get(packet_data, key)
     end
   end
 
