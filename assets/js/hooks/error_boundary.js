@@ -3,46 +3,41 @@
 
 const ErrorBoundary = {
   mounted() {
-    // Store original error handler
-    this.originalErrorHandler = window.onerror;
-    this.originalUnhandledRejection = window.onunhandledrejection;
-    
     // Get content and fallback elements
     this.content = this.el.querySelector('.error-boundary-content');
     this.fallback = this.el.querySelector('.error-boundary-fallback');
+    
+    // Create bound error handlers
+    this.errorHandler = this.handleGlobalError.bind(this);
+    this.unhandledRejectionHandler = this.handleUnhandledRejection.bind(this);
     
     // Set up error handlers for this component
     this.setupErrorHandlers();
   },
   
   setupErrorHandlers() {
-    // Handle synchronous errors
-    window.onerror = (message, source, lineno, colno, error) => {
-      if (this.isErrorInComponent(error)) {
-        this.handleError(error || new Error(message));
-        return true; // Prevent default error handling
-      }
-      
-      // Call original handler if error is not in this component
-      if (this.originalErrorHandler) {
-        return this.originalErrorHandler(message, source, lineno, colno, error);
-      }
-      return false;
-    };
+    // Use event listeners instead of overriding global handlers
+    window.addEventListener('error', this.errorHandler, true);
+    window.addEventListener('unhandledrejection', this.unhandledRejectionHandler, true);
+  },
+  
+  handleGlobalError(event) {
+    // Extract error from ErrorEvent
+    const error = event.error || new Error(event.message);
     
-    // Handle async errors (unhandled promise rejections)
-    window.onunhandledrejection = (event) => {
-      if (this.isErrorInComponent(event.reason)) {
-        this.handleError(event.reason);
-        event.preventDefault();
-        return;
-      }
-      
-      // Call original handler if error is not in this component
-      if (this.originalUnhandledRejection) {
-        this.originalUnhandledRejection(event);
-      }
-    };
+    if (this.isErrorInComponent(error)) {
+      this.handleError(error);
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  },
+  
+  handleUnhandledRejection(event) {
+    if (this.isErrorInComponent(event.reason)) {
+      this.handleError(event.reason);
+      event.preventDefault();
+      event.stopPropagation();
+    }
   },
   
   isErrorInComponent(error) {
@@ -81,25 +76,35 @@ const ErrorBoundary = {
     console.error('Error caught by boundary:', error);
     
     // Hide content and show fallback
-    if (this.content) {
+    if (this.content && this.content.style) {
       this.content.style.display = 'none';
     }
-    if (this.fallback) {
+    if (this.fallback && this.fallback.classList) {
       this.fallback.classList.remove('hidden');
     }
     
-    // Log error to server
-    this.pushEvent('error_boundary_triggered', {
-      message: error.message,
-      stack: error.stack,
-      component_id: this.el.id
-    });
+    // Log error to server if pushEvent is available
+    if (this.pushEvent && typeof this.pushEvent === 'function') {
+      try {
+        this.pushEvent('error_boundary_triggered', {
+          message: error?.message || 'Unknown error',
+          stack: error?.stack || 'No stack trace',
+          component_id: this.el?.id || 'unknown'
+        });
+      } catch (e) {
+        console.error('Failed to send error to server:', e);
+      }
+    }
   },
   
   destroyed() {
-    // Restore original error handlers
-    window.onerror = this.originalErrorHandler;
-    window.onunhandledrejection = this.originalUnhandledRejection;
+    // Remove event listeners
+    if (this.errorHandler) {
+      window.removeEventListener('error', this.errorHandler, true);
+    }
+    if (this.unhandledRejectionHandler) {
+      window.removeEventListener('unhandledrejection', this.unhandledRejectionHandler, true);
+    }
   }
 };
 

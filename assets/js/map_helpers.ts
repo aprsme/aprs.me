@@ -1,5 +1,7 @@
 // Helper functions for map.ts to reduce code duplication
 
+import type * as L from 'leaflet';
+
 export interface MapState {
   lat: number;
   lng: number;
@@ -16,7 +18,7 @@ export interface BoundsData {
 /**
  * Parse timestamp to milliseconds
  */
-export function parseTimestamp(timestamp: any): number {
+export function parseTimestamp(timestamp: string | number | Date | undefined): number {
   if (!timestamp) return Date.now();
   
   if (typeof timestamp === "number") {
@@ -37,7 +39,10 @@ export function getTrailId(data: { callsign_group?: string; callsign?: string; i
 /**
  * Save map state to localStorage and send to server
  */
-export function saveMapState(map: any, pushEvent: Function) {
+// Define the pushEvent function type
+type PushEventFunction = (event: string, payload: Record<string, any>) => void;
+
+export function saveMapState(map: L.Map, pushEvent: PushEventFunction) {
   if (!map || !pushEvent) {
     console.warn("saveMapState called with invalid map or pushEvent");
     return;
@@ -84,7 +89,7 @@ export function saveMapState(map: any, pushEvent: Function) {
 /**
  * Safely push event to LiveView
  */
-export function safePushEvent(pushEvent: Function | undefined, event: string, payload: any): boolean {
+export function safePushEvent(pushEvent: PushEventFunction | undefined, event: string, payload: Record<string, any>): boolean {
   if (!pushEvent || typeof pushEvent !== 'function') {
     console.debug(`pushEvent not available for ${event} event`);
     return false;
@@ -103,12 +108,16 @@ export function safePushEvent(pushEvent: Function | undefined, event: string, pa
  * Check if LiveView socket is available
  */
 export function isLiveViewConnected(): boolean {
-  return !!(window as any).liveSocket;
+  return typeof window !== 'undefined' && !!(window as any).liveSocket;
 }
 
 /**
  * Get LiveView socket
  */
-export function getLiveSocket(): any {
-  return (window as any).liveSocket;
+interface LiveSocket {
+  pushHistoryPatch(href: string, type: string, target: HTMLElement): void;
+}
+
+export function getLiveSocket(): LiveSocket | null {
+  return typeof window !== 'undefined' ? (window as any).liveSocket : null;
 }

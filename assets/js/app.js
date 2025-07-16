@@ -22,7 +22,10 @@ import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
 
-let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+let csrfToken = document.querySelector("meta[name='csrf-token']")?.getAttribute("content") || "";
+if (!csrfToken) {
+  console.error("CSRF token not found in meta tags");
+}
 
 // Import minimal APRS map hook
 import MapAPRSMap from "./map";
@@ -83,13 +86,15 @@ let BodyClassHook = {
   
   updateBodyClass() {
     // Get the map_page value from the element's data attribute
-    const mapPage = this.el.dataset.mapPage === 'true';
+    const mapPage = this.el?.dataset?.mapPage === 'true';
     
     // Update body class based on map_page value
-    if (mapPage) {
-      document.body.classList.add('map-page');
-    } else {
-      document.body.classList.remove('map-page');
+    if (document.body && document.body.classList) {
+      if (mapPage) {
+        document.body.classList.add('map-page');
+      } else {
+        document.body.classList.remove('map-page');
+      }
     }
   }
 };
@@ -125,9 +130,10 @@ const theme = (() => {
 
 const applyTheme = (theme) => {
   const element = document.documentElement;
+  if (!element) return;
   
   if (theme === 'auto') {
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       element.setAttribute('data-theme', 'dark');
     } else {
       element.setAttribute('data-theme', 'light');

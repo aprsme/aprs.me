@@ -1,13 +1,29 @@
+// Import Chart.js types
+import type { Chart, ChartConfiguration, ChartType } from 'chart.js';
+
 // Declare global Chart object from CDN
 declare global {
     interface Window {
-        Chart: any;
-        chartInstances?: Map<string, any>;
+        Chart: typeof Chart;
+        chartInstances?: Map<string, ChartHookContext>;
     }
 }
 
 // Type for LiveView hooks
-type Hook = any;
+interface Hook {
+    mounted?: () => void;
+    updated?: () => void;
+    destroyed?: () => void;
+    el: HTMLElement;
+    handleEvent: (event: string, handler: (payload: any) => void) => void;
+}
+
+// Define chart hook context type
+interface ChartHookContext extends Hook {
+    chart?: Chart;
+    themeChangeHandler?: () => void;
+    renderChart: () => void;
+}
 
 // Type for weather history data
 interface WeatherHistoryDatum {
@@ -30,6 +46,20 @@ interface UpdateWeatherChartsPayload {
     weather_history: string;
 }
 
+// Helper function to safely parse weather history data
+const parseWeatherHistory = (dataStr: string | undefined): WeatherHistoryDatum[] => {
+    if (!dataStr) {
+        console.warn("No weather history data provided");
+        return [];
+    }
+    try {
+        return JSON.parse(dataStr);
+    } catch (error) {
+        console.error("Failed to parse weather history data:", error);
+        return [];
+    }
+};
+
 // Helper function to get theme-aware colors
 const getThemeColors = () => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -40,50 +70,31 @@ const getThemeColors = () => {
     };
 };
 
-// Helper for 24-hour time formatting
-function format24Hour(date: Date): string {
-    if (!(date instanceof Date) || isNaN(date.getTime())) return '';
-    return new Intl.DateTimeFormat('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    }).format(date);
-}
-
-function toValidDate(raw: any): Date | null {
-    if (raw instanceof Date && !isNaN(raw.getTime())) return raw;
-    if (typeof raw === 'number') {
-        const d = new Date(raw);
-        if (!isNaN(d.getTime())) return d;
-    }
-    if (typeof raw === 'string') {
-        const d = new Date(raw);
-        if (!isNaN(d.getTime())) return d;
-    }
-    return null;
-}
-
-declare global {
-    interface Window {
-        chartInstances?: Map<string, any>;
-    }
-}
-
-function registerChartInstance(el: HTMLElement, hook: any) {
+// Register a chart instance
+const registerChartInstance = (element: HTMLElement, instance: ChartHookContext) => {
     if (!window.chartInstances) {
         window.chartInstances = new Map();
     }
-    window.chartInstances.set(el.id, hook);
-}
+    const elementId = element.id || `chart-${Date.now()}`;
+    if (!element.id) element.id = elementId;
+    window.chartInstances.set(elementId, instance);
+};
 
-function unregisterChartInstance(el: HTMLElement) {
-    if (window.chartInstances) {
-        window.chartInstances.delete(el.id);
+// Unregister a chart instance
+const unregisterChartInstance = (element: HTMLElement) => {
+    if (window.chartInstances && element.id) {
+        const instance = window.chartInstances.get(element.id);
+        if (instance?.chart) {
+            instance.chart.destroy();
+        }
+        window.chartInstances.delete(element.id);
     }
-}
+};
 
-function getLabels(el: HTMLElement) {
-    const raw = el.getAttribute('data-chart-labels');
+// Get labels from the element
+const getLabels = (el: HTMLElement | null): Record<string, string> => {
+    if (!el || !el.dataset.labels) return {};
+    const raw = el.dataset.labels;
     if (!raw) return {};
     try {
         return JSON.parse(raw);
@@ -92,359 +103,234 @@ function getLabels(el: HTMLElement) {
     }
 }
 
-// All hooks are typed as 'any' for LiveView context compatibility
-export const WeatherChartHooks: Record<string, Hook> = {
-    ChartJSTempChart: {
-        mounted() {
-            const self = this as any;
-            registerChartInstance(self.el as HTMLElement, self);
-            self.renderChart();
-            self.themeChangeHandler = () => self.renderChart();
-            window.addEventListener('themeChanged', self.themeChangeHandler);
-            self.handleEvent("update_weather_charts", ({ weather_history }: UpdateWeatherChartsPayload) => {
-                self.el.dataset.weatherHistory = weather_history;
-                self.renderChart();
-            });
-        },
-        updated() { (this as any).renderChart(); },
-        destroyed() {
-            const self = this as any;
-            if (self.themeChangeHandler) window.removeEventListener('themeChanged', self.themeChangeHandler);
-            unregisterChartInstance(self.el as HTMLElement);
-        },
-        renderChart() {
-            const self = this as any;
-            if (self.chart) self.chart.destroy();
-            const data: WeatherHistoryDatum[] = JSON.parse(self.el.dataset.weatherHistory!);
-            const labels = getLabels(self.el);
-            const times = data.map(d => new Date(d.timestamp));
-            const temps = data.map(d => d.temperature);
-            const dews = data.map(d => d.dew_point);
-            const colors = getThemeColors();
-            const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
-            if (!canvas) return;
-            self.chart = new window.Chart(canvas, {
-                type: 'line',
-                data: {
-                    labels: times,
-                    datasets: [
-                        { label: labels.temp_label || 'Temperature (°F)', data: temps, borderColor: 'red', backgroundColor: 'rgba(255, 0, 0, 0.1)', tension: 0.1, pointRadius: 0 },
-                        { label: labels.dew_label || 'Dew Point (°F)', data: dews, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.1)', tension: 0.1, pointRadius: 0 }
-                    ]
-                },
-                options: {
-                    adapters: { date: { locale: 'en-GB' } },
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: labels.temp_title || 'Temperature & Dew Point (°F)', color: colors.text },
-                        legend: { labels: { color: colors.text } }
-                    },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'minute',
-                                tooltipFormat: 'HH:mm',
-                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
-                                locale: 'en-GB'
-                            },
-                            title: { display: true, text: labels.time || 'Time', color: colors.text },
-                            ticks: { color: colors.text, maxTicksLimit: 8 },
-                            grid: { color: colors.grid }
-                        },
-                        y: { title: { display: true, text: labels.degf || '°F', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
-                    }
-                }
-            });
-        }
+// Chart configurations
+interface ChartConfig {
+    type: ChartType;
+    datasets: (data: WeatherHistoryDatum[], labels: Record<string, string>) => any[];
+    title: (labels: Record<string, string>) => string;
+    yAxisLabel?: (labels: Record<string, string>) => string;
+    yAxisOptions?: any;
+}
+
+const chartConfigs: Record<string, ChartConfig> = {
+    temperature: {
+        type: 'line',
+        datasets: (data, labels) => [
+            {
+                label: labels.temp_label || 'Temperature (°F)',
+                data: data.map(d => d.temperature),
+                borderColor: 'red',
+                backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                tension: 0.1,
+                pointRadius: 0
+            },
+            {
+                label: labels.dew_label || 'Dew Point (°F)',
+                data: data.map(d => d.dew_point),
+                borderColor: 'blue',
+                backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                tension: 0.1,
+                pointRadius: 0
+            }
+        ],
+        title: (labels) => labels.temp_title || 'Temperature & Dew Point (°F)',
+        yAxisLabel: (labels) => labels.degf || '°F'
     },
-    ChartJSHumidityChart: {
-        mounted() {
-            const self = this as any;
-            registerChartInstance(self.el as HTMLElement, self);
-            self.renderChart();
-            self.themeChangeHandler = () => self.renderChart();
-            window.addEventListener('themeChanged', self.themeChangeHandler);
-            self.handleEvent("update_weather_charts", ({ weather_history }: UpdateWeatherChartsPayload) => {
-                self.el.dataset.weatherHistory = weather_history;
-                self.renderChart();
-            });
-        },
-        updated() { (this as any).renderChart(); },
-        destroyed() {
-            const self = this as any;
-            if (self.themeChangeHandler) window.removeEventListener('themeChanged', self.themeChangeHandler);
-            unregisterChartInstance(self.el as HTMLElement);
-        },
-        renderChart() {
-            const self = this as any;
-            if (self.chart) self.chart.destroy();
-            const data: WeatherHistoryDatum[] = JSON.parse(self.el.dataset.weatherHistory!);
-            const labels = getLabels(self.el);
-            const times = data.map(d => new Date(d.timestamp));
-            const humidity = data.map(d => d.humidity);
-            const colors = getThemeColors();
-            const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
-            if (!canvas) return;
-            self.chart = new window.Chart(canvas, {
-                type: 'line',
-                data: { labels: times, datasets: [{ label: labels.humidity_label || 'Humidity (%)', data: humidity, borderColor: 'green', backgroundColor: 'rgba(0, 255, 0, 0.1)', tension: 0.1, pointRadius: 0 }] },
-                options: {
-                    adapters: { date: { locale: 'en-GB' } },
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { title: { display: true, text: labels.humidity_title || 'Humidity (%)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'minute',
-                                tooltipFormat: 'HH:mm',
-                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
-                                locale: 'en-GB'
-                            },
-                            title: { display: true, text: labels.time || 'Time', color: colors.text },
-                            ticks: { color: colors.text, maxTicksLimit: 8 },
-                            grid: { color: colors.grid }
-                        },
-                        y: { title: { display: true, text: labels.percent || '%', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
-                    }
-                }
-            });
-        }
+    humidity: {
+        type: 'line',
+        datasets: (data, labels) => [{
+            label: labels.hum_label || 'Humidity (%)',
+            data: data.map(d => d.humidity),
+            borderColor: 'green',
+            backgroundColor: 'rgba(0, 255, 0, 0.1)',
+            tension: 0.1,
+            pointRadius: 0
+        }],
+        title: (labels) => labels.hum_title || 'Humidity (%)',
+        yAxisLabel: (labels) => labels.percent || '%',
+        yAxisOptions: { min: 0, max: 100 }
     },
-    ChartJSPressureChart: {
-        mounted() {
-            const self = this as any;
-            registerChartInstance(self.el as HTMLElement, self);
-            self.renderChart();
-            self.themeChangeHandler = () => self.renderChart();
-            window.addEventListener('themeChanged', self.themeChangeHandler);
-            self.handleEvent("update_weather_charts", ({ weather_history }: UpdateWeatherChartsPayload) => {
-                self.el.dataset.weatherHistory = weather_history;
-                self.renderChart();
-            });
-        },
-        updated() { (this as any).renderChart(); },
-        destroyed() {
-            const self = this as any;
-            if (self.themeChangeHandler) window.removeEventListener('themeChanged', self.themeChangeHandler);
-            unregisterChartInstance(self.el as HTMLElement);
-        },
-        renderChart() {
-            const self = this as any;
-            if (self.chart) self.chart.destroy();
-            const data: WeatherHistoryDatum[] = JSON.parse(self.el.dataset.weatherHistory!);
-            const labels = getLabels(self.el);
-            const times = data.map(d => new Date(d.timestamp));
-            const pressure = data.map(d => d.pressure);
-            const colors = getThemeColors();
-            const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
-            if (!canvas) return;
-            self.chart = new window.Chart(canvas, {
-                type: 'line',
-                data: { labels: times, datasets: [{ label: labels.pressure_label || 'Pressure (mb)', data: pressure, borderColor: 'purple', backgroundColor: 'rgba(128, 0, 128, 0.1)', tension: 0.1, pointRadius: 0 }] },
-                options: {
-                    adapters: { date: { locale: 'en-GB' } },
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { title: { display: true, text: labels.pressure_title || 'Pressure (mb)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'minute',
-                                tooltipFormat: 'HH:mm',
-                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
-                                locale: 'en-GB'
-                            },
-                            title: { display: true, text: labels.time || 'Time', color: colors.text },
-                            ticks: { color: colors.text, maxTicksLimit: 8 },
-                            grid: { color: colors.grid }
-                        },
-                        y: { title: { display: true, text: labels.mb || 'mb', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
-                    }
-                }
-            });
-        }
+    pressure: {
+        type: 'line',
+        datasets: (data, labels) => [{
+            label: labels.prs_label || 'Pressure (mb)',
+            data: data.map(d => d.pressure),
+            borderColor: 'purple',
+            backgroundColor: 'rgba(128, 0, 128, 0.1)',
+            tension: 0.1,
+            pointRadius: 0
+        }],
+        title: (labels) => labels.prs_title || 'Barometric Pressure (mb)',
+        yAxisLabel: (labels) => labels.mb || 'mb'
     },
-    ChartJSWindChart: {
-        mounted() {
-            const self = this as any;
-            registerChartInstance(self.el as HTMLElement, self);
-            self.renderChart();
-            self.themeChangeHandler = () => self.renderChart();
-            window.addEventListener('themeChanged', self.themeChangeHandler);
-            self.handleEvent("update_weather_charts", ({ weather_history }: UpdateWeatherChartsPayload) => {
-                self.el.dataset.weatherHistory = weather_history;
-                self.renderChart();
-            });
-        },
-        updated() { (this as any).renderChart(); },
-        destroyed() {
-            const self = this as any;
-            if (self.themeChangeHandler) window.removeEventListener('themeChanged', self.themeChangeHandler);
-            unregisterChartInstance(self.el as HTMLElement);
-        },
-        renderChart() {
-            const self = this as any;
-            if (self.chart) self.chart.destroy();
-            const data: WeatherHistoryDatum[] = JSON.parse(self.el.dataset.weatherHistory!);
-            const times = data.map(d => new Date(d.timestamp));
-            const windSpeed = data.map(d => d.wind_speed);
-            const windGust = data.map(d => d.wind_gust);
-            const colors = getThemeColors();
-            const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
-            if (!canvas) return;
-            self.chart = new window.Chart(canvas, {
-                type: 'line',
-                data: {
-                    labels: times, datasets: [
-                        { label: 'Wind Speed (mph)', data: windSpeed, borderColor: 'orange', backgroundColor: 'rgba(255, 165, 0, 0.1)', tension: 0.1, pointRadius: 0 },
-                        { label: 'Wind Gust (mph)', data: windGust, borderColor: 'brown', backgroundColor: 'rgba(165, 42, 42, 0.1)', tension: 0.1, pointRadius: 0 }
-                    ]
-                },
-                options: {
-                    adapters: { date: { locale: 'en-GB' } },
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { title: { display: true, text: 'Wind Speed & Gust (mph)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'minute',
-                                tooltipFormat: 'HH:mm',
-                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
-                                locale: 'en-GB'
-                            },
-                            title: { display: true, text: 'Time', color: colors.text },
-                            ticks: { color: colors.text, maxTicksLimit: 8 },
-                            grid: { color: colors.grid }
-                        },
-                        y: { title: { display: true, text: 'mph', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
-                    }
-                }
-            });
-        }
+    wind: {
+        type: 'line',
+        datasets: (data, labels) => [
+            {
+                label: labels.spd_label || 'Wind Speed (mph)',
+                data: data.map(d => d.wind_speed),
+                borderColor: 'orange',
+                backgroundColor: 'rgba(255, 165, 0, 0.1)',
+                tension: 0.1,
+                pointRadius: 0
+            },
+            {
+                label: labels.gst_label || 'Wind Gust (mph)',
+                data: data.map(d => d.wind_gust),
+                borderColor: 'red',
+                backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                tension: 0.1,
+                pointRadius: 0
+            }
+        ],
+        title: (labels) => labels.wnd_title || 'Wind Speed & Gust (mph)',
+        yAxisLabel: (labels) => labels.mph || 'mph',
+        yAxisOptions: { min: 0 }
     },
-    ChartJSRainChart: {
-        mounted() {
-            const self = this as any;
-            registerChartInstance(self.el as HTMLElement, self);
-            self.renderChart();
-            self.themeChangeHandler = () => self.renderChart();
-            window.addEventListener('themeChanged', self.themeChangeHandler);
-            self.handleEvent("update_weather_charts", ({ weather_history }: UpdateWeatherChartsPayload) => {
-                self.el.dataset.weatherHistory = weather_history;
-                self.renderChart();
-            });
-        },
-        updated() { (this as any).renderChart(); },
-        destroyed() {
-            const self = this as any;
-            if (self.themeChangeHandler) window.removeEventListener('themeChanged', self.themeChangeHandler);
-            unregisterChartInstance(self.el as HTMLElement);
-        },
-        renderChart() {
-            const self = this as any;
-            if (self.chart) self.chart.destroy();
-            const data: WeatherHistoryDatum[] = JSON.parse(self.el.dataset.weatherHistory!);
-            const times = data.map(d => new Date(d.timestamp));
-            const rain1h = data.map(d => d.rain_1h);
-            const rain24h = data.map(d => d.rain_24h);
-            const rainSinceMidnight = data.map(d => d.rain_since_midnight);
-            const colors = getThemeColors();
-            const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
-            if (!canvas) return;
-            self.chart = new window.Chart(canvas, {
-                type: 'line',
-                data: {
-                    labels: times, datasets: [
-                        { label: 'Rain (1h)', data: rain1h, borderColor: 'blue', backgroundColor: 'rgba(0, 0, 255, 0.1)', tension: 0.1, pointRadius: 0 },
-                        { label: 'Rain (24h)', data: rain24h, borderColor: 'cyan', backgroundColor: 'rgba(0, 255, 255, 0.1)', tension: 0.1, pointRadius: 0 },
-                        { label: 'Rain (since midnight)', data: rainSinceMidnight, borderColor: 'navy', backgroundColor: 'rgba(0, 0, 128, 0.1)', tension: 0.1, pointRadius: 0 }
-                    ]
-                },
-                options: {
-                    adapters: { date: { locale: 'en-GB' } },
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { title: { display: true, text: 'Rainfall (inches)', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'minute',
-                                tooltipFormat: 'HH:mm',
-                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
-                                locale: 'en-GB'
-                            },
-                            title: { display: true, text: 'Time', color: colors.text },
-                            ticks: { color: colors.text, maxTicksLimit: 8 },
-                            grid: { color: colors.grid }
-                        },
-                        y: { title: { display: true, text: 'inches', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
-                    }
-                }
-            });
-        }
+    rain: {
+        type: 'bar',
+        datasets: (data, labels) => [
+            {
+                label: labels.h1_label || 'Rain 1h (in)',
+                data: data.map(d => d.rain_1h),
+                backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            },
+            {
+                label: labels.h24_label || 'Rain 24h (in)',
+                data: data.map(d => d.rain_24h ? d.rain_24h / 10 : null),
+                backgroundColor: 'rgba(153, 102, 255, 0.8)',
+                borderColor: 'rgba(153, 102, 255, 1)',
+                borderWidth: 1
+            }
+        ],
+        title: (labels) => labels.rain_title || 'Rainfall (inches)',
+        yAxisLabel: (labels) => labels.inches || 'inches',
+        yAxisOptions: { min: 0 }
     },
-    ChartJSLuminosityChart: {
-        mounted() {
-            const self = this as any;
-            registerChartInstance(self.el as HTMLElement, self);
-            self.renderChart();
-            self.themeChangeHandler = () => self.renderChart();
-            window.addEventListener('themeChanged', self.themeChangeHandler);
-            self.handleEvent("update_weather_charts", ({ weather_history }: UpdateWeatherChartsPayload) => {
-                self.el.dataset.weatherHistory = weather_history;
-                self.renderChart();
-            });
-        },
-        updated() { (this as any).renderChart(); },
-        destroyed() {
-            const self = this as any;
-            if (self.themeChangeHandler) window.removeEventListener('themeChanged', self.themeChangeHandler);
-            unregisterChartInstance(self.el as HTMLElement);
-        },
-        renderChart() {
-            const self = this as any;
-            if (self.chart) self.chart.destroy();
-            const data: WeatherHistoryDatum[] = JSON.parse(self.el.dataset.weatherHistory!);
-            const times = data.map(d => new Date(d.timestamp));
-            const luminosity = data.map(d => d.luminosity);
-            const colors = getThemeColors();
-            const canvas = self.el.querySelector('canvas') as HTMLCanvasElement;
-            if (!canvas) return;
-            self.chart = new window.Chart(canvas, {
-                type: 'line',
-                data: { labels: times, datasets: [{ label: 'Luminosity', data: luminosity, borderColor: 'yellow', backgroundColor: 'rgba(255, 255, 0, 0.1)', tension: 0.1, pointRadius: 0 }] },
-                options: {
-                    adapters: { date: { locale: 'en-GB' } },
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { title: { display: true, text: 'Luminosity', color: colors.text }, legend: { labels: { color: colors.text } } },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'minute',
-                                tooltipFormat: 'HH:mm',
-                                displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
-                                locale: 'en-GB'
-                            },
-                            title: { display: true, text: 'Time', color: colors.text },
-                            ticks: { color: colors.text, maxTicksLimit: 8 },
-                            grid: { color: colors.grid }
-                        },
-                        y: { title: { display: true, text: 'Luminosity', color: colors.text }, ticks: { color: colors.text }, grid: { color: colors.grid } }
-                    }
-                }
-            });
-        }
+    luminosity: {
+        type: 'line',
+        datasets: (data, labels) => [{
+            label: labels.lum_label || 'Luminosity (W/m²)',
+            data: data.map(d => d.luminosity),
+            borderColor: 'gold',
+            backgroundColor: 'rgba(255, 215, 0, 0.1)',
+            tension: 0.1,
+            pointRadius: 0
+        }],
+        title: (labels) => labels.lum_title || 'Solar Radiation (W/m²)',
+        yAxisLabel: (labels) => labels.wm2 || 'W/m²',
+        yAxisOptions: { min: 0 }
     }
 };
 
-export default WeatherChartHooks; 
+// Create a chart hook
+function createChartHook(configKey: string): Hook {
+    const config = chartConfigs[configKey];
+    if (!config) {
+        throw new Error(`Unknown chart config: ${configKey}`);
+    }
+
+    return {
+        mounted() {
+            const self = this as ChartHookContext;
+            registerChartInstance(self.el, self);
+            self.renderChart = () => {
+                if (self.chart) self.chart.destroy();
+                
+                const data: WeatherHistoryDatum[] = parseWeatherHistory(self.el.dataset.weatherHistory);
+                if (data.length === 0) return;
+                
+                const canvas = self.el.querySelector('canvas') as HTMLCanvasElement | null;
+                if (!canvas) {
+                    console.error("Canvas element not found for chart");
+                    return;
+                }
+                
+                const labels = getLabels(self.el);
+                const times = data.map(d => new Date(d.timestamp));
+                const colors = getThemeColors();
+                
+                const chartConfig: ChartConfiguration = {
+                    type: config.type,
+                    data: {
+                        labels: times,
+                        datasets: config.datasets(data, labels)
+                    },
+                    options: {
+                        adapters: { date: { locale: 'en-GB' } },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: { 
+                                display: true, 
+                                text: config.title(labels), 
+                                color: colors.text 
+                            },
+                            legend: { labels: { color: colors.text } }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'minute',
+                                    tooltipFormat: 'HH:mm',
+                                    displayFormats: { minute: 'HH:mm', hour: 'HH:mm' },
+                                    locale: 'en-GB'
+                                },
+                                title: { display: true, text: labels.time || 'Time', color: colors.text },
+                                ticks: { color: colors.text, maxTicksLimit: 8 },
+                                grid: { color: colors.grid }
+                            },
+                            y: {
+                                title: { 
+                                    display: true, 
+                                    text: config.yAxisLabel ? config.yAxisLabel(labels) : '', 
+                                    color: colors.text 
+                                },
+                                ticks: { color: colors.text },
+                                grid: { color: colors.grid },
+                                ...(config.yAxisOptions || {})
+                            }
+                        }
+                    }
+                };
+                
+                self.chart = new window.Chart(canvas, chartConfig);
+            };
+            
+            self.renderChart();
+            self.themeChangeHandler = () => self.renderChart();
+            window.addEventListener('themeChanged', self.themeChangeHandler);
+            self.handleEvent("update_weather_charts", ({ weather_history }: UpdateWeatherChartsPayload) => {
+                self.el.dataset.weatherHistory = weather_history;
+                self.renderChart();
+            });
+        },
+        
+        updated() { 
+            (this as ChartHookContext).renderChart(); 
+        },
+        
+        destroyed() {
+            const self = this as ChartHookContext;
+            if (self.themeChangeHandler) {
+                window.removeEventListener('themeChanged', self.themeChangeHandler);
+            }
+            unregisterChartInstance(self.el);
+        }
+    };
+}
+
+// Export weather chart hooks
+export const WeatherChartHooks: Record<string, Hook> = {
+    ChartJSTempChart: createChartHook('temperature'),
+    ChartJSHumidityChart: createChartHook('humidity'),
+    ChartJSPressureChart: createChartHook('pressure'),
+    ChartJSWindChart: createChartHook('wind'),
+    ChartJSRainChart: createChartHook('rain'),
+    ChartJSLuminosityChart: createChartHook('luminosity')
+};
+
+export default WeatherChartHooks;

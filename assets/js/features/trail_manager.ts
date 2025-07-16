@@ -1,5 +1,10 @@
 // Trail management module for APRS position history visualization
 
+import type { LayerGroup, Polyline, CircleMarker, PolylineOptions } from 'leaflet';
+
+// Declare Leaflet as a global
+declare const L: typeof import('leaflet');
+
 export interface PositionHistory {
   lat: number;
   lng: number;
@@ -8,17 +13,19 @@ export interface PositionHistory {
 
 export interface TrailState {
   positions: PositionHistory[];
-  trail?: any; // L.Polyline
-  dots?: any[]; // L.CircleMarker[]
+  trail?: Polyline;
+  dots?: CircleMarker[];
 }
 
 export class TrailManager {
-  private trailLayer: any; // L.LayerGroup
+  private trailLayer: LayerGroup;
   private trails: Map<string, TrailState>;
   private showTrails: boolean;
   private trailDuration: number; // in milliseconds
+  private maxTrails: number = 500; // Maximum number of trails to keep in memory
+  private maxPositionsPerTrail: number = 1000; // Maximum positions per trail
 
-  constructor(trailLayer: any, trailDuration: number = 60 * 60 * 1000) {
+  constructor(trailLayer: LayerGroup, trailDuration: number = 60 * 60 * 1000) {
     this.trailLayer = trailLayer;
     this.trails = new Map();
     this.showTrails = true;
@@ -56,6 +63,14 @@ export class TrailManager {
 
     let trailState = this.trails.get(baseCallsign);
     if (!trailState) {
+      // Check if we've reached the maximum number of trails
+      if (this.trails.size >= this.maxTrails) {
+        // Remove the oldest trail (first in the Map)
+        const oldestKey = this.trails.keys().next().value;
+        if (oldestKey) {
+          this.removeTrail(oldestKey);
+        }
+      }
       trailState = { positions: [] };
       this.trails.set(baseCallsign, trailState);
     }
@@ -74,6 +89,12 @@ export class TrailManager {
 
       // Sort positions by timestamp to maintain chronological order
       trailState.positions.sort((a, b) => a.timestamp - b.timestamp);
+      
+      // Limit the number of positions per trail
+      if (trailState.positions.length > this.maxPositionsPerTrail) {
+        // Keep the most recent positions
+        trailState.positions = trailState.positions.slice(-this.maxPositionsPerTrail);
+      }
     }
 
     // For historical dots, keep all positions. For live positions, filter by time.
@@ -92,9 +113,9 @@ export class TrailManager {
     this.updateTrailVisualization(baseCallsign, trailState, isHistoricalDot);
   }
 
-  private extractBaseCallsign(markerId: string | any): string {
+  private extractBaseCallsign(markerId: string | number): string {
     // Ensure markerId is a string
-    const id = typeof markerId === "string" ? markerId : String(markerId);
+    const id = String(markerId);
 
     // For historical markers like "hist_CALLSIGN_123", extract the CALLSIGN part
     if (id.startsWith("hist_")) {
@@ -124,12 +145,11 @@ export class TrailManager {
 
     // Create new trail if we have at least 2 positions
     if (trailState.positions.length >= 2) {
-      const L = (window as any).L;
-      const latLngs = trailState.positions.map((pos) => [pos.lat, pos.lng]);
+      const latLngs: [number, number][] = trailState.positions.map((pos) => [pos.lat, pos.lng]);
 
       // Create blue polyline connecting the historical position dots
       // For historical positions (immediate=true), use higher opacity for better visibility
-      trailState.trail = L.polyline(latLngs, {
+      const polylineOptions: PolylineOptions = {
         color: "#1E90FF",
         weight: 3,
         opacity: immediate ? 0.9 : 0.8,
@@ -137,9 +157,9 @@ export class TrailManager {
         lineCap: "round",
         lineJoin: "round",
         className: "historical-trail-line",
-        // Ensure the trail renders on top of other map elements
-        zIndexOffset: immediate ? 1000 : 0,
-      }).addTo(this.trailLayer);
+      };
+      
+      trailState.trail = L.polyline(latLngs, polylineOptions).addTo(this.trailLayer);
 
       // Don't create additional dots here since historical positions are now shown as markers
       trailState.dots = [];
