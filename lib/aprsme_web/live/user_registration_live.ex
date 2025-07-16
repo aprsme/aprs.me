@@ -105,11 +105,7 @@ defmodule AprsmeWeb.UserRegistrationLive do
                 </div>
 
                 <div class="form-control mt-6">
-                  <button
-                    type="submit"
-                    class="btn btn-primary w-full"
-                    phx-disable-with="Creating account..."
-                  >
+                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Creating account...">
                     Create an account
                   </button>
                 </div>

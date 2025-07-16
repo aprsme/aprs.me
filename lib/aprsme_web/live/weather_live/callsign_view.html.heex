@@ -62,12 +62,7 @@
             ) %>
           <div class="flex items-center mb-3">
             <div class="flex-shrink-0">
-              <svg
-                class="h-4 w-4 text-primary"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
+              <svg class="h-4 w-4 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path
                   fill-rule="evenodd"
                   d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.75.75 0 00.736-.686L11.477 4.5a.75.75 0 00-1.491-.154L9.477 9.5H9z"
@@ -84,9 +79,7 @@
               <dt class="text-xs font-medium opacity-70">{gettext("Last WX report")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 <%= if dt do %>
-                  {Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S UTC")} ({AprsmeWeb.TimeHelpers.time_ago_in_words(
-                    dt
-                  )})<br />
+                  {Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S UTC")} ({AprsmeWeb.TimeHelpers.time_ago_in_words(dt)})<br />
                   <%!-- <span class="text-xs text-gray-500">{Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S %Z")} local time at {Map.get(@weather_packet, :region) || Map.get(@weather_packet, "region") || "Unknown location"} [?]</span> --%>
                 <% else %>
                   {gettext("Unknown")}

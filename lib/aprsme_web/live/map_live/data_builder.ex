@@ -157,7 +157,14 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
                 {lat, lon, _} = get_coordinates(packet)
 
                 if lat && lon do
-                  distance_meters = CoordinateUtils.calculate_distance_meters(most_recent_lat, most_recent_lon, lat, lon)
+                  distance_meters =
+                    CoordinateUtils.calculate_distance_meters(
+                      most_recent_lat,
+                      most_recent_lon,
+                      lat,
+                      lon
+                    )
+
                   # Only show if 10+ meters away
                   distance_meters >= 10.0
                 else
@@ -330,7 +337,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
       weather_link: weather_link
     }
 
-    # Optimize string conversion - avoid intermediate iodata step  
+    # Optimize string conversion - avoid intermediate iodata step
     popup_data
     |> PopupComponent.popup()
     |> Safe.to_iodata()
@@ -475,7 +482,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   end
 
   defp convert_tuples_to_strings(list) when is_list(list) do
-    # Use Stream for memory efficiency on large lists  
+    # Use Stream for memory efficiency on large lists
     list
     |> Stream.map(&convert_tuples_to_strings/1)
     |> Enum.to_list()

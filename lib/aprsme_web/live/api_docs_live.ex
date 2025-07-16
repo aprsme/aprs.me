@@ -248,12 +248,7 @@ defmodule AprsmeWeb.ApiDocsLive do
           </div>
 
           <div class="alert alert-warning mt-6">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="stroke-current shrink-0 h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -578,11 +573,7 @@ defmodule AprsmeWeb.ApiDocsLive do
                       class="input input-bordered flex-1"
                       disabled={@loading}
                     />
-                    <button
-                      type="submit"
-                      disabled={@loading or String.trim(@test_callsign) == ""}
-                      class="btn btn-primary"
-                    >
+                    <button type="submit" disabled={@loading or String.trim(@test_callsign) == ""} class="btn btn-primary">
                       <%= if @loading do %>
                         <span class="loading loading-spinner loading-sm"></span> Testing...
                       <% else %>

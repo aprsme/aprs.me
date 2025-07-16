@@ -192,7 +192,9 @@ defmodule Aprsme.PacketReplay do
     ]
 
     # Log the start of replay with map bounds
-    Logger.info("Starting packet replay for user #{state.user_id} in map area #{inspect(state.bounds)} for the last hour")
+    Logger.info(
+      "Starting packet replay for user #{state.user_id} in map area #{inspect(state.bounds)} for the last hour"
+    )
 
     # Send notification to client that replay is starting
     Endpoint.broadcast(state.replay_topic, "replay_started", %{

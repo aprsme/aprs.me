@@ -585,7 +585,8 @@ defmodule AprsmeWeb.MapLive.Index do
   defp parse_historical_hours(hours), do: SharedPacketUtils.parse_historical_hours(hours)
 
   @impl true
-  def handle_info({:process_bounds_update, map_bounds}, socket), do: handle_info_process_bounds_update(map_bounds, socket)
+  def handle_info({:process_bounds_update, map_bounds}, socket),
+    do: handle_info_process_bounds_update(map_bounds, socket)
 
   def handle_info(:initialize_replay, socket), do: handle_info_initialize_replay(socket)
 
@@ -710,14 +711,8 @@ defmodule AprsmeWeb.MapLive.Index do
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
-    />
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
-    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
@@ -726,9 +721,7 @@ defmodule AprsmeWeb.MapLive.Index do
     </script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js">
     </script>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"
-    >
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js">
     </script>
 
     <style>
@@ -858,19 +851,8 @@ defmodule AprsmeWeb.MapLive.Index do
       </div>
     </.error_boundary>
 
-    <button
-      class="locate-button"
-      phx-click="locate_me"
-      title={Gettext.gettext(AprsmeWeb.Gettext, "Find my location")}
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="#374151"
-        stroke="none"
-      >
+    <button class="locate-button" phx-click="locate_me" title={Gettext.gettext(AprsmeWeb.Gettext, "Find my location")}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#374151" stroke="none">
         <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
       </svg>
     </button>
@@ -932,10 +914,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     <!-- Mobile Backdrop -->
     <%= if @slideover_open do %>
-      <div
-        class="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden backdrop-blur-sm"
-        phx-click="toggle_slideover"
-      >
+      <div class="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden backdrop-blur-sm" phx-click="toggle_slideover">
       </div>
     <% end %>
 
@@ -951,13 +930,7 @@ defmodule AprsmeWeb.MapLive.Index do
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div class="flex items-center space-x-2">
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -1043,12 +1016,7 @@ defmodule AprsmeWeb.MapLive.Index do
     <!-- Trail Duration -->
         <div class="space-y-4">
           <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
-            <svg
-              class="w-4 h-4 text-emerald-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -1083,18 +1051,8 @@ defmodule AprsmeWeb.MapLive.Index do
               </option>
             </select>
             <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg
-                class="w-4 h-4 text-slate-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 9l-7 7-7-7"
-                />
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
             </div>
           </form>
@@ -1135,18 +1093,8 @@ defmodule AprsmeWeb.MapLive.Index do
               </option>
             </select>
             <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg
-                class="w-4 h-4 text-slate-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 9l-7 7-7-7"
-                />
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
               </svg>
             </div>
           </form>

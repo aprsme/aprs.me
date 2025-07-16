@@ -96,7 +96,7 @@ defmodule Aprsme.Packets.ClusteringTest do
       {:heat_map, zoom3_clusters} = Clustering.cluster_packets(packets, 3, %{})
       assert length(zoom3_clusters) == 1
 
-      # At zoom 8, these should be two clusters (radius 0.039 degrees) 
+      # At zoom 8, these should be two clusters (radius 0.039 degrees)
       # but our points are only 0.014 degrees apart, so they'll still cluster
       # Let's use points that are further apart
       far_packets = [

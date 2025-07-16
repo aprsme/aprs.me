@@ -111,7 +111,7 @@ defmodule AprsmeWeb.MapLive.PacketManager do
     visible_packets = get_visible_packets(packet_state)
     {keep_visible, remove_visible} = Enum.split_with(visible_packets, predicate_fn)
 
-    # Get historical packets and apply predicate  
+    # Get historical packets and apply predicate
     historical_packets = get_historical_packets(packet_state)
     {keep_historical, remove_historical} = Enum.split_with(historical_packets, predicate_fn)
 

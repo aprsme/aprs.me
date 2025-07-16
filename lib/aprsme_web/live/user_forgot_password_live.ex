@@ -14,13 +14,7 @@ defmodule AprsmeWeb.UserForgotPasswordLive do
               <h1 class="card-title text-3xl mb-4 justify-center">Forgot your password?</h1>
               <p class="text-base-content/70 mb-6">We'll send a password reset link to your inbox</p>
 
-              <.simple_form
-                :let={_f}
-                id="reset_password_form"
-                for={%{}}
-                as={:user}
-                phx-submit="send_email"
-              >
+              <.simple_form :let={_f} id="reset_password_form" for={%{}} as={:user} phx-submit="send_email">
                 <div class="form-control w-full">
                   <label class="label">
                     <span class="label-text">Email</span>

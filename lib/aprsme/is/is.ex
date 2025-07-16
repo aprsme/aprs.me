@@ -402,7 +402,12 @@ defmodule Aprsme.Is do
 
     case connect_to_aprs_is(state.server, state.port) do
       {:ok, socket} ->
-        case send_login_string(socket, state.login_params.user_id, state.login_params.passcode, state.login_params.filter) do
+        case send_login_string(
+               socket,
+               state.login_params.user_id,
+               state.login_params.passcode,
+               state.login_params.filter
+             ) do
           :ok ->
             Logger.info("Successfully reconnected to APRS-IS")
             timer = create_timer(@aprs_timeout)

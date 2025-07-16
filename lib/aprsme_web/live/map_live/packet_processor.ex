@@ -6,6 +6,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   import Phoenix.Component, only: [assign: 3]
 
   alias Aprsme.GeoUtils
+  alias AprsmeWeb.Live.Shared.BoundsUtils
   alias AprsmeWeb.Live.Shared.CoordinateUtils
   alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
   alias AprsmeWeb.MapLive.PacketUtils
@@ -147,7 +148,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
 
   # Use shared bounds utility
   defp within_bounds?(coords, bounds) do
-    AprsmeWeb.Live.Shared.BoundsUtils.within_bounds?(coords, bounds)
+    BoundsUtils.within_bounds?(coords, bounds)
   end
 
   # Helper to get locale from socket

@@ -85,7 +85,7 @@ defmodule AprsmeWeb.Live.SharedPacketHandler do
     device_identifiers =
       packets
       |> Enum.map(&get_device_identifier/1)
-      |> Enum.reject(&is_nil_or_empty/1)
+      |> Enum.reject(&nil_or_empty?/1)
       |> Enum.uniq()
 
     # Batch lookup devices (DeviceCache is already optimized with caching)
@@ -117,9 +117,9 @@ defmodule AprsmeWeb.Live.SharedPacketHandler do
     end
   end
 
-  defp is_nil_or_empty(nil), do: true
-  defp is_nil_or_empty(""), do: true
-  defp is_nil_or_empty(_), do: false
+  defp nil_or_empty?(nil), do: true
+  defp nil_or_empty?(""), do: true
+  defp nil_or_empty?(_), do: false
 
   @doc """
   Creates a filter function that checks both callsign and weather data.

@@ -76,11 +76,7 @@ defmodule AprsmeWeb.UserLoginLive do
                 </div>
 
                 <div class="form-control mt-6">
-                  <button
-                    type="submit"
-                    class="btn btn-primary w-full"
-                    phx-disable-with="Signing in..."
-                  >
+                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Signing in...">
                     Sign in →
                   </button>
                 </div>

@@ -4,11 +4,13 @@ defmodule Aprsme.PacketPipelineIntegrationTest do
   import ExUnit.CaptureLog
 
   alias Aprsme.PacketProducer
+  alias Aprsme.Performance.InsertOptimizer
+  alias Aprsme.SystemMonitor
 
   describe "packet pipeline under load" do
     test "system adjusts batch sizes based on load" do
       # Test the actual running system without starting new processes
-      initial_batch_size = Aprsme.SystemMonitor.get_recommended_batch_size()
+      initial_batch_size = SystemMonitor.get_recommended_batch_size()
       assert initial_batch_size >= 100
       assert initial_batch_size <= 800
 
@@ -38,13 +40,13 @@ defmodule Aprsme.PacketPipelineIntegrationTest do
     end
 
     test "insert optimizer provides reasonable batch sizes" do
-      batch_size = Aprsme.Performance.InsertOptimizer.get_optimal_batch_size()
+      batch_size = InsertOptimizer.get_optimal_batch_size()
       assert batch_size >= 100
       assert batch_size <= 800
     end
 
     test "system monitor provides metrics" do
-      metrics = Aprsme.SystemMonitor.get_metrics()
+      metrics = SystemMonitor.get_metrics()
 
       assert is_map(metrics)
       assert Map.has_key?(metrics, :memory)

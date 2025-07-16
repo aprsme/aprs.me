@@ -70,10 +70,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     placeholder="Enter current password"
                     required
                   />
-                  <label
-                    :if={Keyword.has_key?(@email_changeset.errors, :current_password)}
-                    class="label"
-                  >
+                  <label :if={Keyword.has_key?(@email_changeset.errors, :current_password)} class="label">
                     <span class="label-text-alt text-error">
                       {translate_error(Keyword.get(@email_changeset.errors, :current_password))}
                     </span>
@@ -143,10 +140,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     placeholder="Enter current password"
                     required
                   />
-                  <label
-                    :if={Keyword.has_key?(@callsign_changeset.errors, :current_password)}
-                    class="label"
-                  >
+                  <label :if={Keyword.has_key?(@callsign_changeset.errors, :current_password)} class="label">
                     <span class="label-text-alt text-error">
                       {translate_error(Keyword.get(@callsign_changeset.errors, :current_password))}
                     </span>
@@ -181,11 +175,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                   <span>Oops, something went wrong! Please check the errors below.</span>
                 </div>
 
-                <input
-                  type="hidden"
-                  name={Phoenix.HTML.Form.input_name(f, :email)}
-                  value={@current_email}
-                />
+                <input type="hidden" name={Phoenix.HTML.Form.input_name(f, :email)} value={@current_email} />
 
                 <div class="form-control w-full">
                   <label class="label">
@@ -225,14 +215,9 @@ defmodule AprsmeWeb.UserSettingsLive do
                     placeholder="Confirm new password"
                     required
                   />
-                  <label
-                    :if={Keyword.has_key?(@password_changeset.errors, :password_confirmation)}
-                    class="label"
-                  >
+                  <label :if={Keyword.has_key?(@password_changeset.errors, :password_confirmation)} class="label">
                     <span class="label-text-alt text-error">
-                      {translate_error(
-                        Keyword.get(@password_changeset.errors, :password_confirmation)
-                      )}
+                      {translate_error(Keyword.get(@password_changeset.errors, :password_confirmation))}
                     </span>
                   </label>
                 </div>
@@ -253,10 +238,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     placeholder="Enter current password"
                     required
                   />
-                  <label
-                    :if={Keyword.has_key?(@password_changeset.errors, :current_password)}
-                    class="label"
-                  >
+                  <label :if={Keyword.has_key?(@password_changeset.errors, :current_password)} class="label">
                     <span class="label-text-alt text-error">
                       {translate_error(Keyword.get(@password_changeset.errors, :current_password))}
                     </span>

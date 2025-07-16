@@ -21,9 +21,7 @@
               <tr>
                 <td>
                   <.link
-                    navigate={
-                      ~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"
-                    }
+                    navigate={~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"}
                     class="link link-primary font-medium"
                   >
                     {Map.get(packet, :sender, Map.get(packet, "sender", ""))}
@@ -36,9 +34,7 @@
                 </td>
                 <td>
                   <.link
-                    navigate={
-                      ~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"
-                    }
+                    navigate={~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"}
                     class="link link-primary font-medium"
                   >
                     {Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}

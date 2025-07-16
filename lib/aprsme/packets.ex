@@ -30,7 +30,9 @@ defmodule Aprsme.Packets do
 
       packet_attrs =
         sanitized_packet_data
-        |> Packet.extract_additional_data(sanitized_packet_data[:raw_packet] || sanitized_packet_data["raw_packet"] || "")
+        |> Packet.extract_additional_data(
+          sanitized_packet_data[:raw_packet] || sanitized_packet_data["raw_packet"] || ""
+        )
         |> normalize_packet_attrs()
         |> set_received_at()
         |> patch_lat_lon_from_data_extended()

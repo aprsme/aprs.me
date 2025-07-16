@@ -4,6 +4,7 @@ defmodule AprsmeWeb.MapLive.BoundsManager do
   """
 
   alias AprsmeWeb.Live.Shared.BoundsUtils
+  alias AprsmeWeb.Live.Shared.PacketUtils
 
   # Delegate to shared utilities
   defdelegate calculate_bounds_from_center_and_zoom(center, zoom), to: BoundsUtils
@@ -19,6 +20,6 @@ defmodule AprsmeWeb.MapLive.BoundsManager do
   @spec filter_packets_by_time_and_bounds(map(), map(), DateTime.t()) :: map()
   def filter_packets_by_time_and_bounds(packets, bounds, time_threshold) do
     # Use shared packet utils for this functionality
-    AprsmeWeb.Live.Shared.PacketUtils.filter_packets_by_time_and_bounds(packets, bounds, time_threshold)
+    PacketUtils.filter_packets_by_time_and_bounds(packets, bounds, time_threshold)
   end
 end

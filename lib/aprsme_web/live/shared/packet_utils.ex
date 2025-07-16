@@ -4,6 +4,8 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
   Used across multiple LiveView modules for consistent packet handling.
   """
 
+  alias AprsmeWeb.Live.Shared.BoundsUtils
+
   @doc """
   Get unique callsign key from packet.
   """
@@ -81,7 +83,7 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
   def filter_packets_by_time_and_bounds(packets, bounds, time_threshold) do
     packets
     |> Enum.filter(fn {_callsign, packet} ->
-      AprsmeWeb.Live.Shared.BoundsUtils.within_bounds?(packet, bounds) &&
+      BoundsUtils.within_bounds?(packet, bounds) &&
         packet_within_time_threshold?(packet, time_threshold)
     end)
     |> Map.new()

@@ -195,17 +195,8 @@ defmodule AprsmeWeb.CoreComponents do
         {@title}
       </p>
       <p class="mt-2 text-[0.8125rem] leading-5">{msg}</p>
-      <button
-        :if={@close}
-        type="button"
-        class="group absolute top-2 right-1 p-2"
-        aria-label={gettext("close")}
-      >
-        <.icon
-          name="x-mark"
-          outline={false}
-          class="h-5 w-5 stroke-current opacity-40 group-hover:opacity-70"
-        />
+      <button :if={@close} type="button" class="group absolute top-2 right-1 p-2" aria-label={gettext("close")}>
+        <.icon name="x-mark" outline={false} class="h-5 w-5 stroke-current opacity-40 group-hover:opacity-70" />
       </button>
     </div>
     """
@@ -463,18 +454,10 @@ defmodule AprsmeWeb.CoreComponents do
         <div class="dropdown dropdown-end">
           <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </div>
-          <ul
-            tabindex="0"
-            class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52"
-          >
+          <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
             <.navigation variant={:vertical} current_user={@current_user} />
           </ul>
         </div>
@@ -576,11 +559,7 @@ defmodule AprsmeWeb.CoreComponents do
           </tr>
         </thead>
         <tbody class="relative divide-y divide-zinc-100 border-t border-zinc-200 text-sm leading-6 text-zinc-700">
-          <tr
-            :for={row <- @rows}
-            id={"#{@id}-#{safe_row_id(row)}"}
-            class="relative group hover:bg-zinc-50"
-          >
+          <tr :for={row <- @rows} id={"#{@id}-#{safe_row_id(row)}"} class="relative group hover:bg-zinc-50">
             <td
               :for={{col, i} <- Enum.with_index(@col)}
               phx-click={@row_click && @row_click.(row)}
@@ -653,10 +632,7 @@ defmodule AprsmeWeb.CoreComponents do
   def back(assigns) do
     ~H"""
     <div class="mt-16">
-      <.link
-        navigate={@navigate}
-        class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700"
-      >
+      <.link navigate={@navigate} class="text-sm font-semibold leading-6 text-zinc-900 hover:text-zinc-700">
         <.icon name="arrow-left" outline={false} class="w-3 h-3 stroke-current inline" />
         {render_slot(@inner_block)}
       </.link>

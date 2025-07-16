@@ -330,10 +330,10 @@ defmodule Aprsme.ErrorHandler do
 
   defp categorize_and_handle_error(error, context) do
     cond do
-      is_database_error?(error) ->
+      database_error?(error) ->
         handle_database_error(error, context)
 
-      is_network_error?(error) ->
+      network_error?(error) ->
         handle_network_error(error, :unknown_service, context)
 
       true ->
@@ -349,19 +349,19 @@ defmodule Aprsme.ErrorHandler do
     end
   end
 
-  defp is_database_error?(%CastError{}), do: true
-  defp is_database_error?(%Ecto.ConstraintError{}), do: true
-  defp is_database_error?(%Postgrex.Error{}), do: true
-  defp is_database_error?(%DBConnection.ConnectionError{}), do: true
-  defp is_database_error?(%Ecto.QueryError{}), do: true
-  defp is_database_error?(_), do: false
+  defp database_error?(%CastError{}), do: true
+  defp database_error?(%Ecto.ConstraintError{}), do: true
+  defp database_error?(%Postgrex.Error{}), do: true
+  defp database_error?(%DBConnection.ConnectionError{}), do: true
+  defp database_error?(%Ecto.QueryError{}), do: true
+  defp database_error?(_), do: false
 
-  defp is_network_error?(%Req.TransportError{}), do: true
-  defp is_network_error?(%{reason: :circuit_open}), do: true
-  defp is_network_error?(%{reason: :timeout}), do: true
-  defp is_network_error?(%RuntimeError{message: "circuit_open"}), do: true
-  defp is_network_error?(%RuntimeError{message: "timeout"}), do: true
-  defp is_network_error?(_), do: false
+  defp network_error?(%Req.TransportError{}), do: true
+  defp network_error?(%{reason: :circuit_open}), do: true
+  defp network_error?(%{reason: :timeout}), do: true
+  defp network_error?(%RuntimeError{message: "circuit_open"}), do: true
+  defp network_error?(%RuntimeError{message: "timeout"}), do: true
+  defp network_error?(_), do: false
 
   defp store_bad_packet(packet_data, reason) do
     # This would store the bad packet for later analysis

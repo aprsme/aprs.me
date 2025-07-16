@@ -18,13 +18,7 @@ defmodule AprsmeWeb.UserConfirmationInstructionsLive do
                 Enter your email address to receive a new confirmation link
               </p>
 
-              <.simple_form
-                :let={_f}
-                for={%{}}
-                as={:user}
-                id="resend_confirmation_form"
-                phx-submit="send_instructions"
-              >
+              <.simple_form :let={_f} for={%{}} as={:user} id="resend_confirmation_form" phx-submit="send_instructions">
                 <div class="form-control w-full">
                   <label class="label">
                     <span class="label-text">Email</span>

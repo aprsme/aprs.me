@@ -31,7 +31,8 @@ defmodule AprsmeWeb.TimeHelpers do
   defp format_time_diff(seconds) when seconds < 2_592_000, do: gettext("%{count} days", count: div(seconds, 86_400))
   defp format_time_diff(seconds) when seconds < 5_184_000, do: gettext("1 month")
 
-  defp format_time_diff(seconds) when seconds < 31_536_000, do: gettext("%{count} months", count: div(seconds, 2_592_000))
+  defp format_time_diff(seconds) when seconds < 31_536_000,
+    do: gettext("%{count} months", count: div(seconds, 2_592_000))
 
   defp format_time_diff(seconds) when seconds < 63_072_000, do: gettext("1 year")
   defp format_time_diff(seconds), do: gettext("%{count} years", count: div(seconds, 31_536_000))

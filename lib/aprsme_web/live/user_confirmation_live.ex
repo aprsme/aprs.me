@@ -14,21 +14,11 @@ defmodule AprsmeWeb.UserConfirmationLive do
               <h1 class="card-title text-3xl mb-4 justify-center">Confirm your account</h1>
               <p class="text-base-content/70 mb-6">Click the button below to confirm your account</p>
 
-              <.simple_form
-                :let={_f}
-                for={%{}}
-                as={:user}
-                id="confirmation_form"
-                phx-submit="confirm_account"
-              >
+              <.simple_form :let={_f} for={%{}} as={:user} id="confirmation_form" phx-submit="confirm_account">
                 <input type="hidden" name="user[token]" value={@token} />
 
                 <div class="form-control mt-6">
-                  <button
-                    type="submit"
-                    class="btn btn-primary w-full"
-                    phx-disable-with="Confirming..."
-                  >
+                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Confirming...">
                     Confirm my account
                   </button>
                 </div>

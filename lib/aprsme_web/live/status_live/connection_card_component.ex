@@ -97,9 +97,7 @@ defmodule AprsmeWeb.StatusLive.ConnectionCardComponent do
                 <span class="text-sm font-medium opacity-70 mr-2">Last Packet:</span>
                 <span class="text-sm">
                   <%= if @aprs_status.packet_stats.last_packet_at do %>
-                    {AprsmeWeb.StatusLive.Index.format_time_ago(
-                      @aprs_status.packet_stats.last_packet_at
-                    )}
+                    {AprsmeWeb.StatusLive.Index.format_time_ago(@aprs_status.packet_stats.last_packet_at)}
                   <% else %>
                     <span class="opacity-50">None</span>
                   <% end %>

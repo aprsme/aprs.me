@@ -80,8 +80,9 @@ defmodule AprsmeWeb.Live.Shared.ParamUtils do
   """
   @spec finite?(float() | any()) :: boolean()
   def finite?(float) when is_float(float) do
-    # NaN != NaN
-    float != :infinity and float != :neg_infinity and float == float
+    # In Elixir, we can't have infinity or NaN in regular floats
+    # This function is kept for API compatibility
+    true
   end
 
   def finite?(_), do: false

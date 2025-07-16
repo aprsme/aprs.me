@@ -88,7 +88,10 @@ defmodule AprsmeWeb.Telemetry do
         description: "Number of successful inserts per batch"
       ),
       summary("aprsme.packet_pipeline.batch.error", unit: :event, description: "Number of errors per batch"),
-      summary("aprsme.packet_pipeline.batch.duration_ms", unit: :millisecond, description: "Batch insert duration (ms)"),
+      summary("aprsme.packet_pipeline.batch.duration_ms",
+        unit: :millisecond,
+        description: "Batch insert duration (ms)"
+      ),
 
       # Note: SystemMonitor and InsertOptimizer metrics removed after reverting performance optimizations
 
@@ -100,7 +103,9 @@ defmodule AprsmeWeb.Telemetry do
       counter("aprsme.spatial_pubsub.broadcasts.filtered", description: "Broadcasts filtered by viewport"),
       counter("aprsme.spatial_pubsub.broadcasts.packets", description: "Total packets processed"),
       last_value("aprsme.spatial_pubsub.efficiency.ratio", unit: :percent, description: "Broadcast efficiency ratio"),
-      counter("aprsme.spatial_pubsub.efficiency.saved_broadcasts", description: "Number of broadcasts saved by filtering")
+      counter("aprsme.spatial_pubsub.efficiency.saved_broadcasts",
+        description: "Number of broadcasts saved by filtering"
+      )
     ]
   end
 

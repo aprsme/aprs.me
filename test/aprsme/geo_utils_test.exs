@@ -64,7 +64,7 @@ defmodule Aprsme.GeoUtilsTest do
       # With 3 meter threshold, should be significant
       assert GeoUtils.significant_movement?(lat1, lon1, lat2, lon2, 3)
 
-      # With 10 meter threshold (default), should not be significant  
+      # With 10 meter threshold (default), should not be significant
       refute GeoUtils.significant_movement?(lat1, lon1, lat2, lon2, 10)
 
       # With 20 meter threshold, definitely not significant

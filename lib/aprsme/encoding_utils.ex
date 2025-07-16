@@ -56,7 +56,7 @@ defmodule Aprsme.EncodingUtils do
         [codepoint] ->
           # Allow printable characters and common whitespace
           # Remove C0 controls (0x00-0x1F except tab, newline, carriage return)
-          # Remove C1 controls (0x80-0x9F) 
+          # Remove C1 controls (0x80-0x9F)
           # Remove DEL (0x7F)
           cond do
             # Tab
@@ -138,8 +138,9 @@ defmodule Aprsme.EncodingUtils do
 
   # Helper to check if a float is finite (not infinity or NaN)
   defp finite_float?(float) when is_float(float) do
-    # NaN != NaN
-    float != :infinity and float != :neg_infinity and float == float
+    # In Elixir, we can't have infinity or NaN in regular floats
+    # This function is kept for defensive programming
+    true
   end
 
   defp finite_float?(_), do: false

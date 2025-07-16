@@ -64,7 +64,11 @@ defmodule AprsmeWeb.StatusLive.Index do
   def handle_info({:aprs_status_update, status}, socket) do
     # Handle real-time status updates via PubSub
     socket =
-      assign(socket, aprs_status: status, current_time: DateTime.utc_now(), health_score: calculate_health_score(status))
+      assign(socket,
+        aprs_status: status,
+        current_time: DateTime.utc_now(),
+        health_score: calculate_health_score(status)
+      )
 
     {:noreply, socket}
   end

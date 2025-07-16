@@ -221,7 +221,11 @@ defmodule Aprsme.CircuitBreaker do
     }
   end
 
-  defp calculate_current_state(%{state: :open, last_failure_time: last_failure_time, recovery_timeout: recovery_timeout}) do
+  defp calculate_current_state(%{
+         state: :open,
+         last_failure_time: last_failure_time,
+         recovery_timeout: recovery_timeout
+       }) do
     if last_failure_time && DateTime.diff(DateTime.utc_now(), last_failure_time, :millisecond) >= recovery_timeout do
       :half_open
     else

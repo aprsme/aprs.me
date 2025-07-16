@@ -11,8 +11,8 @@ defmodule AprsmeWeb.Live.Shared.BoundsUtils do
   """
   @spec valid_bounds?(map()) :: boolean()
   def valid_bounds?(%{north: north, south: south, east: east, west: west})
-      when is_number(north) and is_number(south) and is_number(east) and is_number(west) and north <= 90 and south >= -90 and
-             north > south and east >= -180 and west <= 180, do: true
+      when is_number(north) and is_number(south) and is_number(east) and is_number(west) and north <= 90 and
+             south >= -90 and north > south and east >= -180 and west <= 180, do: true
 
   def valid_bounds?(_invalid_bounds), do: false
 
