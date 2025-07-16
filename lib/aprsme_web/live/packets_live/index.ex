@@ -27,7 +27,7 @@ defmodule AprsmeWeb.PacketsLive.Index do
 
   @impl true
   def handle_info({:postgres_packet, payload}, socket) do
-    sanitized_payload = Aprsme.EncodingUtils.sanitize_packet(payload)
+    sanitized_payload = EncodingUtils.sanitize_packet(payload)
     packets = Enum.take([sanitized_payload | socket.assigns.packets], 100)
     socket = assign(socket, :packets, packets)
     {:noreply, socket}

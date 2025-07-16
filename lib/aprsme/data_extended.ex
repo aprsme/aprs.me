@@ -26,7 +26,7 @@ defmodule Aprsme.DataExtended do
   @type t :: %__MODULE__{}
 
   @doc false
-  @spec changeset(Aprsme.DataExtended.t(), map()) :: Ecto.Changeset.t()
+  @spec changeset(DataExtended.t(), map()) :: Ecto.Changeset.t()
   def changeset(%DataExtended{} = data_extended, attrs) do
     data_extended
     |> cast(attrs, [

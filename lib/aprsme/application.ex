@@ -25,6 +25,8 @@ defmodule Aprsme.Application do
       Aprsme.Repo,
       # Start the PubSub system
       {Phoenix.PubSub, name: Aprsme.PubSub},
+      # Start the rate limiter
+      Aprsme.RateLimiter,
       # Start cache systems
       %{id: :query_cache, start: {Cachex, :start_link, [:query_cache, [limit: 10_000]]}},
       %{id: :device_cache, start: {Cachex, :start_link, [:device_cache, [limit: 5_000]]}},

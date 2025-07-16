@@ -3,7 +3,7 @@ defmodule Aprsme.DeviceIdentificationTest do
 
   alias Aprsme.DeviceIdentification
 
-  doctest Aprsme.DeviceIdentification
+  doctest DeviceIdentification
 
   describe "identify_device/1" do
     test "identifies Original MIC-E devices" do
@@ -98,7 +98,7 @@ defmodule Aprsme.DeviceIdentificationTest do
       Aprsme.DevicesSeeder.seed_from_json()
 
       # Should match
-      found = Aprsme.DeviceIdentification.lookup_device_by_identifier("APSK21")
+      found = DeviceIdentification.lookup_device_by_identifier("APSK21")
       assert found != nil
       assert found.identifier == "APS???"
       assert found.model != nil
@@ -110,7 +110,7 @@ defmodule Aprsme.DeviceIdentificationTest do
       Aprsme.DevicesSeeder.seed_from_json()
 
       # The device identifier extracted from the raw packet is "]="
-      found = Aprsme.DeviceIdentification.lookup_device_by_identifier("]=")
+      found = DeviceIdentification.lookup_device_by_identifier("]=")
       assert found != nil
       assert found.identifier == "]="
       assert found.model != nil

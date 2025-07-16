@@ -4,7 +4,7 @@ defmodule Aprsme.EncodingUtilsTest do
   alias Aprsme.EncodingUtils
   alias Aprsme.Packet
 
-  doctest Aprsme.EncodingUtils
+  doctest EncodingUtils
 
   describe "sanitize_string/1" do
     test "handles nil input" do

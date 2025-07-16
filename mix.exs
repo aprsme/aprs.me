@@ -92,10 +92,10 @@ defmodule Aprsme.MixProject do
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
       {:igniter, "~> 0.6", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
-      {:styler, "~> 1.4.2", only: [:dev, :test], runtime: false},
+      {:styler, "~> 1.5.0", only: [:dev, :test], runtime: false},
       {:httpoison, "~> 1.8"},
-      {:hammer, "~> 6.0"},
-      {:cachex, "~> 3.4"},
+      {:hammer, "~> 7.0"},
+      {:cachex, "~> 4.1"},
       {:gettext_pseudolocalize, "~> 0.1"}
     ]
   end

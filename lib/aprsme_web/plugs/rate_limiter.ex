@@ -27,11 +27,11 @@ defmodule AprsmeWeb.Plugs.RateLimiter do
     limit = opts[:limit]
     error_message = opts[:error_message]
 
-    case Hammer.check_rate("rate_limit:#{key}", scale, limit) do
+    case Aprsme.RateLimiter.hit("rate_limit:#{key}", scale, limit) do
       {:allow, _count} ->
         conn
 
-      {:deny, _count} ->
+      {:deny, _retry_after} ->
         conn
         |> put_status(:too_many_requests)
         |> json(%{error: error_message})
