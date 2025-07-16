@@ -304,7 +304,6 @@
 
 /* Historical trail line styling */
 .historical-trail-line {
-    stroke: #1e90ff;
     stroke-width: 3;
     stroke-opacity: 0.8;
     stroke-linecap: round;
@@ -317,7 +316,7 @@
 .historical-trail-line:hover {
     stroke-width: 5;
     stroke-opacity: 1;
-    filter: drop-shadow(0 0 4px #1e90ff);
+    filter: drop-shadow(0 0 4px currentColor);
     z-index: 2;
 }
 

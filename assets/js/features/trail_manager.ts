@@ -15,6 +15,7 @@ export interface TrailState {
   positions: PositionHistory[];
   trail?: Polyline;
   dots?: CircleMarker[];
+  color?: string;
 }
 
 export class TrailManager {
@@ -24,6 +25,24 @@ export class TrailManager {
   private trailDuration: number; // in milliseconds
   private maxTrails: number = 500; // Maximum number of trails to keep in memory
   private maxPositionsPerTrail: number = 1000; // Maximum positions per trail
+  private colorPalette: string[] = [
+    '#1E90FF', // Dodger Blue
+    '#00CED1', // Dark Turquoise
+    '#32CD32', // Lime Green
+    '#8B008B', // Dark Magenta
+    '#9370DB', // Medium Purple
+    '#FF8C00', // Dark Orange
+    '#4682B4', // Steel Blue
+    '#00FA9A', // Medium Spring Green
+    '#DA70D6', // Orchid
+    '#008B8B', // Dark Cyan
+    '#48D1CC', // Medium Turquoise
+    '#228B22', // Forest Green
+    '#6495ED', // Cornflower Blue
+    '#FF1493', // Deep Pink (distinct from highways)
+    '#20B2AA', // Light Sea Green
+  ];
+  private proximityThreshold: number = 0.05; // ~5.5km at equator
 
   constructor(trailLayer: LayerGroup, trailDuration: number = 60 * 60 * 1000) {
     this.trailLayer = trailLayer;
@@ -40,9 +59,19 @@ export class TrailManager {
   setShowTrails(show: boolean) {
     this.showTrails = show;
     if (!show) {
-      this.clearAllTrails();
+      // When hiding trails, just remove them from the layer but keep the data
+      this.trails.forEach((trailState) => {
+        if (trailState.trail) {
+          this.trailLayer.removeLayer(trailState.trail);
+          trailState.trail = undefined;
+        }
+        if (trailState.dots) {
+          trailState.dots.forEach((dot) => this.trailLayer.removeLayer(dot));
+          trailState.dots = [];
+        }
+      });
     } else {
-      // When re-enabling trails, recreate all trails immediately
+      // When re-enabling trails, recreate all trails immediately, preserving colors
       this.trails.forEach((trailState, baseCallsign) => {
         this.updateTrailVisualization(baseCallsign, trailState, true);
       });
@@ -129,6 +158,69 @@ export class TrailManager {
     return id;
   }
 
+  // Calculate distance between two points using Haversine formula
+  private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  // Get the average position of a trail
+  private getTrailCenter(positions: PositionHistory[]): { lat: number, lng: number } {
+    if (positions.length === 0) return { lat: 0, lng: 0 };
+    
+    const sum = positions.reduce((acc, pos) => ({
+      lat: acc.lat + pos.lat,
+      lng: acc.lng + pos.lng
+    }), { lat: 0, lng: 0 });
+    
+    return {
+      lat: sum.lat / positions.length,
+      lng: sum.lng / positions.length
+    };
+  }
+
+  // Find nearby trails and get their colors
+  private getNearbyTrailColors(baseCallsign: string, center: { lat: number, lng: number }): Set<string> {
+    const nearbyColors = new Set<string>();
+    
+    this.trails.forEach((trailState, callsign) => {
+      if (callsign === baseCallsign || !trailState.color || trailState.positions.length === 0) return;
+      
+      const otherCenter = this.getTrailCenter(trailState.positions);
+      const distance = this.calculateDistance(center.lat, center.lng, otherCenter.lat, otherCenter.lng);
+      
+      if (distance < this.proximityThreshold * 111) { // Convert degrees to km (rough approximation)
+        nearbyColors.add(trailState.color);
+      }
+    });
+    
+    return nearbyColors;
+  }
+
+  // Assign a color to a trail based on nearby trails
+  private assignTrailColor(baseCallsign: string, positions: PositionHistory[]): string {
+    if (positions.length === 0) return this.colorPalette[0];
+    
+    const center = this.getTrailCenter(positions);
+    const nearbyColors = this.getNearbyTrailColors(baseCallsign, center);
+    
+    // Find the first available color not used by nearby trails
+    for (const color of this.colorPalette) {
+      if (!nearbyColors.has(color)) {
+        return color;
+      }
+    }
+    
+    // If all colors are used, return the first color
+    return this.colorPalette[0];
+  }
+
   private updateTrailVisualization(
     baseCallsign: string,
     trailState: TrailState,
@@ -147,10 +239,15 @@ export class TrailManager {
     if (trailState.positions.length >= 2) {
       const latLngs: [number, number][] = trailState.positions.map((pos) => [pos.lat, pos.lng]);
 
-      // Create blue polyline connecting the historical position dots
+      // Assign color if not already assigned
+      if (!trailState.color) {
+        trailState.color = this.assignTrailColor(baseCallsign, trailState.positions);
+      }
+
+      // Create polyline with assigned color
       // For historical positions (immediate=true), use higher opacity for better visibility
       const polylineOptions: PolylineOptions = {
-        color: "#1E90FF",
+        color: trailState.color,
         weight: 3,
         opacity: immediate ? 0.9 : 0.8,
         smoothFactor: 1,
