@@ -8,7 +8,7 @@ declare namespace L {
     remove(): void;
     invalidateSize(options?: { animate?: boolean; pan?: boolean }): this;
     whenReady(callback: () => void): this;
-    on(event: string, handler: (e: any) => void): this;
+    on(event: string, handler: (e: import('./leaflet-events').LeafletEvent) => void): this;
   }
 
   interface MapOptions {

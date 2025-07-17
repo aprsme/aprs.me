@@ -1,5 +1,7 @@
 // Import Chart.js types
 import type { Chart, ChartConfiguration, ChartType } from 'chart.js';
+import type { WeatherChartDataset, YAxisOptions } from '../types/chart-types';
+import type { HandleEventFunction } from '../types/events';
 
 // Declare global Chart object from CDN
 declare global {
@@ -15,7 +17,7 @@ interface Hook {
     updated?: () => void;
     destroyed?: () => void;
     el: HTMLElement;
-    handleEvent: (event: string, handler: (payload: any) => void) => void;
+    handleEvent: HandleEventFunction;
 }
 
 // Define chart hook context type
@@ -106,10 +108,10 @@ const getLabels = (el: HTMLElement | null): Record<string, string> => {
 // Chart configurations
 interface ChartConfig {
     type: ChartType;
-    datasets: (data: WeatherHistoryDatum[], labels: Record<string, string>) => any[];
+    datasets: (data: WeatherHistoryDatum[], labels: Record<string, string>) => WeatherChartDataset[];
     title: (labels: Record<string, string>) => string;
     yAxisLabel?: (labels: Record<string, string>) => string;
-    yAxisOptions?: any;
+    yAxisOptions?: YAxisOptions;
 }
 
 const chartConfigs: Record<string, ChartConfig> = {

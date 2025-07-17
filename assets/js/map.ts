@@ -7,14 +7,20 @@ import type {
   MarkerState, 
   MapEventData 
 } from './types/map';
-import type { Map as LeafletMap, Marker, TileLayer, LayerGroup, DivIcon, LatLngBounds } from 'leaflet';
+import type { Map as LeafletMap, Marker, TileLayer, LayerGroup, DivIcon, LatLngBounds, Polyline } from 'leaflet';
+import type { HeatLayer, MarkerClusterGroup, OverlappingMarkerSpiderfier, MarkerClusterGroupOptions, HeatLayerOptions, MarkerCluster, HeatLatLng } from './types/leaflet-plugins';
+import type { APRSMarker } from './types/marker-extensions';
+import type { BaseEventPayload } from './types/events';
 
 // Declare Leaflet as a global variable with proper typing
 declare const L: typeof import('leaflet') & {
-  heatLayer?: (latlngs: Array<[number, number, number?]>, options?: any) => any;
-  markerClusterGroup?: (options?: any) => any;
+  heatLayer?: (latlngs: HeatLatLng[], options?: HeatLayerOptions) => HeatLayer;
+  markerClusterGroup?: (options?: MarkerClusterGroupOptions) => MarkerClusterGroup;
 };
-declare const OverlappingMarkerSpiderfier: any;
+
+// Import OverlappingMarkerSpiderfier constructor
+import { OverlappingMarkerSpiderfier as OMSConstructor } from './types/leaflet-plugins';
+declare const OverlappingMarkerSpiderfier: typeof OMSConstructor;
 
 // Import trail management functionality
 import { TrailManager } from "./features/trail_manager";
@@ -207,7 +213,7 @@ let MapAPRSMap = {
     }
 
     // Store markers for management
-    self.markers = new Map<string, any>();
+    self.markers = new Map<string, APRSMarker>();
     
     // Create marker cluster group for medium zoom levels (9-14)
     if (L.markerClusterGroup) {
@@ -218,7 +224,7 @@ let MapAPRSMap = {
         removeOutsideVisibleBounds: true,
         disableClusteringAtZoom: 11, // Show individual markers at zoom 11+
         maxClusterRadius: 80,
-        iconCreateFunction: function(cluster: any) {
+        iconCreateFunction: function(cluster: MarkerCluster) {
           const count = cluster.getChildCount();
           let size = 'small';
           let className = 'marker-cluster-small';
@@ -300,7 +306,7 @@ let MapAPRSMap = {
           setTimeout(() => {
             if (self.map && self.pushEvent && !self.isDestroyed) {
               console.log("Sending initial update_map_state for historical loading");
-              saveMapState(self.map, (event: string, payload: any) => self.pushEvent(event, payload));
+              saveMapState(self.map, (event: string, payload: BaseEventPayload) => self.pushEvent(event, payload));
             }
           }, 500);
         } else {
@@ -314,7 +320,7 @@ let MapAPRSMap = {
               setTimeout(() => {
                 if (self.map && self.pushEvent && !self.isDestroyed) {
                   console.log("Sending initial update_map_state for historical loading (retry path)");
-                  saveMapState(self.map, (event: string, payload: any) => self.pushEvent(event, payload));
+                  saveMapState(self.map, (event: string, payload: BaseEventPayload) => self.pushEvent(event, payload));
                 }
               }, 500);
             }
@@ -441,16 +447,16 @@ let MapAPRSMap = {
       });
       
       // Add click handler for spiderfied markers
-      self.oms.addListener('click', function(marker: any) {
+      self.oms.addListener('click', function(marker: Marker) {
         if (marker.openPopup) marker.openPopup();
       });
       
       // Style the spider legs
-      self.oms.addListener('spiderfy', function(markers: any) {
+      self.oms.addListener('spiderfy', function(markers: Marker[]) {
         self.map.closePopup();
       });
       
-      self.oms.addListener('unspiderfy', function(markers: any) {
+      self.oms.addListener('unspiderfy', function(markers: Marker[]) {
         // Markers return to normal positions
       });
     }
@@ -726,7 +732,7 @@ let MapAPRSMap = {
             existingMarker.setIcon(self.createMarkerIcon(historicalIconData));
 
             // Mark as historical
-            (existingMarker as any)._isHistorical = true;
+            (existingMarker as APRSMarker)._isHistorical = true;
           }
         });
       }
@@ -870,10 +876,10 @@ let MapAPRSMap = {
       console.log("Clearing historical packets");
       // Remove only historical markers (preserve live markers and their trails)
       const markersToRemove: string[] = [];
-      self.markers!.forEach((marker: any, id: any) => {
+      self.markers!.forEach((marker: APRSMarker, id: string) => {
         const markerState = self.markerStates!.get(String(id));
         // Only remove markers that are explicitly historical
-        if ((marker as any)._isHistorical || (markerState && markerState.historical)) {
+        if ((marker as APRSMarker)._isHistorical || (markerState && markerState.historical)) {
           markersToRemove.push(String(id));
         }
       });
@@ -999,7 +1005,7 @@ let MapAPRSMap = {
     });
 
     // Handle heat map data for low zoom levels
-    self.handleEvent("show_heat_map", (data: { heat_points: Array<{lat: number, lng: number, intensity: number}> }) => {
+    self.handleEvent("show_heat_map", (data: { heat_points: HeatLatLng[] }) => {
       try {
         console.log("Received heat map data with", data.heat_points?.length || 0, "points");
         
@@ -1272,7 +1278,7 @@ let MapAPRSMap = {
 
     // Mark historical markers for identification
     if (data.historical) {
-      (marker as any)._isHistorical = true;
+      (marker as APRSMarker)._isHistorical = true;
     }
 
     // Add to map and store reference
@@ -1320,7 +1326,7 @@ let MapAPRSMap = {
     }
   },
 
-  removeMarker(id: string | any) {
+  removeMarker(id: string) {
     const self = this as unknown as LiveViewHookContext;
     // Ensure id is a string
     const markerId = typeof id === "string" ? id : String(id);
@@ -1400,7 +1406,7 @@ let MapAPRSMap = {
     // Identify historical markers and most recent markers to preserve
     self.markers!.forEach((marker, id) => {
       const markerState = self.markerStates!.get(String(id));
-      const isHistorical = (marker as any)._isHistorical || (markerState && markerState.historical);
+      const isHistorical = (marker as APRSMarker)._isHistorical || (markerState && markerState.historical);
       const isMostRecent = markerState && markerState.is_most_recent_for_callsign;
 
       // Keep historical markers and current position markers
@@ -1447,7 +1453,7 @@ let MapAPRSMap = {
     self.markers!.forEach((marker: L.Marker, id: string) => {
       // Check if this is a historical marker or the most recent marker for a callsign
       const markerState = self.markerStates!.get(String(id));
-      const isHistorical = (marker as any)._isHistorical || (markerState && markerState.historical);
+      const isHistorical = (marker as APRSMarker)._isHistorical || (markerState && markerState.historical);
       const isMostRecent = markerState && markerState.is_most_recent_for_callsign;
 
       // Always preserve historical markers and the most recent marker for a callsign
@@ -1482,7 +1488,7 @@ let MapAPRSMap = {
     markersToRemove.forEach((id) => self.removeMarkerWithoutTrail(String(id)));
   },
 
-  removeMarkerWithoutTrail(id: string | any) {
+  removeMarkerWithoutTrail(id: string) {
     const self = this as unknown as LiveViewHookContext;
     // Ensure id is a string
     const markerId = typeof id === "string" ? id : String(id);
@@ -1504,7 +1510,7 @@ let MapAPRSMap = {
     if (data.is_most_recent_for_callsign) {
       // Remove any historical dot at the same position for this callsign
       if (self.markers && self.markerStates) {
-        self.markers.forEach((marker: any, id: string) => {
+        self.markers.forEach((marker: APRSMarker, id: string) => {
           const state = self.markerStates!.get(String(id));
           if (
             state &&
@@ -1667,7 +1673,7 @@ let MapAPRSMap = {
     
     // Remove all event listeners from markers before clearing layers
     if (self.markers !== undefined) {
-      self.markers.forEach((marker: any) => {
+      self.markers.forEach((marker: APRSMarker) => {
         try {
           marker.off(); // Remove all event listeners
           if (marker.getPopup()) {

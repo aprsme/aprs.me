@@ -1,17 +1,20 @@
 // Type definitions for APRS Map application
 
-import type { Map as LeafletMap, Marker, LatLng, LatLngBounds, DivIcon, LayerGroup, Popup } from 'leaflet';
+import type { Map as LeafletMap, Marker, LatLng, LatLngBounds, DivIcon, LayerGroup, Popup, Polyline } from 'leaflet';
+import type { HeatLayer, MarkerClusterGroup, OverlappingMarkerSpiderfier } from './leaflet-plugins';
+import type { PushEventFunction, HandleEventFunction } from './events';
+import type { TrailManager } from '../features/trail_manager';
 
 export interface LiveViewHookContext {
-  el: HTMLElement & { _leaflet_id?: any };
-  pushEvent: (event: string, payload: any) => void;
-  handleEvent: (event: string, callback: (data: any) => void) => void;
+  el: HTMLElement & { _leaflet_id?: number };
+  pushEvent: PushEventFunction;
+  handleEvent: HandleEventFunction;
   map?: LeafletMap;
   markers?: Map<string, Marker>;
   markerStates?: Map<string, MarkerState>;
   markerLayer?: LayerGroup;
-  heatLayer?: any; // L.heatLayer type
-  trailManager?: any; // Import from trail_manager.ts when typed
+  heatLayer?: HeatLayer;
+  trailManager?: TrailManager;
   boundsTimer?: ReturnType<typeof setTimeout>;
   resizeHandler?: () => void;
   errors?: string[];
@@ -19,7 +22,7 @@ export interface LiveViewHookContext {
   maxInitializationAttempts?: number;
   lastZoom?: number;
   currentPopupMarkerId?: string | null;
-  oms?: any; // OverlappingMarkerSpiderfier type
+  oms?: OverlappingMarkerSpiderfier;
   programmaticMoveId?: string;
   programmaticMoveTimeout?: ReturnType<typeof setTimeout>;
   cleanupInterval?: ReturnType<typeof setInterval>;
@@ -28,10 +31,9 @@ export interface LiveViewHookContext {
   popupNavigationHandler?: (e: Event) => void;
   moveEndHandler?: () => void;
   zoomEndHandler?: () => void;
-  rfPathLines?: any[]; // Array of Leaflet polylines and markers for RF path visualization
+  rfPathLines?: Array<Polyline | Marker>; // Array of Leaflet polylines and markers for RF path visualization
   trailLayer?: LayerGroup;
-  markerClusterGroup?: any;
-  [key: string]: any;
+  markerClusterGroup?: MarkerClusterGroup;
 }
 
 export interface MarkerData {

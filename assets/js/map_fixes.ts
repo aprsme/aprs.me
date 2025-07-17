@@ -1,9 +1,14 @@
 // Proposed fixes for map.ts issues
 
+import type { Map as LeafletMap } from 'leaflet';
+import type { LiveViewHookContext } from './types/map';
+import type { BaseEventPayload, PushEventFunction } from './types/events';
+import type { APRSMarker } from './types/marker-extensions';
+
 // 1. Extract duplicated functions
 export const MapHelpers = {
   // Centralized timestamp parsing
-  parseTimestamp(timestamp: any): number {
+  parseTimestamp(timestamp: string | number | undefined | null): number {
     if (!timestamp) return Date.now();
     
     if (typeof timestamp === "number") {
@@ -20,7 +25,7 @@ export const MapHelpers = {
   },
 
   // Centralized map state saving
-  saveMapState(map: any, pushEvent: Function) {
+  saveMapState(map: LeafletMap, pushEvent: PushEventFunction) {
     const center = map.getCenter();
     const zoom = map.getZoom();
     
@@ -47,7 +52,7 @@ export const MapHelpers = {
   },
 
   // Safe event pushing with connection check
-  safePushEvent(pushEvent: Function | undefined, event: string, payload: any) {
+  safePushEvent(pushEvent: PushEventFunction | undefined, event: string, payload: BaseEventPayload) {
     if (!pushEvent) return false;
     
     try {
@@ -83,8 +88,8 @@ export const setupMapWithCleanup = (self: ImprovedLiveViewHookContext) => {
   }, 5 * 60 * 1000);
   
   // Create wrapped event handlers that check if destroyed
-  const createSafeHandler = (handler: Function) => {
-    return (...args: any[]) => {
+  const createSafeHandler = <TArgs extends unknown[]>(handler: (...args: TArgs) => void) => {
+    return (...args: TArgs) => {
       if (!self.isDestroyed) {
         handler(...args);
       }
@@ -165,7 +170,7 @@ export const improvedDestroyed = (self: ImprovedLiveViewHookContext) => {
   
   // Remove all event listeners from markers before clearing layers
   if (self.markers !== undefined) {
-    self.markers.forEach((marker: any, id: string) => {
+    self.markers.forEach((marker: APRSMarker, id: string) => {
       try {
         marker.off(); // Remove all event listeners
         if (marker.getPopup()) {

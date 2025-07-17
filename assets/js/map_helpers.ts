@@ -1,6 +1,8 @@
 // Helper functions for map.ts to reduce code duplication
 
 import type * as L from 'leaflet';
+import type { BaseEventPayload, PushEventFunction } from './types/events';
+import type { LiveSocket } from './types/map';
 
 export interface MapState {
   lat: number;
@@ -39,8 +41,7 @@ export function getTrailId(data: { callsign_group?: string; callsign?: string; i
 /**
  * Save map state to localStorage and send to server
  */
-// Define the pushEvent function type
-type PushEventFunction = (event: string, payload: Record<string, any>) => void;
+// PushEventFunction is now imported from types/events
 
 export function saveMapState(map: L.Map, pushEvent: PushEventFunction) {
   if (!map || !pushEvent) {
@@ -89,7 +90,7 @@ export function saveMapState(map: L.Map, pushEvent: PushEventFunction) {
 /**
  * Safely push event to LiveView
  */
-export function safePushEvent(pushEvent: PushEventFunction | undefined, event: string, payload: Record<string, any>): boolean {
+export function safePushEvent<T extends BaseEventPayload = BaseEventPayload>(pushEvent: PushEventFunction | undefined, event: string, payload: T): boolean {
   if (!pushEvent || typeof pushEvent !== 'function') {
     console.debug(`pushEvent not available for ${event} event`);
     return false;
@@ -108,16 +109,12 @@ export function safePushEvent(pushEvent: PushEventFunction | undefined, event: s
  * Check if LiveView socket is available
  */
 export function isLiveViewConnected(): boolean {
-  return typeof window !== 'undefined' && !!(window as any).liveSocket;
+  return typeof window !== 'undefined' && !!window.liveSocket;
 }
 
 /**
  * Get LiveView socket
  */
-interface LiveSocket {
-  pushHistoryPatch(href: string, type: string, target: HTMLElement): void;
-}
-
 export function getLiveSocket(): LiveSocket | null {
-  return typeof window !== 'undefined' ? (window as any).liveSocket : null;
+  return typeof window !== 'undefined' ? window.liveSocket || null : null;
 }
