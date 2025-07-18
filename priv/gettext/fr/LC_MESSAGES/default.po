@@ -11,113 +11,113 @@ msgstr ""
 "Language: fr\n"
 "Plural-Forms: nplurals=2; plural=(n>1);\n"
 
-#: lib/aprsme_web/components/core_components.ex:570
+#: lib/aprsme_web/components/core_components.ex:558
 #, elixir-autogen, elixir-format
 msgid "Actions"
 msgstr "Actions"
 
 #: lib/aprsme_web/components/core_components.ex:117
-#: lib/aprsme_web/components/core_components.ex:202
+#: lib/aprsme_web/components/core_components.ex:198
 #, elixir-autogen, elixir-format
 msgid "close"
 msgstr "fermer"
 
-#: lib/aprsme_web/time_helpers.ex:23
+#: lib/aprsme_web/time_helpers.ex:31
 #, elixir-autogen, elixir-format
 msgid "%{count} days"
 msgstr "%{count} jours"
 
-#: lib/aprsme_web/live/status_live/index.ex:324
+#: lib/aprsme_web/live/status_live/index.ex:392
 #, elixir-autogen, elixir-format
 msgid "%{count} days ago"
 msgstr "il y a %{count} jours"
 
-#: lib/aprsme_web/time_helpers.ex:21
+#: lib/aprsme_web/time_helpers.ex:29
 #, elixir-autogen, elixir-format
 msgid "%{count} hours"
 msgstr "%{count} heures"
 
-#: lib/aprsme_web/live/status_live/index.ex:323
+#: lib/aprsme_web/live/status_live/index.ex:391
 #, elixir-autogen, elixir-format
 msgid "%{count} hours ago"
 msgstr "il y a %{count} heures"
 
-#: lib/aprsme_web/time_helpers.ex:19
+#: lib/aprsme_web/time_helpers.ex:27
 #, elixir-autogen, elixir-format
 msgid "%{count} minutes"
 msgstr "%{count} minutes"
 
-#: lib/aprsme_web/live/status_live/index.ex:322
+#: lib/aprsme_web/live/status_live/index.ex:390
 #, elixir-autogen, elixir-format
 msgid "%{count} minutes ago"
 msgstr "il y a %{count} minutes"
 
-#: lib/aprsme_web/time_helpers.ex:26
+#: lib/aprsme_web/time_helpers.ex:35
 #, elixir-autogen, elixir-format
 msgid "%{count} months"
 msgstr "%{count} mois"
 
-#: lib/aprsme_web/live/status_live/index.ex:321
+#: lib/aprsme_web/live/status_live/index.ex:389
 #, elixir-autogen, elixir-format
 msgid "%{count} seconds ago"
 msgstr "il y a %{count} secondes"
 
-#: lib/aprsme_web/time_helpers.ex:29
+#: lib/aprsme_web/time_helpers.ex:38
 #, elixir-autogen, elixir-format
 msgid "%{count} years"
 msgstr "%{count} années"
 
-#: lib/aprsme_web/live/info_live/show.ex:477
+#: lib/aprsme_web/live/info_live/show.ex:822
 #, elixir-autogen, elixir-format
 msgid "%{element} (Digipeater)"
 msgstr "%{element} (Digipeater)"
 
-#: lib/aprsme_web/live/info_live/show.ex:481
+#: lib/aprsme_web/live/info_live/show.ex:826
 #, elixir-autogen, elixir-format
 msgid "%{element} (Station)"
 msgstr "%{element} (Station)"
 
-#: lib/aprsme_web/live/info_live/show.ex:485
+#: lib/aprsme_web/live/info_live/show.ex:830
 #, elixir-autogen, elixir-format
 msgid "%{element} (Unknown)"
 msgstr "%{element} (Inconnu)"
 
-#: lib/aprsme_web/time_helpers.ex:22
+#: lib/aprsme_web/time_helpers.ex:30
 #, elixir-autogen, elixir-format
 msgid "1 day"
 msgstr "1 jour"
 
-#: lib/aprsme_web/time_helpers.ex:20
+#: lib/aprsme_web/time_helpers.ex:28
 #, elixir-autogen, elixir-format
 msgid "1 hour"
 msgstr "1 heure"
 
-#: lib/aprsme_web/time_helpers.ex:18
+#: lib/aprsme_web/time_helpers.ex:26
 #, elixir-autogen, elixir-format
 msgid "1 minute"
 msgstr "1 minute"
 
-#: lib/aprsme_web/time_helpers.ex:24
+#: lib/aprsme_web/time_helpers.ex:32
 #, elixir-autogen, elixir-format
 msgid "1 month"
 msgstr "1 mois"
 
-#: lib/aprsme_web/time_helpers.ex:28
+#: lib/aprsme_web/time_helpers.ex:37
 #, elixir-autogen, elixir-format
 msgid "1 year"
 msgstr "1 année"
 
-#: lib/aprsme_web/live/status_live/index.ex:80
+#: lib/aprsme_web/live/status_live/index.ex:118
 #, elixir-autogen, elixir-format
 msgid "APRS-IS Connection"
 msgstr "Connexion APRS-IS"
 
-#: lib/aprsme_web/live/status_live/index.ex:68
+#: lib/aprsme_web/live/status_live/index.ex:106
 #, elixir-autogen, elixir-format
 msgid "APRS-IS Connection Issue"
 msgstr "Problème de connexion APRS-IS"
 
-#: lib/aprsme_web/live/status_live/index.ex:44
+#: lib/aprsme_web/live/status_live/index.ex:83
 #, elixir-autogen, elixir-format
 msgid "APRS.me System Status"
 msgstr "État du système APRS.me"
@@ -127,7 +127,7 @@ msgstr "État du système APRS.me"
 msgid "Access forbidden"
 msgstr "Accès interdit"
 
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:85
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:82
 #, elixir-autogen, elixir-format
 msgid "All packets are parsing successfully!"
 msgstr "Tous les paquets sont analysés avec succès !"
@@ -137,12 +137,12 @@ msgstr "Tous les paquets sont analysés avec succès !"
 msgid "An error occurred: %{reason}"
 msgstr "Une erreur s'est produite : %{reason}"
 
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:40
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:20
 #, elixir-autogen, elixir-format
 msgid "Attempted At"
 msgstr "Tenté à"
 
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:9
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:6
 #, elixir-autogen, elixir-format
 msgid "Auto-refreshes every 5 seconds"
 msgstr "Actualisation automatique toutes les 5 secondes"
@@ -153,47 +153,47 @@ msgstr "Actualisation automatique toutes les 5 secondes"
 msgid "Bad request"
 msgstr "Mauvaise requête"
 
-#: lib/aprsme_web/live/status_live/index.ex:89
+#: lib/aprsme_web/live/status_live/index.ex:127
 #, elixir-autogen, elixir-format
 msgid "Connected"
 msgstr "Connecté"
 
-#: lib/aprsme_web/live/status_live/index.ex:113
+#: lib/aprsme_web/live/status_live/index.ex:151
 #, elixir-autogen, elixir-format
 msgid "Connected Since:"
 msgstr "Connecté depuis :"
 
-#: lib/aprsme_web/live/status_live/index.ex:201
+#: lib/aprsme_web/live/status_live/index.ex:262
 #, elixir-autogen, elixir-format
 msgid "Connection Health:"
 msgstr "État de la connexion :"
 
-#: lib/aprsme_web/live/status_live/index.ex:94
+#: lib/aprsme_web/live/status_live/index.ex:132
 #, elixir-autogen, elixir-format
 msgid "Disconnected"
 msgstr "Déconnecté"
 
-#: lib/aprsme_web/live/status_live/index.ex:308
+#: lib/aprsme_web/live/status_live/index.ex:374
 #, elixir-autogen, elixir-format
 msgid "Disconnected - Connection issues detected"
 msgstr "Déconnecté - Problèmes de connexion détectés"
 
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:53
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:22
 #, elixir-autogen, elixir-format
 msgid "Error Message"
 msgstr "Message d'erreur"
 
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:48
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:21
 #, elixir-autogen, elixir-format
 msgid "Error Type"
 msgstr "Type d'erreur"
 
-#: lib/aprsme_web/live/status_live/index.ex:312
+#: lib/aprsme_web/live/status_live/index.ex:378
 #, elixir-autogen, elixir-format
 msgid "Excellent - Long-term stable connection"
 msgstr "Excellent - Connexion stable à long terme"
 
-#: lib/aprsme_web/live/status_live/index.ex:135
+#: lib/aprsme_web/live/status_live/index.ex:173
 #, elixir-autogen, elixir-format
 msgid "Filter:"
 msgstr "Filtre :"
@@ -203,7 +203,7 @@ msgstr "Filtre :"
 msgid "Forbidden"
 msgstr "Interdit"
 
-#: lib/aprsme_web/live/status_live/index.ex:310
+#: lib/aprsme_web/live/status_live/index.ex:376
 #, elixir-autogen, elixir-format
 msgid "Good - Connection stable for less than 1 hour"
 msgstr "Bon - Connexion stable depuis moins d'1 heure"
@@ -213,85 +213,85 @@ msgstr "Bon - Connexion stable depuis moins d'1 heure"
 msgid "Internal server error"
 msgstr "Erreur interne du serveur"
 
-#: lib/aprsme_web/live/status_live/index.ex:176
+#: lib/aprsme_web/live/status_live/index.ex:214
 #, elixir-autogen, elixir-format
 msgid "Last Packet:"
 msgstr "Dernier paquet :"
 
-#: lib/aprsme_web/live/status_live/index.ex:46
+#: lib/aprsme_web/live/status_live/index.ex:85
 #, elixir-autogen, elixir-format
 msgid "Last updated:"
 msgstr "Dernière mise à jour :"
 
-#: lib/aprsme_web/live/status_live/index.ex:107
+#: lib/aprsme_web/live/status_live/index.ex:145
 #, elixir-autogen, elixir-format
 msgid "Login ID:"
 msgstr "ID de connexion :"
 
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:84
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:81
 #, elixir-autogen, elixir-format
 msgid "No bad packets"
 msgstr "Aucun paquet défectueux"
 
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:55
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:44
 #, elixir-autogen, elixir-format
 msgid "No error message"
 msgstr "Aucun message d'erreur"
 
-#: lib/aprsme_web/live/status_live/index.ex:182
+#: lib/aprsme_web/live/status_live/index.ex:220
 #, elixir-autogen, elixir-format
 msgid "None"
 msgstr "Aucun"
 
-#: lib/aprsme_web/live/status_live/index.ex:119
-#: lib/aprsme_web/live/status_live/index.ex:276
+#: lib/aprsme_web/live/status_live/index.ex:157
+#: lib/aprsme_web/live/status_live/index.ex:342
 #, elixir-autogen, elixir-format
 msgid "Not connected"
 msgstr "Non connecté"
 
-#: lib/aprsme_web/live/status_live/index.ex:145
+#: lib/aprsme_web/live/status_live/index.ex:183
 #, elixir-autogen, elixir-format
 msgid "Packet Statistics"
 msgstr "Statistiques des paquets"
 
-#: lib/aprsme_web/live/status_live/index.ex:167
+#: lib/aprsme_web/live/status_live/index.ex:205
 #, elixir-autogen, elixir-format
 msgid "Packets/Min:"
 msgstr "Paquets/Min :"
 
-#: lib/aprsme_web/live/status_live/index.ex:158
+#: lib/aprsme_web/live/status_live/index.ex:196
 #, elixir-autogen, elixir-format
 msgid "Packets/Sec:"
 msgstr "Paquets/Sec :"
 
-#: lib/aprsme_web/live/info_live/show.ex:305
+#: lib/aprsme_web/live/info_live/show.ex:650
 #, elixir-autogen, elixir-format
 msgid "RELAY (Relay digipeater)"
 msgstr "RELAY (Digipeater relais)"
 
-#: lib/aprsme_web/live/info_live/show.ex:308
+#: lib/aprsme_web/live/info_live/show.ex:653
 #, elixir-autogen, elixir-format
 msgid "RELAY digipeater (%{element})"
 msgstr "Digipeater RELAY (%{element})"
 
-#: lib/aprsme_web/live/info_live/show.ex:306
+#: lib/aprsme_web/live/info_live/show.ex:651
 #, elixir-autogen, elixir-format
 msgid "RELAY-1 (Relay digipeater, 1 hop)"
 msgstr "RELAY-1 (Digipeater relais, 1 saut)"
 
-#: lib/aprsme_web/live/info_live/show.ex:307
+#: lib/aprsme_web/live/info_live/show.ex:652
 #, elixir-autogen, elixir-format
 msgid "RELAY-2 (Relay digipeater, 2 hops)"
 msgstr "RELAY-2 (Digipeater relais, 2 sauts)"
 
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:58
-#: lib/aprsme_web/live/info_live/show.html.heex:227
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:149
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:23
+#: lib/aprsme_web/live/info_live/show.html.heex:242
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:142
 #, elixir-autogen, elixir-format
 msgid "Raw Packet"
 msgstr "Paquet brut"
 
-#: lib/aprsme_web/live/status_live/index.ex:309
+#: lib/aprsme_web/live/status_live/index.ex:375
 #, elixir-autogen, elixir-format
 msgid "Recently connected - Monitoring stability"
 msgstr "Récemment connecté - Surveillance de la stabilité"
@@ -308,82 +308,82 @@ msgstr "Délai d'attente de la requête"
 msgid "Resource not found"
 msgstr "Ressource introuvable"
 
-#: lib/aprsme_web/live/status_live/index.ex:100
+#: lib/aprsme_web/live/status_live/index.ex:138
 #, elixir-autogen, elixir-format
 msgid "Server:"
 msgstr "Serveur :"
 
-#: lib/aprsme_web/live/status_live/index.ex:85
+#: lib/aprsme_web/live/status_live/index.ex:123
 #, elixir-autogen, elixir-format
 msgid "Status:"
 msgstr "Statut :"
 
-#: lib/aprsme_web/live/status_live/index.ex:189
+#: lib/aprsme_web/live/status_live/index.ex:227
 #, elixir-autogen, elixir-format
 msgid "Stored Packets:"
 msgstr "Paquets stockés :"
 
-#: lib/aprsme_web/live/info_live/show.ex:470
+#: lib/aprsme_web/live/info_live/show.ex:815
 #, elixir-autogen, elixir-format
 msgid "TCPIP (Internet gateway)"
 msgstr "TCPIP (Passerelle Internet)"
 
-#: lib/aprsme_web/live/info_live/show.ex:472
+#: lib/aprsme_web/live/info_live/show.ex:817
 #, elixir-autogen, elixir-format
 msgid "TCPIP gateway (%{element})"
 msgstr "Passerelle TCPIP (%{element})"
 
-#: lib/aprsme_web/live/info_live/show.ex:471
+#: lib/aprsme_web/live/info_live/show.ex:816
 #, elixir-autogen, elixir-format
 msgid "TCPIP* (Internet gateway, no forward)"
 msgstr "TCPIP* (Passerelle Internet, pas de transfert)"
 
-#: lib/aprsme_web/live/info_live/show.ex:299
+#: lib/aprsme_web/live/info_live/show.ex:644
 #, elixir-autogen, elixir-format
 msgid "TRACE digipeater (%{element})"
 msgstr "Digipeater TRACE (%{element})"
 
-#: lib/aprsme_web/live/info_live/show.ex:292
+#: lib/aprsme_web/live/info_live/show.ex:637
 #, elixir-autogen, elixir-format
 msgid "TRACE1-1 (Trace digipeater, 1 hop)"
 msgstr "TRACE1-1 (Digipeater trace, 1 saut)"
 
-#: lib/aprsme_web/live/info_live/show.ex:293
+#: lib/aprsme_web/live/info_live/show.ex:638
 #, elixir-autogen, elixir-format
 msgid "TRACE2-1 (Trace digipeater, 2 hops)"
 msgstr "TRACE2-1 (Digipeater trace, 2 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:294
+#: lib/aprsme_web/live/info_live/show.ex:639
 #, elixir-autogen, elixir-format
 msgid "TRACE3-1 (Trace digipeater, 3 hops)"
 msgstr "TRACE3-1 (Digipeater trace, 3 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:295
+#: lib/aprsme_web/live/info_live/show.ex:640
 #, elixir-autogen, elixir-format
 msgid "TRACE4-1 (Trace digipeater, 4 hops)"
 msgstr "TRACE4-1 (Digipeater trace, 4 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:296
+#: lib/aprsme_web/live/info_live/show.ex:641
 #, elixir-autogen, elixir-format
 msgid "TRACE5-1 (Trace digipeater, 5 hops)"
 msgstr "TRACE5-1 (Digipeater trace, 5 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:297
+#: lib/aprsme_web/live/info_live/show.ex:642
 #, elixir-autogen, elixir-format
 msgid "TRACE6-1 (Trace digipeater, 6 hops)"
 msgstr "TRACE6-1 (Digipeater trace, 6 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:298
+#: lib/aprsme_web/live/info_live/show.ex:643
 #, elixir-autogen, elixir-format
 msgid "TRACE7-1 (Trace digipeater, 7 hops)"
 msgstr "TRACE7-1 (Digipeater trace, 7 sauts)"
 
-#: lib/aprsme_web/live/status_live/index.ex:70
+#: lib/aprsme_web/live/status_live/index.ex:108
 #, elixir-autogen, elixir-format
 msgid "The system is currently disconnected from the APRS-IS network. This may be due to network issues or server maintenance."
 msgstr "Le système est actuellement déconnecté du réseau APRS-IS. Cela peut être dû à des problèmes réseau ou à la maintenance du serveur."
 
-#: lib/aprsme_web/live/status_live/index.ex:149
+#: lib/aprsme_web/live/status_live/index.ex:187
 #, elixir-autogen, elixir-format
 msgid "Total Packets:"
 msgstr "Total des paquets :"
@@ -398,16 +398,20 @@ msgstr "Non autorisé"
 msgid "Unauthorized access"
 msgstr "Accès non autorisé"
 
-#: lib/aprsme/device_identification.ex:56
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:50
-#: lib/aprsme_web/live/info_live/show.html.heex:143
+#: lib/aprsme/device_identification.ex:57
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:39
+#: lib/aprsme_web/live/info_live/show.ex:169
+#: lib/aprsme_web/live/info_live/show.ex:175
+#: lib/aprsme_web/live/info_live/show.html.heex:98
 #: lib/aprsme_web/live/info_live/show.html.heex:209
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:92
+#: lib/aprsme_web/live/info_live/show.html.heex:346
+#: lib/aprsme_web/live/info_live/show.html.heex:428
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:85
 #, elixir-autogen, elixir-format
 msgid "Unknown"
 msgstr "Inconnu"
 
-#: lib/aprsme_web/live/status_live/index.ex:313
+#: lib/aprsme_web/live/status_live/index.ex:379
 #, elixir-autogen, elixir-format
 msgid "Unknown status"
 msgstr "Statut inconnu"
@@ -417,12 +421,12 @@ msgstr "Statut inconnu"
 msgid "Unprocessable entity"
 msgstr "Entité non traitable"
 
-#: lib/aprsme_web/live/bad_packets_live/index.html.heex:35
+#: lib/aprsme_web/live/bad_packets_live/index.html.heex:11
 #, elixir-autogen, elixir-format
 msgid "Updating..."
 msgstr "Mise à jour..."
 
-#: lib/aprsme_web/live/status_live/index.ex:125
+#: lib/aprsme_web/live/status_live/index.ex:163
 #, elixir-autogen, elixir-format
 msgid "Uptime:"
 msgstr "Temps de fonctionnement :"
@@ -432,107 +436,107 @@ msgstr "Temps de fonctionnement :"
 msgid "Validation failed"
 msgstr "Échec de la validation"
 
-#: lib/aprsme_web/live/status_live/index.ex:311
+#: lib/aprsme_web/live/status_live/index.ex:377
 #, elixir-autogen, elixir-format
 msgid "Very good - Connection stable for less than 1 day"
 msgstr "Très bon - Connexion stable depuis moins d'1 jour"
 
-#: lib/aprsme_web/live/info_live/show.ex:286
+#: lib/aprsme_web/live/info_live/show.ex:631
 #, elixir-autogen, elixir-format
 msgid "WIDE digipeater (%{element})"
 msgstr "Digipeater WIDE (%{element})"
 
-#: lib/aprsme_web/live/info_live/show.ex:277
+#: lib/aprsme_web/live/info_live/show.ex:622
 #, elixir-autogen, elixir-format
 msgid "WIDE1-1 (Wide area digipeater, 1 hop)"
 msgstr "WIDE1-1 (Digipeater zone étendue, 1 saut)"
 
-#: lib/aprsme_web/live/info_live/show.ex:284
+#: lib/aprsme_web/live/info_live/show.ex:629
 #, elixir-autogen, elixir-format
 msgid "WIDE1-2 (Wide area digipeater, 1 hop, 2nd attempt)"
 msgstr "WIDE1-2 (Digipeater zone étendue, 1 saut, 2e tentative)"
 
-#: lib/aprsme_web/live/info_live/show.ex:278
+#: lib/aprsme_web/live/info_live/show.ex:623
 #, elixir-autogen, elixir-format
 msgid "WIDE2-1 (Wide area digipeater, 2 hops)"
 msgstr "WIDE2-1 (Digipeater zone étendue, 2 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:285
+#: lib/aprsme_web/live/info_live/show.ex:630
 #, elixir-autogen, elixir-format
 msgid "WIDE2-2 (Wide area digipeater, 2 hops, 2nd attempt)"
 msgstr "WIDE2-2 (Digipeater zone étendue, 2 sauts, 2e tentative)"
 
-#: lib/aprsme_web/live/info_live/show.ex:279
+#: lib/aprsme_web/live/info_live/show.ex:624
 #, elixir-autogen, elixir-format
 msgid "WIDE3-1 (Wide area digipeater, 3 hops)"
 msgstr "WIDE3-1 (Digipeater zone étendue, 3 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:280
+#: lib/aprsme_web/live/info_live/show.ex:625
 #, elixir-autogen, elixir-format
 msgid "WIDE4-1 (Wide area digipeater, 4 hops)"
 msgstr "WIDE4-1 (Digipeater zone étendue, 4 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:281
+#: lib/aprsme_web/live/info_live/show.ex:626
 #, elixir-autogen, elixir-format
 msgid "WIDE5-1 (Wide area digipeater, 5 hops)"
 msgstr "WIDE5-1 (Digipeater zone étendue, 5 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:282
+#: lib/aprsme_web/live/info_live/show.ex:627
 #, elixir-autogen, elixir-format
 msgid "WIDE6-1 (Wide area digipeater, 6 hops)"
 msgstr "WIDE6-1 (Digipeater zone étendue, 6 sauts)"
 
-#: lib/aprsme_web/live/info_live/show.ex:283
+#: lib/aprsme_web/live/info_live/show.ex:628
 #, elixir-autogen, elixir-format
 msgid "WIDE7-1 (WIDE area digipeater, 7 hops)"
 msgstr "WIDE7-1 (Digipeater zone étendue, 7 sauts)"
 
-#: lib/aprsme_web/time_helpers.ex:17
+#: lib/aprsme_web/time_helpers.ex:25
 #, elixir-autogen, elixir-format
 msgid "less than a minute"
 msgstr "moins d'une minute"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:119
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:112
 #, elixir-autogen, elixir-format
 msgid "Gusts"
 msgstr "Rafales"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:103
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:96
 #, elixir-autogen, elixir-format
 msgid "Humidity"
 msgstr "Humidité"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:84
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:79
 #, elixir-autogen, elixir-format
 msgid "Last WX report"
 msgstr "Dernier rapport météo"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:125
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:118
 #, elixir-autogen, elixir-format
 msgid "Pressure"
 msgstr "Pression"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:131
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:124
 #, elixir-autogen, elixir-format
 msgid "Rain (1h)"
 msgstr "Pluie (1h)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:137
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:130
 #, elixir-autogen, elixir-format
 msgid "Rain (24h)"
 msgstr "Pluie (24h)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:143
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:136
 #, elixir-autogen, elixir-format
 msgid "Rain (since midnight)"
 msgstr "Pluie (depuis minuit)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:160
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:153
 #, elixir-autogen, elixir-format
 msgid "Raw comment"
 msgstr "Commentaire brut"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:97
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:90
 #, elixir-autogen, elixir-format
 msgid "Temperature"
 msgstr "Température"
@@ -547,18 +551,18 @@ msgstr "Voir les infos"
 msgid "View on map"
 msgstr "Voir sur la carte"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:67
+#: lib/aprsme_web/live/info_live/show.html.heex:32
 #: lib/aprsme_web/live/weather_live/callsign_view.html.heex:46
 #, elixir-autogen, elixir-format
 msgid "View packets"
 msgstr "Voir les paquets"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:79
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:74
 #, elixir-autogen, elixir-format
 msgid "Weather Details"
 msgstr "Détails météo"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:167
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:160
 #, elixir-autogen, elixir-format
 msgid "Weather History Graphs"
 msgstr "Graphiques d'historique météo"
@@ -568,17 +572,17 @@ msgstr "Graphiques d'historique météo"
 msgid "Weather Station"
 msgstr "Station météo"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:109
+#: lib/aprsme_web/live/weather_live/callsign_view.html.heex:102
 #, elixir-autogen, elixir-format
 msgid "Wind"
 msgstr "Vent"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:27
+#: lib/aprsme_web/live/info_live/show.html.heex:9
 #, elixir-autogen, elixir-format
 msgid "APRS Station"
 msgstr "Station APRS"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:149
+#: lib/aprsme_web/live/info_live/show.html.heex:104
 #, elixir-autogen, elixir-format
 msgid "Altitude"
 msgstr "Altitude"
@@ -593,13 +597,16 @@ msgstr "Indicatif de base"
 msgid "Built with Modern Technologies"
 msgstr "Construit avec des technologies modernes"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:270
-#: lib/aprsme_web/live/info_live/show.html.heex:388
+#: lib/aprsme_web/live/info_live/show.html.heex:279
+#: lib/aprsme_web/live/info_live/show.html.heex:380
+#: lib/aprsme_web/live/info_live/show.html.heex:466
+#: lib/aprsme_web/live/info_live/show.html.heex:562
+#: lib/aprsme_web/live/user_registration_live.ex:65
 #, elixir-autogen, elixir-format
 msgid "Callsign"
 msgstr "Indicatif"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:155
+#: lib/aprsme_web/live/info_live/show.html.heex:110
 #, elixir-autogen, elixir-format
 msgid "Course"
 msgstr "Cap"
@@ -609,7 +616,7 @@ msgstr "Cap"
 msgid "Data Type"
 msgstr "Type de données"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:220
+#: lib/aprsme_web/live/info_live/show.html.heex:235
 #, elixir-autogen, elixir-format
 msgid "Decoded Path"
 msgstr "Chemin décodé"
@@ -625,12 +632,12 @@ msgstr "Appareil"
 msgid "Device Information"
 msgstr "Informations sur l'appareil"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:391
+#: lib/aprsme_web/live/info_live/show.html.heex:383
 #, elixir-autogen, elixir-format
 msgid "Distance & Course"
 msgstr "Distance et cap"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:273
+#: lib/aprsme_web/live/info_live/show.html.heex:282
 #, elixir-autogen, elixir-format
 msgid "Distance & Direction"
 msgstr "Distance et direction"
@@ -640,7 +647,7 @@ msgstr "Distance et direction"
 msgid "Explore the Map"
 msgstr "Explorer la carte"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:121
+#: lib/aprsme_web/live/info_live/show.html.heex:76
 #, elixir-autogen, elixir-format
 msgid "Grid Square"
 msgstr "Carré de grille"
@@ -650,13 +657,15 @@ msgstr "Carré de grille"
 msgid "Join Our Community"
 msgstr "Rejoignez notre communauté"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:276
-#: lib/aprsme_web/live/info_live/show.html.heex:394
+#: lib/aprsme_web/live/info_live/show.html.heex:285
+#: lib/aprsme_web/live/info_live/show.html.heex:386
+#: lib/aprsme_web/live/info_live/show.html.heex:472
+#: lib/aprsme_web/live/info_live/show.html.heex:568
 #, elixir-autogen, elixir-format
 msgid "Last Heard"
 msgstr "Dernière écoute"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:133
+#: lib/aprsme_web/live/info_live/show.html.heex:88
 #, elixir-autogen, elixir-format
 msgid "Last Position"
 msgstr "Dernière position"
@@ -666,7 +675,7 @@ msgstr "Dernière position"
 msgid "Latitude"
 msgstr "Latitude"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:114
+#: lib/aprsme_web/live/info_live/show.html.heex:69
 #, elixir-autogen, elixir-format
 msgid "Location"
 msgstr "Emplacement"
@@ -676,27 +685,27 @@ msgstr "Emplacement"
 msgid "Longitude"
 msgstr "Longitude"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:469
+#: lib/aprsme_web/live/info_live/show.html.heex:646
 #, elixir-autogen, elixir-format
 msgid "No data available"
 msgstr "Aucune donnée disponible"
 
-#: lib/aprsme_web/live/packets_live/index.html.heex:164
+#: lib/aprsme_web/live/packets_live/index.html.heex:160
 #, elixir-autogen, elixir-format
 msgid "No packets"
 msgstr "Aucun paquet"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:471
+#: lib/aprsme_web/live/info_live/show.html.heex:648
 #, elixir-autogen, elixir-format
 msgid "No recent packet data available for this callsign."
 msgstr "Aucune donnée de paquet récente disponible pour cet indicatif."
 
-#: lib/aprsme_web/live/info_live/show.html.heex:262
+#: lib/aprsme_web/live/info_live/show.html.heex:271
 #, elixir-autogen, elixir-format
 msgid "Other SSIDs"
 msgstr "Autres SSID"
 
-#: lib/aprsme_web/live/packets_live/index.html.heex:165
+#: lib/aprsme_web/live/packets_live/index.html.heex:161
 #, elixir-autogen, elixir-format
 msgid "Packets will appear here as they are received."
 msgstr "Les paquets apparaîtront ici au fur et à mesure qu'ils sont reçus."
@@ -707,7 +716,7 @@ msgstr "Les paquets apparaîtront ici au fur et à mesure qu'ils sont reçus."
 msgid "Path"
 msgstr "Chemin"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:109
+#: lib/aprsme_web/live/info_live/show.html.heex:64
 #, elixir-autogen, elixir-format
 msgid "Position Information"
 msgstr "Informations de position"
@@ -722,12 +731,12 @@ msgstr "SSID"
 msgid "Sender"
 msgstr "Expéditeur"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:161
+#: lib/aprsme_web/live/info_live/show.html.heex:116
 #, elixir-autogen, elixir-format
 msgid "Speed"
 msgstr "Vitesse"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:380
+#: lib/aprsme_web/live/info_live/show.html.heex:372
 #, elixir-autogen, elixir-format
 msgid "Stations Near Current Position"
 msgstr "Stations près de la position actuelle"
@@ -742,142 +751,408 @@ msgstr "Symbole"
 msgid "Under heavy construction"
 msgstr "En construction intensive"
 
-#: lib/aprsme_web/live/info_live/show.html.heex:71
+#: lib/aprsme_web/live/info_live/show.html.heex:36
 #, elixir-autogen, elixir-format
 msgid "Weather charts"
 msgstr "Graphiques météo"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:76
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:47
 #, elixir-autogen, elixir-format
 msgid "%"
 msgstr "%"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:67
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:68
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:38
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:39
 #, elixir-autogen, elixir-format
 msgid "Humidity (%)"
 msgstr "Humidité (%)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:69
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:70
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:40
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:41
 #, elixir-autogen, elixir-format
 msgid "Pressure (mb)"
 msgstr "Pression (mb)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:74
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:45
 #, elixir-autogen, elixir-format
 msgid "Time"
 msgstr "Heure"
 
-#: lib/aprsme_web/time_helpers.ex:14
+#: lib/aprsme_web/time_helpers.ex:10
+#: lib/aprsme_web/time_helpers.ex:22
 #, elixir-autogen, elixir-format
 msgid "ago"
 msgstr "il y a"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:77
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:48
 #, elixir-autogen, elixir-format
 msgid "mb"
 msgstr "mb"
 
-#: lib/aprsme_web/components/core_components.ex:760
-#: lib/aprsme_web/components/core_components.ex:768
+#: lib/aprsme_web/components/core_components.ex:762
+#: lib/aprsme_web/components/core_components.ex:797
 #, elixir-autogen, elixir-format
 msgid "About"
 msgstr "À propos"
 
-#: lib/aprsme_web/components/core_components.ex:755
-#: lib/aprsme_web/components/core_components.ex:765
+#: lib/aprsme_web/components/core_components.ex:756
+#: lib/aprsme_web/components/core_components.ex:792
 #, elixir-autogen, elixir-format
 msgid "Home"
 msgstr "Accueil"
 
-#: lib/aprsme_web/live/map_live/index.ex:794
-#: lib/aprsme_web/live/map_live/index.ex:797
-#: lib/aprsme_web/live/map_live/index.ex:800
-#: lib/aprsme_web/live/map_live/index.ex:803
-#: lib/aprsme_web/live/map_live/index.ex:806
-#: lib/aprsme_web/live/map_live/index.ex:849
-#: lib/aprsme_web/live/map_live/index.ex:852
-#: lib/aprsme_web/live/map_live/index.ex:855
-#: lib/aprsme_web/live/map_live/index.ex:858
-#: lib/aprsme_web/live/map_live/index.ex:861
+#: lib/aprsme_web/live/map_live/index.ex:1035
+#: lib/aprsme_web/live/map_live/index.ex:1038
+#: lib/aprsme_web/live/map_live/index.ex:1041
+#: lib/aprsme_web/live/map_live/index.ex:1044
+#: lib/aprsme_web/live/map_live/index.ex:1047
+#: lib/aprsme_web/live/map_live/index.ex:1080
+#: lib/aprsme_web/live/map_live/index.ex:1083
+#: lib/aprsme_web/live/map_live/index.ex:1086
+#: lib/aprsme_web/live/map_live/index.ex:1089
+#: lib/aprsme_web/live/map_live/index.ex:1092
 #, elixir-autogen, elixir-format
 msgid "1 Hour"
 msgid_plural "%{count} Hours"
 msgstr[0] "1 heure"
 msgstr[1] "%{count} heures"
 
-#: lib/aprsme_web/live/map_live/index.ex:809
+#: lib/aprsme_web/live/map_live/index.ex:1050
 #, elixir-autogen, elixir-format
 msgid "1 Week"
 msgstr "1 semaine"
 
-#: lib/aprsme_web/live/map_live/index.ex:758
+#: lib/aprsme_web/live/map_live/index.ex:989
 #, elixir-autogen, elixir-format
 msgid "Enter callsign..."
 msgstr "Entrer l'indicatif..."
 
-#: lib/aprsme_web/live/map_live/index.ex:841
+#: lib/aprsme_web/live/map_live/index.ex:1072
 #, elixir-autogen, elixir-format
 msgid "Historical Data"
 msgstr "Données historiques"
 
-#: lib/aprsme_web/live/map_live/index.ex:909
+#: lib/aprsme_web/live/map_live/index.ex:1136
 #, elixir-autogen, elixir-format
 msgid "Last Deploy"
 msgstr "Dernier déploiement"
 
-#: lib/aprsme_web/live/map_live/index.ex:893
+#: lib/aprsme_web/live/map_live/index.ex:1114
 #, elixir-autogen, elixir-format
 msgid "Navigation"
 msgstr "Navigation"
 
-#: lib/aprsme_web/live/map_live/index.ex:765
-#, elixir-autogen, elixir-format
-msgid "Search"
-msgstr "Rechercher"
-
-#: lib/aprsme_web/live/map_live/index.ex:750
+#: lib/aprsme_web/live/map_live/index.ex:980
 #, elixir-autogen, elixir-format
 msgid "Search Callsign"
 msgstr "Rechercher l'indicatif"
 
-#: lib/aprsme_web/live/map_live/index.ex:786
+#: lib/aprsme_web/live/map_live/index.ex:1027
 #, elixir-autogen, elixir-format
 msgid "Trail Duration"
 msgstr "Durée de la trace"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:66
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:37
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Dew Point (%{unit})"
 msgstr "Point de rosée (°F)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:64
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:35
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Temperature & Dew Point (%{unit})"
 msgstr "Température et point de rosée (°F)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:65
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:36
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Temperature (%{unit})"
 msgstr "Température (°F)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:71
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:42
 #, elixir-autogen, elixir-format
 msgid "Wind (%{unit})"
 msgstr ""
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:73
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:44
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Wind Gust (%{unit})"
 msgstr "Rafale de vent (mph)"
 
-#: lib/aprsme_web/live/weather_live/callsign_view.ex:72
+#: lib/aprsme_web/live/weather_live/callsign_view.ex:43
 #, elixir-autogen, elixir-format, fuzzy
 msgid "Wind Speed (%{unit})"
 msgstr "Vitesse du vent (mph)"
 
-#: lib/aprsme_web/live/about_live.html.heex:6
+#: lib/aprsme_web/live/map_live/index.ex:849
 #, elixir-autogen, elixir-format
-msgid "about_main"
+msgid "APRS packet map showing real-time amateur radio stations"
 msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:1009
+#, elixir-autogen, elixir-format
+msgid "Clear"
+msgstr ""
+
+#: lib/aprsme_web/live/info_live/show.html.heex:122
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Comment"
+msgstr "Commentaire brut"
+
+#: lib/aprsme_web/live/info_live/show.html.heex:158
+#, elixir-autogen, elixir-format
+msgid "Dir:"
+msgstr ""
+
+#: lib/aprsme_web/live/info_live/show.html.heex:469
+#: lib/aprsme_web/live/info_live/show.html.heex:565
+#, elixir-autogen, elixir-format, fuzzy
+msgid "First Heard"
+msgstr "Dernière écoute"
+
+#: lib/aprsme_web/live/info_live/show.html.heex:152
+#, elixir-autogen, elixir-format
+msgid "Gain:"
+msgstr ""
+
+#: lib/aprsme_web/live/info_live/show.html.heex:146
+#, elixir-autogen, elixir-format
+msgid "HAAT:"
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:907
+#, elixir-autogen, elixir-format
+msgid "Loading historical data..."
+msgstr ""
+
+#: lib/aprsme_web/components/core_components.ex:784
+#: lib/aprsme_web/components/core_components.ex:818
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Log in"
+msgstr "ID de connexion :"
+
+#: lib/aprsme_web/components/core_components.ex:773
+#: lib/aprsme_web/components/core_components.ex:807
+#, elixir-autogen, elixir-format
+msgid "Log out"
+msgstr ""
+
+#: lib/aprsme_web/live/info_live/show.html.heex:478
+#: lib/aprsme_web/live/info_live/show.html.heex:574
+#, elixir-autogen, elixir-format
+msgid "Longest Path"
+msgstr ""
+
+#: lib/aprsme_web/live/status_live/index.ex:383
+#, elixir-autogen, elixir-format
+msgid "Never"
+msgstr ""
+
+#: lib/aprsme_web/live/status_live/index.ex:252
+#, elixir-autogen, elixir-format, fuzzy
+msgid "No packets stored"
+msgstr "Aucun paquet"
+
+#: lib/aprsme_web/live/status_live/index.ex:238
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Oldest Packet:"
+msgstr "Paquets stockés :"
+
+#: lib/aprsme_web/live/info_live/show.html.heex:161
+#, elixir-autogen, elixir-format
+msgid "Omni"
+msgstr ""
+
+#: lib/aprsme_web/live/info_live/show.html.heex:135
+#, elixir-autogen, elixir-format
+msgid "PHG (Power-Height-Gain)"
+msgstr ""
+
+#: lib/aprsme_web/live/info_live/show.html.heex:475
+#: lib/aprsme_web/live/info_live/show.html.heex:571
+#, elixir-autogen, elixir-format, fuzzy
+msgid "Packets"
+msgstr "Paquets/Min :"
+
+#: lib/aprsme_web/live/info_live/show.html.heex:140
+#, elixir-autogen, elixir-format
+msgid "Power:"
+msgstr ""
+
+#: lib/aprsme_web/components/core_components.ex:779
+#: lib/aprsme_web/components/core_components.ex:813
+#, elixir-autogen, elixir-format
+msgid "Register"
+msgstr ""
+
+#: lib/aprsme_web/components/core_components.ex:768
+#: lib/aprsme_web/components/core_components.ex:802
+#, elixir-autogen, elixir-format
+msgid "Settings"
+msgstr ""
+
+#: lib/aprsme_web/live/info_live/show.html.heex:551
+#, elixir-autogen, elixir-format
+msgid "Stations heard directly by %{callsign}"
+msgstr ""
+
+#: lib/aprsme_web/live/info_live/show.html.heex:455
+#, elixir-autogen, elixir-format
+msgid "Stations which heard %{callsign} directly on radio"
+msgstr "Stations qui ont entendu %{callsign} directement par radio"
+
+#: lib/aprsme_web/live/map_live/index.ex:996
+#, elixir-autogen, elixir-format
+msgid "Track"
+msgstr ""
+
+#: lib/aprsme_web/live/map_live/index.ex:1002
+#, elixir-autogen, elixir-format
+msgid "Tracking:"
+msgstr ""
+
+#: lib/aprsme_web/time_helpers.ex:10
+#, elixir-autogen, elixir-format
+msgid "unknown time"
+msgstr ""
+
+#: lib/aprsme_web/live/user_registration_live.ex:19
+#, elixir-autogen, elixir-format
+msgid "Already registered?"
+msgstr "Déjà inscrit ?"
+
+#: lib/aprsme_web/live/user_registration_live.ex:109
+#, elixir-autogen, elixir-format
+msgid "Create an account"
+msgstr "Créer un compte"
+
+#: lib/aprsme_web/live/user_registration_live.ex:108
+#, elixir-autogen, elixir-format
+msgid "Creating account..."
+msgstr "Création du compte..."
+
+#: lib/aprsme_web/live/user_login_live.ex:17
+#, elixir-autogen, elixir-format
+msgid "Don't have an account?"
+msgstr "Pas de compte ?"
+
+#: lib/aprsme_web/live/user_login_live.ex:34
+#: lib/aprsme_web/live/user_registration_live.ex:43
+#, elixir-autogen, elixir-format
+msgid "Email"
+msgstr "E-mail"
+
+#: lib/aprsme_web/live/user_registration_live.ex:75
+#, elixir-autogen, elixir-format
+msgid "Enter your amateur radio callsign"
+msgstr "Entrez votre indicatif radioamateur"
+
+#: lib/aprsme_web/live/user_login_live.ex:41
+#: lib/aprsme_web/live/user_registration_live.ex:53
+#, elixir-autogen, elixir-format
+msgid "Enter your email"
+msgstr "Entrez votre e-mail"
+
+#: lib/aprsme_web/live/user_login_live.ex:55
+#: lib/aprsme_web/live/user_registration_live.ex:97
+#, elixir-autogen, elixir-format
+msgid "Enter your password"
+msgstr "Entrez votre mot de passe"
+
+#: lib/aprsme_web/live/user_login_live.ex:74
+#, elixir-autogen, elixir-format
+msgid "Forgot your password?"
+msgstr "Mot de passe oublié ?"
+
+#: lib/aprsme_web/live/user_login_live.ex:68
+#, elixir-autogen, elixir-format
+msgid "Keep me logged in"
+msgstr "Rester connecté"
+
+#: lib/aprsme_web/live/user_registration_live.ex:38
+#, elixir-autogen, elixir-format
+msgid "Oops, something went wrong! Please check the errors below."
+msgstr "Oups, quelque chose s'est mal passé ! Veuillez vérifier les erreurs ci-dessous."
+
+#: lib/aprsme_web/live/user_login_live.ex:48
+#: lib/aprsme_web/live/user_registration_live.ex:87
+#, elixir-autogen, elixir-format
+msgid "Password"
+msgstr "Mot de passe"
+
+#: lib/aprsme_web/live/user_registration_live.ex:17
+#, elixir-autogen, elixir-format
+msgid "Register for an account"
+msgstr "S'inscrire pour un compte"
+
+#: lib/aprsme_web/live/user_registration_live.ex:21
+#, elixir-autogen, elixir-format
+msgid "Sign in"
+msgstr "Se connecter"
+
+#: lib/aprsme_web/live/user_login_live.ex:15
+#, elixir-autogen, elixir-format
+msgid "Sign in to account"
+msgstr "Se connecter au compte"
+
+#: lib/aprsme_web/live/user_login_live.ex:80
+#, elixir-autogen, elixir-format
+msgid "Sign in →"
+msgstr "Se connecter →"
+
+#: lib/aprsme_web/live/user_login_live.ex:19
+#, elixir-autogen, elixir-format
+msgid "Sign up"
+msgstr "S'inscrire"
+
+#: lib/aprsme_web/live/user_login_live.ex:79
+#, elixir-autogen, elixir-format
+msgid "Signing in..."
+msgstr "Connexion en cours..."
+
+#: lib/aprsme_web/live/user_login_live.ex:21
+#, elixir-autogen, elixir-format
+msgid "for an account now."
+msgstr "pour un compte maintenant."
+
+#: lib/aprsme_web/live/user_registration_live.ex:23
+#, elixir-autogen, elixir-format
+msgid "to your account now."
+msgstr "à votre compte maintenant."
+
+#: lib/aprsme_web/components/layouts/app.html.heex:222
+#: lib/aprsme_web/components/layouts/map.html.heex:209
+#, elixir-autogen, elixir-format
+msgid "Attempting to reconnect"
+msgstr "Tentative de reconnexion"
+
+#: lib/aprsme_web/components/core_components.ex:510
+#, elixir-autogen, elixir-format
+msgid "Auto"
+msgstr "Automatique"
+
+#: lib/aprsme_web/components/core_components.ex:498
+#, elixir-autogen, elixir-format
+msgid "Dark"
+msgstr "Sombre"
+
+#: lib/aprsme_web/components/layouts/app.html.heex:212
+#: lib/aprsme_web/components/layouts/map.html.heex:199
+#, elixir-autogen, elixir-format
+msgid "Error!"
+msgstr "Erreur !"
+
+#: lib/aprsme_web/components/core_components.ex:490
+#, elixir-autogen, elixir-format
+msgid "Light"
+msgstr "Clair"
+
+#: lib/aprsme_web/components/layouts/app.html.heex:211
+#: lib/aprsme_web/components/layouts/map.html.heex:198
+#, elixir-autogen, elixir-format
+msgid "Success!"
+msgstr "Succès !"
+
+#: lib/aprsme_web/components/layouts/app.html.heex:216
+#: lib/aprsme_web/components/layouts/map.html.heex:203
+#, elixir-autogen, elixir-format
+msgid "We can't find the internet"
+msgstr "Impossible de trouver internet"

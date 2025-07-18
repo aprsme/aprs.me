@@ -14,13 +14,13 @@ defmodule AprsmeWeb.UserRegistrationLive do
         <div class="max-w-md">
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h1 class="card-title text-3xl mb-4 justify-center">Register for an account</h1>
+              <h1 class="card-title text-3xl mb-4 justify-center">{gettext("Register for an account")}</h1>
               <p class="text-base-content/70 mb-6">
-                Already registered?
+                {gettext("Already registered?")}
                 <.link navigate={~p"/users/log_in"} class="link link-primary">
-                  Sign in
+                  {gettext("Sign in")}
                 </.link>
-                to your account now.
+                {gettext("to your account now.")}
               </p>
 
               <.simple_form
@@ -35,12 +35,12 @@ defmodule AprsmeWeb.UserRegistrationLive do
                 as={:user}
               >
                 <div :if={@changeset.action == :insert} class="alert alert-error mb-4">
-                  <span>Oops, something went wrong! Please check the errors below.</span>
+                  <span>{gettext("Oops, something went wrong! Please check the errors below.")}</span>
                 </div>
 
                 <div class="form-control w-full">
                   <label class="label">
-                    <span class="label-text">Email</span>
+                    <span class="label-text">{gettext("Email")}</span>
                   </label>
                   <input
                     type="email"
@@ -50,7 +50,7 @@ defmodule AprsmeWeb.UserRegistrationLive do
                       "input input-bordered w-full bg-base-100 text-base-content",
                       Keyword.has_key?(@changeset.errors, :email) && "input-error"
                     ]}
-                    placeholder="Enter your email"
+                    placeholder={gettext("Enter your email")}
                     required
                   />
                   <label :if={Keyword.has_key?(@changeset.errors, :email)} class="label">
@@ -62,7 +62,7 @@ defmodule AprsmeWeb.UserRegistrationLive do
 
                 <div class="form-control w-full">
                   <label class="label">
-                    <span class="label-text">Callsign</span>
+                    <span class="label-text">{gettext("Callsign")}</span>
                   </label>
                   <input
                     type="text"
@@ -72,7 +72,7 @@ defmodule AprsmeWeb.UserRegistrationLive do
                       "input input-bordered w-full bg-base-100 text-base-content",
                       Keyword.has_key?(@changeset.errors, :callsign) && "input-error"
                     ]}
-                    placeholder="Enter your amateur radio callsign"
+                    placeholder={gettext("Enter your amateur radio callsign")}
                     required
                   />
                   <label :if={Keyword.has_key?(@changeset.errors, :callsign)} class="label">
@@ -84,7 +84,7 @@ defmodule AprsmeWeb.UserRegistrationLive do
 
                 <div class="form-control w-full">
                   <label class="label">
-                    <span class="label-text">Password</span>
+                    <span class="label-text">{gettext("Password")}</span>
                   </label>
                   <input
                     type="password"
@@ -94,7 +94,7 @@ defmodule AprsmeWeb.UserRegistrationLive do
                       "input input-bordered w-full bg-base-100 text-base-content",
                       Keyword.has_key?(@changeset.errors, :password) && "input-error"
                     ]}
-                    placeholder="Enter your password"
+                    placeholder={gettext("Enter your password")}
                     required
                   />
                   <label :if={Keyword.has_key?(@changeset.errors, :password)} class="label">
@@ -105,8 +105,8 @@ defmodule AprsmeWeb.UserRegistrationLive do
                 </div>
 
                 <div class="form-control mt-6">
-                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Creating account...">
-                    Create an account
+                  <button type="submit" class="btn btn-primary w-full" phx-disable-with={gettext("Creating account...")}>
+                    {gettext("Create an account")}
                   </button>
                 </div>
               </.simple_form>
