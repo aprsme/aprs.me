@@ -164,16 +164,16 @@ defmodule Aprsme.PacketConsumer do
       %{}
     )
 
-    Logger.info("Batch processing completed",
-      batch_result:
-        LogSanitizer.log_data(
-          packet_count: length(packets),
-          duration_ms: duration,
-          success_count: success_count,
-          error_count: error_count,
-          memory_diff_bytes: memory_diff
-        )
-    )
+    # Logger.info("Batch processing completed",
+    #   batch_result:
+    #     LogSanitizer.log_data(
+    #       packet_count: length(packets),
+    #       duration_ms: duration,
+    #       success_count: success_count,
+    #       error_count: error_count,
+    #       memory_diff_bytes: memory_diff
+    #     )
+    # )
   end
 
   defp process_chunk(packets) do
