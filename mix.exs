@@ -55,8 +55,9 @@ defmodule Aprsme.MixProject do
   defp elixirc_paths(_), do: ["lib"]
 
   # Specifies erlc paths per environment for Gleam compilation
-  defp erlc_paths(env) do
-    ["build/#{env}/erlang/aprsme/_gleam_artefacts", "src"]
+  defp erlc_paths(_env) do
+    # Only include src directory to avoid compiling Gleam's internal scripts
+    ["src"]
   end
 
   # Specifies your project dependencies.

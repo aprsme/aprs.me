@@ -45,3 +45,6 @@ server.log
 
 # Gleam build directory
 /build/
+
+# Gleam compile script that causes Erlang compilation errors
+gleam@@compile.erl
