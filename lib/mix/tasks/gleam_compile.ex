@@ -79,21 +79,45 @@ defmodule Mix.Tasks.GleamCompile do
           Mix.shell().info("Gleam output directory #{gleam_output} does not exist")
         end
       else
-        # Last resort: try to copy from dev build if available
-        dev_ebin = "_build/dev/lib/aprsme/ebin"
-        test_ebin = "_build/#{env}/lib/aprsme/ebin"
-
-        if File.exists?(dev_ebin) and env != :dev do
-          File.mkdir_p!(test_ebin)
-
-          dev_ebin
-          |> File.ls!()
-          |> Enum.filter(&String.starts_with?(&1, "aprs@"))
-          |> Enum.each(fn beam_file ->
-            src = Path.join(dev_ebin, beam_file)
-            dest = Path.join(test_ebin, beam_file)
+        # Last resort: Check for pre-compiled BEAM files in priv/gleam
+        Mix.shell().info("No Gleam compiler available, checking for pre-compiled BEAM files...")
+        
+        priv_gleam = "priv/gleam"
+        ebin_dir = "_build/#{env}/lib/aprsme/ebin"
+        
+        if File.exists?(priv_gleam) do
+          File.mkdir_p!(ebin_dir)
+          
+          # Look specifically for our Gleam module
+          beam_file = "aprsme@encoding.beam"
+          src = Path.join(priv_gleam, beam_file)
+          
+          if File.exists?(src) do
+            dest = Path.join(ebin_dir, beam_file)
             File.copy!(src, dest)
-          end)
+            Mix.shell().info("Copied pre-compiled #{beam_file} from priv/gleam")
+          else
+            Mix.shell().error("Pre-compiled #{beam_file} not found in priv/gleam")
+          end
+        else
+          # Try to copy from dev build if available
+          dev_ebin = "_build/dev/lib/aprsme/ebin"
+          
+          if File.exists?(dev_ebin) and env != :dev do
+            File.mkdir_p!(ebin_dir)
+            
+            dev_ebin
+            |> File.ls!()
+            |> Enum.filter(&String.starts_with?(&1, "aprsme@"))
+            |> Enum.each(fn beam_file ->
+              src = Path.join(dev_ebin, beam_file)
+              dest = Path.join(ebin_dir, beam_file)
+              File.copy!(src, dest)
+              Mix.shell().info("Copied #{beam_file} from dev build")
+            end)
+          else
+            Mix.shell().error("Unable to find Gleam compiled files. Please ensure Gleam code is compiled before deployment.")
+          end
         end
       end
     end

@@ -21,6 +21,9 @@ WORKDIR /app
 # Install Hex and Rebar
 RUN mix local.hex --force && mix local.rebar --force
 
+# Install mix_gleam archive (required for Gleam compilation)
+RUN mix archive.install hex mix_gleam 0.6.2 --force
+
 # Set build environment
 ENV MIX_ENV="prod"
 
@@ -37,6 +40,12 @@ COPY priv priv
 COPY lib lib
 COPY assets assets
 COPY rel rel
+# Copy Gleam source files and configuration
+COPY src src
+COPY gleam.toml gleam.toml
+# Ensure pre-compiled Gleam BEAM files are available
+# This helps when mix_gleam or gleam binary are not available
+RUN mkdir -p priv/gleam
 
 # Compile assets
 RUN mix assets.deploy
