@@ -59,7 +59,6 @@ export const MapHelpers = {
       pushEvent(event, payload);
       return true;
     } catch (e) {
-      console.debug(`Unable to send ${event} event - LiveView disconnected`);
       return false;
     }
   }
@@ -141,7 +140,6 @@ export const improvedDestroyed = (self: ImprovedLiveViewHookContext) => {
     try {
       self.map.closePopup();
     } catch (e) {
-      console.debug("Error closing popup during cleanup:", e);
     }
   }
   
@@ -162,7 +160,6 @@ export const improvedDestroyed = (self: ImprovedLiveViewHookContext) => {
       try {
         self.map.off(event, handler);
       } catch (e) {
-        console.debug(`Error removing ${event} handler:`, e);
       }
     });
     self.mapEventHandlers.clear();
@@ -177,7 +174,6 @@ export const improvedDestroyed = (self: ImprovedLiveViewHookContext) => {
           marker.unbindPopup(); // Unbind popup to prevent events
         }
       } catch (e) {
-        console.debug(`Error cleaning up marker ${id}:`, e);
       }
     });
   }
@@ -187,7 +183,6 @@ export const improvedDestroyed = (self: ImprovedLiveViewHookContext) => {
     try {
       self.markerLayer!.clearLayers();
     } catch (e) {
-      console.debug("Error clearing marker layer:", e);
     }
   }
   
@@ -204,7 +199,6 @@ export const improvedDestroyed = (self: ImprovedLiveViewHookContext) => {
     try {
       self.map!.remove();
     } catch (e) {
-      console.debug("Error removing map:", e);
     }
     self.map = undefined;
   }
@@ -288,7 +282,6 @@ export class ProgrammaticMoveTracker {
     // Set safety timeout
     this.timeoutId = setTimeout(() => {
       if (this.moveCount > 0) {
-        console.debug(`Resetting programmatic move counter from ${this.moveCount} to 0`);
         this.moveCount = 0;
       }
     }, 2000);

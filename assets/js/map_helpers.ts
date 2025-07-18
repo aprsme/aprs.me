@@ -78,8 +78,6 @@ export function saveMapState(map: L.Map, pushEvent: PushEventFunction) {
       }
     };
     
-    console.debug("Sending update_map_state event:", payload);
-    
     // Use safePushEvent to handle disconnected state
     safePushEvent(pushEvent, "update_map_state", payload);
   } catch (error) {
@@ -92,7 +90,6 @@ export function saveMapState(map: L.Map, pushEvent: PushEventFunction) {
  */
 export function safePushEvent<T extends BaseEventPayload = BaseEventPayload>(pushEvent: PushEventFunction | undefined, event: string, payload: T): boolean {
   if (!pushEvent || typeof pushEvent !== 'function') {
-    console.debug(`pushEvent not available for ${event} event`);
     return false;
   }
   
@@ -100,7 +97,6 @@ export function safePushEvent<T extends BaseEventPayload = BaseEventPayload>(pus
     pushEvent(event, payload);
     return true;
   } catch (e) {
-    console.debug(`Unable to send ${event} event:`, e);
     return false;
   }
 }

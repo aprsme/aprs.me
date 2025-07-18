@@ -110,13 +110,11 @@ let MapAPRSMap = {
             zoom >= 1 &&
             zoom <= 20
           ) {
-            console.log("Using saved state from localStorage:", { lat, lng, zoom });
             initialCenter = { lat, lng };
             initialZoom = zoom;
           }
         }
       } catch (e) {
-        console.log("Could not load from localStorage:", e);
       }
     }
     */
@@ -178,13 +176,11 @@ let MapAPRSMap = {
         delete self.el._leaflet_id;
       }
 
-      console.log("Creating map with center:", [initialCenter.lat, initialCenter.lng], "zoom:", initialZoom);
       self.map = L.map(self.el, {
         zoomControl: true,
         attributionControl: true,
         closePopupOnClick: true,
       }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
-      console.log("Map created and view set");
     } catch (error) {
       console.error("Error initializing map:", error);
       self.errors!.push(
@@ -295,10 +291,8 @@ let MapAPRSMap = {
         
         // Ensure we have a valid pushEvent function before using it
         if (self.pushEvent && typeof self.pushEvent === 'function') {
-          console.log("Map ready - sending map_ready event");
           self.pushEvent("map_ready", {});
           // Send initial bounds to trigger historical loading
-          console.log("Sending initial bounds to server");
           if (self.map && self.pushEvent && typeof self.pushEvent === 'function') {
             saveMapState(self.map, self.pushEvent.bind(self));
           }
@@ -307,7 +301,6 @@ let MapAPRSMap = {
           // Increase delay to ensure LiveView is fully connected and ready
           setTimeout(() => {
             if (self.map && self.pushEvent && !self.isDestroyed) {
-              console.log("Sending initial update_map_state for historical loading");
               saveMapState(self.map, self.pushEvent.bind(self));
             }
           }, 500);
@@ -323,7 +316,6 @@ let MapAPRSMap = {
               // Also trigger map state update after a delay
               setTimeout(() => {
                 if (self.map && self.pushEvent && !self.isDestroyed) {
-                  console.log("Sending initial update_map_state for historical loading (retry path)");
                   saveMapState(self.map, self.pushEvent.bind(self));
                 }
               }, 500);
@@ -675,7 +667,6 @@ let MapAPRSMap = {
         
         // If heat layer is visible, we're in heat map mode - skip individual markers
         if (self.heatLayer && self.map.hasLayer(self.heatLayer)) {
-          console.log("In heat map mode, skipping individual marker for new packet");
           return;
         }
         
@@ -827,7 +818,6 @@ let MapAPRSMap = {
 
     // Handle progressive loading of historical packets (batch processing)
     self.handleEvent("add_historical_packets_batch", (data: { packets: MarkerData[], batch: number, is_final: boolean }) => {
-      console.log("Received historical packet batch:", data.batch, "packet count:", data.packets?.length || 0);
       try {
         if (data.packets && Array.isArray(data.packets)) {
           // Process all packets immediately for maximum speed
@@ -877,7 +867,6 @@ let MapAPRSMap = {
 
     // Handle clearing historical packets
     self.handleEvent("clear_historical_packets", () => {
-      console.log("Clearing historical packets");
       // Remove only historical markers (preserve live markers and their trails)
       const markersToRemove: string[] = [];
       self.markers!.forEach((marker: APRSMarker, id: string) => {
@@ -1011,7 +1000,6 @@ let MapAPRSMap = {
     // Handle heat map data for low zoom levels
     self.handleEvent("show_heat_map", (data: { heat_points: HeatLatLng[] }) => {
       try {
-        console.log("Received heat map data with", data.heat_points?.length || 0, "points");
         
         if (!self.map || self.isDestroyed) {
           console.warn("Map not ready or destroyed, skipping heat map update");
@@ -1024,7 +1012,6 @@ let MapAPRSMap = {
         }
         
         if (!self.heatLayer) {
-          console.log("Creating heat layer for the first time");
           try {
             self.heatLayer = L.heatLayer([], {
               radius: 25,
@@ -1050,18 +1037,15 @@ let MapAPRSMap = {
           Math.min(point.intensity / 50.0, 1.0) // Normalize intensity to 0-1 range, cap at 1
         ] as [number, number, number]);
         
-        console.log("Setting heat layer data:", heatData.length, "points");
         
         // Update heat layer data
         self.heatLayer.setLatLngs(heatData);
         
         // Show heat layer and hide marker layer
         if (!self.map.hasLayer(self.heatLayer)) {
-          console.log("Adding heat layer to map");
           self.map.addLayer(self.heatLayer);
         }
         if (self.markerLayer && self.map.hasLayer(self.markerLayer)) {
-          console.log("Removing marker layer from map");
           self.map.removeLayer(self.markerLayer);
         }
       } catch (error) {
@@ -1072,7 +1056,6 @@ let MapAPRSMap = {
     // Handle switching back to markers
     self.handleEvent("show_markers", () => {
       try {
-        console.log("Switching from heat map to markers");
         
         if (!self.map || self.isDestroyed) {
           console.warn("Map not ready or destroyed, skipping marker display");
@@ -1081,11 +1064,9 @@ let MapAPRSMap = {
         
         // Hide heat layer and show marker layer
         if (self.heatLayer && self.map.hasLayer(self.heatLayer)) {
-          console.log("Removing heat layer");
           self.map.removeLayer(self.heatLayer);
         }
         if (self.markerLayer && !self.map.hasLayer(self.markerLayer)) {
-          console.log("Adding marker layer");
           self.map.addLayer(self.markerLayer);
         }
       } catch (error) {
@@ -1122,7 +1103,6 @@ let MapAPRSMap = {
           },
           zoom: zoom,
         };
-        console.log("Sending bounds_changed event:", boundsData);
         self.pushEvent("bounds_changed", boundsData);
       }
     } catch (error) {

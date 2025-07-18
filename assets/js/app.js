@@ -172,7 +172,6 @@ window.localStorage.setItem('theme', theme);
 
 // Global function to re-render all charts
 window.reRenderAllCharts = () => {
-  console.log('Re-rendering all charts...');
   
   // Store all chart instances globally so we can access them
   if (!window.chartInstances) {
@@ -181,25 +180,21 @@ window.reRenderAllCharts = () => {
   
   // Re-render all stored chart instances
   window.chartInstances.forEach((chartInstance, elementId) => {
-    console.log('Re-rendering chart:', elementId);
     if (chartInstance && typeof chartInstance.renderChart === 'function') {
       chartInstance.renderChart();
     }
   });
   
   // Also dispatch a custom event that charts can listen to
-  console.log('Dispatching themeChanged event');
   window.dispatchEvent(new CustomEvent('themeChanged'));
 };
 
 const handleThemeClick = (selectedTheme) => {
-  console.log('Theme changed to:', selectedTheme);
   applyTheme(selectedTheme);
   localStorage.setItem('theme', selectedTheme);
   
   // Re-render all charts with new theme colors
   setTimeout(() => {
-    console.log('Calling reRenderAllCharts after theme change');
     window.reRenderAllCharts();
   }, 100);
 };

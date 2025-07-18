@@ -104,7 +104,7 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base,
     server: true,
-    check_origin: ["https://#{host}", "http://10.0.19.222:33897", "https://s.aprs.me", "https://js.sentry-cdn.com"]
+    check_origin: ["https://#{host}", "http://10.0.19.222:33897", "https://s.aprs.me", "https://js.sentry-cdn.com", "https://*.sentry.io"]
 
   # Optional: Set the default "from" email address
   config :aprsme,
