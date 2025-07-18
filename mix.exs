@@ -142,5 +142,4 @@ defmodule Aprsme.MixProject do
     #   {:aprs, github: "aprsme/aprs", branch: "main"}
     # end
   end
-
 end

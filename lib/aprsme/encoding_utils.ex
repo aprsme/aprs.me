@@ -8,7 +8,7 @@ defmodule Aprsme.EncodingUtils do
 
   # The Gleam module is compiled with @ separator in the beam name
   @gleam_module :aprsme@encoding
-  
+
   # Optional compile-time check to suppress warnings
   @compile {:no_warn_undefined, {@gleam_module, :sanitize_string, 1}}
   @compile {:no_warn_undefined, {@gleam_module, :to_float_safe, 1}}
