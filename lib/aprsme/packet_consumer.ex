@@ -97,7 +97,7 @@ defmodule Aprsme.PacketConsumer do
     require Logger
 
     # Monitor memory usage before processing
-    {memory_before, _} = :erlang.statistics(:runtime)
+    memory_before = :erlang.memory(:total)
     start_time = System.monotonic_time(:millisecond)
 
     # Chunk size optimized for PostgreSQL work_mem=16MB
@@ -118,22 +118,34 @@ defmodule Aprsme.PacketConsumer do
     duration = end_time - start_time
 
     # Monitor memory usage after processing
-    {memory_after, _} = :erlang.statistics(:runtime)
+    memory_after = :erlang.memory(:total)
     memory_diff = memory_after - memory_before
 
+    # Get current process memory info
+    process_info = Process.info(self(), [:memory, :heap_size, :total_heap_size])
+
     # Force garbage collection if memory usage is high
-    # 50MB threshold
-    if memory_diff > 50_000 do
+    # 10MB threshold (more aggressive than previous 50MB)
+    # Also check process memory independently
+    if memory_diff > 10_485_760 or process_info[:memory] > 20_971_520 do
       :erlang.garbage_collect()
 
       Logger.warning("High memory usage detected, forced garbage collection",
         memory_info:
           LogSanitizer.log_data(
             memory_diff_bytes: memory_diff,
+            process_memory: process_info[:memory],
+            heap_size: process_info[:heap_size],
+            total_heap_size: process_info[:total_heap_size],
             batch_size: length(packets),
             gc_forced: true
           )
       )
+    end
+
+    # Always do minor GC after large batches to prevent memory accumulation
+    if length(packets) > 500 do
+      :erlang.garbage_collect(self(), type: :minor)
     end
 
     :telemetry.execute(

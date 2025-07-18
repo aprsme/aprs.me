@@ -72,6 +72,7 @@ defmodule Aprsme.MixProject do
       {:phoenix_live_view, "~> 1.0.17"},
       {:postgrex, ">= 0.0.0"},
       {:swoosh, "~> 1.16"},
+      {:resend, "~> 0.4.1"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       aprs_dep(),

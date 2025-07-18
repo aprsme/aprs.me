@@ -46,6 +46,13 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
+  # ## Configuring the mailer
+  #
+  # Configure Resend for email delivery
+  config :aprsme, Aprsme.Mailer,
+    adapter: Resend.Swoosh.Adapter,
+    api_key: System.get_env("RESEND_API_KEY")
+
   config :aprsme, Aprsme.Repo,
     # ssl: true,
     url: database_url,
@@ -99,6 +106,10 @@ if config_env() == :prod do
     server: true,
     check_origin: ["https://#{host}", "http://10.0.19.222:33897", "https://s.aprs.me"]
 
+  # Optional: Set the default "from" email address
+  config :aprsme,
+    default_from_email: "w5isp@aprs.me"
+
   config :aprsme,
     ecto_repos: [Aprsme.Repo],
     aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
@@ -127,16 +138,6 @@ if config_env() == :prod do
       ]
     ]
 
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Also, you may need to configure the Swoosh API client of your choice if you
-  # are not using SMTP. Here is an example of the configuration:
-  #
-  #     config :aprsme, Aprsme.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
   #
   # For this example you need include a HTTP client required by Swoosh API client.
   # Swoosh supports Hackney, Finch, and Req out of the box:

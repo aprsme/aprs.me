@@ -71,6 +71,10 @@ config :aprsme, AprsmeWeb.Endpoint,
 # Run `mix help phx.gen.cert` for more information.
 config :aprsme, dev_routes: true
 
+# Mailer configuration for development
+# Using Swoosh.Adapters.Local from config.exs which stores emails locally
+# Access sent emails at http://localhost:4000/dev/mailbox
+
 # Configure Hammer for development environment
 config :hammer,
   backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
