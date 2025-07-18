@@ -147,14 +147,15 @@ defmodule Aprsme.MixProject do
     #   {:aprs, github: "aprsme/aprs", branch: "main"}
     # end
   end
-  
+
   # Copy Gleam BEAM files to the release
   defp copy_gleam_files(release) do
     app_dir = Path.join([release.path, "lib", "aprsme-#{release.version}", "ebin"])
     File.mkdir_p!(app_dir)
-    
+
     # Copy from priv/gleam if available
     priv_gleam = "priv/gleam"
+
     if File.exists?(priv_gleam) do
       priv_gleam
       |> File.ls!()
@@ -165,7 +166,7 @@ defmodule Aprsme.MixProject do
         File.copy!(src, dest)
       end)
     end
-    
+
     release
   end
 end
