@@ -3,6 +3,8 @@ defmodule AprsmeWeb.InfoLive.Show do
   use AprsmeWeb, :live_view
   use Gettext, backend: AprsmeWeb.Gettext
 
+  import AprsmeWeb.Components.InfoMapComponent
+
   alias Aprsme.Callsign
   alias Aprsme.EncodingUtils
   alias Aprsme.Packets

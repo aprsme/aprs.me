@@ -31,6 +31,8 @@ if (!csrfToken) {
 import MapAPRSMap from "./map";
 // Import error boundary hook
 import ErrorBoundary from "./hooks/error_boundary";
+// Import info map hook
+import { InfoMap } from "./hooks/info_map";
 
 // Responsive Slideover Hook
 let ResponsiveSlideoverHook = {
@@ -105,6 +107,7 @@ Hooks.APRSMap = MapAPRSMap;
 Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
 Hooks.BodyClassHook = BodyClassHook;
 Hooks.ErrorBoundary = ErrorBoundary;
+Hooks.InfoMap = InfoMap;
 
 // Register weather chart hooks from TypeScript
 import { WeatherChartHooks } from "./features/weather_charts";

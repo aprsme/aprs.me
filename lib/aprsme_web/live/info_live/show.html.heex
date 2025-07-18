@@ -9,7 +9,8 @@
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
   crossorigin=""
-></script>
+>
+</script>
 
 <div class="min-h-screen bg-base-200">
   <!-- Page header -->
@@ -184,8 +185,8 @@
             </dl>
           </div>
         </div>
-
-        <!-- Map showing station location -->
+        
+<!-- Map showing station location -->
         <%= if @packet && @packet.lat && @packet.lon do %>
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body p-0">
@@ -204,193 +205,205 @@
           </div>
         <% end %>
         
-        <!-- Row for Device Information and Other SSIDs -->
+<!-- Row for Device Information and Other SSIDs -->
         <div class="lg:col-span-2 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <!-- Device information -->
           <div class="card bg-base-100 shadow-xl">
-          <div class="card-body">
-            <div class="flex items-center mb-3">
-              <div class="flex-shrink-0">
-                <svg class="h-4 w-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0020.75 3H3.75A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
-                  />
-                </svg>
+            <div class="card-body">
+              <div class="flex items-center mb-3">
+                <div class="flex-shrink-0">
+                  <svg
+                    class="h-4 w-4 opacity-70"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="1.5"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0020.75 3H3.75A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
+                    />
+                  </svg>
+                </div>
+                <div class="ml-2">
+                  <h3 class="text-sm font-medium">{gettext("Device Information")}</h3>
+                </div>
               </div>
-              <div class="ml-2">
-                <h3 class="text-sm font-medium">{gettext("Device Information")}</h3>
-              </div>
-            </div>
-            <dl class="grid grid-cols-2 gap-3">
-              <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Device")}</dt>
-                <dd class="mt-1 text-sm font-semibold">
-                  <%= if @packet.device_model || @packet.device_vendor do %>
-                    {[
-                      @packet.device_model,
-                      @packet.device_vendor,
-                      @packet.device_contact
-                    ]
-                    |> Enum.reject(&is_nil/1)
-                    |> Enum.join(" ")}
-                    <%= if @packet.device_class do %>
-                      ({@packet.device_class})
+              <dl class="grid grid-cols-2 gap-3">
+                <div>
+                  <dt class="text-xs font-medium opacity-70">{gettext("Device")}</dt>
+                  <dd class="mt-1 text-sm font-semibold">
+                    <%= if @packet.device_model || @packet.device_vendor do %>
+                      {[
+                        @packet.device_model,
+                        @packet.device_vendor,
+                        @packet.device_contact
+                      ]
+                      |> Enum.reject(&is_nil/1)
+                      |> Enum.join(" ")}
+                      <%= if @packet.device_class do %>
+                        ({@packet.device_class})
+                      <% end %>
+                    <% else %>
+                      <span class="opacity-70 font-mono">
+                        {@packet.device_identifier || gettext("Unknown")}
+                      </span>
                     <% end %>
-                  <% else %>
-                    <span class="opacity-70 font-mono">
-                      {@packet.device_identifier || gettext("Unknown")}
-                    </span>
-                  <% end %>
-                </dd>
-              </div>
-              <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Path")}</dt>
-                <dd class="mt-1 text-sm font-semibold">
-                  <% path_elements = parse_path_with_links(@packet.path) %>
-                  <%= for {{type, content, display}, index} <- Enum.with_index(path_elements) do %>
-                    <%= case type do %>
-                      <% :link -> %>
-                        <.link navigate={~p"/info/#{content}"} class="link link-primary">
-                          {display}
-                        </.link>
-                      <% :text -> %>
-                        {content}
-                    <% end %>
-                    <%= if index < length(path_elements) - 1 do %>
-                      <span class="opacity-50">,</span>
-                    <% end %>
-                  <% end %>
-                </dd>
-              </div>
-              <%= if @packet.path && @packet.path != "" do %>
-                <div class="col-span-2">
-                  <dt class="text-xs font-medium opacity-70">{gettext("Decoded Path")}</dt>
-                  <dd class="mt-1 text-sm">
-                    {decode_aprs_path(@packet.path)}
                   </dd>
                 </div>
-              <% end %>
-              <div class="col-span-2">
-                <dt class="text-xs font-medium opacity-70">{gettext("Raw Packet")}</dt>
-                <dd class="mt-1 text-xs font-mono break-all">
-                  <%= if is_binary(@packet.raw_packet) do %>
-                    {Aprsme.EncodingUtils.sanitize_string(@packet.raw_packet)}
-                  <% else %>
-                    {@packet.raw_packet || ""}
-                  <% end %>
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-
-        <!-- Other SSIDs -->
-        <%= if length(@other_ssids) > 0 do %>
-          <div class="card bg-base-100 shadow-xl">
-          <div class="card-body">
-            <div class="flex items-center mb-3">
-              <div class="flex-shrink-0">
-                <svg class="h-4 w-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                  />
-                </svg>
-              </div>
-              <div class="ml-2">
-                <h3 class="text-sm font-medium">{gettext("Other SSIDs")}</h3>
-              </div>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="table table-sm table-zebra">
-                <thead>
-                  <tr>
-                    <th class="text-xs font-medium uppercase tracking-wider">
-                      {gettext("Callsign")}
-                    </th>
-                    <th class="text-xs font-medium uppercase tracking-wider">
-                      {gettext("Distance & Direction")}
-                    </th>
-                    <th class="text-xs font-medium uppercase tracking-wider">
-                      {gettext("Last Heard")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <%= for ssid_info <- @other_ssids do %>
-                    <tr>
-                      <td class="font-medium">
-                        <div class="flex items-center space-x-2">
-                          <.link navigate={~p"/info/#{ssid_info.callsign}"} class="link link-primary">
-                            {ssid_info.callsign}
+                <div>
+                  <dt class="text-xs font-medium opacity-70">{gettext("Path")}</dt>
+                  <dd class="mt-1 text-sm font-semibold">
+                    <% path_elements = parse_path_with_links(@packet.path) %>
+                    <%= for {{type, content, display}, index} <- Enum.with_index(path_elements) do %>
+                      <%= case type do %>
+                        <% :link -> %>
+                          <.link navigate={~p"/info/#{content}"} class="link link-primary">
+                            {display}
                           </.link>
-                          <%= if ssid_info.packet do %>
-                            <% {symbol_table, symbol_code} =
-                              AprsmeWeb.AprsSymbol.extract_from_packet(ssid_info.packet) %>
-                            <% display_symbol =
-                              if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/),
-                                do: symbol_table,
-                                else:
-                                  "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
-                            <div title={display_symbol}>
-                              {render_symbol_html(ssid_info.packet)}
-                            </div>
-                          <% end %>
-                        </div>
-                      </td>
-                      <td class="opacity-70">
-                        <%= if ssid_info.packet && ssid_info.packet.lat && ssid_info.packet.lon && @packet && @packet.lat && @packet.lon do %>
-                          <% dist =
-                            haversine(
-                              @packet.lat,
-                              @packet.lon,
-                              ssid_info.packet.lat,
-                              ssid_info.packet.lon
-                            ) %>
-                          <% course =
-                            calculate_course(
-                              @packet.lat,
-                              @packet.lon,
-                              ssid_info.packet.lat,
-                              ssid_info.packet.lon
-                            ) %>
-                          <% locale = Map.get(assigns, :locale, "en") %>
-                          <%= if course do %>
-                            {format_distance(dist, locale)} @ {Float.round(course, 0)}°
-                          <% else %>
-                            {format_distance(dist, locale)}
-                          <% end %>
-                        <% else %>
-                          -
-                        <% end %>
-                      </td>
-                      <td class="opacity-70">
-                        <%= if ssid_info.last_heard do %>
-                          <span class="text-sm">
-                            {ssid_info.last_heard.time_ago}
-                          </span>
-                        <% else %>
-                          <span class="text-sm opacity-70">{gettext("Unknown")}</span>
-                        <% end %>
-                      </td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
+                        <% :text -> %>
+                          {content}
+                      <% end %>
+                      <%= if index < length(path_elements) - 1 do %>
+                        <span class="opacity-50">,</span>
+                      <% end %>
+                    <% end %>
+                  </dd>
+                </div>
+                <%= if @packet.path && @packet.path != "" do %>
+                  <div class="col-span-2">
+                    <dt class="text-xs font-medium opacity-70">{gettext("Decoded Path")}</dt>
+                    <dd class="mt-1 text-sm">
+                      {decode_aprs_path(@packet.path)}
+                    </dd>
+                  </div>
+                <% end %>
+                <div class="col-span-2">
+                  <dt class="text-xs font-medium opacity-70">{gettext("Raw Packet")}</dt>
+                  <dd class="mt-1 text-xs font-mono break-all">
+                    <%= if is_binary(@packet.raw_packet) do %>
+                      {Aprsme.EncodingUtils.sanitize_string(@packet.raw_packet)}
+                    <% else %>
+                      {@packet.raw_packet || ""}
+                    <% end %>
+                  </dd>
+                </div>
+              </dl>
             </div>
           </div>
+          
+<!-- Other SSIDs -->
+          <%= if length(@other_ssids) > 0 do %>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <div class="flex items-center mb-3">
+                  <div class="flex-shrink-0">
+                    <svg
+                      class="h-4 w-4 opacity-70"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width="1.5"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                      />
+                    </svg>
+                  </div>
+                  <div class="ml-2">
+                    <h3 class="text-sm font-medium">{gettext("Other SSIDs")}</h3>
+                  </div>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="table table-sm table-zebra">
+                    <thead>
+                      <tr>
+                        <th class="text-xs font-medium uppercase tracking-wider">
+                          {gettext("Callsign")}
+                        </th>
+                        <th class="text-xs font-medium uppercase tracking-wider">
+                          {gettext("Distance & Direction")}
+                        </th>
+                        <th class="text-xs font-medium uppercase tracking-wider">
+                          {gettext("Last Heard")}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <%= for ssid_info <- @other_ssids do %>
+                        <tr>
+                          <td class="font-medium">
+                            <div class="flex items-center space-x-2">
+                              <.link navigate={~p"/info/#{ssid_info.callsign}"} class="link link-primary">
+                                {ssid_info.callsign}
+                              </.link>
+                              <%= if ssid_info.packet do %>
+                                <% {symbol_table, symbol_code} =
+                                  AprsmeWeb.AprsSymbol.extract_from_packet(ssid_info.packet) %>
+                                <% display_symbol =
+                                  if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/),
+                                    do: symbol_table,
+                                    else:
+                                      "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
+                                <div title={display_symbol}>
+                                  {render_symbol_html(ssid_info.packet)}
+                                </div>
+                              <% end %>
+                            </div>
+                          </td>
+                          <td class="opacity-70">
+                            <%= if ssid_info.packet && ssid_info.packet.lat && ssid_info.packet.lon && @packet && @packet.lat && @packet.lon do %>
+                              <% dist =
+                                haversine(
+                                  @packet.lat,
+                                  @packet.lon,
+                                  ssid_info.packet.lat,
+                                  ssid_info.packet.lon
+                                ) %>
+                              <% course =
+                                calculate_course(
+                                  @packet.lat,
+                                  @packet.lon,
+                                  ssid_info.packet.lat,
+                                  ssid_info.packet.lon
+                                ) %>
+                              <% locale = Map.get(assigns, :locale, "en") %>
+                              <%= if course do %>
+                                {format_distance(dist, locale)} @ {Float.round(course, 0)}°
+                              <% else %>
+                                {format_distance(dist, locale)}
+                              <% end %>
+                            <% else %>
+                              -
+                            <% end %>
+                          </td>
+                          <td class="opacity-70">
+                            <%= if ssid_info.last_heard do %>
+                              <span class="text-sm">
+                                {ssid_info.last_heard.time_ago}
+                              </span>
+                            <% else %>
+                              <span class="text-sm opacity-70">{gettext("Unknown")}</span>
+                            <% end %>
+                          </td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          <% else %>
+            <!-- Empty placeholder to maintain grid layout -->
+            <div></div>
+          <% end %>
         </div>
-        <% else %>
-          <!-- Empty placeholder to maintain grid layout -->
-          <div></div>
-        <% end %>
       </div>
-    </div>
       
-    <!-- Neighboring stations -->
+<!-- Neighboring stations -->
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <div class="flex items-center mb-3">
