@@ -299,14 +299,16 @@ let MapAPRSMap = {
           self.pushEvent("map_ready", {});
           // Send initial bounds to trigger historical loading
           console.log("Sending initial bounds to server");
-          self.sendBoundsToServer();
+          if (self.map && self.pushEvent && typeof self.pushEvent === 'function') {
+            saveMapState(self.map, self.pushEvent.bind(self));
+          }
           
           // Also send update_map_state to ensure URL updates and bounds processing
           // Increase delay to ensure LiveView is fully connected and ready
           setTimeout(() => {
             if (self.map && self.pushEvent && !self.isDestroyed) {
               console.log("Sending initial update_map_state for historical loading");
-              saveMapState(self.map, (event: string, payload: BaseEventPayload) => self.pushEvent(event, payload));
+              saveMapState(self.map, self.pushEvent.bind(self));
             }
           }, 500);
         } else {
@@ -315,12 +317,14 @@ let MapAPRSMap = {
           setTimeout(() => {
             if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
               self.pushEvent("map_ready", {});
-              self.sendBoundsToServer();
+              if (self.map) {
+                saveMapState(self.map, self.pushEvent.bind(self));
+              }
               // Also trigger map state update after a delay
               setTimeout(() => {
                 if (self.map && self.pushEvent && !self.isDestroyed) {
                   console.log("Sending initial update_map_state for historical loading (retry path)");
-                  saveMapState(self.map, (event: string, payload: BaseEventPayload) => self.pushEvent(event, payload));
+                  saveMapState(self.map, self.pushEvent.bind(self));
                 }
               }, 500);
             }
@@ -354,8 +358,8 @@ let MapAPRSMap = {
       
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
-        if (self.map && !self.isDestroyed) {
-          saveMapState(self.map, (event: string, payload: any) => self.pushEvent(event, payload));
+        if (self.map && !self.isDestroyed && self.pushEvent && typeof self.pushEvent === 'function') {
+          saveMapState(self.map, self.pushEvent.bind(self));
         }
       }, 300);
     };
@@ -397,8 +401,8 @@ let MapAPRSMap = {
 
         self.lastZoom = currentZoom;
         // Save map state and update URL
-        if (self.map && !self.isDestroyed) {
-          saveMapState(self.map, (event: string, payload: any) => self.pushEvent(event, payload));
+        if (self.map && !self.isDestroyed && self.pushEvent && typeof self.pushEvent === 'function') {
+          saveMapState(self.map, self.pushEvent.bind(self));
         }
       }, 300);
     };
@@ -1228,12 +1232,15 @@ let MapAPRSMap = {
         }
       }
       
-      safePushEvent(self.pushEvent, "marker_clicked", {
-        id: data.id,
-        callsign: data.callsign,
-        lat: lat,
-        lng: lng,
-      });
+      // Use bound pushEvent function to preserve context
+      if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
+        safePushEvent(self.pushEvent.bind(self), "marker_clicked", {
+          id: data.id,
+          callsign: data.callsign,
+          lat: lat,
+          lng: lng,
+        });
+      }
     });
 
     // Handle marker hover for RF path visualization
@@ -1243,9 +1250,9 @@ let MapAPRSMap = {
       marker.on("mouseover", () => {
         console.log("Marker hover start for:", data.callsign);
         // Check if LiveView is still connected before sending event
-        if (self.pushEvent && !self.isDestroyed) {
+        if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
           try {
-            self.pushEvent("marker_hover_start", {
+            self.pushEvent.call(self, "marker_hover_start", {
               id: data.id,
               callsign: data.callsign,
               path: data.path,
@@ -1263,9 +1270,9 @@ let MapAPRSMap = {
       marker.on("mouseout", () => {
         console.log("Marker hover end for:", data.callsign);
         // Check if LiveView is still connected before sending event
-        if (self.pushEvent && !self.isDestroyed) {
+        if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
           try {
-            self.pushEvent("marker_hover_end", {
+            self.pushEvent.call(self, "marker_hover_end", {
               id: data.id,
             });
           } catch (error) {

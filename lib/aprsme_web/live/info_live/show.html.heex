@@ -34,7 +34,7 @@
                     else:
                       "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
                 <div title={display_symbol}>
-                  <%= render_symbol_html(@packet) %>
+                  {render_symbol_html(@packet)}
                 </div>
               <% end %>
             </div>
@@ -349,7 +349,7 @@
                                     else:
                                       "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
                                 <div title={display_symbol}>
-                                  <%= render_symbol_html(ssid_info.packet) %>
+                                  {render_symbol_html(ssid_info.packet)}
                                 </div>
                               <% end %>
                             </div>
@@ -452,7 +452,7 @@
                               else:
                                 "#{AprsmeWeb.AprsSymbol.normalize_symbol_table(symbol_table)}#{AprsmeWeb.AprsSymbol.normalize_symbol_code(symbol_code)}" %>
                           <div title={display_symbol}>
-                            <%= render_symbol_html(neighbor.packet) %>
+                            {render_symbol_html(neighbor.packet)}
                           </div>
                         <% end %>
                       </div>

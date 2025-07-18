@@ -113,6 +113,7 @@ defmodule Aprsme.MixProject do
       {:hammer, "~> 7.0"},
       {:cachex, "~> 4.1"},
       {:gettext_pseudolocalize, "~> 0.1"},
+      {:sentry, "~> 11.0"},
       # Gleam dependencies
       {:gleam_stdlib, ">= 0.60.0 and < 1.0.0", app: false, override: true},
       {:gleeunit, "~> 1.0", only: [:dev, :test], runtime: false, app: false}
