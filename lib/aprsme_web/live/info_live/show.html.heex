@@ -1,3 +1,16 @@
+<!-- Leaflet CSS for the map -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
 <div class="min-h-screen bg-base-200">
   <!-- Page header -->
   <div class="bg-base-100 shadow-sm">
@@ -171,9 +184,30 @@
             </dl>
           </div>
         </div>
+
+        <!-- Map showing station location -->
+        <%= if @packet && @packet.lat && @packet.lon do %>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body p-0">
+              <% {symbol_table, symbol_code} = AprsmeWeb.AprsSymbol.extract_from_packet(@packet) %>
+              <% symbol_html = AprsmeWeb.AprsSymbol.render_marker_html(symbol_table, symbol_code, @callsign, 32) %>
+              <.info_map
+                id="station-location-map"
+                lat={Aprsme.EncodingUtils.to_float(@packet.lat)}
+                lon={Aprsme.EncodingUtils.to_float(@packet.lon)}
+                callsign={@callsign}
+                symbol_html={symbol_html}
+                height="280px"
+                zoom={12}
+              />
+            </div>
+          </div>
+        <% end %>
         
-<!-- Device information -->
-        <div class="card bg-base-100 shadow-xl">
+        <!-- Row for Device Information and Other SSIDs -->
+        <div class="lg:col-span-2 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <!-- Device information -->
+          <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <div class="flex items-center mb-3">
               <div class="flex-shrink-0">
@@ -251,11 +285,10 @@
             </dl>
           </div>
         </div>
-      </div>
-      
-<!-- Other SSIDs -->
-      <%= if length(@other_ssids) > 0 do %>
-        <div class="card bg-base-100 shadow-xl mb-6">
+
+        <!-- Other SSIDs -->
+        <%= if length(@other_ssids) > 0 do %>
+          <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <div class="flex items-center mb-3">
               <div class="flex-shrink-0">
@@ -272,7 +305,7 @@
               </div>
             </div>
             <div class="overflow-x-auto">
-              <table class="table table-zebra">
+              <table class="table table-sm table-zebra">
                 <thead>
                   <tr>
                     <th class="text-xs font-medium uppercase tracking-wider">
@@ -336,14 +369,11 @@
                       </td>
                       <td class="opacity-70">
                         <%= if ssid_info.last_heard do %>
-                          <div class="font-semibold">
+                          <span class="text-sm">
                             {ssid_info.last_heard.time_ago}
-                          </div>
-                          <div class="text-xs opacity-70 font-mono">
-                            {ssid_info.last_heard.formatted}
-                          </div>
+                          </span>
                         <% else %>
-                          <span class="opacity-70">{gettext("Unknown")}</span>
+                          <span class="text-sm opacity-70">{gettext("Unknown")}</span>
                         <% end %>
                       </td>
                     </tr>
@@ -353,9 +383,14 @@
             </div>
           </div>
         </div>
-      <% end %>
+        <% else %>
+          <!-- Empty placeholder to maintain grid layout -->
+          <div></div>
+        <% end %>
+      </div>
+    </div>
       
-<!-- Neighboring stations -->
+    <!-- Neighboring stations -->
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <div class="flex items-center mb-3">
