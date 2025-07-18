@@ -22,6 +22,25 @@ import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import topbar from "../vendor/topbar";
 
+// Initialize Sentry for JavaScript error tracking
+if (typeof window.Sentry !== 'undefined') {
+  window.Sentry.init({
+    dsn: "https://337ece4c07ff53c6719d900adfddd6e4@o4509627566063616.ingest.us.sentry.io/4509691336785920",
+    environment: process.env.NODE_ENV || "production",
+    integrations: [
+      new window.Sentry.BrowserTracing(),
+    ],
+    tracesSampleRate: 0.1, // Capture 10% of transactions for performance monitoring
+    beforeSend(event, hint) {
+      // Filter out known non-critical errors
+      if (hint.originalException?.message?.includes('ResizeObserver loop limit exceeded')) {
+        return null;
+      }
+      return event;
+    }
+  });
+}
+
 let csrfToken = document.querySelector("meta[name='csrf-token']")?.getAttribute("content") || "";
 if (!csrfToken) {
   console.error("CSRF token not found in meta tags");

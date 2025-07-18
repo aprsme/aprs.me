@@ -15,6 +15,7 @@ defmodule AprsmeWeb.Router do
     plug :put_root_layout, {AprsmeWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug AprsmeWeb.Plugs.ContentSecurityPolicy
     plug :fetch_current_user
     plug AprsmeWeb.Plugs.SetLocale
     plug IPGeolocation
