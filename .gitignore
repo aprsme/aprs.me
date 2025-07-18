@@ -42,3 +42,6 @@ k8s/secrets.yaml
 
 /temp
 server.log
+
+# Gleam build directory
+/build/
