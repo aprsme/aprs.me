@@ -1246,9 +1246,7 @@ let MapAPRSMap = {
     // Handle marker hover for RF path visualization
     // Check for non-empty RF path (not TCPIP and not empty string)
     if (data.path && data.path.trim() !== "" && !data.path.includes("TCPIP")) {
-      console.log("Adding hover handlers for RF packet:", data.callsign, "path:", data.path);
       marker.on("mouseover", () => {
-        console.log("Marker hover start for:", data.callsign);
         // Check if LiveView is still connected before sending event
         if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
           try {
@@ -1268,7 +1266,6 @@ let MapAPRSMap = {
       });
 
       marker.on("mouseout", () => {
-        console.log("Marker hover end for:", data.callsign);
         // Check if LiveView is still connected before sending event
         if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
           try {
