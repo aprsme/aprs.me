@@ -6,7 +6,11 @@ defmodule Aprsme.MixProject do
       app: :aprsme,
       version: "0.2.0",
       elixir: "~> 1.17",
+      archives: [mix_gleam: "~> 0.6"],
+      compilers: Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env()),
+      erlc_paths: erlc_paths(Mix.env()),
+      erlc_include_path: "build/#{Mix.env()}/erlang/aprsme/include",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
@@ -44,6 +48,11 @@ defmodule Aprsme.MixProject do
   # Specifies which paths to compile per environment.
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  # Specifies erlc paths per environment for Gleam compilation
+  defp erlc_paths(env) do
+    ["build/#{env}/erlang/aprsme/_gleam_artefacts", "src"]
+  end
 
   # Specifies your project dependencies.
   #
@@ -97,7 +106,10 @@ defmodule Aprsme.MixProject do
       {:httpoison, "~> 1.8"},
       {:hammer, "~> 7.0"},
       {:cachex, "~> 4.1"},
-      {:gettext_pseudolocalize, "~> 0.1"}
+      {:gettext_pseudolocalize, "~> 0.1"},
+      # Gleam dependencies
+      {:gleam_stdlib, ">= 0.60.0 and < 1.0.0", app: false, override: true},
+      {:gleeunit, "~> 1.0", only: [:dev, :test], runtime: false, app: false}
     ]
   end
 
@@ -109,10 +121,11 @@ defmodule Aprsme.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["deps.get", "ecto.setup"],
+      setup: ["deps.get", "ecto.setup", "gleam_compile"],
+      compile: ["gleam_compile", "compile"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      test: ["gleam_compile", "ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.deploy": [
         "tailwind default --minify",
         "esbuild default --minify",
@@ -129,4 +142,5 @@ defmodule Aprsme.MixProject do
     #   {:aprs, github: "aprsme/aprs", branch: "main"}
     # end
   end
+
 end

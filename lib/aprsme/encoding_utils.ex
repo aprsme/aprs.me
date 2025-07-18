@@ -1,13 +1,19 @@
 defmodule Aprsme.EncodingUtils do
   @moduledoc """
-  Utilities for handling encoding issues in APRS packet data.
-
-  APRS packets can contain arbitrary bytes that may not be valid UTF-8,
-  which causes issues when trying to JSON encode the data for transmission
-  to web clients.
+  Elixir wrapper for the Gleam encoding utilities.
+  Provides a compatible API with the original EncodingUtils module.
   """
 
   alias Aprs.Types.MicE
+
+  # The Gleam module is compiled with @ separator in the beam name
+  @gleam_module :aprsme@encoding
+  
+  # Optional compile-time check to suppress warnings
+  @compile {:no_warn_undefined, {@gleam_module, :sanitize_string, 1}}
+  @compile {:no_warn_undefined, {@gleam_module, :to_float_safe, 1}}
+  @compile {:no_warn_undefined, {@gleam_module, :to_hex, 1}}
+  @compile {:no_warn_undefined, {@gleam_module, :encoding_info, 1}}
 
   @doc """
   Sanitizes a binary to ensure it can be safely JSON encoded.
@@ -20,64 +26,13 @@ defmodule Aprsme.EncodingUtils do
 
       iex> Aprsme.EncodingUtils.sanitize_string("Hello World")
       "Hello World"
-
+      
       iex> Aprsme.EncodingUtils.sanitize_string(<<72, 101, 108, 108, 111, 211, 87, 111, 114, 108, 100>>)
       "HelloÓWorld"
   """
   @spec sanitize_string(binary() | nil | any()) :: binary() | nil | any()
   def sanitize_string(binary) when is_binary(binary) do
-    # First, handle the encoding conversion
-    cleaned =
-      if String.valid?(binary) do
-        binary
-      else
-        case :unicode.characters_to_binary(binary, :latin1, :utf8) do
-          {:error, _, _} ->
-            # If conversion fails, try to extract valid parts
-            binary
-            |> :binary.bin_to_list()
-            |> Enum.filter(fn byte -> byte >= 32 and byte <= 126 end)
-            |> :binary.list_to_bin()
-
-          {:incomplete, partial, _} ->
-            partial
-
-          result when is_binary(result) ->
-            result
-        end
-      end
-
-    # Remove control characters including null bytes
-    # We filter at the codepoint level to handle all Unicode control characters
-    cleaned
-    |> String.codepoints()
-    |> Enum.filter(fn cp ->
-      case :unicode.characters_to_list(cp) do
-        [codepoint] ->
-          # Allow printable characters and common whitespace
-          # Remove C0 controls (0x00-0x1F except tab, newline, carriage return)
-          # Remove C1 controls (0x80-0x9F)
-          # Remove DEL (0x7F)
-          cond do
-            # Tab
-            codepoint == 0x09 -> true
-            # Newline
-            codepoint == 0x0A -> true
-            # Carriage return
-            codepoint == 0x0D -> true
-            codepoint >= 0x00 and codepoint <= 0x1F -> false
-            codepoint == 0x7F -> false
-            codepoint >= 0x80 and codepoint <= 0x9F -> false
-            true -> true
-          end
-
-        _ ->
-          # Multi-codepoint grapheme, keep it
-          true
-      end
-    end)
-    |> Enum.join()
-    |> String.trim()
+    @gleam_module.sanitize_string(binary)
   end
 
   def sanitize_string(nil), do: nil
@@ -105,33 +60,24 @@ defmodule Aprsme.EncodingUtils do
   end
 
   def to_float(value) when is_integer(value) do
-    # Protect against integer overflow when converting to float
     if value >= -9.0e15 and value <= 9.0e15 do
       value * 1.0
+    end
+  end
+
+  def to_float(value) when is_binary(value) do
+    # Sanitize and use Gleam's safe conversion
+    sanitized = value |> sanitize_string() |> to_string()
+
+    case @gleam_module.to_float_safe(sanitized) do
+      {:some, f} -> f
+      :none -> nil
     end
   end
 
   def to_float(%Decimal{} = value) do
     float = Decimal.to_float(value)
     if finite_float?(float), do: float
-  end
-
-  def to_float(value) when is_binary(value) do
-    # Sanitize input first to prevent injection attacks
-    sanitized =
-      value
-      |> sanitize_string()
-      |> to_string()
-      # Reasonable max length for a number
-      |> String.slice(0, 30)
-
-    case Float.parse(sanitized) do
-      {float, _} when is_float(float) ->
-        if finite_float?(float), do: float
-
-      :error ->
-        nil
-    end
   end
 
   def to_float(_), do: nil
@@ -383,8 +329,6 @@ defmodule Aprsme.EncodingUtils do
   defp sanitize_map_value(val) when is_binary(val), do: sanitize_string(val)
   defp sanitize_map_value(val), do: val
 
-  # Private helper functions
-
   @doc """
   Converts a binary to a hex string representation for debugging.
 
@@ -395,11 +339,7 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec to_hex(binary()) :: String.t()
   def to_hex(binary) when is_binary(binary) do
-    binary
-    |> :binary.bin_to_list()
-    |> Enum.map(&Integer.to_string(&1, 16))
-    |> Enum.map_join("", &String.pad_leading(&1, 2, "0"))
-    |> String.upcase()
+    @gleam_module.to_hex(binary)
   end
 
   @doc """
@@ -414,37 +354,27 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec encoding_info(binary()) :: map()
   def encoding_info(binary) when is_binary(binary) do
-    valid = String.valid?(binary)
-    byte_count = byte_size(binary)
+    # Call Gleam function and convert the result
+    case @gleam_module.encoding_info(binary) do
+      {:encoding_info, valid_utf8, byte_count, char_count, invalid_at} ->
+        base = %{
+          valid_utf8: valid_utf8,
+          byte_count: byte_count
+        }
 
-    base_info = %{
-      valid_utf8: valid,
-      byte_count: byte_count
-    }
+        base
+        |> maybe_add_field(:char_count, char_count)
+        |> maybe_add_field(:invalid_at, invalid_at)
 
-    add_encoding_details(base_info, binary, valid)
-  end
-
-  defp add_encoding_details(base_info, binary, true) do
-    Map.put(base_info, :char_count, String.length(binary))
-  end
-
-  defp add_encoding_details(base_info, binary, false) do
-    # Try to find where the invalid sequence starts
-    invalid_at = find_invalid_byte_position(binary, 0)
-    Map.put(base_info, :invalid_at, invalid_at)
-  end
-
-  @spec find_invalid_byte_position(binary(), non_neg_integer()) :: non_neg_integer() | nil
-  defp find_invalid_byte_position(<<>>, _pos), do: nil
-
-  defp find_invalid_byte_position(<<head::binary-size(1), tail::binary>>, pos) do
-    if String.valid?(head) do
-      find_invalid_byte_position(tail, pos + 1)
-    else
-      pos
+      _ ->
+        # Fallback
+        %{
+          valid_utf8: String.valid?(binary),
+          byte_count: byte_size(binary)
+        }
     end
   end
 
-  defp find_invalid_byte_position(_, pos), do: pos
+  defp maybe_add_field(map, _key, :none), do: map
+  defp maybe_add_field(map, key, {:some, value}), do: Map.put(map, key, value)
 end
