@@ -38,6 +38,11 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
       "start_progressive_historical_loading called with zoom: #{socket.assigns.map_zoom}, bounds: #{inspect(socket.assigns.map_bounds)}"
     )
 
+    # If we're already loading, just update the generation to cancel old requests
+    if socket.assigns[:historical_loading] do
+      Logger.debug("Already loading historical data, cancelling previous load")
+    end
+
     # Increment generation to invalidate any in-flight loads
     new_generation = socket.assigns.loading_generation + 1
 

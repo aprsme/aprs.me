@@ -639,24 +639,33 @@ defmodule AprsmeWeb.MapLive.Index do
   defp handle_info_process_bounds_update(map_bounds, socket) do
     require Logger
 
-    # Check if we need to process this bounds update
-    should_process =
-      !socket.assigns[:initial_bounds_loaded] or
-        socket.assigns[:needs_initial_historical_load] or
-        not BoundsUtils.compare_bounds(map_bounds, socket.assigns.map_bounds)
-
-    Logger.debug(
-      "handle_info_process_bounds_update - should_process: #{should_process}, initial_bounds_loaded: #{socket.assigns[:initial_bounds_loaded]}, needs_initial_historical_load: #{socket.assigns[:needs_initial_historical_load]}"
-    )
-
-    if should_process do
-      Logger.debug("Processing bounds update: #{inspect(map_bounds)}")
-      socket = process_bounds_update(map_bounds, socket)
-      socket = assign(socket, initial_bounds_loaded: true)
+    # Check if this is a stale update (newer bounds have been scheduled)
+    if socket.assigns[:pending_bounds] && socket.assigns.pending_bounds != map_bounds do
+      Logger.debug("Skipping stale bounds update, newer bounds pending")
       {:noreply, socket}
     else
-      Logger.debug("Skipping bounds update - no change detected")
-      {:noreply, socket}
+      # Clear the timer reference since we're processing this update
+      socket = assign(socket, bounds_update_timer: nil, pending_bounds: nil)
+
+      # Check if we need to process this bounds update
+      should_process =
+        !socket.assigns[:initial_bounds_loaded] or
+          socket.assigns[:needs_initial_historical_load] or
+          not BoundsUtils.compare_bounds(map_bounds, socket.assigns.map_bounds)
+
+      Logger.debug(
+        "handle_info_process_bounds_update - should_process: #{should_process}, initial_bounds_loaded: #{socket.assigns[:initial_bounds_loaded]}, needs_initial_historical_load: #{socket.assigns[:needs_initial_historical_load]}"
+      )
+
+      if should_process do
+        Logger.debug("Processing bounds update: #{inspect(map_bounds)}")
+        socket = process_bounds_update(map_bounds, socket)
+        socket = assign(socket, initial_bounds_loaded: true)
+        {:noreply, socket}
+      else
+        Logger.debug("Skipping bounds update - no change detected")
+        {:noreply, socket}
+      end
     end
   end
 
@@ -1355,11 +1364,16 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp schedule_bounds_update(map_bounds, socket) do
+    # Cancel existing timer if present
     if socket.assigns[:bounds_update_timer] do
       Process.cancel_timer(socket.assigns.bounds_update_timer)
     end
 
-    timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, 300)
+    # Cancel any in-progress historical loading to prevent race conditions
+    socket = HistoricalLoader.cancel_pending_loads(socket)
+
+    # Increase debounce time slightly for better stability during rapid zooming
+    timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, 400)
     socket = assign(socket, bounds_update_timer: timer_ref, pending_bounds: map_bounds)
     {:noreply, socket}
   end
