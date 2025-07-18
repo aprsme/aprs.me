@@ -14,8 +14,8 @@ config :aprsme, Aprsme.Repo,
   database: "aprsme_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
-  # Optimized pool settings for development
-  pool_size: 15,
+  # Optimized pool settings for development (increased from 15)
+  pool_size: 30,
   pool_timeout: 10_000,
   timeout: 30_000,
   queue_target: 100,
@@ -104,5 +104,12 @@ config :phoenix, :plug_init_mode, :runtime
 # If desired, both `http:` and `https:` keys can be
 # configured to run both http and https servers on
 config :phoenix, :stacktrace_depth, 20
+
+# Configure Sentry for development (disabled by default)
+config :sentry,
+  environment_name: :dev,
+  enable_source_code_context: true,
+  root_source_code_paths: [File.cwd!()],
+  before_send: {Aprsme.SentryFilter, :before_send}
 
 config :swoosh, :api_client, false

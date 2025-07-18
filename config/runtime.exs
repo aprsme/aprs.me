@@ -56,8 +56,8 @@ if config_env() == :prod do
   config :aprsme, Aprsme.Repo,
     # ssl: true,
     url: database_url,
-    # Optimized for max_connections=100 with other apps on server
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "25"),
+    # Increased pool size for better concurrency (was 25)
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "45"),
     # Increased timeout for ARM system under load
     pool_timeout: String.to_integer(System.get_env("POOL_TIMEOUT") || "10000"),
     # Match PostgreSQL statement timeout capabilities
@@ -104,7 +104,13 @@ if config_env() == :prod do
     ],
     secret_key_base: secret_key_base,
     server: true,
-    check_origin: ["https://#{host}", "http://10.0.19.222:33897", "https://s.aprs.me", "https://js.sentry-cdn.com", "https://*.sentry.io"]
+    check_origin: [
+      "https://#{host}",
+      "http://10.0.19.222:33897",
+      "https://s.aprs.me",
+      "https://js.sentry-cdn.com",
+      "https://*.sentry.io"
+    ]
 
   # Optional: Set the default "from" email address
   config :aprsme,

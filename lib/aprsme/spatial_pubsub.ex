@@ -167,12 +167,11 @@ defmodule Aprsme.SpatialPubSub do
           |> Enum.reject(&is_nil/1)
           |> Enum.map(& &1.topic)
 
-        # Spawn async task to avoid blocking GenServer for broadcasts
-        Task.start(fn ->
-          Enum.each(topics, fn topic ->
-            PubSub.broadcast(Aprsme.PubSub, topic, {:spatial_packet, packet})
-          end)
-        end)
+        # Use dedicated broadcast task supervisor for better performance
+        Aprsme.BroadcastTaskSupervisor.broadcast_async(
+          topics,
+          {:spatial_packet, packet}
+        )
 
         # Update statistics (immediately return control to GenServer)
         state =

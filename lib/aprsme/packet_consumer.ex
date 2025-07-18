@@ -104,10 +104,12 @@ defmodule Aprsme.PacketConsumer do
     # With ~32KB per packet, we can fit ~500 packets in work_mem
     chunk_size = Application.get_env(:aprsme, :packet_pipeline)[:batch_size] || 500
 
+    # Use Stream for memory-efficient processing
     results =
       packets
-      |> Enum.chunk_every(chunk_size)
-      |> Enum.map(&process_chunk/1)
+      |> Stream.chunk_every(chunk_size)
+      |> Stream.map(&process_chunk/1)
+      |> Enum.to_list()
 
     {success_count, error_count} =
       Enum.reduce(results, {0, 0}, fn {success, error}, {total_success, total_error} ->
@@ -177,15 +179,25 @@ defmodule Aprsme.PacketConsumer do
   end
 
   defp process_chunk(packets) do
-    # Prepare packets for batch insertion
-    packet_attrs =
+    # Use Stream for memory-efficient packet preparation
+    packet_stream =
       packets
-      |> Enum.map(&prepare_packet_for_insert/1)
-      # Ensure truncation here
-      |> Enum.map(&truncate_datetimes_to_second/1)
+      |> Stream.map(&prepare_packet_for_insert/1)
+      |> Stream.map(&truncate_datetimes_to_second/1)
+      |> Stream.reject(&is_nil/1)
 
-    # Filter out invalid packets
-    {valid_packets, invalid_packets} = Enum.split_with(packet_attrs, &valid_packet?/1)
+    # Separate valid and invalid packets using Stream
+    {valid_packets, invalid_count} =
+      Enum.reduce(packet_stream, {[], 0}, fn packet, {valid_acc, invalid_acc} ->
+        if valid_packet?(packet) do
+          {[packet | valid_acc], invalid_acc}
+        else
+          {valid_acc, invalid_acc + 1}
+        end
+      end)
+
+    # Reverse to maintain order
+    valid_packets = Enum.reverse(valid_packets)
 
     # Insert valid packets in batch
     # Optimized for PostgreSQL with synchronous_commit=off
@@ -206,9 +218,33 @@ defmodule Aprsme.PacketConsumer do
         {0, length(packets)}
 
       {inserted_count, _} ->
-        error_count = Enum.count(invalid_packets)
-        {inserted_count, error_count}
+        # Broadcast successfully inserted packets to StreamingPacketsPubSub
+        broadcast_packets_async(valid_packets)
+
+        {inserted_count, invalid_count}
     end
+  end
+
+  # Broadcast packets asynchronously to avoid blocking
+  defp broadcast_packets_async(packets) do
+    Task.start(fn ->
+      Enum.each(packets, fn packet_attrs ->
+        # Convert back to a format suitable for broadcasting
+        packet = %{
+          sender: packet_attrs[:sender],
+          latitude: packet_attrs[:lat],
+          longitude: packet_attrs[:lon],
+          received_at: packet_attrs[:received_at],
+          data_type: packet_attrs[:data_type],
+          altitude: packet_attrs[:altitude],
+          speed: packet_attrs[:speed],
+          course: packet_attrs[:course],
+          comment: packet_attrs[:comment]
+        }
+
+        Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
+      end)
+    end)
   end
 
   defp prepare_packet_for_insert(packet_data) do

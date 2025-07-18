@@ -35,8 +35,12 @@ defmodule Aprsme.Application do
       Aprsme.CircuitBreaker,
       # Start device cache manager
       Aprsme.DeviceCache,
+      # Start broadcast task supervisor for async operations
+      Aprsme.BroadcastTaskSupervisor,
       # Start spatial PubSub for viewport-based filtering
       Aprsme.SpatialPubSub,
+      # Start global streaming packets PubSub
+      Aprsme.StreamingPacketsPubSub,
       # Start packet store for efficient LiveView memory usage
       AprsmeWeb.MapLive.PacketStore,
 
