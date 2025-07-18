@@ -30,7 +30,8 @@ if (typeof window.Sentry !== 'undefined') {
     integrations: [
       new window.Sentry.BrowserTracing(),
     ],
-    tracesSampleRate: 0.1, // Capture 10% of transactions for performance monitoring
+    tracesSampleRate: 1.0, // Capture 100% of transactions for performance monitoring
+    sampleRate: 1.0, // Capture 100% of errors
     beforeSend(event, hint) {
       // Filter out known non-critical errors
       if (hint.originalException?.message?.includes('ResizeObserver loop limit exceeded')) {
