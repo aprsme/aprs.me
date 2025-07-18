@@ -43,9 +43,12 @@ COPY rel rel
 # Copy Gleam source files and configuration
 COPY src src
 COPY gleam.toml gleam.toml
-# Ensure pre-compiled Gleam BEAM files are available
-# This helps when mix_gleam or gleam binary are not available
-RUN mkdir -p priv/gleam
+# Copy pre-compiled Gleam BEAM files
+# This is crucial for production builds where gleam compiler is not available
+COPY priv/gleam priv/gleam
+
+# Compile Gleam files (using pre-compiled BEAM files)
+RUN mix gleam_compile
 
 # Compile assets
 RUN mix assets.deploy
