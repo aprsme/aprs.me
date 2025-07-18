@@ -78,6 +78,23 @@ defmodule Mix.Tasks.GleamCompile do
         else
           Mix.shell().info("Gleam output directory #{gleam_output} does not exist")
         end
+        
+        # Also copy Gleam stdlib files
+        gleam_stdlib_dir = "build/dev/erlang/gleam_stdlib/ebin"
+        if File.exists?(gleam_stdlib_dir) do
+          Mix.shell().info("Copying Gleam stdlib files...")
+          
+          gleam_stdlib_dir
+          |> File.ls!()
+          |> Enum.filter(&String.ends_with?(&1, ".beam"))
+          |> Enum.each(fn beam_file ->
+            src = Path.join(gleam_stdlib_dir, beam_file)
+            dest = Path.join(ebin_dir, beam_file)
+            File.copy!(src, dest)
+          end)
+          
+          Mix.shell().info("Copied Gleam stdlib files")
+        end
       else
         # Last resort: Check for pre-compiled BEAM files in priv/gleam
         Mix.shell().info("No Gleam compiler available, checking for pre-compiled BEAM files...")
@@ -88,16 +105,23 @@ defmodule Mix.Tasks.GleamCompile do
         if File.exists?(priv_gleam) do
           File.mkdir_p!(ebin_dir)
           
-          # Look specifically for our Gleam module
-          beam_file = "aprsme@encoding.beam"
-          src = Path.join(priv_gleam, beam_file)
-          
-          if File.exists?(src) do
+          # Copy all Gleam-related BEAM files
+          priv_gleam
+          |> File.ls!()
+          |> Enum.filter(fn file -> 
+            String.ends_with?(file, ".beam") and 
+            (String.starts_with?(file, "gleam") or String.starts_with?(file, "aprsme@"))
+          end)
+          |> Enum.each(fn beam_file ->
+            src = Path.join(priv_gleam, beam_file)
             dest = Path.join(ebin_dir, beam_file)
             File.copy!(src, dest)
             Mix.shell().info("Copied pre-compiled #{beam_file} from priv/gleam")
-          else
-            Mix.shell().error("Pre-compiled #{beam_file} not found in priv/gleam")
+          end)
+          
+          # Check if we got the main module
+          if not File.exists?(Path.join(ebin_dir, "aprsme@encoding.beam")) do
+            Mix.shell().error("Pre-compiled aprsme@encoding.beam not found in priv/gleam")
           end
         else
           # Try to copy from dev build if available

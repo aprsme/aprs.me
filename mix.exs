@@ -20,6 +20,11 @@ defmodule Aprsme.MixProject do
         plt_file:
           {:no_warn,
            "_build/dev/dialyxir_erlang-#{:erlang.system_info(:otp_release)}_elixir-#{System.version()}_deps-dev.plt"}
+      ],
+      releases: [
+        aprsme: [
+          steps: [:assemble, &copy_gleam_files/1]
+        ]
       ]
     ]
   end
@@ -141,5 +146,26 @@ defmodule Aprsme.MixProject do
     # else
     #   {:aprs, github: "aprsme/aprs", branch: "main"}
     # end
+  end
+  
+  # Copy Gleam BEAM files to the release
+  defp copy_gleam_files(release) do
+    app_dir = Path.join([release.path, "lib", "aprsme-#{release.version}", "ebin"])
+    File.mkdir_p!(app_dir)
+    
+    # Copy from priv/gleam if available
+    priv_gleam = "priv/gleam"
+    if File.exists?(priv_gleam) do
+      priv_gleam
+      |> File.ls!()
+      |> Enum.filter(&String.ends_with?(&1, ".beam"))
+      |> Enum.each(fn beam_file ->
+        src = Path.join(priv_gleam, beam_file)
+        dest = Path.join(app_dir, beam_file)
+        File.copy!(src, dest)
+      end)
+    end
+    
+    release
   end
 end
