@@ -12,10 +12,13 @@ defmodule Aprsme.PacketPipelineSupervisor do
   def init(_opts) do
     config = Application.get_env(:aprsme, :packet_pipeline, [])
 
-    children = [
-      {Aprsme.PacketProducer, max_buffer_size: config[:max_buffer_size] || 1000},
-      {Aprsme.PacketConsumer, batch_size: config[:batch_size] || 100, batch_timeout: config[:batch_timeout] || 1000}
-    ]
+    # Configure producer with correct buffer size from config
+    producer_spec = {Aprsme.PacketProducer, max_buffer_size: config[:max_buffer_size] || 1000}
+
+    # Use consumer pool for better throughput
+    consumer_pool_spec = {Aprsme.PacketConsumerPool, num_consumers: config[:num_consumers] || 3}
+
+    children = [producer_spec, consumer_pool_spec]
 
     Supervisor.init(children, strategy: :one_for_one)
   end

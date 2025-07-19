@@ -11,7 +11,14 @@ defmodule Aprsme.PacketConsumer do
   require Logger
 
   def start_link(opts \\ []) do
-    GenStage.start_link(__MODULE__, opts, name: __MODULE__)
+    # Allow unnamed consumers for pool usage
+    name = opts[:name]
+
+    if name do
+      GenStage.start_link(__MODULE__, opts, name: name)
+    else
+      GenStage.start_link(__MODULE__, opts)
+    end
   end
 
   @impl true
@@ -24,6 +31,9 @@ defmodule Aprsme.PacketConsumer do
     # Start a timer for batch processing
     timer = Process.send_after(self(), :process_batch, batch_timeout)
 
+    # Extract subscription options if provided
+    subscribe_to = opts[:subscribe_to] || [{Aprsme.PacketProducer, max_demand: opts[:max_demand] || 250}]
+
     {:consumer,
      %{
        batch: [],
@@ -31,11 +41,15 @@ defmodule Aprsme.PacketConsumer do
        batch_timeout: batch_timeout,
        max_batch_size: max_batch_size,
        timer: timer
-     }}
+     }, subscribe_to: subscribe_to}
   end
 
   @impl true
-  def handle_events(events, _from, %{batch: batch, batch_size: batch_size, max_batch_size: max_batch_size} = state) do
+  def handle_events(
+        events,
+        _from,
+        %{batch: batch, batch_size: batch_size, max_batch_size: max_batch_size, timer: timer} = state
+      ) do
     new_batch = batch ++ events
     new_batch_length = length(new_batch)
 
@@ -57,12 +71,19 @@ defmodule Aprsme.PacketConsumer do
           )
         end
 
-        {:noreply, [], %{state | batch: []}}
+        # Cancel and restart timer
+        Process.cancel_timer(timer)
+        new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
+        {:noreply, [], %{state | batch: [], timer: new_timer}}
 
       new_batch_length >= batch_size ->
         # Process the batch immediately
         process_batch(new_batch)
-        {:noreply, [], %{state | batch: []}}
+
+        # Cancel and restart timer
+        Process.cancel_timer(timer)
+        new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
+        {:noreply, [], %{state | batch: [], timer: new_timer}}
 
       true ->
         # Add to batch and wait for more

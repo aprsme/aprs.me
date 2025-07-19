@@ -67,7 +67,9 @@ config :aprsme,
     # 2 seconds - longer timeout for larger batches
     batch_timeout: 2000,
     # Higher demand to keep pipeline flowing
-    max_demand: 250
+    max_demand: 750,
+    # Number of parallel consumers for better throughput
+    num_consumers: 3
   ]
 
 config :error_tracker,
