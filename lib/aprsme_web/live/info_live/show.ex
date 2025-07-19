@@ -247,7 +247,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     query = """
     WITH recent_ssids AS (
       SELECT DISTINCT ON (sender)
-        sender, ssid, received_at, id
+        sender, ssid, received_at, id, symbol_table_id, symbol_code
       FROM packets
       WHERE base_callsign = $1
         AND received_at >= $2
@@ -261,13 +261,15 @@ defmodule AprsmeWeb.InfoLive.Show do
 
     case Repo.query(query, [base_callsign, one_hour_ago, callsign]) do
       {:ok, result} ->
-        Enum.map(result.rows, fn [sender, ssid, received_at, id] ->
+        Enum.map(result.rows, fn [sender, ssid, received_at, id, symbol_table_id, symbol_code] ->
           # Create a minimal packet struct for display
           packet = %Packet{
             id: id,
             sender: sender,
             ssid: ssid,
-            received_at: received_at
+            received_at: received_at,
+            symbol_table_id: symbol_table_id,
+            symbol_code: symbol_code
           }
 
           %{
