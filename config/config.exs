@@ -62,12 +62,12 @@ config :aprsme,
   packet_pipeline: [
     # Larger buffer since inserts are async
     max_buffer_size: 5000,
-    # ~32KB per packet, stays within work_mem
-    batch_size: 500,
-    # 2 seconds - longer timeout for larger batches
-    batch_timeout: 2000,
-    # Higher demand to keep pipeline flowing
-    max_demand: 750,
+    # Smaller batch size to reduce memory pressure
+    batch_size: 100,
+    # 1 second timeout for smaller batches
+    batch_timeout: 1000,
+    # Adjust demand for smaller batches
+    max_demand: 300,
     # Number of parallel consumers for better throughput
     num_consumers: 3
   ]

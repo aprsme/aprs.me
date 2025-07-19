@@ -122,8 +122,8 @@ defmodule Aprsme.PacketConsumer do
     start_time = System.monotonic_time(:millisecond)
 
     # Chunk size optimized for PostgreSQL work_mem=16MB
-    # With ~32KB per packet, we can fit ~500 packets in work_mem
-    chunk_size = Application.get_env(:aprsme, :packet_pipeline)[:batch_size] || 500
+    # Using smaller batches to reduce memory pressure
+    chunk_size = Application.get_env(:aprsme, :packet_pipeline)[:batch_size] || 100
 
     # Use Stream for memory-efficient processing
     results =
@@ -167,7 +167,7 @@ defmodule Aprsme.PacketConsumer do
     end
 
     # Always do minor GC after large batches to prevent memory accumulation
-    if length(packets) > 500 do
+    if length(packets) > 100 do
       :erlang.garbage_collect(self(), type: :minor)
     end
 
