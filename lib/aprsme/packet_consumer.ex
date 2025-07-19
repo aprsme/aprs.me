@@ -148,9 +148,9 @@ defmodule Aprsme.PacketConsumer do
     process_info = Process.info(self(), [:memory, :heap_size, :total_heap_size])
 
     # Force garbage collection if memory usage is high
-    # 10MB threshold (more aggressive than previous 50MB)
-    # Also check process memory independently
-    if memory_diff > 10_485_760 or process_info[:memory] > 20_971_520 do
+    # 500MB threshold for memory diff (we have 15GB available)
+    # 1GB threshold for process memory
+    if memory_diff > 524_288_000 or process_info[:memory] > 1_073_741_824 do
       :erlang.garbage_collect()
 
       Logger.warning("High memory usage detected, forced garbage collection",

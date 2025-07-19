@@ -2,7 +2,13 @@
 ## -mode/-name/-sname/-setcookie are configured via env vars, do not set them here
 
 ## Increase number of concurrent ports/sockets
-##+Q 65536
++Q 65536
 
-## Tweak GC to run more often
-##-env ERL_FULLSWEEP_AFTER 10
+## Memory and GC tuning for 1GB container
+## Run full sweep less frequently to reduce GC overhead
++e 65536
++hms 46422
++hmbs 46422
++S 2:2
++stbt s
++zdbbl 32768
