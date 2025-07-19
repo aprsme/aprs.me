@@ -55,9 +55,7 @@ defmodule Aprsme.Application do
       Aprsme.Presence,
       Aprsme.PostgresNotifier,
       # Start the packet processing pipeline
-      Aprsme.PacketPipelineSupervisor,
-      # Start the packet pipeline setup
-      Aprsme.PacketPipelineSetup
+      Aprsme.PacketPipelineSupervisor
     ]
 
     children = maybe_add_is_supervisor(children, Application.get_env(:aprsme, :env))
