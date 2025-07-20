@@ -288,15 +288,11 @@ defmodule AprsmeWeb.MapLive.Index do
     # Validate path string
     safe_path = ParamUtils.sanitize_path_string(path)
 
-    Logger.info("RF path hover start - path: #{inspect(safe_path)}")
-
     # Parse the path to find digipeater/igate stations
     path_stations = RfPath.parse_rf_path(safe_path)
-    Logger.info("Parsed path stations: #{inspect(path_stations)}")
 
     # Query for positions of path stations
     path_station_positions = RfPath.get_path_station_positions(path_stations, socket)
-    Logger.info("Found #{length(path_station_positions)} station positions")
 
     # Send event to draw the RF path lines
     socket =
