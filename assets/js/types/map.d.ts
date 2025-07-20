@@ -34,6 +34,7 @@ export interface LiveViewHookContext {
   rfPathLines?: Array<Polyline | Marker>; // Array of Leaflet polylines and markers for RF path visualization
   trailLayer?: LayerGroup;
   markerClusterGroup?: MarkerClusterGroup;
+  cleanupTimeouts?: ReturnType<typeof setTimeout>[];
 }
 
 export interface MarkerData {

@@ -603,7 +603,12 @@ let MapAPRSMap = {
               });
 
               // Check element dimensions after zoom
-              setTimeout(() => {
+              const dimensionCheckTimeout = setTimeout(() => {
+                // Check if map still exists and not destroyed
+                if (!self.map || self.isDestroyed) {
+                  return;
+                }
+                
                 const afterRect = self.el.getBoundingClientRect();
 
                 if (afterRect.width === 0 || afterRect.height === 0) {
@@ -611,9 +616,17 @@ let MapAPRSMap = {
                   // Try to restore dimensions
                   self.el.style.width = "100vw";
                   self.el.style.height = "100vh";
-                  self.map.invalidateSize();
+                  if (self.map) {
+                    self.map.invalidateSize();
+                  }
                 }
               }, 1000);
+              
+              // Store timeout for cleanup
+              if (!self.cleanupTimeouts) {
+                self.cleanupTimeouts = [];
+              }
+              self.cleanupTimeouts.push(dimensionCheckTimeout);
             }
           }, 100);
         } catch (error) {
@@ -1618,6 +1631,14 @@ let MapAPRSMap = {
     if (self.programmaticMoveTimeout !== undefined) {
       clearTimeout(self.programmaticMoveTimeout);
       self.programmaticMoveTimeout = undefined;
+    }
+    
+    // Clear any dimension check timeouts
+    if (self.cleanupTimeouts !== undefined) {
+      self.cleanupTimeouts.forEach((timeout: number) => {
+        clearTimeout(timeout);
+      });
+      self.cleanupTimeouts = [];
     }
     
     // Remove popup navigation event listener
