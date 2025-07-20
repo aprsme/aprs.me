@@ -1,9 +1,26 @@
 # Aprs
 
+## Prerequisites
+
+Before setting up the project, ensure you have the following installed:
+- Elixir 1.17+
+- Erlang/OTP
+- PostgreSQL with PostGIS extension
+- **Gleam** - Required for Gleam modules. Install from https://gleam.run/getting-started/installing/
+  - If using asdf: `asdf install` (will use versions from .tool-versions)
+
+## Setup
+
 To start your Phoenix server:
 
-  * Install dependencies with `mix deps.get`
-  * Create and migrate your database with `mix ecto.setup`
+  * First install the mix_gleam archive:
+    ```bash
+    mix archive.install hex mix_gleam --force
+    ```
+  * Run the complete setup:
+    ```bash
+    mix setup
+    ```
   * Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
 
 Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
