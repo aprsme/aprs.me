@@ -5,6 +5,7 @@ defmodule Aprsme.PacketConsumer do
   """
   use GenStage
 
+  alias Aprs.Types.ParseError
   alias Aprsme.LogSanitizer
   alias Aprsme.Repo
 
@@ -475,6 +476,15 @@ defmodule Aprsme.PacketConsumer do
   defp to_float(value), do: Aprsme.EncodingUtils.to_float(value)
 
   defp normalize_data_type(attrs), do: Aprsme.EncodingUtils.normalize_data_type(attrs)
+
+  defp struct_to_map(%{__struct__: ParseError} = error) do
+    # Handle ParseError specially to avoid Access behavior issues
+    %{
+      error_code: error.error_code,
+      message: error.message,
+      __original_struct__: ParseError
+    }
+  end
 
   defp struct_to_map(%{__struct__: struct_type} = struct) do
     converted_map =
