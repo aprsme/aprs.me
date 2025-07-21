@@ -50,8 +50,12 @@ COPY priv/gleam priv/gleam
 # Compile Gleam files (using pre-compiled BEAM files)
 RUN mix gleam_compile
 
-# Compile assets
-RUN mix assets.deploy
+# Copy pre-bundled vendor assets
+COPY priv/static/assets/vendor.js priv/static/assets/
+COPY priv/static/assets/vendor.css priv/static/assets/
+
+# Compile assets (using prod alias that skips vendor bundling)
+RUN mix assets.deploy.prod
 
 # Compile and release
 RUN mix release --path /app/release
