@@ -803,6 +803,20 @@ defmodule AprsmeWeb.MapLive.Index do
         #aprs-map {
           right: 0 !important;
         }
+        
+        .slideover-panel {
+          width: 90vw !important;
+          max-width: 400px;
+        }
+        
+        .locate-button {
+          top: 65px;
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
       }
 
       .locate-button {

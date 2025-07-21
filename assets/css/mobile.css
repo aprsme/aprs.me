@@ -1,0 +1,237 @@
+/* Mobile-specific optimizations for APRS.me */
+
+/* Prevent iOS bounce scrolling on the map */
+html, body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure map takes full height on mobile */
+@media (max-width: 768px) {
+  #map {
+    height: calc(100vh - 56px); /* Account for header */
+    height: calc(100dvh - 56px); /* Dynamic viewport height for mobile browsers */
+    touch-action: pan-x pan-y;
+  }
+
+  /* Optimize header for mobile */
+  .navbar {
+    padding: 0.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
+  /* Larger touch targets for mobile controls */
+  .leaflet-control-zoom a,
+  .leaflet-control-layers-toggle,
+  .leaflet-control button {
+    width: 44px !important;
+    height: 44px !important;
+    line-height: 44px !important;
+    font-size: 20px !important;
+  }
+
+  /* Better popup positioning on mobile */
+  .leaflet-popup {
+    bottom: 50px !important;
+    max-width: 90vw !important;
+  }
+
+  .leaflet-popup-content {
+    max-height: 50vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem;
+  }
+
+  /* Optimize sidebar for mobile */
+  .map-sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 40vh;
+    background: white;
+    border-top: 2px solid #e5e7eb;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    z-index: 1001;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .map-sidebar.open {
+    transform: translateY(0);
+  }
+
+  /* Mobile-friendly search box */
+  .search-container {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 60px;
+    z-index: 1000;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 16px; /* Prevent zoom on iOS */
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  /* Mobile-friendly buttons */
+  .btn, button {
+    min-height: 44px;
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+
+  /* Hide non-essential elements on small screens */
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Improve marker touch targets */
+  .leaflet-marker-icon {
+    margin-left: -12px !important;
+    margin-top: -41px !important;
+  }
+
+  /* Better clustering on mobile */
+  .marker-cluster {
+    width: 48px !important;
+    height: 48px !important;
+    margin-left: -24px !important;
+    margin-top: -24px !important;
+  }
+
+  /* Mobile-friendly trail duration controls */
+  .trail-controls {
+    position: fixed;
+    bottom: 60px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .trail-controls button {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #e5e7eb;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  /* Improve dropdown menus on mobile */
+  select {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 12px;
+    min-height: 44px;
+  }
+
+  /* Mobile-friendly tooltips */
+  .tooltip {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  /* Optimize data tables for mobile */
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    font-size: 14px;
+  }
+
+  /* Safe area insets for devices with notches */
+  .navbar {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-top: env(safe-area-inset-top);
+  }
+
+  #map {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Landscape mode optimizations */
+@media (max-width: 768px) and (orientation: landscape) {
+  .navbar {
+    padding: 0.25rem 0.5rem;
+  }
+
+  #map {
+    height: calc(100vh - 40px);
+    height: calc(100dvh - 40px);
+  }
+
+  .leaflet-control-zoom {
+    transform: scale(0.9);
+  }
+}
+
+/* High DPI screen optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .leaflet-tile {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+  .leaflet-interactive:hover {
+    stroke-opacity: 1 !important;
+    fill-opacity: 0.2 !important;
+  }
+  
+  a:hover, button:hover {
+    background-color: inherit !important;
+  }
+}
+
+/* Loading spinner for mobile */
+.mobile-loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+}
+
+/* Improve form inputs on mobile */
+input[type="text"],
+input[type="email"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="password"],
+textarea {
+  font-size: 16px; /* Prevent zoom on iOS */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Better focus states for mobile */
+:focus {
+  outline: 3px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Optimize animations for mobile performance */
+@media (max-width: 768px) {
+  * {
+    animation-duration: 0.2s !important;
+    transition-duration: 0.2s !important;
+  }
+}

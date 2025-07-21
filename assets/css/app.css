@@ -3,6 +3,9 @@
 @source "../js";
 @source "../../lib/aprsme_web";
 
+/* Import mobile-specific styles */
+@import "./mobile.css";
+
 /* Vendor CSS files are imported via JavaScript/ESBuild */
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.

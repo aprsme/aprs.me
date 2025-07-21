@@ -9,17 +9,38 @@ declare namespace L {
     invalidateSize(options?: { animate?: boolean; pan?: boolean }): this;
     whenReady(callback: () => void): this;
     on(event: string, handler: (e: import('./leaflet-events').LeafletEvent) => void): this;
+    getContainer(): HTMLElement;
+    project(latlng: LatLngExpression, zoom?: number): Point;
+    unproject(point: PointExpression, zoom?: number): LatLng;
+    latLngToContainerPoint(latlng: LatLngExpression): Point;
+    panTo(latlng: LatLngExpression, options?: PanOptions): this;
   }
 
   interface MapOptions {
     zoomControl?: boolean;
     attributionControl?: boolean;
     closePopupOnClick?: boolean;
+    tap?: boolean;
+    tapTolerance?: number;
+    touchZoom?: boolean;
+    bounceAtZoomLimits?: boolean;
+    worldCopyJump?: boolean;
+    preferCanvas?: boolean;
+    zoomAnimation?: boolean;
+    fadeAnimation?: boolean;
+    markerZoomAnimation?: boolean;
   }
 
   interface ZoomOptions {
     animate?: boolean;
     duration?: number;
+  }
+
+  interface PanOptions {
+    animate?: boolean;
+    duration?: number;
+    easeLinearity?: number;
+    noMoveStart?: boolean;
   }
 
   class LatLng {
@@ -29,6 +50,18 @@ declare namespace L {
   }
 
   type LatLngExpression = LatLng | [number, number];
+  type PointExpression = Point | [number, number];
+
+  class Point {
+    x: number;
+    y: number;
+    constructor(x: number, y: number);
+  }
+
+  class Popup {
+    getLatLng(): LatLng;
+    getElement(): HTMLElement | undefined;
+  }
 
   class LatLngBounds {
     constructor(southWest: LatLngExpression, northEast: LatLngExpression);

@@ -40,4 +40,15 @@ export interface LeafletZoomAnimEvent extends LeafletEvent {
   noUpdate: boolean;
 }
 
+export interface LeafletTouchEvent extends LeafletEvent {
+  latlng: LatLng;
+  layerPoint: Point;
+  containerPoint: Point;
+  originalEvent: TouchEvent;
+}
+
+export interface LeafletPopupEvent extends LeafletEvent {
+  popup: L.Popup;
+}
+
 export type LeafletEventHandlerFn = (event: LeafletEvent) => void;

@@ -94,7 +94,7 @@
       padding: 10px;
       cursor: pointer;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      transition: all 0.2s ease;
+      transition: all 0.3s ease;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -111,10 +111,10 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
-  /* Hide toggle on desktop when slideover is open */
+  /* Adjust toggle position on desktop when slideover is open */
   @media (min-width: 1024px) {
       .slideover-toggle.slideover-open {
-          display: none;
+          right: 362px; /* 352px slideover width + 10px gap */
       }
   }
 

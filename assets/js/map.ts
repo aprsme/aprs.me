@@ -8,6 +8,7 @@ import type {
   MapEventData 
 } from './types/map';
 import type { Map as LeafletMap, Marker, TileLayer, LayerGroup, DivIcon, LatLngBounds, Polyline } from 'leaflet';
+import type { LeafletTouchEvent, LeafletPopupEvent } from './types/leaflet-events';
 import type { HeatLayer, MarkerClusterGroup, OverlappingMarkerSpiderfier, MarkerClusterGroupOptions, HeatLayerOptions, MarkerCluster, HeatLatLng } from './types/leaflet-plugins';
 import type { APRSMarker } from './types/marker-extensions';
 import type { BaseEventPayload } from './types/events';
@@ -184,11 +185,33 @@ let MapAPRSMap = {
         delete self.el._leaflet_id;
       }
 
+      // Detect if mobile device
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
       self.map = L.map(self.el, {
-        zoomControl: true,
+        zoomControl: !isMobile, // Hide default zoom control on mobile, we'll add a better one
         attributionControl: true,
         closePopupOnClick: true,
+        tap: true, // Enable tap events for mobile
+        tapTolerance: 30, // Increase tap tolerance for mobile
+        touchZoom: true,
+        bounceAtZoomLimits: false, // Disable bouncing at zoom limits
+        worldCopyJump: true, // Better panning behavior
+        preferCanvas: isMobile, // Use canvas renderer on mobile for better performance
+        zoomAnimation: !isMobile, // Disable zoom animations on mobile for performance
+        fadeAnimation: !isMobile, // Disable fade animations on mobile
+        markerZoomAnimation: !isMobile // Disable marker animations on mobile
       }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
+      
+      // Add mobile-friendly zoom control if on mobile
+      if (isMobile) {
+        L.control.zoom({
+          position: 'bottomright'
+        }).addTo(self.map);
+        
+        // Add touch gesture handling
+        self.setupMobileGestures();
+      }
     } catch (error) {
       console.error("Error initializing map:", error);
       self.errors!.push(
@@ -539,6 +562,81 @@ let MapAPRSMap = {
         </div>
       `;
     }
+  },
+
+  setupMobileGestures() {
+    const self = this as unknown as LiveViewHookContext;
+    
+    // Long press timer
+    let longPressTimer: any = null;
+    let startX = 0;
+    let startY = 0;
+    const longPressDuration = 750; // 750ms for long press
+    const movementThreshold = 10; // pixels
+    
+    const handleLongPress = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return; // Only handle single touch
+      
+      const touch = e.touches[0];
+      const latlng = self.map!.containerPointToLatLng(L.point(touch.clientX, touch.clientY));
+      
+      // Find the nearest marker
+      let nearestMarker: APRSMarker | null = null;
+      let minDistance = Infinity;
+      
+      self.markers.forEach((marker) => {
+        const markerLatLng = marker.getLatLng();
+        const distance = latlng.distanceTo(markerLatLng);
+        if (distance < minDistance && distance < 50) { // Within 50 meters
+          minDistance = distance;
+          nearestMarker = marker;
+        }
+      });
+      
+      if (nearestMarker) {
+        nearestMarker.openPopup();
+      }
+    };
+    
+    self.map!.on('touchstart', (e: LeafletTouchEvent) => {
+      if (e.originalEvent.touches.length !== 1) return;
+      
+      const touch = e.originalEvent.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      
+      longPressTimer = setTimeout(() => {
+        handleLongPress(e.originalEvent);
+      }, longPressDuration);
+    });
+    
+    self.map!.on('touchmove', (e: LeafletTouchEvent) => {
+      if (!longPressTimer) return;
+      
+      const touch = e.originalEvent.touches[0];
+      const deltaX = Math.abs(touch.clientX - startX);
+      const deltaY = Math.abs(touch.clientY - startY);
+      
+      // Cancel long press if moved too much
+      if (deltaX > movementThreshold || deltaY > movementThreshold) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    });
+    
+    self.map!.on('touchend', () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    });
+    
+    self.map!.on('touchcancel', () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    });
   },
 
   setupPopupNavigation() {
@@ -1808,6 +1906,83 @@ let MapAPRSMap = {
     
     // Restore original pushEvent (though it won't be used since we're destroyed)
     self.pushEvent = originalPushEvent;
+  },
+  
+  setupMobileGestures() {
+    const self = this as unknown as LiveViewHookContext;
+    if (!self.map) return;
+    
+    // Long press to show station info
+    let longPressTimer: NodeJS.Timeout | null = null;
+    let touchStartPos: { x: number; y: number } | null = null;
+    
+    self.map.on('touchstart', (e: LeafletTouchEvent) => {
+      touchStartPos = { x: e.originalEvent.touches[0].pageX, y: e.originalEvent.touches[0].pageY };
+      
+      longPressTimer = setTimeout(() => {
+        // Get the closest marker to the touch point
+        const point = e.containerPoint;
+        let closestMarker: APRSMarker | null = null;
+        let closestDistance = Infinity;
+        
+        self.markers.forEach((marker) => {
+          const markerPoint = self.map.latLngToContainerPoint(marker.getLatLng());
+          const distance = Math.sqrt(
+            Math.pow(markerPoint.x - point.x, 2) + 
+            Math.pow(markerPoint.y - point.y, 2)
+          );
+          
+          if (distance < closestDistance && distance < 50) { // 50px tolerance
+            closestDistance = distance;
+            closestMarker = marker;
+          }
+        });
+        
+        if (closestMarker) {
+          closestMarker.openPopup();
+        }
+      }, 600); // 600ms for long press
+    });
+    
+    self.map.on('touchmove', (e: LeafletTouchEvent) => {
+      if (longPressTimer && touchStartPos) {
+        const moveThreshold = 10; // pixels
+        const currentPos = { x: e.originalEvent.touches[0].pageX, y: e.originalEvent.touches[0].pageY };
+        const distance = Math.sqrt(
+          Math.pow(currentPos.x - touchStartPos.x, 2) + 
+          Math.pow(currentPos.y - touchStartPos.y, 2)
+        );
+        
+        if (distance > moveThreshold) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      }
+    });
+    
+    self.map.on('touchend touchcancel', () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      touchStartPos = null;
+    });
+    
+    // Improve popup behavior on mobile
+    self.map.on('popupopen', (e: LeafletPopupEvent) => {
+      // Ensure popup is visible on mobile
+      const popup = e.popup;
+      const px = self.map.project(popup.getLatLng());
+      const popupHeight = popup.getElement()?.offsetHeight || 200;
+      const mapHeight = self.map.getContainer().offsetHeight;
+      
+      // If popup would be cut off at bottom, pan the map
+      const containerPoint = self.map.latLngToContainerPoint(popup.getLatLng());
+      if (containerPoint.y + popupHeight > mapHeight - 50) {
+        px.y -= (popupHeight / 2);
+        self.map.panTo(self.map.unproject(px), { animate: true });
+      }
+    });
   },
 };
 
