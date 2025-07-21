@@ -53,10 +53,15 @@ defmodule Aprsme.DeviceCache do
   @impl true
   def init(_) do
     # Load devices on startup
-    load_devices_into_cache()
+    case load_devices_into_cache() do
+      :ok ->
+        # Schedule periodic refresh
+        Process.send_after(self(), :refresh_cache, @refresh_interval)
 
-    # Schedule periodic refresh
-    Process.send_after(self(), :refresh_cache, @refresh_interval)
+      :error ->
+        # If initial load failed, retry sooner
+        Process.send_after(self(), :refresh_cache, 5_000)
+    end
 
     {:ok, %{}}
   end
@@ -86,12 +91,23 @@ defmodule Aprsme.DeviceCache do
   # Private functions
 
   defp load_devices_into_cache do
-    devices = Repo.all(Devices)
+    require Logger
 
-    # Store all devices in cache
-    case Cachex.put(@cache_name, :all_devices, devices) do
-      {:ok, true} -> :ok
-      error -> error
+    try do
+      devices = Repo.all(Devices)
+
+      # Store all devices in cache
+      case Cachex.put(@cache_name, :all_devices, devices) do
+        {:ok, true} -> :ok
+        error -> error
+      end
+    rescue
+      error in [Postgrex.Error, DBConnection.ConnectionError] ->
+        # Handle case where database or table doesn't exist yet
+        Logger.warning("Failed to load devices: #{inspect(error)}. Will retry later.")
+        # Store empty list for now
+        Cachex.put(@cache_name, :all_devices, [])
+        :error
     end
   end
 

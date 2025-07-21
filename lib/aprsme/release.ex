@@ -13,8 +13,27 @@ defmodule Aprsme.Release do
 
     # Gettext translations are automatically compiled during Mix compilation
 
+    # Create database if it doesn't exist
+    create_database()
+
     # Run migrations
     {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, &Ecto.Migrator.run(&1, :up, all: true))
+  end
+
+  defp create_database do
+    require Logger
+
+    case Aprsme.Repo.__adapter__().storage_up(Aprsme.Repo.config()) do
+      :ok ->
+        Logger.info("Database created successfully")
+
+      {:error, :already_up} ->
+        Logger.info("Database already exists")
+
+      {:error, error} ->
+        Logger.error("Failed to create database: #{inspect(error)}")
+        raise "Database creation failed: #{inspect(error)}"
+    end
   end
 
   def rollback(repo, version) do
