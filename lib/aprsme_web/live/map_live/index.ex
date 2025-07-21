@@ -39,9 +39,23 @@ defmodule AprsmeWeb.MapLive.Index do
     # Parse and determine map location
     {map_center, map_zoom, should_skip_initial_url_update} = Navigation.determine_map_location(params, session)
 
-    # Setup defaults
-    socket = assign_defaults(socket, one_hour_ago)
-    socket = assign(socket, initial_historical_completed: false)
+    # Parse trail duration and historical hours from URL
+    trail_duration = params |> Map.get("trail", "1") |> parse_trail_duration() |> to_string()
+    historical_hours = params |> Map.get("hist", "1") |> parse_historical_hours() |> to_string()
+
+    # Calculate packet age threshold based on trail duration
+    hours = String.to_integer(trail_duration)
+    packet_age_threshold = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
+
+    # Setup defaults with parsed values
+    socket = assign_defaults(socket, packet_age_threshold)
+
+    socket =
+      assign(socket,
+        initial_historical_completed: false,
+        trail_duration: trail_duration,
+        historical_hours: historical_hours
+      )
 
     # Setup additional subscriptions if connected
     socket = setup_additional_subscriptions(socket)
@@ -122,6 +136,11 @@ defmodule AprsmeWeb.MapLive.Index do
          deployed_at: deployed_at,
          one_hour_ago: one_hour_ago
        }) do
+    # Don't override trail_duration and historical_hours if they're already set
+    trail_duration = Map.get(socket.assigns, :trail_duration, "1")
+    historical_hours = Map.get(socket.assigns, :historical_hours, "1")
+    packet_age_threshold = Map.get(socket.assigns, :packet_age_threshold, one_hour_ago)
+
     assign(socket,
       map_ready: false,
       map_bounds: initial_bounds,
@@ -131,9 +150,9 @@ defmodule AprsmeWeb.MapLive.Index do
       packet_state: PacketManager.init_packet_state(),
       overlay_callsign: "",
       tracked_callsign: tracked_callsign,
-      trail_duration: "1",
-      historical_hours: "1",
-      packet_age_threshold: one_hour_ago,
+      trail_duration: trail_duration,
+      historical_hours: historical_hours,
+      packet_age_threshold: packet_age_threshold,
       slideover_open: true,
       deployed_at: deployed_at,
       map_page: true,
@@ -179,8 +198,6 @@ defmodule AprsmeWeb.MapLive.Index do
       pending_batch_tasks: [],
       # Overlay controls
       overlay_callsign: "",
-      trail_duration: "1",
-      historical_hours: "1",
       # Slideover state - will be set based on screen size
       slideover_open: true
     )
@@ -363,6 +380,9 @@ defmodule AprsmeWeb.MapLive.Index do
     # Update client-side TrailManager with new duration
     socket = push_event(socket, "update_trail_duration", %{duration_hours: hours})
 
+    # Update URL with new trail duration
+    socket = update_url_with_current_state(socket)
+
     # Trigger cleanup to remove packets that are now outside the new duration
     send(self(), :cleanup_old_packets)
 
@@ -374,6 +394,9 @@ defmodule AprsmeWeb.MapLive.Index do
     # Validate hours value
     validated_hours = parse_historical_hours(hours)
     socket = assign(socket, historical_hours: to_string(validated_hours))
+
+    # Update URL with new historical hours
+    socket = update_url_with_current_state(socket)
 
     # Trigger a reload of historical packets with the new time range
     if socket.assigns.map_ready do
@@ -498,6 +521,13 @@ defmodule AprsmeWeb.MapLive.Index do
     DisplayManager.handle_zoom_threshold_crossing(socket, zoom)
   end
 
+  defp update_url_with_current_state(socket) do
+    lat = socket.assigns.map_center.lat
+    lng = socket.assigns.map_center.lng
+    zoom = socket.assigns.map_zoom
+    handle_url_update(socket, lat, lng, zoom)
+  end
+
   defp handle_url_update(socket, lat, lng, zoom) do
     if socket.assigns[:should_skip_initial_url_update] && !socket.assigns[:initial_bounds_loaded] do
       require Logger
@@ -507,7 +537,18 @@ defmodule AprsmeWeb.MapLive.Index do
     else
       require Logger
 
-      new_path = "/?lat=#{lat}&lng=#{lng}&z=#{zoom}"
+      # Include trail duration and historical hours in URL
+      trail_param =
+        if socket.assigns[:trail_duration] && socket.assigns[:trail_duration] != "1",
+          do: "&trail=#{socket.assigns[:trail_duration]}",
+          else: ""
+
+      hist_param =
+        if socket.assigns[:historical_hours] && socket.assigns[:historical_hours] != "1",
+          do: "&hist=#{socket.assigns[:historical_hours]}",
+          else: ""
+
+      new_path = "/?lat=#{lat}&lng=#{lng}&z=#{zoom}#{trail_param}#{hist_param}"
       Logger.debug("Updating URL to: #{new_path}")
       push_patch(socket, to: new_path, replace: true)
     end
@@ -558,20 +599,40 @@ defmodule AprsmeWeb.MapLive.Index do
       # Parse new map state from URL parameters
       {map_center, map_zoom} = UrlParams.parse_map_params(params)
 
-      # Update socket state
-      socket = assign(socket, map_center: map_center, map_zoom: map_zoom)
+      # Parse trail duration and historical hours from URL
+      trail_duration = params |> Map.get("trail", "1") |> parse_trail_duration() |> to_string()
+      historical_hours = params |> Map.get("hist", "1") |> parse_historical_hours() |> to_string()
 
-      # If map is ready, update the client-side map
+      # Update socket state
+      socket =
+        socket
+        |> assign(map_center: map_center, map_zoom: map_zoom)
+        |> assign(trail_duration: trail_duration, historical_hours: historical_hours)
+
+      # Update packet age threshold based on trail duration
+      hours = String.to_integer(trail_duration)
+      new_threshold = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
+      socket = assign(socket, packet_age_threshold: new_threshold)
+
+      # If map is ready, update the client-side map and trail duration
       socket =
         if socket.assigns.map_ready do
-          push_event(socket, "zoom_to_location", %{
+          socket
+          |> push_event("zoom_to_location", %{
             lat: map_center.lat,
             lng: map_center.lng,
             zoom: map_zoom
           })
+          |> push_event("update_trail_duration", %{duration_hours: hours})
         else
           socket
         end
+
+      # Trigger cleanup and reload if settings changed
+      if socket.assigns[:map_ready] do
+        send(self(), :cleanup_old_packets)
+        send(self(), :reload_historical_packets)
+      end
 
       {:noreply, socket}
     end
