@@ -34,7 +34,7 @@ export function parseTimestamp(timestamp: string | number | Date | undefined): n
 /**
  * Get trail ID from marker data
  */
-export function getTrailId(data: { callsign_group?: string; callsign?: string; id: string }): string {
+export function getTrailId(data: { callsign_group?: string; callsign?: string; id: string | number }): string {
   // Prioritize callsign_group and callsign over extracting from ID
   if (data.callsign_group) {
     return data.callsign_group;
@@ -53,8 +53,8 @@ export function getTrailId(data: { callsign_group?: string; callsign?: string; i
     return withoutPrefix.replace(/_\d+$/, "");
   }
   
-  // For regular IDs, return as-is
-  return data.id;
+  // For regular IDs, return as string
+  return String(data.id);
 }
 
 /**

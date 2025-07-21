@@ -92,6 +92,20 @@ describe('map_helpers', () => {
       };
       expect(getTrailId(data)).toBe('REALCALL');
     });
+
+    test('handles numeric ID', () => {
+      const data = {
+        id: 12345
+      };
+      expect(getTrailId(data)).toBe('12345');
+    });
+
+    test('handles numeric historical ID', () => {
+      const data = {
+        id: 'hist_MYCALL_12345'
+      };
+      expect(getTrailId(data)).toBe('MYCALL');
+    });
   });
 
   describe('saveMapState', () => {
