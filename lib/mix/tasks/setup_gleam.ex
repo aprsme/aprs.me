@@ -1,7 +1,8 @@
 defmodule Mix.Tasks.SetupGleam do
-  use Mix.Task
-
   @shortdoc "Installs mix_gleam archive if not already installed"
+
+  @moduledoc false
+  use Mix.Task
 
   def run(_) do
     if archive_installed?() do
@@ -15,7 +16,7 @@ defmodule Mix.Tasks.SetupGleam do
 
   defp archive_installed? do
     archives_path = Path.join([Mix.Utils.mix_home(), "archives"])
-    
+
     if File.exists?(archives_path) do
       archives_path
       |> File.ls!()
