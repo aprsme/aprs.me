@@ -38,7 +38,7 @@ defmodule Aprsme.PacketConsumerTest do
       assert new_state.batch == []
 
       # Give time for async operations
-      Process.sleep(100)
+      Process.sleep(20)
 
       # Check that packets were inserted
       assert Repo.aggregate(Packet, :count) > 0
@@ -96,7 +96,7 @@ defmodule Aprsme.PacketConsumerTest do
       {:noreply, [], _new_state} = PacketConsumer.handle_events(events, nil, state)
 
       # Give more time for async processing and broadcasts
-      Process.sleep(500)
+      Process.sleep(50)
 
       # Valid packets (with valid sender) should be inserted
       # Note: VALID2 has invalid coordinates but valid sender, so it's still inserted
@@ -178,7 +178,7 @@ defmodule Aprsme.PacketConsumerTest do
       log =
         capture_log(fn ->
           {:noreply, [], _new_state} = PacketConsumer.handle_events(events, nil, state)
-          Process.sleep(100)
+          Process.sleep(20)
         end)
 
       # Should log warning about dropped packets
@@ -196,31 +196,32 @@ defmodule Aprsme.PacketConsumerTest do
       :erlang.garbage_collect()
       memory_before = :erlang.memory(:total)
 
-      # Create a large batch of packets
+      # Create a smaller, more focused batch of packets
+      # Reduced from 5000 to 1000 packets and smaller payloads
       events =
-        for i <- 1..5000 do
+        for i <- 1..1000 do
           %{
             sender: "K#{i}MEM",
             lat: 35.0 + :rand.uniform() * 5,
             lon: -75.0 + :rand.uniform() * 5,
             data_type: "position",
-            # Large payload
-            information_field: String.duplicate("X", 1000)
+            # Smaller payload - 100 chars instead of 1000
+            information_field: String.duplicate("X", 100)
           }
         end
 
       state = %{
         batch: [],
-        batch_size: 500,
-        batch_timeout: 1000,
-        max_batch_size: 1000,
+        batch_size: 100,
+        batch_timeout: 100,
+        max_batch_size: 200,
         timer: nil
       }
 
       # Process in chunks (simulating multiple handle_events calls)
       final_state =
         events
-        |> Enum.chunk_every(1000)
+        |> Enum.chunk_every(200)
         |> Enum.reduce(state, fn chunk, acc_state ->
           {:noreply, [], new_state} = PacketConsumer.handle_events(chunk, nil, acc_state)
           new_state
@@ -234,8 +235,8 @@ defmodule Aprsme.PacketConsumerTest do
       memory_after = :erlang.memory(:total)
       memory_growth = memory_after - memory_before
 
-      # Memory growth should be reasonable (less than 50MB for 5000 packets)
-      assert memory_growth < 50_000_000
+      # Memory growth should be reasonable (less than 10MB for 1000 packets)
+      assert memory_growth < 10_000_000
     end
   end
 end

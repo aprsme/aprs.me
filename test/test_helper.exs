@@ -1,4 +1,4 @@
-ExUnit.start()
+ExUnit.start(max_cases: System.schedulers_online() * 2)
 Ecto.Adapters.SQL.Sandbox.mode(Aprsme.Repo, :manual)
 
 # Configure Mox

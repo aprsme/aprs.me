@@ -95,8 +95,8 @@ defmodule Aprsme.BroadcastTaskSupervisorTest do
           raise "Test error"
         end)
 
-      # Give it time to fail
-      Process.sleep(50)
+      # Give it time to fail - reduced from 50ms to 10ms
+      Process.sleep(10)
 
       # Supervisor should still be running
       stats = BroadcastTaskSupervisor.get_stats()

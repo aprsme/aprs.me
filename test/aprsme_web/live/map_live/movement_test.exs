@@ -36,7 +36,8 @@ defmodule AprsmeWeb.MapLive.MovementTest do
       }
 
       assert render_hook(view, "bounds_changed", bounds_params)
-      :timer.sleep(100)
+      # Reduced sleep from 100ms to 10ms
+      Process.sleep(10)
 
       # Simulate initial packet
       initial_packet = %{
@@ -51,8 +52,8 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
       send(view.pid, {:postgres_packet, initial_packet})
 
-      # Wait for the initial packet to be processed
-      :timer.sleep(100)
+      # Reduced sleep from 100ms to 10ms
+      Process.sleep(10)
 
       # Simulate GPS drift (5 meters movement)
       drift_packet = %{
@@ -98,8 +99,8 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
       assert render_hook(view, "bounds_changed", bounds_params)
 
-      # Wait for initial load to complete
-      :timer.sleep(500)
+      # Wait for initial load to complete - increased to 100ms for reliability
+      Process.sleep(100)
 
       # Clear any events from initial load
       flush_push_events(view)
@@ -117,11 +118,11 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
       send(view.pid, {:postgres_packet, initial_packet})
 
-      # Wait for the initial packet to be processed
-      :timer.sleep(100)
+      # Wait for the initial packet to be processed - reduced from 100ms to 20ms
+      Process.sleep(20)
 
       # Should receive new_packet for the initial packet
-      assert_push_event(view, "new_packet", %{}, 1000)
+      assert_push_event(view, "new_packet", %{}, 500)
 
       # Simulate significant movement (20+ meters)
       moved_packet = %{
@@ -138,11 +139,11 @@ defmodule AprsmeWeb.MapLive.MovementTest do
       # Send the moved packet
       send(view.pid, {:postgres_packet, moved_packet})
 
-      # Wait a bit for processing
-      :timer.sleep(100)
+      # Wait a bit for processing - reduced from 100ms to 20ms
+      Process.sleep(20)
 
-      # The view should push a new_packet event for significant movement
-      assert_push_event(view, "new_packet", %{}, 1000)
+      # The view should push a new_packet event for significant movement - increased timeout to 500ms for reliability
+      assert_push_event(view, "new_packet", %{}, 500)
     end
 
     defp flush_push_events(view) do

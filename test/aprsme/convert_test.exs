@@ -1,5 +1,5 @@
 defmodule Aprsme.ConvertTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias Aprsme.Convert
 

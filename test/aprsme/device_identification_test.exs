@@ -1,5 +1,5 @@
 defmodule Aprsme.DeviceIdentificationTest do
-  use Aprsme.DataCase, async: false
+  use Aprsme.DataCase, async: true
 
   alias Aprsme.DeviceIdentification
 
