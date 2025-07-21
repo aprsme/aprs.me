@@ -87,8 +87,7 @@ config :esbuild,
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ],
   vendor: [
-    args:
-      ~w(js/vendor.js --bundle --target=es2017 --outdir=../priv/static/assets --minify),
+    args: ~w(js/vendor.js --bundle --target=es2017 --outdir=../priv/static/assets --minify),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
