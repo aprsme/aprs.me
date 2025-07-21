@@ -360,6 +360,9 @@ defmodule AprsmeWeb.MapLive.Index do
 
     socket = assign(socket, trail_duration: duration, packet_age_threshold: new_threshold)
 
+    # Update client-side TrailManager with new duration
+    socket = push_event(socket, "update_trail_duration", %{duration_hours: hours})
+
     # Trigger cleanup to remove packets that are now outside the new duration
     send(self(), :cleanup_old_packets)
 

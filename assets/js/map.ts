@@ -663,6 +663,13 @@ let MapAPRSMap = {
       }
     });
 
+    // Handle trail duration updates from LiveView
+    self.handleEvent("update_trail_duration", (data: { duration_hours: number }) => {
+      if (self.trailManager) {
+        self.trailManager.setTrailDuration(data.duration_hours);
+      }
+    });
+
     // Handle new packets from LiveView
     self.handleEvent("new_packet", (data: MarkerData) => {
       try {
