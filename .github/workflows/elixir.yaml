@@ -48,22 +48,17 @@ jobs:
         otp: ["27.3.4"]
         elixir: ["1.18.4"]
     steps:
-      # Step: Setup Elixir + Erlang image as the base.
-      - name: Set up Elixir
+      # Step: Setup Elixir + Erlang + Gleam using erlef/setup-beam
+      - name: Set up Elixir, Erlang, and Gleam
         uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
+          gleam-version: "1.5.1"
 
       # Step: Check out the code.
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # Step: Install Gleam
-      - name: Set up Gleam
-        uses: gleam-lang/setup-gleam@v1
-        with:
-          gleam-version: "1.5.1"
 
       # Step: Install mix_gleam archive
       - name: Install mix_gleam

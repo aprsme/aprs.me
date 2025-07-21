@@ -78,6 +78,24 @@ export class TrailManager {
     }
   }
 
+  setTrailDuration(durationHours: number) {
+    this.trailDuration = durationHours * 60 * 60 * 1000; // Convert hours to milliseconds
+    
+    // Clean up existing trails based on new duration
+    const cutoffTime = Date.now() - this.trailDuration;
+    
+    this.trails.forEach((trailState, baseCallsign) => {
+      // Filter positions based on new duration (skip historical dots)
+      trailState.positions = trailState.positions.filter((pos) => {
+        const posTimestamp = typeof pos.timestamp === "string" ? new Date(pos.timestamp).getTime() : pos.timestamp;
+        return posTimestamp >= cutoffTime;
+      });
+      
+      // Update trail visualization
+      this.updateTrailVisualization(baseCallsign, trailState, true);
+    });
+  }
+
   addPosition(
     markerId: string,
     lat: number,

@@ -34,8 +34,27 @@ export function parseTimestamp(timestamp: string | number | Date | undefined): n
 /**
  * Get trail ID from marker data
  */
-export function getTrailId(data: { callsign_group?: string; callsign?: string; id: string }): string {
-  return data.callsign_group || data.callsign || data.id;
+export function getTrailId(data: { callsign_group?: string; callsign?: string; id: string | number }): string {
+  // Prioritize callsign_group and callsign over extracting from ID
+  if (data.callsign_group) {
+    return data.callsign_group;
+  }
+  
+  if (data.callsign) {
+    return data.callsign;
+  }
+  
+  // For historical markers like "hist_CALLSIGN_123", extract the base callsign
+  const id = String(data.id);
+  if (id.startsWith("hist_")) {
+    // Remove hist_ prefix and any trailing numeric index
+    const withoutPrefix = id.replace(/^hist_/, "");
+    // Remove trailing _digits pattern
+    return withoutPrefix.replace(/_\d+$/, "");
+  }
+  
+  // For regular IDs, return as string
+  return String(data.id);
 }
 
 /**

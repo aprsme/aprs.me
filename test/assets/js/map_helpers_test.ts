@@ -62,6 +62,50 @@ describe('map_helpers', () => {
       };
       expect(getTrailId(data)).toBe('ID-1');
     });
+
+    test('extracts base callsign from historical ID format', () => {
+      const data = {
+        id: 'hist_MYCALL_123'
+      };
+      expect(getTrailId(data)).toBe('MYCALL');
+    });
+
+    test('handles historical ID with complex callsign', () => {
+      const data = {
+        id: 'hist_KD8ABC-9_456'
+      };
+      expect(getTrailId(data)).toBe('KD8ABC-9');
+    });
+
+    test('prioritizes callsign_group over historical ID extraction', () => {
+      const data = {
+        callsign_group: 'GROUP-1',
+        id: 'hist_MYCALL_123'
+      };
+      expect(getTrailId(data)).toBe('GROUP-1');
+    });
+
+    test('prioritizes callsign over historical ID extraction', () => {
+      const data = {
+        callsign: 'REALCALL',
+        id: 'hist_MYCALL_123'
+      };
+      expect(getTrailId(data)).toBe('REALCALL');
+    });
+
+    test('handles numeric ID', () => {
+      const data = {
+        id: 12345
+      };
+      expect(getTrailId(data)).toBe('12345');
+    });
+
+    test('handles numeric historical ID', () => {
+      const data = {
+        id: 'hist_MYCALL_12345'
+      };
+      expect(getTrailId(data)).toBe('MYCALL');
+    });
   });
 
   describe('saveMapState', () => {
