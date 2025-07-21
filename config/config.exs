@@ -85,6 +85,12 @@ config :esbuild,
       ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/* --external:chart.js/auto --define:global.L=window.L),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ],
+  vendor: [
+    args:
+      ~w(js/vendor.js --bundle --target=es2017 --outdir=../priv/static/assets --minify),
+    cd: Path.expand("../assets", __DIR__),
+    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
 
 config :gettext, :plural_forms, GettextPseudolocalize.Plural

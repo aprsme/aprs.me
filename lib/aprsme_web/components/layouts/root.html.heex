@@ -26,41 +26,8 @@
       {assigns[:page_title] || "Aprs"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""
-    />
-    <script
-      defer
-      phx-track-static
-      type="text/javascript"
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      data-source-map="false"
-    >
-    </script>
-    <%!-- Load Leaflet.heat after Leaflet is loaded --%>
-    <script
-      defer
-      phx-track-static
-      type="text/javascript"
-      src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"
-    >
-    </script>
-    <script
-      defer
-      phx-track-static
-      type="text/javascript"
-      src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"
-    >
-    </script>
-    <script
-      defer
-      phx-track-static
-      type="text/javascript"
-      src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"
-    >
+    <%!-- Vendor libraries are now bundled locally --%>
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/vendor.js"}>
     </script>
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>

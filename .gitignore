@@ -25,6 +25,10 @@ aprsme-*.tar
 # Ignore assets that are produced by build tools.
 /priv/static/assets/
 
+# Ignore vendor JavaScript/CSS files (downloaded from CDNs)
+/assets/vendor/*.js
+/assets/vendor/*.css
+
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
 
