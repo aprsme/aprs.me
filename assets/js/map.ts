@@ -204,13 +204,61 @@ let MapAPRSMap = {
       }
     }
 
-    // Add OpenStreetMap tile layer
+    // Add OpenStreetMap tile layer with improved settings
     try {
-      const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
+      // Tile provider options
+      const tileProviders = {
+        osm: {
+          url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
+          subdomains: ['a', 'b', 'c']
+        },
+        osmDE: {
+          url: "https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png", 
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
+          subdomains: ['a', 'b', 'c']
+        },
+        carto: {
+          url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | APRS.me',
+          subdomains: ['a', 'b', 'c', 'd']
+        }
+      };
+      
+      // Use OSM by default, but could be configured
+      const provider = tileProviders.osm;
+      
+      const tileLayer = L.tileLayer(provider.url, {
+        attribution: provider.attribution,
         maxZoom: 19,
+        subdomains: provider.subdomains,
+        tileSize: 256,
+        keepBuffer: 2,
+        updateWhenZooming: false,
+        updateInterval: 200,
+        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
       });
+      
+      // Add event handler for tile errors with retry logic
+      let retryCount = new Map<string, number>();
+      tileLayer.on('tileerror', function(error: any) {
+        const src = error.tile.src;
+        const count = retryCount.get(src) || 0;
+        
+        if (count < 3) {
+          console.warn(`Tile load error (attempt ${count + 1}/3):`, src);
+          retryCount.set(src, count + 1);
+          
+          // Exponential backoff
+          setTimeout(() => {
+            error.tile.src = src + (src.includes('?') ? '&' : '?') + '_retry=' + Date.now();
+          }, Math.pow(2, count) * 500);
+        } else {
+          console.error('Tile failed after 3 attempts:', src);
+          retryCount.delete(src);
+        }
+      });
+      
       tileLayer.addTo(self.map);
     } catch (error) {
       self.errors!.push("Tile layer failed: " + (error instanceof Error ? error.message : error));
