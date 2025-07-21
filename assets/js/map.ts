@@ -12,15 +12,27 @@ import type { HeatLayer, MarkerClusterGroup, OverlappingMarkerSpiderfier, Marker
 import type { APRSMarker } from './types/marker-extensions';
 import type { BaseEventPayload } from './types/events';
 
-// Declare Leaflet as a global variable with proper typing
-declare const L: typeof import('leaflet') & {
-  heatLayer?: (latlngs: HeatLatLng[], options?: HeatLayerOptions) => HeatLayer;
-  markerClusterGroup?: (options?: MarkerClusterGroupOptions) => MarkerClusterGroup;
-};
+// Import Leaflet and plugins
+import L from 'leaflet';
+import 'leaflet.heat';
+import 'leaflet.markercluster';
+import 'overlapping-marker-spiderfier-leaflet';
 
-// Import OverlappingMarkerSpiderfier constructor
-import { OverlappingMarkerSpiderfier as OMSConstructor } from './types/leaflet-plugins';
-declare const OverlappingMarkerSpiderfier: typeof OMSConstructor;
+// Make Leaflet globally available for legacy code
+window.L = L;
+
+// The OverlappingMarkerSpiderfier is attached to window by the UMD module
+declare global {
+  interface Window {
+    OverlappingMarkerSpiderfier: any;
+  }
+}
+
+// Add plugin types to Leaflet
+declare module 'leaflet' {
+  export function heatLayer(latlngs: HeatLatLng[], options?: HeatLayerOptions): HeatLayer;
+  export function markerClusterGroup(options?: MarkerClusterGroupOptions): MarkerClusterGroup;
+}
 
 // Import trail management functionality
 import { TrailManager } from "./features/trail_manager";
@@ -372,17 +384,13 @@ let MapAPRSMap = {
 
         // Handle OMS markers when crossing zoom threshold
         if (self.oms) {
-          if (currentZoom >= 11 && (!self.lastZoom || self.lastZoom < 11)) {
-            // We just zoomed in past clustering threshold, add all markers to OMS
-            self.markers.forEach((marker) => {
-              if (marker && !marker._isHistorical) {
-                self.oms.addMarker(marker);
-              }
-            });
-          } else if (currentZoom < 11 && self.lastZoom && self.lastZoom >= 11) {
-            // We just zoomed out below clustering threshold, remove all markers from OMS
-            self.oms.clearMarkers();
-          }
+          // Clear and re-add all markers to OMS on zoom change
+          self.oms.clearMarkers();
+          self.markers.forEach((marker) => {
+            if (marker && !marker._isHistorical && !marker._isClusterMarker) {
+              self.oms.addMarker(marker);
+            }
+          });
         }
 
         // If zoom changed significantly (more than 2 levels), request reload of normal markers
@@ -434,8 +442,8 @@ let MapAPRSMap = {
     self.setupPopupNavigation();
 
     // Only initialize OMS if clustering is not available or at high zoom levels
-    if (typeof OverlappingMarkerSpiderfier !== "undefined") {
-      self.oms = new OverlappingMarkerSpiderfier(self.map, {
+    if (typeof window.OverlappingMarkerSpiderfier !== "undefined") {
+      self.oms = new window.OverlappingMarkerSpiderfier(self.map, {
         keepSpiderfied: true,
         nearbyDistance: 40,
         circleSpiralSwitchover: 9,
@@ -1213,8 +1221,17 @@ let MapAPRSMap = {
     }
 
     // Handle marker click
-    marker.on("click", () => {
-      if (marker.openPopup) marker.openPopup();
+    marker.on("click", (e: any) => {
+      // Don't open popup if the marker is managed by OMS and there are nearby markers
+      // The OMS will handle the click and open the popup after spiderfying
+      if (self.oms && marker._oms && marker._omsData) {
+        // Marker is currently spiderfied, allow normal popup
+        if (marker.openPopup) marker.openPopup();
+      } else if (!self.oms || !marker._oms) {
+        // Normal marker not managed by OMS
+        if (marker.openPopup) marker.openPopup();
+      }
+      // If marker._oms is true but no _omsData, let OMS handle it (will spiderfy)
       
       // Bring the clicked marker to front
       if (marker.getElement) {
@@ -1324,8 +1341,8 @@ let MapAPRSMap = {
       marker.openPopup();
     }
 
-    // Only add to OMS if we're at zoom level 11+ (when clustering is disabled)
-    if (self.oms && marker && self.map && self.map.getZoom() >= 11) {
+    // Add to OMS for overlapping marker handling
+    if (self.oms && marker && self.map && !marker._isClusterMarker) {
       self.oms.addMarker(marker);
     }
   },

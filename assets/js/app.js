@@ -20,26 +20,24 @@ import "phoenix_html";
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
-import topbar from "../vendor/topbar";
+import topbar from "topbar";
 
 // Sentry initialization happens via the loader script in the HTML
 // Configure additional Sentry settings if needed
-if (typeof window.Sentry !== 'undefined' && window.Sentry.onLoad) {
-  window.Sentry.onLoad(function() {
+if (typeof window.Sentry !== "undefined" && window.Sentry.onLoad) {
+  window.Sentry.onLoad(function () {
     window.Sentry.init({
       environment: "production",
-      integrations: [
-        new window.Sentry.BrowserTracing(),
-      ],
+      integrations: [new window.Sentry.BrowserTracing()],
       tracesSampleRate: 1.0, // Capture 100% of transactions for performance monitoring
       sampleRate: 1.0, // Capture 100% of errors
       beforeSend(event, hint) {
         // Filter out known non-critical errors
-        if (hint.originalException?.message?.includes('ResizeObserver loop limit exceeded')) {
+        if (hint.originalException?.message?.includes("ResizeObserver loop limit exceeded")) {
           return null;
         }
         return event;
-      }
+      },
     });
   });
 }
@@ -103,24 +101,24 @@ let BodyClassHook = {
   mounted() {
     this.updateBodyClass();
   },
-  
+
   updated() {
     this.updateBodyClass();
   },
-  
+
   updateBodyClass() {
     // Get the map_page value from the element's data attribute
-    const mapPage = this.el?.dataset?.mapPage === 'true';
-    
+    const mapPage = this.el?.dataset?.mapPage === "true";
+
     // Update body class based on map_page value
     if (document.body && document.body.classList) {
       if (mapPage) {
-        document.body.classList.add('map-page');
+        document.body.classList.add("map-page");
       } else {
-        document.body.classList.remove('map-page');
+        document.body.classList.remove("map-page");
       }
     }
-  }
+  },
 };
 
 // APRS Map Hook
@@ -137,64 +135,63 @@ Object.assign(Hooks, WeatherChartHooks);
 
 // Helper function to get theme-aware colors
 const getThemeColors = () => {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   return {
-    text: isDark ? '#e5e7eb' : '#111827',
-    grid: isDark ? '#374151' : '#9ca3af',
-    background: isDark ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
+    text: isDark ? "#e5e7eb" : "#111827",
+    grid: isDark ? "#374151" : "#9ca3af",
+    background: isDark ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.1)",
   };
 };
 
 // Theme switching functionality
 const theme = (() => {
-  if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-    return localStorage.getItem('theme');
+  if (typeof localStorage !== "undefined" && localStorage.getItem("theme")) {
+    return localStorage.getItem("theme");
   }
-  return 'auto';
+  return "auto";
 })();
 
 const applyTheme = (theme) => {
   const element = document.documentElement;
   if (!element) return;
-  
-  if (theme === 'auto') {
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      element.setAttribute('data-theme', 'dark');
+
+  if (theme === "auto") {
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      element.setAttribute("data-theme", "dark");
     } else {
-      element.setAttribute('data-theme', 'light');
+      element.setAttribute("data-theme", "light");
     }
   } else {
-    element.setAttribute('data-theme', theme);
+    element.setAttribute("data-theme", theme);
   }
 };
 
 // Apply initial theme
 applyTheme(theme);
-window.localStorage.setItem('theme', theme);
+window.localStorage.setItem("theme", theme);
 
 // Global function to re-render all charts
 window.reRenderAllCharts = () => {
-  
   // Store all chart instances globally so we can access them
   if (!window.chartInstances) {
     window.chartInstances = new Map();
   }
-  
+
   // Re-render all stored chart instances
   window.chartInstances.forEach((chartInstance, elementId) => {
-    if (chartInstance && typeof chartInstance.renderChart === 'function') {
+    if (chartInstance && typeof chartInstance.renderChart === "function") {
       chartInstance.renderChart();
     }
   });
-  
+
   // Also dispatch a custom event that charts can listen to
-  window.dispatchEvent(new CustomEvent('themeChanged'));
+  window.dispatchEvent(new CustomEvent("themeChanged"));
 };
 
 const handleThemeClick = (selectedTheme) => {
   applyTheme(selectedTheme);
-  localStorage.setItem('theme', selectedTheme);
-  
+  localStorage.setItem("theme", selectedTheme);
+
   // Re-render all charts with new theme colors
   setTimeout(() => {
     window.reRenderAllCharts();
@@ -202,10 +199,10 @@ const handleThemeClick = (selectedTheme) => {
 };
 
 // Listen for system theme changes when auto is selected
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-  if (localStorage.getItem('theme') === 'auto') {
-    applyTheme('auto');
-    
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+  if (localStorage.getItem("theme") === "auto") {
+    applyTheme("auto");
+
     // Re-render all charts with new theme colors
     setTimeout(() => {
       window.reRenderAllCharts();
@@ -214,11 +211,11 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e)
 });
 
 // Add event listeners for theme switching
-document.addEventListener('DOMContentLoaded', () => {
-  const themeButtons = document.querySelectorAll('[data-set-theme]');
-  themeButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const theme = button.getAttribute('data-set-theme');
+document.addEventListener("DOMContentLoaded", () => {
+  const themeButtons = document.querySelectorAll("[data-set-theme]");
+  themeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const theme = button.getAttribute("data-set-theme");
       handleThemeClick(theme);
     });
   });
@@ -231,10 +228,9 @@ let liveSocket = new LiveSocket("/live", Socket, {
 });
 
 // Show progress bar on live navigation and form submits
-topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
-window.addEventListener("phx:page-loading-start", _info => topbar.show(100))
-window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
-
+topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
+window.addEventListener("phx:page-loading-start", (_info) => topbar.show(100));
+window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 
 // connect if there are any LiveViews on the page
 liveSocket.connect();

@@ -1,9 +1,14 @@
-// Import Chart.js types
-import type { Chart, ChartConfiguration, ChartType } from 'chart.js';
+// Import Chart.js and date adapter
+import Chart from 'chart.js/auto';
+import 'chartjs-adapter-date-fns';
+import type { ChartConfiguration, ChartType } from 'chart.js';
 import type { WeatherChartDataset, YAxisOptions } from '../types/chart-types';
 import type { HandleEventFunction } from '../types/events';
 
-// Declare global Chart object from CDN
+// Make Chart globally available for legacy code
+window.Chart = Chart;
+
+// Declare global Chart object
 declare global {
     interface Window {
         Chart: typeof Chart;

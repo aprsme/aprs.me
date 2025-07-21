@@ -6,4 +6,7 @@ import type { Marker } from 'leaflet';
 export interface APRSMarker extends Marker {
   _isHistorical?: boolean;
   _markerId?: string;
+  _isClusterMarker?: boolean;
+  _oms?: boolean;
+  _omsData?: any;
 }

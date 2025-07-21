@@ -53,12 +53,6 @@ config :aprsme, AprsmeWeb.Endpoint,
          :default,
          ~w(--sourcemap=inline --watch --loader:.ts=ts)
        ]},
-    esbuild_vendor:
-      {Esbuild, :install_and_run,
-       [
-         :vendor,
-         ~w(--sourcemap=inline --watch)
-       ]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
   ]
 
