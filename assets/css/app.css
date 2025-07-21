@@ -3,10 +3,7 @@
 @source "../js";
 @source "../../lib/aprsme_web";
 
-/* Import vendor CSS files from node_modules */
-@import "leaflet/dist/leaflet.css";
-@import "leaflet.markercluster/dist/MarkerCluster.css";
-@import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+/* Vendor CSS files are imported via JavaScript/ESBuild */
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */

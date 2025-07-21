@@ -17,9 +17,10 @@ config :aprsme, AprsmeWeb.Endpoint,
 # Runtime production configuration, including reading
 
 config :esbuild,
-  version: "0.17.11",
+  version: "0.24.2",
   default: [
-    args: ~w(js/app.js --bundle --target=es2020 --outdir=../priv/static/assets --loader:.ts=ts),
+    args:
+      ~w(js/app.js --bundle --target=es2020 --outdir=../priv/static/assets --loader:.ts=ts --loader:.css=css --loader:.png=file --loader:.svg=file --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
