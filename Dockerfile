@@ -50,12 +50,20 @@ COPY priv/gleam priv/gleam
 # Compile Gleam files (using pre-compiled BEAM files)
 RUN mix gleam_compile
 
-# Copy pre-bundled vendor assets
-COPY priv/static/assets/vendor.js priv/static/assets/
-COPY priv/static/assets/vendor.css priv/static/assets/
+# Install Node.js for asset building
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Compile assets (using prod alias that skips vendor bundling)
-RUN mix assets.deploy.prod
+# Install npm dependencies
+WORKDIR /app/assets
+RUN npm install
+
+# Go back to app root
+WORKDIR /app
+
+# Compile assets
+RUN mix assets.deploy
 
 # Compile and release
 RUN mix release --path /app/release

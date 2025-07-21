@@ -138,11 +138,6 @@ defmodule Aprsme.MixProject do
         "esbuild vendor",
         "esbuild default --minify",
         "phx.digest"
-      ],
-      "assets.deploy.prod": [
-        "tailwind default --minify",
-        "esbuild default --minify",
-        "phx.digest"
       ]
     ]
   end
