@@ -39,9 +39,9 @@ defmodule Aprsme.GeoUtils do
   Check if the distance between two points exceeds a minimum threshold.
   This helps filter out GPS drift and insignificant movements.
 
-  Default threshold is 10 meters to account for typical GPS accuracy.
+  Default threshold is 50 meters to account for typical GPS accuracy variations.
   """
-  def significant_movement?(lat1, lon1, lat2, lon2, threshold_meters \\ 10) do
+  def significant_movement?(lat1, lon1, lat2, lon2, threshold_meters \\ 50) do
     case haversine_distance(lat1, lon1, lat2, lon2) do
       nil -> false
       distance -> distance > threshold_meters

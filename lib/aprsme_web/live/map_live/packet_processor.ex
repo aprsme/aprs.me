@@ -60,11 +60,11 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
 
         # Check if we have valid existing coordinates
         if is_number(existing_lat) and is_number(existing_lon) and
-             GeoUtils.significant_movement?(existing_lat, existing_lon, lat, lon, 15) do
-          # Significant movement detected (more than 15 meters), update the marker
+             GeoUtils.significant_movement?(existing_lat, existing_lon, lat, lon, 50) do
+          # Significant movement detected (more than 50 meters), update the marker
           handle_valid_postgres_packet(packet, lat, lon, socket)
         else
-          # Just GPS drift or invalid coordinates, update the packet data but don't send visual update
+          # Just GPS drift (less than 50 meters) or invalid coordinates, update the packet data but don't send visual update
           new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
           assign(socket, :visible_packets, new_visible_packets)
         end
