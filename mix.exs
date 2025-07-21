@@ -135,6 +135,7 @@ defmodule Aprsme.MixProject do
       test: ["gleam_compile", "ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.deploy": [
         "tailwind default --minify",
+        "esbuild vendor",
         "esbuild default --minify",
         "phx.digest"
       ]

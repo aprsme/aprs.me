@@ -20,7 +20,8 @@ import "phoenix_html";
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
-import topbar from "topbar";
+// topbar is loaded globally from vendor bundle
+const topbar = window.topbar;
 
 // Sentry initialization happens via the loader script in the HTML
 // Configure additional Sentry settings if needed

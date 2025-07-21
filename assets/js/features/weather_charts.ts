@@ -1,12 +1,9 @@
-// Import Chart.js and date adapter
-import Chart from 'chart.js/auto';
-import 'chartjs-adapter-date-fns';
+// Chart.js and date adapter are loaded globally from vendor bundle
+const Chart = window.Chart;
+
 import type { ChartConfiguration, ChartType } from 'chart.js';
 import type { WeatherChartDataset, YAxisOptions } from '../types/chart-types';
 import type { HandleEventFunction } from '../types/events';
-
-// Make Chart globally available for legacy code
-window.Chart = Chart;
 
 // Declare global Chart object
 declare global {

@@ -12,19 +12,10 @@ import type { HeatLayer, MarkerClusterGroup, OverlappingMarkerSpiderfier, Marker
 import type { APRSMarker } from './types/marker-extensions';
 import type { BaseEventPayload } from './types/events';
 
-// Import Leaflet and plugins
-import L from 'leaflet';
-import 'leaflet.heat';
-import 'leaflet.markercluster';
-import 'overlapping-marker-spiderfier-leaflet';
+// Leaflet and plugins are loaded globally from vendor bundle
+const L = window.L;
 
-// Import CSS files
-import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-
-// Make Leaflet globally available for legacy code
-window.L = L;
+// CSS files are bundled in vendor.js
 
 // The OverlappingMarkerSpiderfier is attached to window by the UMD module
 declare global {
