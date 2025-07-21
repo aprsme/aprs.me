@@ -1,23 +1,29 @@
 // Vendor libraries bundle
 // This file loads all external libraries and makes them available globally
 
-// Load Leaflet first (required by plugins)
+// IMPORTANT: Order matters! Dependencies must be loaded before their plugins
+
+// 1. Load Leaflet first (required by plugins)
 import '../vendor/leaflet.js';
 
-// Load Leaflet plugins (they expect window.L to exist)
+// 2. Load Leaflet plugins (they expect window.L to exist)
 import '../vendor/leaflet-heat.js';
 import '../vendor/leaflet.markercluster.js';
 import '../vendor/oms.min.js';
 
-// Load Chart.js
+// 3. Load Chart.js BEFORE the date adapter
+// The UMD build automatically sets window.Chart
 import '../vendor/chart.umd.js';
 
-// Load Chart.js adapter (requires Chart to be loaded first)
+// 4. Load Chart.js date adapter AFTER Chart.js
+// The adapter needs Chart to be available globally to register itself
 import '../vendor/chartjs-adapter-date-fns.bundle.min.js';
 
-// Ensure global availability
+// Verify libraries are loaded
 if (typeof window !== 'undefined') {
-  // Leaflet should already be on window.L from the library
-  // Chart should already be on window.Chart from the library
-  console.log('Vendor libraries loaded: Leaflet', !!window.L, 'Chart.js', !!window.Chart);
+  console.log('Vendor libraries loaded:', {
+    'Leaflet': !!window.L,
+    'Chart.js': !!window.Chart,
+    'Chart.adapters': !!(window.Chart && window.Chart.adapters)
+  });
 }
