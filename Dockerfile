@@ -50,6 +50,10 @@ COPY priv/gleam priv/gleam
 # Compile Gleam files (using pre-compiled BEAM files)
 RUN mix gleam_compile
 
+# Download vendor JavaScript and CSS files
+COPY assets/download-vendor-files.sh ./
+RUN chmod +x download-vendor-files.sh && ./download-vendor-files.sh
+
 # Compile assets
 RUN mix assets.deploy
 
