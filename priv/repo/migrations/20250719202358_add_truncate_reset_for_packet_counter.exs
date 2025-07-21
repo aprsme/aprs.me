@@ -2,38 +2,7 @@ defmodule Aprsme.Repo.Migrations.AddTruncateResetForPacketCounter do
   use Ecto.Migration
 
   def up do
-    # Create a function to reset the packet counter sequence
-    execute """
-    CREATE OR REPLACE FUNCTION reset_packet_counter_on_truncate()
-    RETURNS event_trigger AS $$
-    DECLARE
-      cmd RECORD;
-    BEGIN
-      FOR cmd IN SELECT * FROM pg_event_trigger_ddl_commands()
-      LOOP
-        IF cmd.command_tag = 'TRUNCATE TABLE' AND cmd.object_identity = 'public.packets' THEN
-          -- Reset the sequence to 0
-          PERFORM setval('packet_count_seq', 0, false);
-          
-          -- Also update the deprecated packet_counters table for backward compatibility
-          UPDATE packet_counters 
-          SET count = 0, updated_at = NOW()
-          WHERE counter_type = 'total_packets';
-        END IF;
-      END LOOP;
-    END;
-    $$ LANGUAGE plpgsql;
-    """
-
-    # Create an event trigger for TRUNCATE operations
-    execute """
-    CREATE EVENT TRIGGER reset_packet_counter_trigger
-    ON ddl_command_end
-    WHEN TAG IN ('TRUNCATE TABLE')
-    EXECUTE FUNCTION reset_packet_counter_on_truncate();
-    """
-
-    # Also create a manual reset function that can be called if needed
+    # Create a manual reset function that can be called when needed
     execute """
     CREATE OR REPLACE FUNCTION reset_packet_counter()
     RETURNS void AS $$
@@ -89,11 +58,7 @@ defmodule Aprsme.Repo.Migrations.AddTruncateResetForPacketCounter do
   end
 
   def down do
-    # Drop the event trigger
-    execute "DROP EVENT TRIGGER IF EXISTS reset_packet_counter_trigger;"
-
-    # Drop the reset functions
-    execute "DROP FUNCTION IF EXISTS reset_packet_counter_on_truncate();"
+    # Drop the reset function
     execute "DROP FUNCTION IF EXISTS reset_packet_counter();"
 
     # Restore the original get_packet_count function

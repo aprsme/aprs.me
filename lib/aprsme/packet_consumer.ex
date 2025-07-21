@@ -73,7 +73,7 @@ defmodule Aprsme.PacketConsumer do
         end
 
         # Cancel and restart timer
-        Process.cancel_timer(timer)
+        if timer, do: Process.cancel_timer(timer)
         new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
         {:noreply, [], %{state | batch: [], timer: new_timer}}
 
@@ -82,7 +82,7 @@ defmodule Aprsme.PacketConsumer do
         process_batch(new_batch)
 
         # Cancel and restart timer
-        Process.cancel_timer(timer)
+        if timer, do: Process.cancel_timer(timer)
         new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
         {:noreply, [], %{state | batch: [], timer: new_timer}}
 
