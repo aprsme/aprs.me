@@ -46,18 +46,22 @@ COPY gleam.toml gleam.toml
 # This is crucial for production builds where gleam compiler is not available
 COPY priv/gleam priv/gleam
 
-# Compile dependencies first (including vendor/aprs)
+# Compile all dependencies
 RUN mix deps.compile
 
-# Check if aprs was compiled
-RUN ls -la _build/prod/lib/aprs/ebin/ || echo "aprs not found"
+# Manually compile the vendored aprs dependency
+RUN cd vendor/aprs && \
+    MIX_ENV=prod mix compile && \
+    mkdir -p ../../_build/prod/lib/aprs/ebin && \
+    cp -r _build/prod/lib/aprs/ebin/* ../../_build/prod/lib/aprs/ebin/ && \
+    cd ../..
 
 # Copy Gleam BEAM files before compiling the main app
 RUN mkdir -p _build/prod/lib/aprsme/ebin && \
     cp priv/gleam/*.beam _build/prod/lib/aprsme/ebin/ || true
 
-# Compile only the Elixir files without dependency checking
-RUN mix compile.protocols && mix compile.elixir
+# Now compile the main application
+RUN mix compile
 
 # Install Node.js for asset building
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
