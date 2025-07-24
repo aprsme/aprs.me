@@ -32,7 +32,6 @@ COPY mix.exs mix.lock ./
 # Copy vendor directory for local dependencies
 COPY vendor vendor
 RUN mix deps.get --only $MIX_ENV
-RUN mix deps.compile
 
 # Copy application code
 COPY config config
@@ -47,7 +46,10 @@ COPY gleam.toml gleam.toml
 # This is crucial for production builds where gleam compiler is not available
 COPY priv/gleam priv/gleam
 
-# Compile Gleam files (using pre-compiled BEAM files)
+# Compile dependencies first (including vendor/aprs)
+RUN mix deps.compile
+
+# Then compile Gleam files (using pre-compiled BEAM files)
 RUN mix gleam_compile
 
 # Install Node.js for asset building
