@@ -53,8 +53,8 @@ RUN mix deps.compile
 RUN mkdir -p _build/prod/lib/aprsme/ebin && \
     cp priv/gleam/*.beam _build/prod/lib/aprsme/ebin/ || true
 
-# Compile the main application without the gleam_compile alias
-RUN mix do compile --no-protocol-consolidation
+# Compile the main application and copy gleam files in the release task
+RUN MIX_ENV=prod mix do compile.elixir
 
 # Install Node.js for asset building
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
