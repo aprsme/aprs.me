@@ -15,10 +15,10 @@ defmodule AprsmeWeb.Router do
     plug :put_root_layout, {AprsmeWeb.Layouts, :root}
     plug :protect_from_forgery
 
-    plug :put_secure_browser_headers, %{
-      "content-security-policy" =>
-        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.sentry-cdn.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https: http: blob:; font-src 'self' data:; connect-src 'self' wss: https://*.ingest.sentry.io https://*.sentry.io https://nominatim.openstreetmap.org https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://*.basemaps.cartocdn.com; media-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self' blob:"
-    }
+    # plug :put_secure_browser_headers, %{
+    #   "content-security-policy" =>
+    #     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.sentry-cdn.com https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https: http: blob:; font-src 'self' data:; connect-src 'self' wss: https://*.ingest.sentry.io https://*.sentry.io https://nominatim.openstreetmap.org https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.tile.openstreetmap.de https://*.basemaps.cartocdn.com; media-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self' blob:"
+    # }
 
     plug :fetch_current_user
     plug AprsmeWeb.Plugs.SetLocale
