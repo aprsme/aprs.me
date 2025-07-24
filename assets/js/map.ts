@@ -291,9 +291,8 @@ let MapAPRSMap = {
       console.log('Checking for L.vectorGrid:', typeof (L as any).vectorGrid);
       console.log('Checking for L.vectorGrid.protobuf:', typeof (L as any).vectorGrid?.protobuf);
       
-      // Use raster tiles by default for better appearance
-      // Vector tiles have rendering issues with water features at lower zoom levels
-      const useVectorTiles = false; // Can be made configurable later
+      // Use vector tiles for better performance and scalability
+      const useVectorTiles = true;
       
       if (useVectorTiles && (L as any).vectorGrid && (L as any).vectorGrid.protobuf) {
         try {
@@ -302,44 +301,34 @@ let MapAPRSMap = {
           const vectorProvider = tileProviders.osmVector;
           
           // Style configuration to match OSM raster tiles appearance
+          // Using Shortbread schema layer names
           const vectorTileStyles = {
-            // Water features - hide at lower zoom levels to match raster tiles
-            'water': function(properties: any, zoom: number) {
-              // Hide ALL water features at zoom 12 and below
-              if (zoom <= 12) {
-                return { fill: false, stroke: false, weight: 0, opacity: 0 };
-              }
-              // Only show water at zoom 13+
-              return {
-                fill: true,
-                fillColor: '#aad3df',
-                fillOpacity: 0.8,
-                weight: 0
-              };
+            // Background layer
+            'background': {
+              fill: true,
+              fillColor: '#f2efe9',
+              fillOpacity: 1,
+              weight: 0
             },
-            'water_areas': function(properties: any, zoom: number) {
-              // Also hide water_areas at low zoom
-              if (zoom <= 12) {
-                return { fill: false, stroke: false, weight: 0, opacity: 0 };
-              }
-              return {
-                fill: true,
-                fillColor: '#aad3df',
-                fillOpacity: 0.8,
-                weight: 0
-              };
+            // Water features
+            'water_areas': {
+              fill: true,
+              fillColor: '#aad3df',
+              fillOpacity: 1,
+              weight: 1,
+              color: '#aad3df',
+              opacity: 1
             },
-            'water_polygons': function(properties: any, zoom: number) {
-              // Hide water polygons too
-              if (zoom <= 12) {
-                return { fill: false, stroke: false, weight: 0, opacity: 0 };
-              }
-              return {
-                fill: true,
-                fillColor: '#aad3df',
-                fillOpacity: 0.8,
-                weight: 0
-              };
+            'water_areas_polygons': {
+              fill: true,
+              fillColor: '#aad3df',
+              fillOpacity: 1,
+              weight: 0
+            },
+            'water_lines': {
+              weight: 2,
+              color: '#aad3df',
+              opacity: 1
             },
             'ocean': {
               fill: true,
@@ -347,96 +336,121 @@ let MapAPRSMap = {
               fillOpacity: 1,
               weight: 0
             },
-            'water_lines': {
-              weight: 1,
-              color: '#aad3df',
-              opacity: 0.6
-            },
-            // Land - match OSM raster background
+            // Land - match OSM standard background  
             'land': {
               fill: true,
               fillColor: '#f2efe9',
               fillOpacity: 1,
               weight: 0
             },
-            // Landcover layers
-            'landcover': function(properties: any) {
-              const kind = properties.kind || properties.class;
-              // Parks and recreation areas - light green
-              if (kind === 'park' || kind === 'recreation_ground' || kind === 'grass') {
+            // Landuse/landcover - various land use types
+            'landuse_areas': function(properties: any) {
+              const kind = properties.kind || properties.landuse || properties.natural;
+              // Parks and recreation
+              if (kind === 'park' || kind === 'recreation_ground' || kind === 'grass' || kind === 'village_green') {
                 return {
                   fill: true,
-                  fillColor: '#c8facc',
-                  fillOpacity: 0.6,
+                  fillColor: '#cdebb0',
+                  fillOpacity: 1,
                   weight: 0
                 };
               }
-              // Forests and woods - darker green
+              // Forests and woods
               if (kind === 'forest' || kind === 'wood') {
                 return {
                   fill: true,
                   fillColor: '#add19e',
+                  fillOpacity: 1,
+                  weight: 0
+                };
+              }
+              // Residential
+              if (kind === 'residential') {
+                return {
+                  fill: true,
+                  fillColor: '#e0dfdf',
+                  fillOpacity: 0.5,
+                  weight: 0
+                };
+              }
+              // Commercial/retail
+              if (kind === 'commercial' || kind === 'retail') {
+                return {
+                  fill: true,
+                  fillColor: '#f2dad9',
+                  fillOpacity: 0.5,
+                  weight: 0
+                };
+              }
+              // Industrial
+              if (kind === 'industrial') {
+                return {
+                  fill: true,
+                  fillColor: '#dfd1d6',
+                  fillOpacity: 0.5,
+                  weight: 0
+                };
+              }
+              // Default
+              return {
+                fill: false,
+                weight: 0
+              };
+            },
+            // Streets/roads - road areas and parking
+            'streets_polygons': function(properties: any) {
+              const kind = properties.kind || properties.area;
+              if (kind === 'parking') {
+                return {
+                  fill: true,
+                  fillColor: '#f7efb7',
                   fillOpacity: 0.8,
                   weight: 0
                 };
               }
-              // Residential areas - light gray
-              if (kind === 'residential') {
-                return {
-                  fill: true,
-                  fillColor: '#e0e0e0',
-                  fillOpacity: 0.3,
-                  weight: 0
-                };
-              }
-              // Commercial/industrial - slightly darker
-              if (kind === 'commercial' || kind === 'industrial') {
-                return {
-                  fill: true,
-                  fillColor: '#dfdfdf',
-                  fillOpacity: 0.4,
-                  weight: 0
-                };
-              }
-              // Default landcover
+              // Default road areas
               return {
                 fill: true,
-                fillColor: '#f2efe9',
-                fillOpacity: 0.5,
+                fillColor: '#ffffff',
+                fillOpacity: 0.8,
                 weight: 0
               };
             },
-            // Streets/roads - match OSM styling
-            'streets': function(properties: any) {
-              const kind = properties.kind || properties.highway;
-              // Motorways - orange
+            // Main street lines
+            'streets': function(properties: any, zoom: number) {
+              const kind = properties.kind || properties.highway || properties.type;
+              
+              // Adjust weights based on zoom
+              const zoomFactor = zoom > 15 ? 1.5 : zoom > 13 ? 1.2 : 1;
+              
+              // Motorways
               if (kind === 'motorway' || kind === 'motorway_link') {
                 return {
-                  weight: 4,
+                  weight: 5 * zoomFactor,
                   color: '#e892a2',
                   opacity: 1
                 };
               }
-              // Trunk roads - pinkish
+              // Trunk roads
               if (kind === 'trunk' || kind === 'trunk_link') {
                 return {
-                  weight: 4,
+                  weight: 4 * zoomFactor,
                   color: '#f9b29c',
                   opacity: 1
                 };
               }
-              // Primary roads - orange/yellow
+              // Primary roads
               if (kind === 'primary' || kind === 'primary_link') {
                 return {
-                  weight: 3,
+                  weight: 3.5 * zoomFactor,
                   color: '#fcd6a4',
                   opacity: 1
                 };
               }
-              // Secondary roads - yellow
+              // Secondary roads
               if (kind === 'secondary' || kind === 'secondary_link') {
                 return {
-                  weight: 2.5,
+                  weight: 3 * zoomFactor,
                   color: '#f7fabf',
                   opacity: 1
                 };
@@ -444,7 +458,15 @@ let MapAPRSMap = {
               // Tertiary roads
               if (kind === 'tertiary' || kind === 'tertiary_link') {
                 return {
-                  weight: 2,
+                  weight: 2.5 * zoomFactor,
+                  color: '#ffffff',
+                  opacity: 1
+                };
+              }
+              // Unclassified roads
+              if (kind === 'unclassified') {
+                return {
+                  weight: 2 * zoomFactor,
                   color: '#ffffff',
                   opacity: 1
                 };
@@ -452,7 +474,7 @@ let MapAPRSMap = {
               // Residential streets
               if (kind === 'residential' || kind === 'living_street') {
                 return {
-                  weight: 1.5,
+                  weight: 1.5 * zoomFactor,
                   color: '#ffffff',
                   opacity: 0.9
                 };
@@ -460,64 +482,154 @@ let MapAPRSMap = {
               // Service roads
               if (kind === 'service') {
                 return {
-                  weight: 1,
+                  weight: 1 * zoomFactor,
                   color: '#ffffff',
                   opacity: 0.8
                 };
               }
-              // Default road style
+              // Paths and tracks
+              if (kind === 'path' || kind === 'track' || kind === 'footway' || kind === 'cycleway') {
+                return {
+                  weight: 0.8,
+                  color: '#fa8072',
+                  opacity: 0.8,
+                  dashArray: '2, 2'
+                };
+              }
+              // Default
               return {
                 weight: 1,
-                color: '#ffffff',
-                opacity: 0.8
+                color: '#cccccc',
+                opacity: 0.7
               };
             },
-            'streets_med': function(properties: any) {
-              // Medium priority streets
-              return {
-                weight: 2,
-                color: '#ffffff',
-                opacity: 0.9
-              };
+            // Street labels
+            'street_labels': {
+              weight: 0,
+              opacity: 0
             },
-            'streets_low': {
-              // Low priority streets
-              weight: 1,
-              color: '#ffffff',
-              opacity: 0.7
+            'street_labels_points': {
+              weight: 0,
+              opacity: 0
             },
-            // Buildings - subtle gray
+            // Buildings
             'buildings': {
               fill: true,
               fillColor: '#d9d0c9',
-              fillOpacity: 0.7,
-              weight: 0.5,
-              color: '#cfc7c0',
-              opacity: 0.8
+              fillOpacity: 1,
+              weight: 1,
+              color: '#cdbbb4',
+              opacity: 1
             },
-            // POIs - hide them to match raster simplicity
-            'pois': {
+            'buildings_polygons': {
+              fill: true,
+              fillColor: '#d9d0c9',
+              fillOpacity: 1,
+              weight: 1,
+              color: '#cdbbb4',
+              opacity: 1
+            },
+            // POIs - Shortbread uses 'pois_*' layers
+            'pois_points': {
+              weight: 0,
+              opacity: 0,
+              fillOpacity: 0
+            },
+            'pois_polygons': {
               weight: 0,
               opacity: 0,
               fillOpacity: 0
             },
             // Places - hide labels
-            'places': {
+            'place_labels': {
               weight: 0,
               opacity: 0,
               fillOpacity: 0
             },
-            // Boundaries - subtle
+            'place_points': {
+              weight: 0,
+              opacity: 0,
+              fillOpacity: 0
+            },
+            // Boundaries - Shortbread uses 'boundaries_*'
             'boundaries': {
               weight: 0.8,
               color: '#a09090',
               opacity: 0.4,
               dashArray: '3, 3'
             },
-            // Transit - hide for simplicity
-            'transit': {
+            'boundaries_labels': {
               weight: 0,
               opacity: 0
+            },
+            // Transit - hide for simplicity
+            'transit_points': {
+              weight: 0,
+              opacity: 0
+            },
+            'transit_polygons': {
+              weight: 0,
+              opacity: 0
+            },
+            'transit_lines': {
+              weight: 0,
+              opacity: 0
+            },
+            // Additional layers
+            'addresses': {
+              weight: 0,
+              opacity: 0
+            },
+            'aerialways': {
+              weight: 1,
+              color: '#999999',
+              opacity: 0.5,
+              dashArray: '5, 3'
+            },
+            'bridges': {
+              weight: 0,
+              opacity: 0
+            },
+            'ferries': {
+              weight: 1,
+              color: '#66f',
+              opacity: 0.5,
+              dashArray: '3, 3'
+            },
+            'piers': {
+              fill: true,
+              fillColor: '#f2efe9',
+              fillOpacity: 1,
+              weight: 1,
+              color: '#aaa',
+              opacity: 1
+            },
+            'public_transport': {
+              weight: 0,
+              opacity: 0
+            },
+            'sites': function(properties: any) {
+              const kind = properties.kind || properties.type;
+              if (kind === 'university' || kind === 'college' || kind === 'school') {
+                return {
+                  fill: true,
+                  fillColor: '#f0f0d8',
+                  fillOpacity: 0.5,
+                  weight: 0
+                };
+              }
+              if (kind === 'hospital') {
+                return {
+                  fill: true,
+                  fillColor: '#fde',
+                  fillOpacity: 0.5,
+                  weight: 0
+                };
+              }
+              return {
+                fill: false,
+                weight: 0
+              };
             },
             // Default style - should rarely be used
             '*': {
@@ -537,35 +649,8 @@ let MapAPRSMap = {
             getFeatureId: function(feature: any) {
               return feature.properties.osm_id || feature.properties.id;
             },
-            // Use a function for vectorTileLayerStyles to have full control
-            vectorTileLayerStyles: function(properties: any, zoom: number) {
-              // Access layer name from 'this' context
-              const layerName = this.layerName || '';
-              
-              // Apply styles based on layer name
-              const styles = vectorTileStyles;
-              
-              // Check if we have a specific style for this layer
-              if (styles[layerName]) {
-                const style = styles[layerName];
-                if (typeof style === 'function') {
-                  return style.call(this, properties, zoom);
-                }
-                return style;
-              }
-              
-              // Use wildcard style if defined
-              if (styles['*']) {
-                const style = styles['*'];
-                if (typeof style === 'function') {
-                  return style.call(this, properties, zoom);
-                }
-                return style;
-              }
-              
-              // Default: hide unknown features
-              return { fill: false, stroke: false, weight: 0, opacity: 0 };
-            }
+            // Pass styles object directly
+            vectorTileLayerStyles: vectorTileStyles
           });
         
           console.log('Leaflet VectorGrid layer created successfully');
