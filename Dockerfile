@@ -49,12 +49,16 @@ COPY priv/gleam priv/gleam
 # Compile dependencies first (including vendor/aprs)
 RUN mix deps.compile
 
-# Copy Gleam BEAM files manually since gleam_compile task is failing
+# Compile the application without running gleam_compile
+# First, temporarily remove the compile alias from mix.exs
+RUN sed -i 's/compile: \["gleam_compile", "compile"\],/# compile: ["gleam_compile", "compile"],/' mix.exs
+
+# Now compile the full application
+RUN mix compile
+
+# Copy Gleam BEAM files manually after compilation
 RUN mkdir -p _build/prod/lib/aprsme/ebin && \
     cp priv/gleam/*.beam _build/prod/lib/aprsme/ebin/ || true
-
-# Compile the main application and copy gleam files in the release task
-RUN MIX_ENV=prod mix do compile.elixir
 
 # Install Node.js for asset building
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
