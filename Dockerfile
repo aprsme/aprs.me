@@ -47,6 +47,8 @@ COPY gleam.toml gleam.toml
 COPY priv/gleam priv/gleam
 
 # Compile dependencies first (including vendor/aprs)
+# Force compile the vendored aprs dependency
+RUN cd vendor/aprs && mix compile && cd /app
 RUN mix deps.compile
 
 # Then compile Gleam files (using pre-compiled BEAM files)
