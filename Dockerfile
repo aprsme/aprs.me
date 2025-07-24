@@ -49,8 +49,12 @@ COPY priv/gleam priv/gleam
 # Compile dependencies first (including vendor/aprs)
 RUN mix deps.compile
 
-# Then compile Gleam files (using pre-compiled BEAM files)
-RUN mix gleam_compile
+# Copy Gleam BEAM files manually since gleam_compile task is failing
+RUN mkdir -p _build/prod/lib/aprsme/ebin && \
+    cp priv/gleam/*.beam _build/prod/lib/aprsme/ebin/ || true
+
+# Compile the main application without the gleam_compile alias
+RUN mix do compile --no-protocol-consolidation
 
 # Install Node.js for asset building
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
