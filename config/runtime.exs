@@ -109,7 +109,8 @@ if config_env() == :prod do
       "http://10.0.19.222:33897",
       "https://s.aprs.me",
       "https://js.sentry-cdn.com",
-      "https://*.sentry.io"
+      "https://*.sentry.io",
+      "https://*.openstreetmap.org"
     ]
 
   # Optional: Set the default "from" email address

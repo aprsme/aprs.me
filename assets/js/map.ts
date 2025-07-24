@@ -1,17 +1,34 @@
 // Import type definitions
-import type { 
-  LiveViewHookContext, 
-  MarkerData, 
-  BoundsData, 
-  CenterData, 
-  MarkerState, 
-  MapEventData 
-} from './types/map';
-import type { Map as LeafletMap, Marker, TileLayer, LayerGroup, DivIcon, LatLngBounds, Polyline } from 'leaflet';
-import type { LeafletTouchEvent, LeafletPopupEvent } from './types/leaflet-events';
-import type { HeatLayer, MarkerClusterGroup, OverlappingMarkerSpiderfier, MarkerClusterGroupOptions, HeatLayerOptions, MarkerCluster, HeatLatLng } from './types/leaflet-plugins';
-import type { APRSMarker } from './types/marker-extensions';
-import type { BaseEventPayload } from './types/events';
+import type {
+  LiveViewHookContext,
+  MarkerData,
+  BoundsData,
+  CenterData,
+  MarkerState,
+  MapEventData,
+} from "./types/map";
+import type {
+  Map as LeafletMap,
+  Marker,
+  TileLayer,
+  LayerGroup,
+  DivIcon,
+  LatLngBounds,
+  Polyline,
+} from "leaflet";
+import type { LeafletTouchEvent, LeafletPopupEvent } from "./types/leaflet-events";
+import type {
+  HeatLayer,
+  MarkerClusterGroup,
+  OverlappingMarkerSpiderfier,
+  MarkerClusterGroupOptions,
+  HeatLayerOptions,
+  MarkerCluster,
+  HeatLatLng,
+} from "./types/leaflet-plugins";
+import type { APRSMarker } from "./types/marker-extensions";
+import type { BaseEventPayload } from "./types/events";
+// Vector grid types are included via the vendor bundle
 
 // Leaflet and plugins are loaded globally from vendor bundle
 const L = window.L;
@@ -26,7 +43,7 @@ declare global {
 }
 
 // Add plugin types to Leaflet
-declare module 'leaflet' {
+declare module "leaflet" {
   export function heatLayer(latlngs: HeatLatLng[], options?: HeatLayerOptions): HeatLayer;
   export function markerClusterGroup(options?: MarkerClusterGroupOptions): MarkerClusterGroup;
 }
@@ -34,11 +51,16 @@ declare module 'leaflet' {
 // Import trail management functionality
 import { TrailManager } from "./features/trail_manager";
 // Import helper functions
-import { parseTimestamp, getTrailId, saveMapState, safePushEvent, getLiveSocket } from "./map_helpers";
+import {
+  parseTimestamp,
+  getTrailId,
+  saveMapState,
+  safePushEvent,
+  getLiveSocket,
+} from "./map_helpers";
 
 // APRS Map Hook - handles only basic map interaction
 // All data logic handled by LiveView
-
 
 let MapAPRSMap = {
   mounted() {
@@ -72,16 +94,15 @@ let MapAPRSMap = {
     // Initialize with URL parameters first (from data attributes)
     let initialCenter: CenterData, initialZoom: number;
     let useUrlParams = false;
-    
+
     try {
       const centerData = self.el.dataset.center;
       const zoomData = self.el.dataset.zoom;
-      
+
       if (!centerData || !zoomData) throw new Error("Missing map data attributes");
       initialCenter = JSON.parse(centerData);
       initialZoom = parseInt(zoomData);
-      
-      
+
       if (
         !initialCenter ||
         typeof initialCenter.lat !== "number" ||
@@ -90,16 +111,16 @@ let MapAPRSMap = {
         throw new Error("Invalid center data");
       if (isNaN(initialZoom) || initialZoom < 1 || initialZoom > 20)
         throw new Error("Invalid zoom data");
-        
+
       // Check if URL has explicit parameters (not default values)
       const urlParams = new URLSearchParams(window.location.search);
-      useUrlParams = urlParams.has('lat') || urlParams.has('lng') || urlParams.has('z');
+      useUrlParams = urlParams.has("lat") || urlParams.has("lng") || urlParams.has("z");
     } catch (error) {
       console.error("Error parsing map data attributes:", error);
       initialCenter = { lat: 39.8283, lng: -98.5795 };
       initialZoom = 5;
     }
-    
+
     // Only use localStorage if no URL params are present
     // Temporarily disabled - using server-side geolocation instead
     /*
@@ -186,8 +207,10 @@ let MapAPRSMap = {
       }
 
       // Detect if mobile device
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent,
+      );
+
       self.map = L.map(self.el, {
         zoomControl: !isMobile, // Hide default zoom control on mobile, we'll add a better one
         attributionControl: true,
@@ -200,15 +223,17 @@ let MapAPRSMap = {
         preferCanvas: isMobile, // Use canvas renderer on mobile for better performance
         zoomAnimation: !isMobile, // Disable zoom animations on mobile for performance
         fadeAnimation: !isMobile, // Disable fade animations on mobile
-        markerZoomAnimation: !isMobile // Disable marker animations on mobile
+        markerZoomAnimation: !isMobile, // Disable marker animations on mobile
       }).setView([initialCenter.lat, initialCenter.lng], initialZoom);
-      
+
       // Add mobile-friendly zoom control if on mobile
       if (isMobile) {
-        L.control.zoom({
-          position: 'bottomright'
-        }).addTo(self.map);
-        
+        L.control
+          .zoom({
+            position: "bottomright",
+          })
+          .addTo(self.map);
+
         // Add touch gesture handling
         self.setupMobileGestures();
       }
@@ -233,25 +258,160 @@ let MapAPRSMap = {
       const tileProviders = {
         osm: {
           url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
-          subdomains: ['a', 'b', 'c']
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
+          subdomains: ["a", "b", "c"],
         },
         osmDE: {
-          url: "https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png", 
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
-          subdomains: ['a', 'b', 'c']
+          url: "https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png",
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
+          subdomains: ["a", "b", "c"],
         },
         carto: {
           url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | APRS.me',
-          subdomains: ['a', 'b', 'c', 'd']
-        }
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | APRS.me',
+          subdomains: ["a", "b", "c", "d"],
+        },
+        osmVector: {
+          // Using official OpenStreetMap vector tiles
+          url: "https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt",
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | APRS.me',
+          isVector: true,
+          maxZoom: 14, // OSM vector tiles only go to zoom 14
+        },
       };
+
+      // Try to use vector tiles if L.vectorGrid is available (loaded from CDN)
+      let tileLayer: L.Layer;
       
-      // Use OSM by default, but could be configured
-      const provider = tileProviders.osm;
+      // Check if L.vectorGrid is available
+      console.log('Checking for L.vectorGrid:', typeof (L as any).vectorGrid);
+      console.log('Checking for L.vectorGrid.protobuf:', typeof (L as any).vectorGrid?.protobuf);
       
-      const tileLayer = L.tileLayer(provider.url, {
+      if ((L as any).vectorGrid && (L as any).vectorGrid.protobuf) {
+        try {
+          console.log('L.vectorGrid.protobuf is available, attempting to use OpenStreetMap vector tiles');
+          
+          const vectorProvider = tileProviders.osmVector;
+          
+          // Style configuration for OpenStreetMap Shortbread schema
+          const vectorTileStyles = {
+            // Water features
+            water_polygons: {
+              fill: true,
+              fillColor: '#a0c8f0',
+              fillOpacity: 1,
+              weight: 0
+            },
+            water_lines: {
+              weight: 2,
+              color: '#a0c8f0',
+              opacity: 1
+            },
+            water_areas: {
+              fill: true,
+              fillColor: '#a0c8f0',
+              fillOpacity: 1,
+              weight: 0
+            },
+            // Landuse and parks
+            landuse_areas: {
+              fill: true,
+              fillColor: '#f0f0f0',
+              fillOpacity: 0.6,
+              weight: 0
+            },
+            parks: {
+              fill: true,
+              fillColor: '#c8facc',
+              fillOpacity: 0.8,
+              weight: 0
+            },
+            // Buildings
+            buildings: {
+              fill: true,
+              fillColor: '#e0e0e0',
+              fillOpacity: 0.8,
+              weight: 1,
+              color: '#cccccc'
+            },
+            // Transportation (roads)
+            transport_lines: function(properties: any) {
+              const kind = properties.kind || properties.highway;
+              if (kind === 'motorway' || kind === 'trunk') {
+                return {
+                  weight: 4,
+                  color: '#e9ac77',
+                  opacity: 1
+                };
+              } else if (kind === 'primary' || kind === 'secondary') {
+                return {
+                  weight: 3,
+                  color: '#ffd380',
+                  opacity: 1
+                };
+              } else {
+                return {
+                  weight: 2,
+                  color: '#ffffff',
+                  opacity: 0.8
+                };
+              }
+            },
+            // Places
+            places: function(properties: any, zoom: number) {
+              if (zoom < 10) return { weight: 0 }; // Hide at low zoom
+              return {
+                weight: 0,
+                fillOpacity: 0,
+                interactive: false
+              };
+            },
+            // Default style for unmatched layers
+            _default: {
+              weight: 1,
+              color: '#cccccc',
+              opacity: 0.5
+            }
+          };
+          
+          // Create vector grid layer using L.vectorGrid.protobuf
+          tileLayer = (L as any).vectorGrid.protobuf(vectorProvider.url, {
+            attribution: vectorProvider.attribution,
+            maxZoom: vectorProvider.maxZoom,
+            vectorTileLayerStyles: vectorTileStyles,
+            interactive: true,
+            getFeatureId: function(feature: any) {
+              return feature.properties.osm_id || feature.properties.id;
+            }
+          });
+        
+          console.log('Leaflet VectorGrid layer created successfully');
+          console.log('Vector tile layer:', tileLayer);
+        } catch (error) {
+          console.error('Failed to create vector tile layer with Leaflet.VectorGrid:', error);
+          // Fall back to raster tiles on error
+          const provider = tileProviders.osm;
+          tileLayer = L.tileLayer(provider.url, {
+            attribution: provider.attribution,
+            maxZoom: 19,
+            subdomains: provider.subdomains,
+            tileSize: 256,
+            keepBuffer: 2,
+            updateWhenZooming: false,
+            updateInterval: 200,
+            errorTileUrl:
+              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+          });
+        }
+      } else {
+        console.log('Leaflet.VectorGrid not available, falling back to raster tiles');
+        // Fallback to raster tiles
+        const provider = tileProviders.osm;
+        tileLayer = L.tileLayer(provider.url, {
         attribution: provider.attribution,
         maxZoom: 19,
         subdomains: provider.subdomains,
@@ -259,29 +419,34 @@ let MapAPRSMap = {
         keepBuffer: 2,
         updateWhenZooming: false,
         updateInterval: 200,
-        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+        errorTileUrl:
+          "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
       });
-      
+
       // Add event handler for tile errors with retry logic
       let retryCount = new Map<string, number>();
-      tileLayer.on('tileerror', function(error: any) {
+      tileLayer.on("tileerror", function (error: any) {
         const src = error.tile.src;
         const count = retryCount.get(src) || 0;
-        
+
         if (count < 3) {
           console.warn(`Tile load error (attempt ${count + 1}/3):`, src);
           retryCount.set(src, count + 1);
-          
+
           // Exponential backoff
-          setTimeout(() => {
-            error.tile.src = src + (src.includes('?') ? '&' : '?') + '_retry=' + Date.now();
-          }, Math.pow(2, count) * 500);
+          setTimeout(
+            () => {
+              error.tile.src = src + (src.includes("?") ? "&" : "?") + "_retry=" + Date.now();
+            },
+            Math.pow(2, count) * 500,
+          );
         } else {
-          console.error('Tile failed after 3 attempts:', src);
+          console.error("Tile failed after 3 attempts:", src);
           retryCount.delete(src);
         }
       });
-      
+      }
+
       tileLayer.addTo(self.map);
     } catch (error) {
       self.errors!.push("Tile layer failed: " + (error instanceof Error ? error.message : error));
@@ -289,7 +454,7 @@ let MapAPRSMap = {
 
     // Store markers for management
     self.markers = new Map<string, APRSMarker>();
-    
+
     // Create marker cluster group for medium zoom levels (9-14)
     if (L.markerClusterGroup) {
       self.markerClusterGroup = L.markerClusterGroup({
@@ -299,26 +464,26 @@ let MapAPRSMap = {
         removeOutsideVisibleBounds: true,
         disableClusteringAtZoom: 11, // Show individual markers at zoom 11+
         maxClusterRadius: 80,
-        iconCreateFunction: function(cluster: MarkerCluster) {
+        iconCreateFunction: function (cluster: MarkerCluster) {
           const count = cluster.getChildCount();
-          let size = 'small';
-          let className = 'marker-cluster-small';
-          
+          let size = "small";
+          let className = "marker-cluster-small";
+
           if (count > 10) {
-            size = 'medium';
-            className = 'marker-cluster-medium';
+            size = "medium";
+            className = "marker-cluster-medium";
           }
           if (count > 50) {
-            size = 'large';
-            className = 'marker-cluster-large';
+            size = "large";
+            className = "marker-cluster-large";
           }
-          
+
           return L.divIcon({
-            html: '<div><span>' + count + '</span></div>',
-            className: 'marker-cluster ' + className,
-            iconSize: [40, 40]
+            html: "<div><span>" + count + "</span></div>",
+            className: "marker-cluster " + className,
+            iconSize: [40, 40],
           });
-        }
+        },
       });
       self.markerClusterGroup.addTo(self.map);
       self.markerLayer = self.markerClusterGroup;
@@ -335,11 +500,11 @@ let MapAPRSMap = {
           blur: 15,
           maxZoom: 8,
           gradient: {
-            0.4: 'blue',
-            0.65: 'lime',
-            0.85: 'yellow',
-            1.0: 'red'
-          }
+            0.4: "blue",
+            0.65: "lime",
+            0.85: "yellow",
+            1.0: "red",
+          },
         });
       }
     } catch (error) {
@@ -352,7 +517,7 @@ let MapAPRSMap = {
 
     // Track marker states to prevent unnecessary operations
     self.markerStates = new Map<string, MarkerState>();
-    
+
     // Store RF path lines for hover visualization
     self.rfPathLines = [];
 
@@ -367,15 +532,15 @@ let MapAPRSMap = {
     self.map!.whenReady(() => {
       try {
         self.lastZoom = self.map!.getZoom();
-        
+
         // Ensure we have a valid pushEvent function before using it
-        if (self.pushEvent && typeof self.pushEvent === 'function') {
+        if (self.pushEvent && typeof self.pushEvent === "function") {
           self.pushEvent("map_ready", {});
           // Send initial bounds to trigger historical loading
-          if (self.map && self.pushEvent && typeof self.pushEvent === 'function') {
+          if (self.map && self.pushEvent && typeof self.pushEvent === "function") {
             saveMapState(self.map, self.pushEvent.bind(self));
           }
-          
+
           // Also send update_map_state to ensure URL updates and bounds processing
           // Increase delay to ensure LiveView is fully connected and ready
           setTimeout(() => {
@@ -387,7 +552,7 @@ let MapAPRSMap = {
           console.warn("pushEvent not available in whenReady callback");
           // Retry after a short delay
           setTimeout(() => {
-            if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
+            if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
               self.pushEvent("map_ready", {});
               if (self.map) {
                 saveMapState(self.map, self.pushEvent.bind(self));
@@ -426,10 +591,15 @@ let MapAPRSMap = {
       if (self.programmaticMoveId) {
         return;
       }
-      
+
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
-        if (self.map && !self.isDestroyed && self.pushEvent && typeof self.pushEvent === 'function') {
+        if (
+          self.map &&
+          !self.isDestroyed &&
+          self.pushEvent &&
+          typeof self.pushEvent === "function"
+        ) {
           saveMapState(self.map, self.pushEvent.bind(self));
         }
       }, 300);
@@ -443,7 +613,7 @@ let MapAPRSMap = {
       if (self.programmaticMoveId) {
         return;
       }
-      
+
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
         const currentZoom = self.map!.getZoom();
@@ -468,7 +638,12 @@ let MapAPRSMap = {
 
         self.lastZoom = currentZoom;
         // Save map state and update URL
-        if (self.map && !self.isDestroyed && self.pushEvent && typeof self.pushEvent === 'function') {
+        if (
+          self.map &&
+          !self.isDestroyed &&
+          self.pushEvent &&
+          typeof self.pushEvent === "function"
+        ) {
           saveMapState(self.map, self.pushEvent.bind(self));
         }
       }, 300);
@@ -514,20 +689,20 @@ let MapAPRSMap = {
         keepSpiderfied: true,
         nearbyDistance: 40,
         circleSpiralSwitchover: 9,
-        legWeight: 2
+        legWeight: 2,
       });
-      
+
       // Add click handler for spiderfied markers
-      self.oms.addListener('click', function(marker: Marker) {
+      self.oms.addListener("click", function (marker: Marker) {
         if (marker.openPopup) marker.openPopup();
       });
-      
+
       // Style the spider legs
-      self.oms.addListener('spiderfy', function(markers: Marker[]) {
+      self.oms.addListener("spiderfy", function (markers: Marker[]) {
         self.map.closePopup();
       });
-      
-      self.oms.addListener('unspiderfy', function(markers: Marker[]) {
+
+      self.oms.addListener("unspiderfy", function (markers: Marker[]) {
         // Markers return to normal positions
       });
     }
@@ -566,72 +741,73 @@ let MapAPRSMap = {
 
   setupMobileGestures() {
     const self = this as unknown as LiveViewHookContext;
-    
+
     // Long press timer
     let longPressTimer: any = null;
     let startX = 0;
     let startY = 0;
     const longPressDuration = 750; // 750ms for long press
     const movementThreshold = 10; // pixels
-    
+
     const handleLongPress = (e: TouchEvent) => {
       if (e.touches.length !== 1) return; // Only handle single touch
-      
+
       const touch = e.touches[0];
       const latlng = self.map!.containerPointToLatLng(L.point(touch.clientX, touch.clientY));
-      
+
       // Find the nearest marker
       let nearestMarker: APRSMarker | null = null;
       let minDistance = Infinity;
-      
+
       self.markers.forEach((marker) => {
         const markerLatLng = marker.getLatLng();
         const distance = latlng.distanceTo(markerLatLng);
-        if (distance < minDistance && distance < 50) { // Within 50 meters
+        if (distance < minDistance && distance < 50) {
+          // Within 50 meters
           minDistance = distance;
           nearestMarker = marker;
         }
       });
-      
+
       if (nearestMarker) {
         nearestMarker.openPopup();
       }
     };
-    
-    self.map!.on('touchstart', (e: LeafletTouchEvent) => {
+
+    self.map!.on("touchstart", (e: LeafletTouchEvent) => {
       if (e.originalEvent.touches.length !== 1) return;
-      
+
       const touch = e.originalEvent.touches[0];
       startX = touch.clientX;
       startY = touch.clientY;
-      
+
       longPressTimer = setTimeout(() => {
         handleLongPress(e.originalEvent);
       }, longPressDuration);
     });
-    
-    self.map!.on('touchmove', (e: LeafletTouchEvent) => {
+
+    self.map!.on("touchmove", (e: LeafletTouchEvent) => {
       if (!longPressTimer) return;
-      
+
       const touch = e.originalEvent.touches[0];
       const deltaX = Math.abs(touch.clientX - startX);
       const deltaY = Math.abs(touch.clientY - startY);
-      
+
       // Cancel long press if moved too much
       if (deltaX > movementThreshold || deltaY > movementThreshold) {
         clearTimeout(longPressTimer);
         longPressTimer = null;
       }
     });
-    
-    self.map!.on('touchend', () => {
+
+    self.map!.on("touchend", () => {
       if (longPressTimer) {
         clearTimeout(longPressTimer);
         longPressTimer = null;
       }
     });
-    
-    self.map!.on('touchcancel', () => {
+
+    self.map!.on("touchcancel", () => {
       if (longPressTimer) {
         clearTimeout(longPressTimer);
         longPressTimer = null;
@@ -641,18 +817,18 @@ let MapAPRSMap = {
 
   setupPopupNavigation() {
     const self = this as unknown as LiveViewHookContext;
-    
+
     // Store the event handler so we can remove it later
     self.popupNavigationHandler = (e: Event) => {
       const target = e.target as HTMLElement;
-      
+
       // Check if clicked element or its parent is a LiveView navigation link
-      const navLink = target.closest('.aprs-lv-link') as HTMLAnchorElement;
-      
+      const navLink = target.closest(".aprs-lv-link") as HTMLAnchorElement;
+
       if (navLink && navLink.href) {
         e.preventDefault();
         e.stopPropagation();
-        
+
         // Use Phoenix LiveView's built-in navigation
         const liveSocket = getLiveSocket();
         if (liveSocket) {
@@ -663,9 +839,9 @@ let MapAPRSMap = {
         }
       }
     };
-    
+
     // Use event delegation to handle clicks on popup navigation links
-    document.addEventListener('click', self.popupNavigationHandler);
+    document.addEventListener("click", self.popupNavigationHandler);
   },
 
   setupLiveViewHandlers() {
@@ -733,12 +909,12 @@ let MapAPRSMap = {
               // Generate a unique ID for this programmatic move
               const moveId = `move_${Date.now()}_${Math.random()}`;
               self.programmaticMoveId = moveId;
-              
+
               // Clear any existing timeout
               if (self.programmaticMoveTimeout) {
                 clearTimeout(self.programmaticMoveTimeout);
               }
-              
+
               // Set a timeout to clear the programmatic move flag
               // This ensures we don't block user interactions indefinitely
               self.programmaticMoveTimeout = setTimeout(() => {
@@ -746,7 +922,7 @@ let MapAPRSMap = {
                   self.programmaticMoveId = undefined;
                 }
               }, 1500);
-              
+
               self.map.setView([lat, lng], zoom, {
                 animate: true,
                 duration: 1,
@@ -758,7 +934,7 @@ let MapAPRSMap = {
                 if (!self.map || self.isDestroyed) {
                   return;
                 }
-                
+
                 const afterRect = self.el.getBoundingClientRect();
 
                 if (afterRect.width === 0 || afterRect.height === 0) {
@@ -771,7 +947,7 @@ let MapAPRSMap = {
                   }
                 }
               }, 1000);
-              
+
               // Store timeout for cleanup
               if (!self.cleanupTimeouts) {
                 self.cleanupTimeouts = [];
@@ -828,91 +1004,91 @@ let MapAPRSMap = {
           console.warn("Map context not ready or destroyed, skipping new packet");
           return;
         }
-        
+
         // Check if map exists and has the hasLayer method
         if (!self.map.hasLayer) {
           console.warn("Map hasLayer method not available, skipping new packet");
           return;
         }
-        
+
         // If heat layer is visible, we're in heat map mode - skip individual markers
         if (self.heatLayer && self.map.hasLayer(self.heatLayer)) {
           return;
         }
-        
+
         // Check if there's already a marker for this callsign
         const incomingCallsign = data.callsign_group || data.callsign || data.id;
 
-      if (incomingCallsign) {
-        // Find existing live markers for this callsign and convert them to historical dots
-        const markersToConvert: string[] = [];
+        if (incomingCallsign) {
+          // Find existing live markers for this callsign and convert them to historical dots
+          const markersToConvert: string[] = [];
 
-        // Ensure markerStates exists
-        if (!self.markerStates) {
-          console.warn("markerStates not initialized, skipping conversion");
-          return;
-        }
-
-        self.markerStates.forEach((state, id) => {
-          const stateCallsign = state.callsign_group || state.callsign;
-          // Only convert non-historical markers for the same callsign, but exclude the incoming packet's ID
-          if (
-            stateCallsign === incomingCallsign &&
-            !state.historical &&
-            String(id) !== String(data.id)
-          ) {
-            markersToConvert.push(String(id));
-          }
-        });
-
-        // Convert existing live markers to historical dots by updating their icon
-        markersToConvert.forEach((id) => {
-          if (!self.markers || !self.markerStates) {
-            console.warn("markers or markerStates not available during conversion");
+          // Ensure markerStates exists
+          if (!self.markerStates) {
+            console.warn("markerStates not initialized, skipping conversion");
             return;
           }
-          const existingMarker = self.markers.get(id);
-          const existingState = self.markerStates.get(id);
 
-          if (existingMarker && existingState) {
-            // Update the state to historical
-            existingState.historical = true;
-            existingState.is_most_recent_for_callsign = false;
+          self.markerStates.forEach((state, id) => {
+            const stateCallsign = state.callsign_group || state.callsign;
+            // Only convert non-historical markers for the same callsign, but exclude the incoming packet's ID
+            if (
+              stateCallsign === incomingCallsign &&
+              !state.historical &&
+              String(id) !== String(data.id)
+            ) {
+              markersToConvert.push(String(id));
+            }
+          });
 
-            // Create new historical dot icon
-            const historicalIconData = {
-              id: String(id),
-              lat: existingState.lat,
-              lng: existingState.lng,
-              callsign: existingState.callsign || incomingCallsign,
-              callsign_group: existingState.callsign_group || incomingCallsign,
-              symbol_table_id: existingState.symbol_table,
-              symbol_code: existingState.symbol_code,
-              historical: true,
-              is_most_recent_for_callsign: false,
-              popup: existingState.popup,
-            };
+          // Convert existing live markers to historical dots by updating their icon
+          markersToConvert.forEach((id) => {
+            if (!self.markers || !self.markerStates) {
+              console.warn("markers or markerStates not available during conversion");
+              return;
+            }
+            const existingMarker = self.markers.get(id);
+            const existingState = self.markerStates.get(id);
 
-            // Update the marker's icon to show as a dot
-            existingMarker.setIcon(self.createMarkerIcon(historicalIconData));
+            if (existingMarker && existingState) {
+              // Update the state to historical
+              existingState.historical = true;
+              existingState.is_most_recent_for_callsign = false;
 
-            // Mark as historical
-            (existingMarker as APRSMarker)._isHistorical = true;
-          }
+              // Create new historical dot icon
+              const historicalIconData = {
+                id: String(id),
+                lat: existingState.lat,
+                lng: existingState.lng,
+                callsign: existingState.callsign || incomingCallsign,
+                callsign_group: existingState.callsign_group || incomingCallsign,
+                symbol_table_id: existingState.symbol_table,
+                symbol_code: existingState.symbol_code,
+                historical: true,
+                is_most_recent_for_callsign: false,
+                popup: existingState.popup,
+              };
+
+              // Update the marker's icon to show as a dot
+              existingMarker.setIcon(self.createMarkerIcon(historicalIconData));
+
+              // Mark as historical
+              (existingMarker as APRSMarker)._isHistorical = true;
+            }
+          });
+        }
+
+        // Add the new marker as the most recent for this callsign
+        // Check if openPopup is explicitly set to false to prevent interrupting user
+        const shouldOpenPopup = data.openPopup !== false;
+        self.addMarker({
+          ...data,
+          historical: false,
+          is_most_recent_for_callsign: true,
+          callsign_group: data.callsign_group || data.callsign || incomingCallsign,
+          popup: data.popup || self.buildPopupContent(data),
+          openPopup: shouldOpenPopup,
         });
-      }
-
-      // Add the new marker as the most recent for this callsign
-      // Check if openPopup is explicitly set to false to prevent interrupting user
-      const shouldOpenPopup = data.openPopup !== false;
-      self.addMarker({
-        ...data,
-        historical: false,
-        is_most_recent_for_callsign: true,
-        callsign_group: data.callsign_group || data.callsign || incomingCallsign,
-        popup: data.popup || self.buildPopupContent(data),
-        openPopup: shouldOpenPopup,
-      });
       } catch (error) {
         console.error("Error in new_packet handler:", error);
       }
@@ -922,7 +1098,7 @@ let MapAPRSMap = {
     self.currentPopupMarkerId = null;
     self.handleEvent("highlight_packet", (data: { id: string }) => {
       if (!data.id || !self.markers || !self.markerStates) return;
-      
+
       // Close previous popup if open
       if (self.currentPopupMarkerId && self.markers.has(self.currentPopupMarkerId)) {
         const prevMarker = self.markers.get(self.currentPopupMarkerId);
@@ -987,44 +1163,47 @@ let MapAPRSMap = {
     });
 
     // Handle progressive loading of historical packets (batch processing)
-    self.handleEvent("add_historical_packets_batch", (data: { packets: MarkerData[], batch: number, is_final: boolean }) => {
-      try {
-        if (data.packets && Array.isArray(data.packets)) {
-          // Process all packets immediately for maximum speed
-          const packetsByCallsign = new Map<string, MarkerData[]>();
+    self.handleEvent(
+      "add_historical_packets_batch",
+      (data: { packets: MarkerData[]; batch: number; is_final: boolean }) => {
+        try {
+          if (data.packets && Array.isArray(data.packets)) {
+            // Process all packets immediately for maximum speed
+            const packetsByCallsign = new Map<string, MarkerData[]>();
 
-        data.packets.forEach((packet) => {
-          const callsign = packet.callsign_group || packet.callsign || packet.id;
-          if (!packetsByCallsign.has(callsign)) {
-            packetsByCallsign.set(callsign, []);
-          }
-          packetsByCallsign.get(callsign)!.push(packet);
-        });
-
-        // Process each callsign group in chronological order (oldest first)
-        packetsByCallsign.forEach((packets, callsign) => {
-          // Sort by timestamp (oldest first) to ensure proper trail line drawing
-          const sortedPackets = packets.sort((a, b) => {
-            const timeA = parseTimestamp(a.timestamp);
-            const timeB = parseTimestamp(b.timestamp);
-            return timeA - timeB;
-          });
-
-          // Add markers in chronological order
-          sortedPackets.forEach((packet) => {
-            self.addMarker({
-              ...packet,
-              historical: true,
-              popup: packet.popup || self.buildPopupContent(packet),
+            data.packets.forEach((packet) => {
+              const callsign = packet.callsign_group || packet.callsign || packet.id;
+              if (!packetsByCallsign.has(callsign)) {
+                packetsByCallsign.set(callsign, []);
+              }
+              packetsByCallsign.get(callsign)!.push(packet);
             });
-          });
-        });
-      }
-      } catch (error) {
-        console.error("Error processing historical packets batch:", error);
-        // Continue processing other batches even if one fails
-      }
-    });
+
+            // Process each callsign group in chronological order (oldest first)
+            packetsByCallsign.forEach((packets, callsign) => {
+              // Sort by timestamp (oldest first) to ensure proper trail line drawing
+              const sortedPackets = packets.sort((a, b) => {
+                const timeA = parseTimestamp(a.timestamp);
+                const timeB = parseTimestamp(b.timestamp);
+                return timeA - timeB;
+              });
+
+              // Add markers in chronological order
+              sortedPackets.forEach((packet) => {
+                self.addMarker({
+                  ...packet,
+                  historical: true,
+                  popup: packet.popup || self.buildPopupContent(packet),
+                });
+              });
+            });
+          }
+        } catch (error) {
+          console.error("Error processing historical packets batch:", error);
+          // Continue processing other batches even if one fails
+        }
+      },
+    );
 
     // Handle refresh markers event
     self.handleEvent("refresh_markers", () => {
@@ -1070,67 +1249,73 @@ let MapAPRSMap = {
     });
 
     // Handle drawing RF path lines when hovering over a station
-    self.handleEvent("draw_rf_path", (data: { 
-      station_lat: number, 
-      station_lng: number, 
-      path_stations: Array<{callsign: string, lat: number, lng: number}> 
-    }) => {
-      if (!self.map || !data.path_stations || data.path_stations.length === 0) return;
+    self.handleEvent(
+      "draw_rf_path",
+      (data: {
+        station_lat: number;
+        station_lng: number;
+        path_stations: Array<{ callsign: string; lat: number; lng: number }>;
+      }) => {
+        if (!self.map || !data.path_stations || data.path_stations.length === 0) return;
 
-      // Clear any existing path lines
-      if (self.rfPathLines) {
-        self.rfPathLines.forEach(line => self.map!.removeLayer(line));
-      }
-      self.rfPathLines = [];
+        // Clear any existing path lines
+        if (self.rfPathLines) {
+          self.rfPathLines.forEach((line) => self.map!.removeLayer(line));
+        }
+        self.rfPathLines = [];
 
-      // Draw lines from station to each digipeater/igate in sequence
-      let prevLat = data.station_lat;
-      let prevLng = data.station_lng;
+        // Draw lines from station to each digipeater/igate in sequence
+        let prevLat = data.station_lat;
+        let prevLng = data.station_lng;
 
-      data.path_stations.forEach((station, index) => {
-        // Draw line from previous position to this station
-        const line = L.polyline(
-          [[prevLat, prevLng], [station.lat, station.lng]], 
-          {
-            color: '#FF6B6B',
-            weight: 3,
-            opacity: 0.8,
-            dashArray: index === 0 ? null : '5, 10', // Solid line for first hop, dashed for subsequent
-          }
-        );
+        data.path_stations.forEach((station, index) => {
+          // Draw line from previous position to this station
+          const line = L.polyline(
+            [
+              [prevLat, prevLng],
+              [station.lat, station.lng],
+            ],
+            {
+              color: "#FF6B6B",
+              weight: 3,
+              opacity: 0.8,
+              dashArray: index === 0 ? null : "5, 10", // Solid line for first hop, dashed for subsequent
+            },
+          );
 
-        line.addTo(self.map!);
-        self.rfPathLines.push(line);
+          line.addTo(self.map!);
+          self.rfPathLines.push(line);
 
-        // Add a small circle marker at the digipeater/igate location
-        const circle = L.circleMarker([station.lat, station.lng], {
-          radius: 6,
-          fillColor: '#2563eb',
-          color: '#fff',
-          weight: 2,
-          opacity: 1,
-          fillOpacity: 0.8
+          // Add a small circle marker at the digipeater/igate location
+          const circle = L.circleMarker([station.lat, station.lng], {
+            radius: 6,
+            fillColor: "#2563eb",
+            color: "#fff",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8,
+          });
+
+          circle.bindTooltip(station.callsign, {
+            permanent: false,
+            direction: "top",
+            offset: [0, -10],
+          });
+
+          circle.addTo(self.map!);
+          self.rfPathLines.push(circle);
+
+          // Update prev position for next line
+          prevLat = station.lat;
+          prevLng = station.lng;
         });
-        
-        circle.bindTooltip(station.callsign, {
-          permanent: false,
-          direction: 'top',
-          offset: [0, -10]
-        });
-
-        circle.addTo(self.map!);
-        self.rfPathLines.push(circle);
-
-        // Update prev position for next line
-        prevLat = station.lat;
-        prevLng = station.lng;
-      });
-    });
+      },
+    );
 
     // Handle clearing RF path lines
     self.handleEvent("clear_rf_path", () => {
       if (self.rfPathLines) {
-        self.rfPathLines.forEach(line => {
+        self.rfPathLines.forEach((line) => {
           if (self.map && self.map.hasLayer(line)) {
             self.map.removeLayer(line);
           }
@@ -1170,17 +1355,16 @@ let MapAPRSMap = {
     // Handle heat map data for low zoom levels
     self.handleEvent("show_heat_map", (data: { heat_points: HeatLatLng[] }) => {
       try {
-        
         if (!self.map || self.isDestroyed) {
           console.warn("Map not ready or destroyed, skipping heat map update");
           return;
         }
-        
+
         if (!L.heatLayer) {
           console.error("Leaflet.heat plugin not loaded!");
           return;
         }
-        
+
         if (!self.heatLayer) {
           try {
             self.heatLayer = L.heatLayer([], {
@@ -1188,29 +1372,31 @@ let MapAPRSMap = {
               blur: 15,
               maxZoom: 8,
               gradient: {
-                0.4: 'blue',
-                0.65: 'lime',
-                0.85: 'yellow',
-                1.0: 'red'
-              }
+                0.4: "blue",
+                0.65: "lime",
+                0.85: "yellow",
+                1.0: "red",
+              },
             });
           } catch (error) {
             console.error("Failed to create heat layer:", error);
             return;
           }
         }
-        
+
         // Convert heat points to format expected by Leaflet.heat
-        const heatData = data.heat_points.map(point => [
-          point.lat,
-          point.lng,
-          Math.min(point.intensity / 50.0, 1.0) // Normalize intensity to 0-1 range, cap at 1
-        ] as [number, number, number]);
-        
-        
+        const heatData = data.heat_points.map(
+          (point) =>
+            [
+              point.lat,
+              point.lng,
+              Math.min(point.intensity / 50.0, 1.0), // Normalize intensity to 0-1 range, cap at 1
+            ] as [number, number, number],
+        );
+
         // Update heat layer data
         self.heatLayer.setLatLngs(heatData);
-        
+
         // Show heat layer and hide marker layer
         if (!self.map.hasLayer(self.heatLayer)) {
           self.map.addLayer(self.heatLayer);
@@ -1226,12 +1412,11 @@ let MapAPRSMap = {
     // Handle switching back to markers
     self.handleEvent("show_markers", () => {
       try {
-        
         if (!self.map || self.isDestroyed) {
           console.warn("Map not ready or destroyed, skipping marker display");
           return;
         }
-        
+
         // Hide heat layer and show marker layer
         if (self.heatLayer && self.map.hasLayer(self.heatLayer)) {
           self.map.removeLayer(self.heatLayer);
@@ -1259,7 +1444,7 @@ let MapAPRSMap = {
       // self.removeMarkersOutsideBounds(bounds);
 
       // Use direct pushEvent call with proper context
-      if (self.pushEvent && typeof self.pushEvent === 'function') {
+      if (self.pushEvent && typeof self.pushEvent === "function") {
         const boundsData = {
           bounds: {
             north: bounds.getNorth(),
@@ -1347,11 +1532,11 @@ let MapAPRSMap = {
     // Add popup if content provided
     if (data.popup) {
       marker.bindPopup(data.popup, { autoPan: false });
-      
+
       // Handle popup close events - check if hook is still connected
       marker.on("popupclose", () => {
         // Only send event if not destroyed and pushEvent is still the original function
-        if (!self.isDestroyed && self.pushEvent && typeof self.pushEvent === 'function') {
+        if (!self.isDestroyed && self.pushEvent && typeof self.pushEvent === "function") {
           try {
             self.pushEvent("popup_closed", {});
           } catch (e) {
@@ -1374,25 +1559,25 @@ let MapAPRSMap = {
         if (marker.openPopup) marker.openPopup();
       }
       // If marker._oms is true but no _omsData, let OMS handle it (will spiderfy)
-      
+
       // Bring the clicked marker to front
       if (marker.getElement) {
         const element = marker.getElement();
         if (element) {
           // Find the highest z-index among all markers
           let maxZIndex = 1000;
-          document.querySelectorAll('.leaflet-marker-icon').forEach((el) => {
-            const zIndex = parseInt((el as HTMLElement).style.zIndex || '0', 10);
+          document.querySelectorAll(".leaflet-marker-icon").forEach((el) => {
+            const zIndex = parseInt((el as HTMLElement).style.zIndex || "0", 10);
             if (zIndex > maxZIndex) maxZIndex = zIndex;
           });
-          
+
           // Set this marker's z-index higher than all others
           element.style.zIndex = (maxZIndex + 1).toString();
         }
       }
-      
+
       // Use bound pushEvent function to preserve context
-      if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
+      if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
         safePushEvent(self.pushEvent.bind(self), "marker_clicked", {
           id: data.id,
           callsign: data.callsign,
@@ -1407,7 +1592,7 @@ let MapAPRSMap = {
     if (data.path && data.path.trim() !== "" && !data.path.includes("TCPIP")) {
       marker.on("mouseover", () => {
         // Check if LiveView is still connected before sending event
-        if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
+        if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
           try {
             self.pushEvent.call(self, "marker_hover_start", {
               id: data.id,
@@ -1426,7 +1611,7 @@ let MapAPRSMap = {
 
       marker.on("mouseout", () => {
         // Check if LiveView is still connected before sending event
-        if (self.pushEvent && typeof self.pushEvent === 'function' && !self.isDestroyed) {
+        if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
           try {
             self.pushEvent.call(self, "marker_hover_end", {
               id: data.id,
@@ -1437,7 +1622,6 @@ let MapAPRSMap = {
         }
       });
     }
-    
 
     // Mark historical markers for identification
     if (data.historical) {
@@ -1569,7 +1753,8 @@ let MapAPRSMap = {
     // Identify historical markers and most recent markers to preserve
     self.markers!.forEach((marker, id) => {
       const markerState = self.markerStates!.get(String(id));
-      const isHistorical = (marker as APRSMarker)._isHistorical || (markerState && markerState.historical);
+      const isHistorical =
+        (marker as APRSMarker)._isHistorical || (markerState && markerState.historical);
       const isMostRecent = markerState && markerState.is_most_recent_for_callsign;
 
       // Keep historical markers and current position markers
@@ -1616,7 +1801,8 @@ let MapAPRSMap = {
     self.markers!.forEach((marker: L.Marker, id: string) => {
       // Check if this is a historical marker or the most recent marker for a callsign
       const markerState = self.markerStates!.get(String(id));
-      const isHistorical = (marker as APRSMarker)._isHistorical || (markerState && markerState.historical);
+      const isHistorical =
+        (marker as APRSMarker)._isHistorical || (markerState && markerState.historical);
       const isMostRecent = markerState && markerState.is_most_recent_for_callsign;
 
       // Always preserve historical markers and the most recent marker for a callsign
@@ -1767,7 +1953,7 @@ let MapAPRSMap = {
     if (data.timestamp) {
       const timestamp = parseTimestamp(data.timestamp);
       const date = new Date(timestamp);
-      
+
       if (!isNaN(date.getTime())) {
         content += `<div class="aprs-timestamp">${date.toISOString()}</div>`;
       }
@@ -1779,26 +1965,26 @@ let MapAPRSMap = {
 
   destroyed() {
     const self = this as unknown as LiveViewHookContext;
-    
+
     // Mark as destroyed immediately
     self.isDestroyed = true;
-    
+
     // Disable pushEvent to prevent any events from being sent during cleanup
     const originalPushEvent = self.pushEvent;
     self.pushEvent = () => {}; // No-op function
-    
+
     // Clear interval timer
     if (self.cleanupInterval !== undefined) {
       clearInterval(self.cleanupInterval);
       self.cleanupInterval = undefined;
     }
-    
+
     // Clear programmatic move timeout
     if (self.programmaticMoveTimeout !== undefined) {
       clearTimeout(self.programmaticMoveTimeout);
       self.programmaticMoveTimeout = undefined;
     }
-    
+
     // Clear any dimension check timeouts
     if (self.cleanupTimeouts !== undefined) {
       self.cleanupTimeouts.forEach((timeout: number) => {
@@ -1806,13 +1992,13 @@ let MapAPRSMap = {
       });
       self.cleanupTimeouts = [];
     }
-    
+
     // Remove popup navigation event listener
     if (self.popupNavigationHandler) {
-      document.removeEventListener('click', self.popupNavigationHandler);
+      document.removeEventListener("click", self.popupNavigationHandler);
       self.popupNavigationHandler = undefined;
     }
-    
+
     // Close any open popups before cleanup
     if (self.map !== undefined) {
       try {
@@ -1821,7 +2007,7 @@ let MapAPRSMap = {
         console.debug("Error closing popup during cleanup:", e);
       }
     }
-    
+
     if (self.boundsTimer !== undefined) {
       clearTimeout(self.boundsTimer);
     }
@@ -1829,7 +2015,7 @@ let MapAPRSMap = {
       window.removeEventListener("resize", self.resizeHandler);
       self.resizeHandler = undefined;
     }
-    
+
     // Remove map event handlers
     if (self.map !== undefined && self.mapEventHandlers !== undefined) {
       self.mapEventHandlers.forEach((handler, event) => {
@@ -1841,7 +2027,7 @@ let MapAPRSMap = {
       });
       self.mapEventHandlers.clear();
     }
-    
+
     // Remove all event listeners from markers before clearing layers
     if (self.markers !== undefined) {
       self.markers.forEach((marker: APRSMarker) => {
@@ -1855,20 +2041,20 @@ let MapAPRSMap = {
         }
       });
     }
-    
+
     // Clean up OMS (OverlappingMarkerSpiderfier)
     if (self.oms !== undefined) {
       try {
         self.oms.clearMarkers();
-        self.oms.clearListeners('click');
-        self.oms.clearListeners('spiderfy');
-        self.oms.clearListeners('unspiderfy');
+        self.oms.clearListeners("click");
+        self.oms.clearListeners("spiderfy");
+        self.oms.clearListeners("unspiderfy");
         self.oms = undefined;
       } catch (e) {
         console.debug("Error cleaning up OMS:", e);
       }
     }
-    
+
     // Clean up heat layer
     if (self.heatLayer !== undefined && self.map !== undefined) {
       try {
@@ -1880,7 +2066,7 @@ let MapAPRSMap = {
         console.debug("Error removing heat layer:", e);
       }
     }
-    
+
     if (self.markerLayer !== undefined) {
       self.markerLayer!.clearLayers();
       // If it's a cluster group, remove it from the map
@@ -1903,86 +2089,9 @@ let MapAPRSMap = {
       self.map!.remove();
       self.map = undefined;
     }
-    
+
     // Restore original pushEvent (though it won't be used since we're destroyed)
     self.pushEvent = originalPushEvent;
-  },
-  
-  setupMobileGestures() {
-    const self = this as unknown as LiveViewHookContext;
-    if (!self.map) return;
-    
-    // Long press to show station info
-    let longPressTimer: NodeJS.Timeout | null = null;
-    let touchStartPos: { x: number; y: number } | null = null;
-    
-    self.map.on('touchstart', (e: LeafletTouchEvent) => {
-      touchStartPos = { x: e.originalEvent.touches[0].pageX, y: e.originalEvent.touches[0].pageY };
-      
-      longPressTimer = setTimeout(() => {
-        // Get the closest marker to the touch point
-        const point = e.containerPoint;
-        let closestMarker: APRSMarker | null = null;
-        let closestDistance = Infinity;
-        
-        self.markers.forEach((marker) => {
-          const markerPoint = self.map.latLngToContainerPoint(marker.getLatLng());
-          const distance = Math.sqrt(
-            Math.pow(markerPoint.x - point.x, 2) + 
-            Math.pow(markerPoint.y - point.y, 2)
-          );
-          
-          if (distance < closestDistance && distance < 50) { // 50px tolerance
-            closestDistance = distance;
-            closestMarker = marker;
-          }
-        });
-        
-        if (closestMarker) {
-          closestMarker.openPopup();
-        }
-      }, 600); // 600ms for long press
-    });
-    
-    self.map.on('touchmove', (e: LeafletTouchEvent) => {
-      if (longPressTimer && touchStartPos) {
-        const moveThreshold = 10; // pixels
-        const currentPos = { x: e.originalEvent.touches[0].pageX, y: e.originalEvent.touches[0].pageY };
-        const distance = Math.sqrt(
-          Math.pow(currentPos.x - touchStartPos.x, 2) + 
-          Math.pow(currentPos.y - touchStartPos.y, 2)
-        );
-        
-        if (distance > moveThreshold) {
-          clearTimeout(longPressTimer);
-          longPressTimer = null;
-        }
-      }
-    });
-    
-    self.map.on('touchend touchcancel', () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-      touchStartPos = null;
-    });
-    
-    // Improve popup behavior on mobile
-    self.map.on('popupopen', (e: LeafletPopupEvent) => {
-      // Ensure popup is visible on mobile
-      const popup = e.popup;
-      const px = self.map.project(popup.getLatLng());
-      const popupHeight = popup.getElement()?.offsetHeight || 200;
-      const mapHeight = self.map.getContainer().offsetHeight;
-      
-      // If popup would be cut off at bottom, pan the map
-      const containerPoint = self.map.latLngToContainerPoint(popup.getLatLng());
-      if (containerPoint.y + popupHeight > mapHeight - 50) {
-        px.y -= (popupHeight / 2);
-        self.map.panTo(self.map.unproject(px), { animate: true });
-      }
-    });
   },
 };
 
