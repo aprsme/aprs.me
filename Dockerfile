@@ -49,16 +49,15 @@ COPY priv/gleam priv/gleam
 # Compile dependencies first (including vendor/aprs)
 RUN mix deps.compile
 
-# Compile the application without running gleam_compile
-# First, temporarily remove the compile alias from mix.exs
-RUN sed -i 's/compile: \["gleam_compile", "compile"\],/# compile: ["gleam_compile", "compile"],/' mix.exs
+# Check if aprs was compiled
+RUN ls -la _build/prod/lib/aprs/ebin/ || echo "aprs not found"
 
-# Now compile the full application
-RUN mix compile
-
-# Copy Gleam BEAM files manually after compilation
+# Copy Gleam BEAM files before compiling the main app
 RUN mkdir -p _build/prod/lib/aprsme/ebin && \
     cp priv/gleam/*.beam _build/prod/lib/aprsme/ebin/ || true
+
+# Compile only the Elixir files without dependency checking
+RUN mix compile.protocols && mix compile.elixir
 
 # Install Node.js for asset building
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
