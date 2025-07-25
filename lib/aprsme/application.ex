@@ -16,8 +16,6 @@ defmodule Aprsme.Application do
       config: %{metadata: [:file, :line]}
     })
 
-    topologies = Application.get_env(:libcluster, :topologies) || []
-
     children = [
       # Start the Telemetry supervisor
       AprsmeWeb.Telemetry,
@@ -49,7 +47,8 @@ defmodule Aprsme.Application do
       # Start a worker by calling: Aprsme.Worker.start_link(arg)
       # {Aprsme.Worker, arg}
       {Registry, keys: :duplicate, name: Registry.PubSub, partitions: System.schedulers_online()},
-      {Cluster.Supervisor, [topologies, [name: Aprsme.ClusterSupervisor]]},
+      # Start clustering
+      Aprsme.Cluster.Topology,
       # Start Oban for background jobs
       {Oban, :aprsme |> Application.get_env(Oban, []) |> Keyword.put(:queues, default: 10, maintenance: 2)},
       Aprsme.Presence,
@@ -58,6 +57,7 @@ defmodule Aprsme.Application do
       Aprsme.PacketPipelineSupervisor
     ]
 
+    children = maybe_add_cluster_components(children)
     children = maybe_add_is_supervisor(children, Application.get_env(:aprsme, :env))
     children = maybe_add_aprs_connection(children, Application.get_env(:aprsme, :env))
 
@@ -99,10 +99,30 @@ defmodule Aprsme.Application do
       :ok
   end
 
+  defp maybe_add_cluster_components(children) do
+    if Application.get_env(:aprsme, :cluster_enabled, false) do
+      children ++
+        [
+          # Dynamic supervisor for processes managed by cluster leader
+          Aprsme.DynamicSupervisor,
+          # Leader election process
+          Aprsme.Cluster.LeaderElection,
+          # Connection manager that starts/stops APRS-IS based on leadership
+          Aprsme.Cluster.ConnectionManager,
+          # Packet receiver for distributed packets on non-leader nodes
+          Aprsme.Cluster.PacketReceiver
+        ]
+    else
+      children
+    end
+  end
+
   defp maybe_add_is_supervisor(children, env) do
     disable_connection = Application.get_env(:aprsme, :disable_aprs_connection, false)
+    cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
 
-    if env in [:prod, :dev] and not disable_connection do
+    # Only add Is.IsSupervisor directly if clustering is disabled
+    if env in [:prod, :dev] and not disable_connection and not cluster_enabled do
       children ++ [Aprsme.Is.IsSupervisor]
     else
       children

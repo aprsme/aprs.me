@@ -251,6 +251,8 @@ defmodule Aprsme.PacketConsumer do
   # Broadcast packets asynchronously to avoid blocking
   defp broadcast_packets_async(packets) do
     Task.start(fn ->
+      cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
+
       Enum.each(packets, fn packet_attrs ->
         # Convert back to a format suitable for broadcasting
         packet = %{
@@ -265,7 +267,13 @@ defmodule Aprsme.PacketConsumer do
           comment: packet_attrs[:comment]
         }
 
-        Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
+        if cluster_enabled do
+          # Use cluster distributor to broadcast to all nodes
+          Aprsme.Cluster.PacketDistributor.distribute_packet(packet)
+        else
+          # Normal single-node broadcasting
+          Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
+        end
       end)
     end)
   end

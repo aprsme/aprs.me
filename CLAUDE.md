@@ -127,6 +127,7 @@ The application supports Kubernetes deployment with manifests in `k8s/` director
 The app is deployed in a k3s cluster with the following structure:
 - **App name**: `aprs`
 - **Namespace**: `aprs`
+- **K8s manifests location**: `~/dev/infra/clusters/aprs/`
 
 Common kubectl commands for debugging:
 ```bash
@@ -150,4 +151,37 @@ kubectl rollout status deployment/aprs -n aprs
 
 # Execute commands in the pod
 kubectl exec -it deployment/aprs -n aprs -- /app/bin/aprsme remote
+
+# Check cluster membership
+kubectl exec -it <pod-name> -n aprs -- /app/bin/aprsme eval "Node.list()"
+
+# Check leader status
+kubectl exec -it <pod-name> -n aprs -- /app/bin/aprsme eval "Aprsme.Cluster.LeaderElection.is_leader?()"
 ```
+
+### Clustering Architecture
+
+The application uses distributed Erlang clustering to ensure only one APRS-IS connection across multiple replicas:
+
+1. **Leader Election**: Uses `:global` registry for distributed leader election
+   - Only the elected leader maintains the APRS-IS connection
+   - Automatic failover when leader goes down
+   - Leader election managed by `Aprsme.Cluster.LeaderElection`
+
+2. **Connection Management**: 
+   - `Aprsme.Cluster.ConnectionManager` starts/stops APRS-IS based on leadership
+   - Uses `DynamicSupervisor` to manage connection lifecycle
+   - Prevents duplicate connections and packet processing
+
+3. **Kubernetes Configuration**:
+   - Headless service (`aprs-headless`) for node discovery
+   - DNS-based clustering via libcluster
+   - Environment variables:
+     - `CLUSTER_ENABLED=true` - Enables clustering
+     - `RELEASE_NODE` - Erlang node name
+     - `RELEASE_COOKIE` - Erlang distribution cookie
+
+4. **Deployment**:
+   - Default replicas: 3 (configurable in `aprs-deployment.yaml`)
+   - Only leader processes APRS packets
+   - All nodes serve web traffic

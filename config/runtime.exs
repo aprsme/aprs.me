@@ -46,6 +46,9 @@ if config_env() == :prod do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
+  # Configure clustering based on environment
+  cluster_enabled = System.get_env("CLUSTER_ENABLED", "false") == "true"
+
   # ## Configuring the mailer
   #
   # Configure Resend for email delivery
@@ -116,6 +119,8 @@ if config_env() == :prod do
       "https://tile.openstreetmap.org"
     ]
 
+  config :aprsme, :cluster_enabled, cluster_enabled
+
   # Optional: Set the default "from" email address
   config :aprsme,
     default_from_email: "w5isp@aprs.me"
@@ -134,19 +139,35 @@ if config_env() == :prod do
   config :hammer,
     backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
 
-  # Configure libcluster for Dokku clustering
-  config :libcluster,
-    topologies: [
-      dokku: [
-        strategy: Cluster.Strategy.Gossip,
-        config: [
-          port: 45_892,
-          if_addr: "0.0.0.0",
-          multicast_addr: "230.1.1.1",
-          multicast_ttl: 1
+  # Configure libcluster topology based on environment
+  if cluster_enabled do
+    config :libcluster,
+      topologies: [
+        kubernetes: [
+          strategy: Cluster.Strategy.Kubernetes.DNS,
+          config: [
+            service: "aprs-headless",
+            application_name: "aprs",
+            namespace: System.get_env("POD_NAMESPACE", "aprs"),
+            polling_interval: 10_000
+          ]
         ]
       ]
-    ]
+  else
+    # Keep existing Dokku configuration for non-Kubernetes deployments
+    config :libcluster,
+      topologies: [
+        dokku: [
+          strategy: Cluster.Strategy.Gossip,
+          config: [
+            port: 45_892,
+            if_addr: "0.0.0.0",
+            multicast_addr: "230.1.1.1",
+            multicast_ttl: 1
+          ]
+        ]
+      ]
+  end
 
   #
   # For this example you need include a HTTP client required by Swoosh API client.
