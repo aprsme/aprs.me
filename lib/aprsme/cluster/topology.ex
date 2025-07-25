@@ -29,12 +29,11 @@ defmodule Aprsme.Cluster.Topology do
   defp kubernetes_config do
     [
       kubernetes: [
-        strategy: Cluster.Strategy.Kubernetes,
+        strategy: Cluster.Strategy.Kubernetes.DNS,
         config: [
-          mode: :dns,
-          kubernetes_node_basename: "aprs",
-          kubernetes_selector: "app=aprs",
-          kubernetes_namespace: "aprs",
+          service: "aprs-headless",
+          application_name: "aprs",
+          namespace: "aprs",
           polling_interval: 10_000
         ]
       ]
