@@ -116,7 +116,8 @@ if config_env() == :prod do
       "https://js.sentry-cdn.com",
       "https://sentry.io",
       "https://www.openstreetmap.org",
-      "https://tile.openstreetmap.org"
+      "https://tile.openstreetmap.org",
+      "https://static.cloudflareinsights.com"
     ]
 
   config :aprsme, :cluster_enabled, cluster_enabled
