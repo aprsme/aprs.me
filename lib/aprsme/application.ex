@@ -139,8 +139,10 @@ defmodule Aprsme.Application do
 
   defp maybe_add_aprs_connection(children, _env) do
     disable_connection = Application.get_env(:aprsme, :disable_aprs_connection, false)
+    cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
 
-    if disable_connection do
+    # Don't add AprsIsConnection if clustering is enabled or connection is disabled
+    if disable_connection or cluster_enabled do
       children
     else
       children ++ [Aprsme.AprsIsConnection]
