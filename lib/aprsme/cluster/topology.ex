@@ -1,13 +1,12 @@
 defmodule Aprsme.Cluster.Topology do
   @moduledoc """
-  Cluster topology configuration for different environments.
+  Wrapper for Cluster.Supervisor that only starts when clustering is enabled.
   """
 
   def child_spec(opts) do
-    cluster_config = config()
-
-    if cluster_config do
-      {Cluster.Supervisor, [cluster_config, opts]}
+    if Application.get_env(:aprsme, :cluster_enabled, false) do
+      topologies = Application.get_env(:libcluster, :topologies, [])
+      {Cluster.Supervisor, [topologies, [name: Aprsme.ClusterSupervisor] ++ opts]}
     else
       # Return a no-op spec when clustering is disabled
       %{
@@ -19,24 +18,4 @@ defmodule Aprsme.Cluster.Topology do
   end
 
   def start_link(_opts), do: :ignore
-
-  defp config do
-    if Application.get_env(:aprsme, :cluster_enabled, false) do
-      kubernetes_config()
-    end
-  end
-
-  defp kubernetes_config do
-    [
-      kubernetes: [
-        strategy: Cluster.Strategy.Kubernetes.DNS,
-        config: [
-          service: "aprs-headless",
-          application_name: "aprs",
-          namespace: "aprs",
-          polling_interval: 10_000
-        ]
-      ]
-    ]
-  end
 end
