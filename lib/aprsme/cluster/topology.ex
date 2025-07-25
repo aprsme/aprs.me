@@ -7,10 +7,10 @@ defmodule Aprsme.Cluster.Topology do
   def child_spec(opts) do
     if Application.get_env(:aprsme, :cluster_enabled, false) do
       topologies = Application.get_env(:libcluster, :topologies, [])
-      
+
       # Log the configuration for debugging
       Logger.info("Cluster.Topology starting with topologies: #{inspect(topologies)}")
-      
+
       # Ensure we have valid topologies
       if topologies == [] or topologies == nil do
         Logger.warning("No libcluster topologies configured, clustering will not work")

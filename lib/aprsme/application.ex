@@ -47,8 +47,6 @@ defmodule Aprsme.Application do
       # Start a worker by calling: Aprsme.Worker.start_link(arg)
       # {Aprsme.Worker, arg}
       {Registry, keys: :duplicate, name: Registry.PubSub, partitions: System.schedulers_online()},
-      # Start clustering
-      Aprsme.Cluster.Topology,
       # Start Oban for background jobs
       {Oban, :aprsme |> Application.get_env(Oban, []) |> Keyword.put(:queues, default: 10, maintenance: 2)},
       Aprsme.Presence,
@@ -101,17 +99,27 @@ defmodule Aprsme.Application do
 
   defp maybe_add_cluster_components(children) do
     if Application.get_env(:aprsme, :cluster_enabled, false) do
-      children ++
-        [
+      topologies = Application.get_env(:libcluster, :topologies, [])
+
+      # Packet receiver for distributed packets on non-leader nodes
+      cluster_children =
+        if topologies == [] do
+          []
+          # libcluster supervisor
           # Dynamic supervisor for processes managed by cluster leader
-          Aprsme.DynamicSupervisor,
           # Leader election process
-          Aprsme.Cluster.LeaderElection,
           # Connection manager that starts/stops APRS-IS based on leadership
-          Aprsme.Cluster.ConnectionManager,
-          # Packet receiver for distributed packets on non-leader nodes
-          Aprsme.Cluster.PacketReceiver
-        ]
+        else
+          [
+            {Cluster.Supervisor, [topologies, [name: Aprsme.ClusterSupervisor]]},
+            Aprsme.DynamicSupervisor,
+            Aprsme.Cluster.LeaderElection,
+            Aprsme.Cluster.ConnectionManager,
+            Aprsme.Cluster.PacketReceiver
+          ]
+        end
+
+      children ++ cluster_children
     else
       children
     end
