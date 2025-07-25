@@ -147,7 +147,7 @@ if config_env() == :prod do
           strategy: Cluster.Strategy.Kubernetes.DNS,
           config: [
             service: "aprs-headless",
-            application_name: "aprs",
+            application_name: "aprsme",
             namespace: System.get_env("POD_NAMESPACE", "aprs"),
             polling_interval: 10_000
           ]
