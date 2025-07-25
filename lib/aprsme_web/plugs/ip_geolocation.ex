@@ -68,12 +68,22 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
   end
 
   defp get_client_ip(conn) do
-    # Check for forwarded IP first (when behind proxy/load balancer)
+    # Check for Cloudflare header first (CF-Connecting-IP)
+    cf_ip = get_req_header(conn, "cf-connecting-ip")
+
+    # Then check for standard forwarded headers
     forwarded_for = get_req_header(conn, "x-forwarded-for")
+    real_ip = get_req_header(conn, "x-real-ip")
 
     ip =
-      case forwarded_for do
-        [forwarded | _] ->
+      case {cf_ip, forwarded_for, real_ip} do
+        {[cf | _], _, _} ->
+          # Cloudflare header takes precedence
+          ip_from_cf = String.trim(cf)
+          Logger.info("IP geolocation: Using Cloudflare CF-Connecting-IP: #{ip_from_cf}")
+          ip_from_cf
+
+        {[], [forwarded | _], _} ->
           # Take the first IP from the X-Forwarded-For header
           ip_from_header =
             forwarded
@@ -84,7 +94,13 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
           Logger.info("IP geolocation: Using forwarded IP from X-Forwarded-For header: #{ip_from_header}")
           ip_from_header
 
-        [] ->
+        {[], [], [real | _]} ->
+          # Use X-Real-IP header
+          ip_from_real = String.trim(real)
+          Logger.info("IP geolocation: Using X-Real-IP header: #{ip_from_real}")
+          ip_from_real
+
+        {[], [], []} ->
           # Fall back to remote_ip
           ip_from_remote =
             case conn.remote_ip do
