@@ -50,8 +50,8 @@ defmodule Aprsme.GeoUtilsTest do
     end
 
     test "returns true for movement over default threshold" do
-      # About 11 meters
-      assert GeoUtils.significant_movement?(33.16961, -96.4921, 33.1697, -96.4921)
+      # About 55 meters movement (over 50m default threshold)
+      assert GeoUtils.significant_movement?(33.16961, -96.4921, 33.1701, -96.4921)
     end
 
     test "respects custom threshold" do

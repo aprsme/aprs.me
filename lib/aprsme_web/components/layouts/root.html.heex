@@ -45,8 +45,9 @@
 <!-- Conditional loading based on page type -->
     <script>
       window.VendorLoader = {
-        mapBundleUrl: "{~p"/assets/vendor/js/map-bundle.js"}",
-        chartBundleUrl: "{~p"/assets/vendor/js/chart-bundle.js"}",
+        mapBundleUrl: '/assets/vendor/js/map-bundle.js',
+        chartBundleUrl: '/assets/vendor/js/chart-bundle.js',
+        dateAdapterUrl: '/assets/vendor/js/date-adapter.js',
         
         loadMap: function() {
           if (!window.mapBundleLoaded) {
@@ -65,7 +66,7 @@
               window.chartBundleLoaded = true;
               // Load date adapter after Chart.js is loaded
               const adapterScript = document.createElement('script');
-              adapterScript.src = "{~p"/assets/vendor/js/date-adapter.js"}";
+              adapterScript.src = this.dateAdapterUrl;
               document.head.appendChild(adapterScript);
             };
             document.head.appendChild(chartScript);
