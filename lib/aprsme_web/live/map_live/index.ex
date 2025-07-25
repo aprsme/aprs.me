@@ -199,7 +199,9 @@ defmodule AprsmeWeb.MapLive.Index do
       # Overlay controls
       overlay_callsign: "",
       # Slideover state - will be set based on screen size
-      slideover_open: true
+      slideover_open: true,
+      # Track when last update occurred for display
+      last_update_at: DateTime.utc_now()
     )
   end
 
@@ -1295,6 +1297,27 @@ defmodule AprsmeWeb.MapLive.Index do
           />
         </div>
         
+    <!-- Last Update -->
+        <div class="pt-4 border-t border-slate-200 space-y-3">
+          <div class="flex items-center space-x-2 text-sm text-slate-600">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            <span class="font-medium">{gettext("Last Update")}</span>
+          </div>
+          <div class="text-xs text-slate-500">
+            <div class="font-mono">{time_ago_in_words(@last_update_at)}</div>
+            <div class="font-mono text-slate-400">
+              {Calendar.strftime(@last_update_at, "%Y-%m-%d %H:%M UTC")}
+            </div>
+          </div>
+        </div>
+        
     <!-- Deployment Information -->
         <div class="pt-4 border-t border-slate-200 space-y-3">
           <div class="flex items-center space-x-2 text-sm text-slate-600">
@@ -1618,6 +1641,7 @@ defmodule AprsmeWeb.MapLive.Index do
       socket
       |> assign(map_bounds: map_bounds, packet_state: updated_packet_state)
       |> assign(needs_initial_historical_load: false)
+      |> assign(last_update_at: DateTime.utc_now())
 
     # Load historical packets for the new bounds (now socket.assigns.map_bounds is correct)
     Logger.debug("Starting progressive historical loading for new bounds")
