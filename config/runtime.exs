@@ -141,16 +141,15 @@ if config_env() == :prod do
 
   # Configure libcluster topology based on environment
   if cluster_enabled do
-    # Use Kubernetes strategy with hostname mode for StatefulSet
+    # Use DNSSRV strategy for StatefulSet clustering
     config :libcluster,
       topologies: [
         k8s: [
-          strategy: Cluster.Strategy.Kubernetes,
+          strategy: Cluster.Strategy.Kubernetes.DNSSRV,
           config: [
-            mode: :hostname,
-            kubernetes_node_basename: "aprsme",
-            kubernetes_selector: "app=aprs",
-            kubernetes_namespace: "aprs",
+            service: "aprs-headless",
+            application_name: "aprsme",
+            namespace: "aprs",
             polling_interval: 5_000
           ]
         ]
