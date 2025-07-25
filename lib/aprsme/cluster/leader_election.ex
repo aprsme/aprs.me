@@ -136,13 +136,44 @@ defmodule Aprsme.Cluster.LeaderElection do
         :ok
 
       pid when is_pid(pid) ->
-        # Check if the registered process is alive and on a connected node
-        if Process.alive?(pid) and node(pid) in [node() | Node.list()] do
-          # Process is alive and on a connected node - leave it alone
-          :ok
+        pid_node = node(pid)
+        connected_nodes = [node() | Node.list()]
+
+        # Check if the PID's node is still connected
+        if pid_node in connected_nodes do
+          # Node is connected, try to check if process is alive
+          try do
+            if pid_node == node() do
+              # Local PID - use Process.alive?
+              if Process.alive?(pid) do
+                :ok
+              else
+                Logger.info("Cleaning up stale leader registration for dead local process #{inspect(pid)}")
+                :global.unregister_name(@election_key)
+              end
+            else
+              # Remote PID - use RPC to check if alive
+              case :rpc.call(pid_node, Process, :alive?, [pid]) do
+                true ->
+                  :ok
+
+                false ->
+                  Logger.info("Cleaning up stale leader registration for dead remote process #{inspect(pid)}")
+                  :global.unregister_name(@election_key)
+
+                {:badrpc, _reason} ->
+                  Logger.info("Cleaning up stale leader registration for unreachable process #{inspect(pid)}")
+                  :global.unregister_name(@election_key)
+              end
+            end
+          rescue
+            _error ->
+              Logger.info("Cleaning up stale leader registration for problematic process #{inspect(pid)}")
+              :global.unregister_name(@election_key)
+          end
         else
-          # Process is dead or on a disconnected node - unregister it
-          Logger.info("Cleaning up stale leader registration for dead/disconnected process #{inspect(pid)}")
+          # Node is disconnected - clean up the registration
+          Logger.info("Cleaning up stale leader registration for disconnected node #{pid_node}")
           :global.unregister_name(@election_key)
         end
     end
