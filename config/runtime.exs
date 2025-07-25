@@ -141,15 +141,14 @@ if config_env() == :prod do
 
   # Configure libcluster topology based on environment
   if cluster_enabled do
+    # For now, use manual node list until we fix DNS resolution
+    # In production, we would use Kubernetes API or custom strategy
     config :libcluster,
       topologies: [
         kubernetes: [
-          strategy: Cluster.Strategy.Kubernetes.DNS,
+          strategy: Cluster.Strategy.Gossip,
           config: [
-            service: "aprs-headless",
-            application_name: "aprsme",
-            namespace: System.get_env("POD_NAMESPACE", "aprs"),
-            polling_interval: 10_000
+            secret: System.get_env("RELEASE_COOKIE", "aprs-cluster-cookie")
           ]
         ]
       ]
