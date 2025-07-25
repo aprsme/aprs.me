@@ -798,6 +798,30 @@ defmodule AprsmeWeb.MapLive.Index do
         }
       }
 
+      /* Slideover panel base styles */
+      .slideover-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 352px;
+        background: white;
+        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.3s ease-in-out;
+        overflow: hidden;
+      }
+
+      .slideover-panel.slideover-open {
+        transform: translateX(0);
+      }
+
+      .slideover-panel.slideover-closed {
+        transform: translateX(100%);
+      }
+
       /* Mobile styles */
       @media (max-width: 1023px) {
         #aprs-map {
@@ -900,6 +924,89 @@ defmodule AprsmeWeb.MapLive.Index do
 
       .leaflet-popup-content {
         margin: 8px 12px;
+      }
+
+      /* Slideover panel styles */
+      .slideover-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100vh;
+        background: white;
+        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.3s ease-in-out;
+        overflow: hidden;
+        box-sizing: border-box;
+      }
+
+      /* Ensure proper box-sizing for all children */
+      .slideover-panel * {
+        box-sizing: border-box;
+      }
+
+      /* Desktop styles */
+      @media (min-width: 1024px) {
+        .slideover-panel {
+          width: 352px;
+          transform: translateX(0);
+        }
+
+        .slideover-panel.slideover-closed {
+          transform: translateX(100%);
+        }
+      }
+
+      /* Mobile styles - override the desktop styles */
+      @media (max-width: 1023px) {
+        .slideover-panel {
+          width: 90vw !important;
+          max-width: 400px;
+        }
+
+        .slideover-panel.slideover-closed {
+          transform: translateX(100%);
+        }
+
+        .slideover-panel.slideover-open {
+          transform: translateX(0);
+        }
+      }
+
+      /* Slideover toggle button */
+      .slideover-toggle {
+        position: fixed;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 999;
+        background: white;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        border-radius: 8px 0 0 8px;
+        padding: 12px 8px;
+        cursor: pointer;
+        transition: all 0.3s ease-in-out;
+        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .slideover-toggle.slideover-open {
+        right: 352px;
+      }
+
+      .slideover-toggle.slideover-closed {
+        right: 0;
+        border-right: none;
+      }
+
+      @media (max-width: 1023px) {
+        .slideover-toggle {
+          display: none;
+        }
+      }
+
+      .slideover-toggle:hover {
+        background: #f3f4f6;
       }
     </style>
 
