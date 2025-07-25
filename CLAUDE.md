@@ -36,7 +36,7 @@ This is an Elixir Phoenix LiveView application that serves as a real-time APRS (
 - `mix credo` - Static code analysis and style checking
 - `mix dialyzer` - Static type analysis (must run and fix errors/warnings)
 - `mix sobelow` - Security vulnerability scanning
-- **IMPORTANT**: Always run `mix format` before considering any task complete
+- **CRITICAL**: ALWAYS run `mix format` BEFORE committing - never commit unformatted code
 - **MANDATORY**: Run `mix compile --warnings-as-errors` and ensure it passes before considering any task complete
 
 ### Assets (No Node.js)
@@ -99,12 +99,18 @@ Tests use comprehensive mocking to prevent external connections:
 - Use LiveView for UI interactions, minimize JavaScript
 - Prefer pattern matching over if/case statements
 - Follow idiomatic Elixir conventions
-- Run `mix format` before committing
+- **CRITICAL**: ALWAYS run `mix format` BEFORE committing - this is non-negotiable
 - Address any compiler warnings
 - Run `mix dialyzer` and fix all errors/warnings
 - **MANDATORY**: Run `mix compile --warnings-as-errors` and ensure it passes before considering any task complete
 - Use function composition over nested conditionals
 - Write descriptive test names that explain behavior
+
+### Pre-Commit Checklist
+1. Run `mix format` - ALWAYS do this first
+2. Run `mix compile --warnings-as-errors` - ensure no warnings
+3. Run `mix test` - ensure all tests pass
+4. Only then commit and push your changes
 
 ## Web Testing
 
