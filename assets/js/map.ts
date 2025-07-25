@@ -31,7 +31,7 @@ import type { BaseEventPayload } from "./types/events";
 // Vector grid types are included via the vendor bundle
 
 // Leaflet and plugins are loaded globally from vendor bundle
-const L = window.L;
+// We'll access window.L dynamically when needed instead of storing it at module load time
 
 // CSS files are bundled in vendor.js
 
@@ -78,7 +78,7 @@ let MapAPRSMap = {
     self.initializationAttempts!++;
 
     // Check if Leaflet is available
-    if (typeof L === "undefined") {
+    if (typeof window.L === "undefined") {
       console.error("Leaflet library not loaded!");
       self.errors!.push("Leaflet library not available");
 
@@ -90,6 +90,9 @@ let MapAPRSMap = {
         return;
       }
     }
+    
+    // Create a local reference to Leaflet for this function
+    const L = window.L;
 
     // Initialize with URL parameters first (from data attributes)
     let initialCenter: CenterData, initialZoom: number;
@@ -1731,6 +1734,7 @@ let MapAPRSMap = {
 
   addMarker(data: MarkerData & { openPopup?: boolean }) {
     const self = this as unknown as LiveViewHookContext;
+    const L = window.L;
     if (!data.id || !data.lat || !data.lng) {
       console.warn("Invalid marker data:", data);
       return;
@@ -2119,6 +2123,7 @@ let MapAPRSMap = {
 
   createMarkerIcon(data: MarkerData): L.DivIcon {
     const self = this as unknown as LiveViewHookContext;
+    const L = window.L;
     // If this is the most recent for the callsign, always show the APRS icon
     if (data.is_most_recent_for_callsign) {
       // Remove any historical dot at the same position for this callsign
