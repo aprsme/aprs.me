@@ -6,7 +6,8 @@ defmodule Aprsme.Cluster.Topology do
   def child_spec(opts) do
     if Application.get_env(:aprsme, :cluster_enabled, false) do
       topologies = Application.get_env(:libcluster, :topologies, [])
-      {Cluster.Supervisor, [topologies, [name: Aprsme.ClusterSupervisor] ++ opts]}
+      supervisor_opts = Keyword.merge([name: Aprsme.ClusterSupervisor], opts)
+      {Cluster.Supervisor, [topologies, supervisor_opts]}
     else
       # Return a no-op spec when clustering is disabled
       %{
