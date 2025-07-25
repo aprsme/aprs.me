@@ -107,10 +107,12 @@ if config_env() == :prod do
     check_origin: [
       "https://#{host}",
       "http://10.0.19.222:33897",
-      "*.aprs.me",
+      "https://aprs.me",
+      "https://www.aprs.me",
       "https://js.sentry-cdn.com",
-      "*.sentry.io",
-      "*.openstreetmap.org"
+      "https://sentry.io",
+      "https://www.openstreetmap.org",
+      "https://tile.openstreetmap.org"
     ]
 
   # Optional: Set the default "from" email address

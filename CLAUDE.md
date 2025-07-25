@@ -115,3 +115,33 @@ Tests use comprehensive mocking to prevent external connections:
 ## Deployment
 
 The application supports Kubernetes deployment with manifests in `k8s/` directory and GitHub Actions CI/CD pipeline. Database migrations run automatically via init containers.
+
+### Kubernetes Commands
+
+The app is deployed in a k3s cluster with the following structure:
+- **App name**: `aprs`
+- **Namespace**: `aprs`
+
+Common kubectl commands for debugging:
+```bash
+# Check pod status
+kubectl get pods -n aprs
+
+# Get logs from the app
+kubectl logs -f deployment/aprs -n aprs
+
+# Get logs from a specific pod
+kubectl logs <pod-name> -n aprs
+
+# Describe pod for events and details
+kubectl describe pod <pod-name> -n aprs
+
+# Restart the deployment
+kubectl rollout restart deployment/aprs -n aprs
+
+# Check deployment status
+kubectl rollout status deployment/aprs -n aprs
+
+# Execute commands in the pod
+kubectl exec -it deployment/aprs -n aprs -- /app/bin/aprsme remote
+```
