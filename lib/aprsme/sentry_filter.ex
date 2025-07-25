@@ -26,8 +26,15 @@ defmodule Aprsme.SentryFilter do
 
   # Check if the event should be filtered out
   defp should_filter_event?(event) do
-    error_type = get_in(event, [:exception, Access.at(0), :type])
-    error_message = get_in(event, [:exception, Access.at(0), :value])
+    # Access the first exception from the list if it exists
+    first_exception =
+      case event.exception do
+        [first | _] -> first
+        _ -> nil
+      end
+
+    error_type = if first_exception, do: first_exception.type
+    error_message = if first_exception, do: first_exception.value
 
     cond do
       # Filter out Bandit errors for missing Host header
@@ -53,7 +60,11 @@ defmodule Aprsme.SentryFilter do
 
   # Check if the request path looks like a bot/scanner
   defp is_bot_path?(event) do
-    request_path = get_in(event, [:request, :url]) || ""
+    request_path =
+      case event.request do
+        %{url: url} when is_binary(url) -> url
+        _ -> ""
+      end
 
     bot_patterns = [
       ~r/\.php$/i,
@@ -78,8 +89,12 @@ defmodule Aprsme.SentryFilter do
 
   # Extract a readable error description
   defp inspect_error(event) do
-    error_type = get_in(event, [:exception, Access.at(0), :type]) || "Unknown"
-    error_message = get_in(event, [:exception, Access.at(0), :value]) || "No message"
+    # Access the first exception from the list if it exists
+    {error_type, error_message} =
+      case event.exception do
+        [%{type: type, value: value} | _] -> {type || "Unknown", value || "No message"}
+        _ -> {"Unknown", "No message"}
+      end
 
     "#{error_type}: #{error_message}"
   end
