@@ -41,20 +41,22 @@ defmodule AprsmeWeb.Plugs.RateLimiter do
 
   defp get_key(conn, :ip) do
     # Check headers in order of preference
-    cond do
+    case {get_req_header(conn, "cf-connecting-ip"), get_req_header(conn, "x-forwarded-for"),
+          get_req_header(conn, "x-real-ip")} do
       # Cloudflare header takes precedence
-      cf_ip = get_req_header(conn, "cf-connecting-ip") != [] ->
-        hd(cf_ip)
+      {[cf | _], _, _} ->
+        cf
 
-      # Then standard forwarded headers
-      forwarded = get_req_header(conn, "x-forwarded-for") != [] ->
-        forwarded |> hd() |> String.split(",") |> List.first() |> String.trim()
+      # Then standard X-Forwarded-For header
+      {[], [forwarded | _], _} ->
+        forwarded |> String.split(",") |> List.first() |> String.trim()
 
-      real_ip = get_req_header(conn, "x-real-ip") != [] ->
-        hd(real_ip)
+      # Then X-Real-IP header
+      {[], [], [real | _]} ->
+        real
 
       # Fall back to remote_ip
-      true ->
+      {[], [], []} ->
         conn.remote_ip |> :inet.ntoa() |> to_string()
     end
   end
