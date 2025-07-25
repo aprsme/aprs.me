@@ -92,14 +92,32 @@ config :esbuild,
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ],
+  # Optimized CSS bundle
   vendor_css: [
-    args:
-      ~w(vendor/css/vendor-bundle.css --outdir=../priv/static/assets/vendor/css --minify),
+    args: ~w(vendor/css/minimal-bundle.css --outdir=../priv/static/assets/vendor/css --minify),
     cd: Path.expand("../assets", __DIR__)
   ],
-  vendor_js: [
+  # Core bundle - always loaded
+  core_js: [
+    args: ~w(vendor/js/core-bundle.js --outdir=../priv/static/assets/vendor/js --minify --target=es2017),
+    cd: Path.expand("../assets", __DIR__)
+  ],
+  # Map bundle - conditional loading
+  map_js: [
     args:
-      ~w(vendor/js/vendor-bundle.js --outdir=../priv/static/assets/vendor/js --minify --target=es2017),
+      ~w(js/map-bundle-entry.js --bundle --outfile=../priv/static/assets/vendor/js/map-bundle.js --minify --target=es2017),
+    cd: Path.expand("../assets", __DIR__)
+  ],
+  # Chart bundle - conditional loading  
+  chart_js: [
+    args:
+      ~w(vendor/js/chart-minimal.js --outfile=../priv/static/assets/vendor/js/chart-bundle.js --minify --target=es2017),
+    cd: Path.expand("../assets", __DIR__)
+  ],
+  # Date adapter - separate file
+  date_adapter: [
+    args:
+      ~w(vendor/js/date-adapter.js --outfile=../priv/static/assets/vendor/js/date-adapter.js --minify --target=es2017),
     cd: Path.expand("../assets", __DIR__)
   ]
 

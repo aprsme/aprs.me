@@ -137,7 +137,10 @@ defmodule Aprsme.MixProject do
         "tailwind default --minify",
         "esbuild vendor",
         "esbuild vendor_css",
-        "esbuild vendor_js", 
+        "esbuild core_js",
+        "esbuild map_js",
+        "esbuild chart_js",
+        "esbuild date_adapter",
         "esbuild default --minify",
         "phx.digest"
       ]

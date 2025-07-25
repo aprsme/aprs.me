@@ -35,11 +35,43 @@
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     
-<!-- Vendor CSS Bundle -->
-    <link phx-track-static rel="stylesheet" href={~p"/assets/vendor/css/vendor-bundle.css"} />
+<!-- Minimal vendor CSS -->
+    <link phx-track-static rel="stylesheet" href={~p"/assets/vendor/css/minimal-bundle.css"} />
     
-<!-- Vendor JS Bundle -->
-    <script phx-track-static src={~p"/assets/vendor/js/vendor-bundle.js"}>
+<!-- Core utilities - always loaded -->
+    <script phx-track-static src={~p"/assets/vendor/js/core-bundle.js"}>
+    </script>
+    
+<!-- Conditional loading based on page type -->
+    <script>
+      window.VendorLoader = {
+        mapBundleUrl: "{~p"/assets/vendor/js/map-bundle.js"}",
+        chartBundleUrl: "{~p"/assets/vendor/js/chart-bundle.js"}",
+        
+        loadMap: function() {
+          if (!window.mapBundleLoaded) {
+            const script = document.createElement('script');
+            script.src = this.mapBundleUrl;
+            script.onload = () => window.mapBundleLoaded = true;
+            document.head.appendChild(script);
+          }
+        },
+        
+        loadCharts: function() {
+          if (!window.chartBundleLoaded) {
+            const chartScript = document.createElement('script');
+            chartScript.src = this.chartBundleUrl;
+            chartScript.onload = () => {
+              window.chartBundleLoaded = true;
+              // Load date adapter after Chart.js is loaded
+              const adapterScript = document.createElement('script');
+              adapterScript.src = "{~p"/assets/vendor/js/date-adapter.js"}";
+              document.head.appendChild(adapterScript);
+            };
+            document.head.appendChild(chartScript);
+          }
+        }
+      };
     </script>
     
 <!-- App scripts -->

@@ -124,15 +124,53 @@ let BodyClassHook = {
 
 // APRS Map Hook
 let Hooks = {};
-Hooks.APRSMap = MapAPRSMap;
+
+// Map hooks - load map bundle when needed
+Hooks.APRSMap = {
+  ...MapAPRSMap,
+  mounted() {
+    if (window.VendorLoader) {
+      window.VendorLoader.loadMap();
+    }
+    if (MapAPRSMap.mounted) {
+      MapAPRSMap.mounted.call(this);
+    }
+  }
+};
+
+Hooks.InfoMap = {
+  ...InfoMap,
+  mounted() {
+    if (window.VendorLoader) {
+      window.VendorLoader.loadMap();
+    }
+    if (InfoMap.mounted) {
+      InfoMap.mounted.call(this);
+    }
+  }
+};
+
+// Chart hooks - load chart bundle when needed
+import { WeatherChartHooks } from "./features/weather_charts";
+Object.keys(WeatherChartHooks).forEach(hookName => {
+  const originalHook = WeatherChartHooks[hookName];
+  Hooks[hookName] = {
+    ...originalHook,
+    mounted() {
+      if (window.VendorLoader) {
+        window.VendorLoader.loadCharts();
+      }
+      if (originalHook.mounted) {
+        originalHook.mounted.call(this);
+      }
+    }
+  };
+});
+
+// Core hooks - no bundle loading needed
 Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
 Hooks.BodyClassHook = BodyClassHook;
 Hooks.ErrorBoundary = ErrorBoundary;
-Hooks.InfoMap = InfoMap;
-
-// Register weather chart hooks from TypeScript
-import { WeatherChartHooks } from "./features/weather_charts";
-Object.assign(Hooks, WeatherChartHooks);
 
 // Helper function to get theme-aware colors
 const getThemeColors = () => {
