@@ -26,17 +26,46 @@ defmodule Aprsme.Cluster.LeaderElection do
   def init(_opts) do
     Logger.info("Starting leader election process")
 
-    # Schedule initial election
-    Process.send_after(self(), :attempt_election, 100)
+    cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
+
+    if cluster_enabled do
+      Logger.info("Clustering enabled - waiting for cluster formation before leader election")
+      # Wait longer for cluster to form, then check periodically
+      Process.send_after(self(), :check_cluster_and_elect, 2_000)
+    else
+      Logger.info("Clustering disabled - proceeding with immediate leader election")
+      # Non-clustered mode - elect immediately
+      Process.send_after(self(), :attempt_election, 100)
+    end
 
     # Schedule periodic checks
     Process.send_after(self(), :check_leadership, @check_interval)
 
-    {:ok, %{is_leader: false, leader_node: nil}}
+    {:ok, %{is_leader: false, leader_node: nil, cluster_enabled: cluster_enabled}}
+  end
+
+  @impl true
+  def handle_info(:check_cluster_and_elect, state) do
+    connected_nodes = Node.list()
+
+    if length(connected_nodes) > 0 do
+      Logger.info("Cluster formed with #{length(connected_nodes)} other nodes: #{inspect(connected_nodes)}")
+      Logger.info("Proceeding with leader election")
+      Process.send_after(self(), :attempt_election, 100)
+      {:noreply, state}
+    else
+      Logger.info("Cluster not yet formed - waiting...")
+      # Check again in 2 seconds
+      Process.send_after(self(), :check_cluster_and_elect, 2_000)
+      {:noreply, state}
+    end
   end
 
   @impl true
   def handle_info(:attempt_election, state) do
+    # First, try to clean up any stale registrations
+    cleanup_stale_registrations()
+
     case :global.register_name(@election_key, self(), &resolve_conflict/3) do
       :yes ->
         Logger.info("Elected as APRS-IS connection leader on node #{node()}")
@@ -97,6 +126,25 @@ defmodule Aprsme.Cluster.LeaderElection do
       pid1
     else
       pid2
+    end
+  end
+
+  defp cleanup_stale_registrations do
+    case :global.whereis_name(@election_key) do
+      :undefined ->
+        # No registration exists
+        :ok
+
+      pid when is_pid(pid) ->
+        # Check if the registered process is alive and on a connected node
+        if Process.alive?(pid) and node(pid) in [node() | Node.list()] do
+          # Process is alive and on a connected node - leave it alone
+          :ok
+        else
+          # Process is dead or on a disconnected node - unregister it
+          Logger.info("Cleaning up stale leader registration for dead/disconnected process #{inspect(pid)}")
+          :global.unregister_name(@election_key)
+        end
     end
   end
 
