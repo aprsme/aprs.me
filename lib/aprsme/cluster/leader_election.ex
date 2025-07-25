@@ -85,15 +85,19 @@ defmodule Aprsme.Cluster.LeaderElection do
     :ok
   end
 
-  # Conflict resolution - prefer the process that's been running longer
+  # Conflict resolution - prefer the process on the lexicographically lower node
   defp resolve_conflict(_name, pid1, pid2) do
-    info1 = Process.info(pid1, [:registered_name, :current_function])
-    info2 = Process.info(pid2, [:registered_name, :current_function])
+    node1 = node(pid1)
+    node2 = node(pid2)
 
-    Logger.debug("Resolving leader conflict between #{inspect(info1)} and #{inspect(info2)}")
+    Logger.info("Resolving leader conflict between #{node1} and #{node2}")
 
-    # Keep the first registered process
-    pid1
+    # Choose based on node name ordering for deterministic results
+    if node1 <= node2 do
+      pid1
+    else
+      pid2
+    end
   end
 
   defp notify_leadership_change(became_leader) do
