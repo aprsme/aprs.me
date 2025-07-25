@@ -106,6 +106,7 @@ if config_env() == :prod do
     server: true,
     check_origin: [
       "https://#{host}",
+      "http://10.0.19.221",
       "http://10.0.19.222:33897",
       "https://aprs.me",
       "https://www.aprs.me",
