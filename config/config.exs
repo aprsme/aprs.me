@@ -91,6 +91,16 @@ config :esbuild,
       ~w(js/vendor.js --bundle --target=es2017 --outdir=../priv/static/assets --minify --loader:.css=css --loader:.png=file --loader:.svg=file),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ],
+  vendor_css: [
+    args:
+      ~w(vendor/css/vendor-bundle.css --outdir=../priv/static/assets/vendor/css --minify),
+    cd: Path.expand("../assets", __DIR__)
+  ],
+  vendor_js: [
+    args:
+      ~w(vendor/js/vendor-bundle.js --outdir=../priv/static/assets/vendor/js --minify --target=es2017),
+    cd: Path.expand("../assets", __DIR__)
   ]
 
 config :gettext, :plural_forms, GettextPseudolocalize.Plural
