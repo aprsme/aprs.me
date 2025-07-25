@@ -200,7 +200,8 @@ defmodule AprsmeWeb.MapLive.Index do
       overlay_callsign: "",
       # Slideover state - will be set based on screen size
       slideover_open: true,
-      # Track when last update occurred for display
+      # Track when last update occurred for real-time display in map sidebar
+      # Updated when packets are processed or map bounds change
       last_update_at: DateTime.utc_now()
     )
   end
@@ -1311,10 +1312,14 @@ defmodule AprsmeWeb.MapLive.Index do
             <span class="font-medium">{gettext("Last Update")}</span>
           </div>
           <div class="text-xs text-slate-500">
-            <div class="font-mono">{time_ago_in_words(@last_update_at)}</div>
-            <div class="font-mono text-slate-400">
-              {Calendar.strftime(@last_update_at, "%Y-%m-%d %H:%M UTC")}
-            </div>
+            <%= if @last_update_at do %>
+              <div class="font-mono">{time_ago_in_words(@last_update_at)}</div>
+              <div class="font-mono text-slate-400">
+                {Calendar.strftime(@last_update_at, "%Y-%m-%d %H:%M UTC")}
+              </div>
+            <% else %>
+              <div class="font-mono text-slate-500">No updates yet</div>
+            <% end %>
           </div>
         </div>
         
@@ -1641,6 +1646,7 @@ defmodule AprsmeWeb.MapLive.Index do
       socket
       |> assign(map_bounds: map_bounds, packet_state: updated_packet_state)
       |> assign(needs_initial_historical_load: false)
+      # Update last update timestamp when map bounds change - this triggers data refresh
       |> assign(last_update_at: DateTime.utc_now())
 
     # Load historical packets for the new bounds (now socket.assigns.map_bounds is correct)

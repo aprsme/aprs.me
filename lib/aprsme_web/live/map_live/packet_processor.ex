@@ -39,7 +39,8 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
     # Handle packet visibility logic
     socket = handle_packet_visibility(packet, lat, lon, callsign_key, socket)
     
-    # Update last update timestamp for display purposes
+    # Update last update timestamp for real-time display in map sidebar
+    # This timestamp is shown to users to indicate when data was last refreshed
     socket = assign(socket, :last_update_at, DateTime.utc_now())
     
     {:noreply, socket}
