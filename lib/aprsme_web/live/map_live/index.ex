@@ -1153,7 +1153,7 @@ defmodule AprsmeWeb.MapLive.Index do
             <span>{gettext("Search Callsign")}</span>
           </label>
           <form phx-submit="track_callsign" class="flex flex-col space-y-2">
-            <div class="flex space-x-2">
+            <div class="flex space-x-2 w-full">
               <input
                 type="text"
                 name="callsign"
@@ -1164,7 +1164,7 @@ defmodule AprsmeWeb.MapLive.Index do
               />
               <button
                 type="submit"
-                class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl"
+                class="px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl whitespace-nowrap flex-shrink-0"
               >
                 {gettext("Track")}
               </button>
