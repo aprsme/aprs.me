@@ -292,7 +292,7 @@ let MapAPRSMap = {
       console.log('Checking for L.vectorGrid.protobuf:', typeof (L as any).vectorGrid?.protobuf);
       
       // Use vector tiles for better performance and scalability
-      const useVectorTiles = true;
+      const useVectorTiles = false;
       
       if (useVectorTiles && (L as any).vectorGrid && (L as any).vectorGrid.protobuf) {
         try {
