@@ -127,7 +127,8 @@ The application supports Kubernetes deployment with manifests in `k8s/` director
 The app is deployed in a k3s cluster with the following structure:
 - **App name**: `aprs`
 - **Namespace**: `aprs`
-- **K8s manifests location**: `~/dev/infra/clusters/aprs/`
+- **Deployment**: StatefulSet with 2 replicas
+- **Manifests**: Located in `~/dev/infra/clusters/aprs/`
 
 Common kubectl commands for debugging:
 ```bash
@@ -143,14 +144,14 @@ kubectl logs <pod-name> -n aprs
 # Describe pod for events and details
 kubectl describe pod <pod-name> -n aprs
 
-# Restart the deployment
-kubectl rollout restart deployment/aprs -n aprs
+# Restart the statefulset
+kubectl rollout restart statefulset/aprs -n aprs
 
-# Check deployment status
-kubectl rollout status deployment/aprs -n aprs
+# Check statefulset status
+kubectl rollout status statefulset/aprs -n aprs
 
-# Execute commands in the pod
-kubectl exec -it deployment/aprs -n aprs -- /app/bin/aprsme remote
+# Execute commands in the pod (StatefulSet)
+kubectl exec -it aprs-0 -n aprs -- /app/bin/aprsme remote
 
 # Check cluster membership
 kubectl exec -it <pod-name> -n aprs -- /app/bin/aprsme eval "Node.list()"
@@ -163,19 +164,25 @@ kubectl exec -it <pod-name> -n aprs -- /app/bin/aprsme eval "Aprsme.Cluster.Lead
 
 The application uses distributed Erlang clustering to ensure only one APRS-IS connection across multiple replicas:
 
-1. **Leader Election**: Uses `:global` registry for distributed leader election
+1. **StatefulSet Deployment**: 
+   - Uses Kubernetes StatefulSet for stable pod names (aprs-0, aprs-1, etc.)
+   - Headless service provides DNS entries for each pod
+   - Stable network identities enable Erlang distribution
+
+2. **Leader Election**: Uses `:global` registry for distributed leader election
    - Only the elected leader maintains the APRS-IS connection
    - Automatic failover when leader goes down
    - Leader election managed by `Aprsme.Cluster.LeaderElection`
 
-2. **Connection Management**: 
+3. **Connection Management**: 
    - `Aprsme.Cluster.ConnectionManager` starts/stops APRS-IS based on leadership
    - Uses `DynamicSupervisor` to manage connection lifecycle
    - Prevents duplicate connections and packet processing
 
-3. **Kubernetes Configuration**:
-   - Headless service (`aprs-headless`) for node discovery
-   - DNS-based clustering via libcluster
+4. **Cluster Configuration**:
+   - Uses `libcluster` with Kubernetes.DNS strategy
+   - Automatic node discovery via headless service
+   - Erlang cookie configured via RELEASE_COOKIE environment variable
    - Environment variables:
      - `CLUSTER_ENABLED=true` - Enables clustering
      - `RELEASE_NODE` - Erlang node name
