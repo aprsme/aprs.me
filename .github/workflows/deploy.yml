@@ -64,10 +64,10 @@ jobs:
 
       - name: Deploy to K3s
         run: |
-          kubectl set image deployment/aprs aprs=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -n aprs
+          kubectl set image statefulset/aprs aprs=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -n aprs
           # Force a rollout to ensure latest image is pulled
-          kubectl rollout restart deployment/aprs -n aprs
+          kubectl rollout restart statefulset/aprs -n aprs
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/aprs -n aprs
+          kubectl rollout status statefulset/aprs -n aprs
