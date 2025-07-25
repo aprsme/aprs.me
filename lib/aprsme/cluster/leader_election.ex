@@ -22,6 +22,21 @@ defmodule Aprsme.Cluster.LeaderElection do
     GenServer.call(__MODULE__, :current_leader)
   end
 
+  @doc """
+  Gets APRS-IS status from across the entire cluster.
+  Returns the status from whichever node has an active connection.
+  """
+  def get_cluster_aprs_status do
+    cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
+
+    if cluster_enabled do
+      get_cluster_wide_status()
+    else
+      # Non-clustered mode - just return local status
+      Aprsme.Is.get_status()
+    end
+  end
+
   @impl true
   def init(_opts) do
     Logger.info("Starting leader election process")
@@ -176,6 +191,67 @@ defmodule Aprsme.Cluster.LeaderElection do
           Logger.info("Cleaning up stale leader registration for disconnected node #{pid_node}")
           :global.unregister_name(@election_key)
         end
+    end
+  end
+
+  defp get_cluster_wide_status do
+    all_nodes = [node() | Node.list()]
+
+    # Check each node for APRS-IS connection status
+    connected_statuses =
+      all_nodes
+      |> Enum.map(&get_node_status/1)
+      |> Enum.filter(fn status -> status.connected end)
+
+    case connected_statuses do
+      [status | _] ->
+        # At least one node is connected - return its status
+        # Add cluster info to indicate this is cluster-wide status
+        Map.put(status, :cluster_info, %{
+          total_nodes: length(all_nodes),
+          connected_nodes: length(connected_statuses),
+          leader_node: get_leader_node_name()
+        })
+
+      [] ->
+        # No nodes are connected - return local status but mark as cluster-wide
+        local_status = Aprsme.Is.get_status()
+
+        Map.put(local_status, :cluster_info, %{
+          total_nodes: length(all_nodes),
+          connected_nodes: 0,
+          leader_node: get_leader_node_name()
+        })
+    end
+  end
+
+  defp get_node_status(node_name) do
+    if node_name == node() do
+      # Local node - call directly
+      Aprsme.Is.get_status()
+    else
+      # Remote node - use RPC
+      case :rpc.call(node_name, Aprsme.Is, :get_status, [], 5000) do
+        {:badrpc, _reason} ->
+          # Node unreachable - return disconnected status
+          %{connected: false, server: "unreachable", port: 0}
+
+        status when is_map(status) ->
+          status
+
+        _ ->
+          %{connected: false, server: "error", port: 0}
+      end
+    end
+  rescue
+    _error ->
+      %{connected: false, server: "error", port: 0}
+  end
+
+  defp get_leader_node_name do
+    case :global.whereis_name(@election_key) do
+      :undefined -> "none"
+      pid when is_pid(pid) -> pid |> node() |> to_string()
     end
   end
 

@@ -55,8 +55,8 @@ defmodule AprsmeWeb.PageController do
   end
 
   def status_json(conn, _params) do
-    # Get APRS-IS connection status
-    aprs_status = Aprsme.Is.get_status()
+    # Get cluster-wide APRS-IS connection status
+    aprs_status = Aprsme.Cluster.LeaderElection.get_cluster_aprs_status()
 
     # Get application version
     version = :aprsme |> Application.spec(:vsn) |> List.to_string()

@@ -283,6 +283,49 @@ defmodule AprsmeWeb.StatusLive.Index do
               </div>
             </div>
           </div>
+          
+    <!-- Cluster Information (if available) -->
+          <%= if Map.has_key?(@aprs_status, :cluster_info) do %>
+            <div class="mb-8">
+              <h2 class="text-xl font-semibold mb-4">{gettext("Cluster Status")}</h2>
+              <div class="card bg-base-200">
+                <div class="card-body">
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="flex items-center">
+                      <span class="text-sm font-medium opacity-70 mr-2">{gettext("Total Nodes:")}</span>
+                      <span class="text-sm font-mono">{@aprs_status.cluster_info.total_nodes}</span>
+                    </div>
+
+                    <div class="flex items-center">
+                      <span class="text-sm font-medium opacity-70 mr-2">{gettext("Connected Nodes:")}</span>
+                      <span class="text-sm font-mono">{@aprs_status.cluster_info.connected_nodes}</span>
+                    </div>
+
+                    <div class="flex items-center">
+                      <span class="text-sm font-medium opacity-70 mr-2">{gettext("Leader Node:")}</span>
+                      <span class="text-sm font-mono">{@aprs_status.cluster_info.leader_node}</span>
+                    </div>
+                  </div>
+
+                  <div class="divider"></div>
+
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Cluster Mode:")}</span>
+                    <div class="badge badge-success gap-1">
+                      <div class="w-2 h-2 bg-current rounded-full"></div>
+                      {gettext("Enabled")}
+                    </div>
+                  </div>
+
+                  <p class="text-xs opacity-70 mt-2">
+                    {gettext(
+                      "Status is aggregated from all nodes in the cluster. Only the leader node maintains the APRS-IS connection."
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          <% end %>
         </div>
       </div>
     </div>
@@ -292,7 +335,7 @@ defmodule AprsmeWeb.StatusLive.Index do
   # Private functions
 
   defp get_aprs_status do
-    Aprsme.Is.get_status()
+    Aprsme.Cluster.LeaderElection.get_cluster_aprs_status()
   rescue
     error ->
       require Logger
