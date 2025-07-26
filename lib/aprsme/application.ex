@@ -173,11 +173,7 @@ defmodule Aprsme.Application do
       Logger.info("Starting Redis PubSub adapter with URL: #{redis_url}")
 
       {Phoenix.PubSub,
-       name: Aprsme.PubSub,
-       adapter: Phoenix.PubSub.Redis,
-       redis_pool_size: 10,
-       node_name: node(),
-       redis_options: [url: redis_url]}
+       name: Aprsme.PubSub, adapter: Phoenix.PubSub.Redis, redis_pool_size: 10, node_name: node(), url: redis_url}
     else
       require Logger
 
