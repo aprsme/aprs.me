@@ -5,11 +5,12 @@ defmodule Aprsme.DeviceCache do
 
   use GenServer
 
+  alias Aprsme.Cache
   alias Aprsme.Devices
   alias Aprsme.Repo
 
   @cache_name :device_cache
-  @refresh_interval to_timeout(day: 1)
+  @refresh_interval Cache.to_timeout(day: 1)
 
   # Client API
 
@@ -27,7 +28,7 @@ defmodule Aprsme.DeviceCache do
   def lookup_device(nil), do: nil
 
   def lookup_device(identifier) when is_binary(identifier) do
-    case Cachex.get(@cache_name, :all_devices) do
+    case Cache.get(@cache_name, :all_devices) do
       {:ok, nil} ->
         # Cache miss - trigger async refresh and return nil for now
         GenServer.cast(__MODULE__, :refresh_cache_async)
@@ -97,7 +98,7 @@ defmodule Aprsme.DeviceCache do
       devices = Repo.all(Devices)
 
       # Store all devices in cache
-      case Cachex.put(@cache_name, :all_devices, devices) do
+      case Cache.put(@cache_name, :all_devices, devices) do
         {:ok, true} -> :ok
         error -> error
       end
@@ -106,7 +107,7 @@ defmodule Aprsme.DeviceCache do
         # Handle case where database or table doesn't exist yet
         Logger.warning("Failed to load devices: #{inspect(error)}. Will retry later.")
         # Store empty list for now
-        Cachex.put(@cache_name, :all_devices, [])
+        Cache.put(@cache_name, :all_devices, [])
         :error
     end
   end

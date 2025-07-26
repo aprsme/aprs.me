@@ -3,15 +3,16 @@ defmodule Aprsme.CachedQueries do
   Caching layer for database queries to improve performance
   """
 
+  alias Aprsme.Cache
   alias Aprsme.Packet
   alias Aprsme.Packets
   alias Aprsme.Repo
   alias Ecto.Adapters.SQL
 
   # 1 minute for frequently changing data
-  @cache_ttl_short to_timeout(minute: 1)
+  @cache_ttl_short Cache.to_timeout(minute: 1)
   # 1 minute for moderately changing data
-  @cache_ttl_medium to_timeout(minute: 1)
+  @cache_ttl_medium Cache.to_timeout(minute: 1)
 
   @doc """
   Get recent packets with caching
@@ -19,13 +20,13 @@ defmodule Aprsme.CachedQueries do
   def get_recent_packets_cached(opts) do
     cache_key = generate_cache_key("recent_packets", opts)
 
-    case Cachex.get(:query_cache, cache_key) do
+    case Cache.get(:query_cache, cache_key) do
       {:ok, result} when not is_nil(result) ->
         result
 
       _ ->
         result = Packets.get_recent_packets_optimized(opts)
-        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_short)
+        Cache.put(:query_cache, cache_key, result, ttl: @cache_ttl_short)
         result
     end
   end
@@ -36,13 +37,13 @@ defmodule Aprsme.CachedQueries do
   def get_weather_packets_cached(callsign, start_time, end_time, opts) do
     cache_key = generate_cache_key("weather", {callsign, start_time, end_time, opts})
 
-    case Cachex.get(:query_cache, cache_key) do
+    case Cache.get(:query_cache, cache_key) do
       {:ok, result} when not is_nil(result) ->
         result
 
       _ ->
         result = Packets.get_weather_packets(callsign, start_time, end_time, opts)
-        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_medium)
+        Cache.put(:query_cache, cache_key, result, ttl: @cache_ttl_medium)
         result
     end
   end
@@ -54,7 +55,7 @@ defmodule Aprsme.CachedQueries do
   def get_total_packet_count_cached do
     cache_key = "total_packet_count"
 
-    case Cachex.get(:query_cache, cache_key) do
+    case Cache.get(:query_cache, cache_key) do
       {:ok, result} when not is_nil(result) ->
         result
 
@@ -62,7 +63,7 @@ defmodule Aprsme.CachedQueries do
         # This is now extremely fast due to the counter table
         result = Packets.get_total_packet_count()
         # Cache for only 5 seconds since the query is now instant
-        Cachex.put(:query_cache, cache_key, result, ttl: to_timeout(second: 5))
+        Cache.put(:query_cache, cache_key, result, ttl: Cache.to_timeout(second: 5))
         result
     end
   end
@@ -73,14 +74,14 @@ defmodule Aprsme.CachedQueries do
   def get_latest_packet_for_callsign_cached(callsign) do
     cache_key = generate_cache_key("latest_packet", callsign)
 
-    case Cachex.get(:query_cache, cache_key) do
+    case Cache.get(:query_cache, cache_key) do
       {:ok, result} when not is_nil(result) ->
         result
 
       _ ->
         result = Packets.get_latest_packet_for_callsign(callsign)
         # Shorter TTL for latest packets as they change frequently
-        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_short)
+        Cache.put(:query_cache, cache_key, result, ttl: @cache_ttl_short)
         result
     end
   end
@@ -92,14 +93,14 @@ defmodule Aprsme.CachedQueries do
   def get_latest_weather_packet_cached(callsign) do
     cache_key = generate_cache_key("latest_weather_packet", callsign)
 
-    case Cachex.get(:query_cache, cache_key) do
+    case Cache.get(:query_cache, cache_key) do
       {:ok, result} when not is_nil(result) ->
         result
 
       _ ->
         result = Packets.get_latest_weather_packet(callsign)
         # Cache for 5 minutes since weather updates are less frequent
-        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_short)
+        Cache.put(:query_cache, cache_key, result, ttl: @cache_ttl_short)
         result
     end
   end
@@ -111,7 +112,7 @@ defmodule Aprsme.CachedQueries do
   def has_weather_packets_cached?(callsign) do
     cache_key = generate_cache_key("has_weather_packets", callsign)
 
-    case Cachex.get(:query_cache, cache_key) do
+    case Cache.get(:query_cache, cache_key) do
       {:ok, result} when not is_nil(result) ->
         result
 
@@ -130,7 +131,7 @@ defmodule Aprsme.CachedQueries do
 
         result = Repo.exists?(query)
         # Cache for 15 minutes
-        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_medium)
+        Cache.put(:query_cache, cache_key, result, ttl: @cache_ttl_medium)
         result
     end
   end
@@ -148,7 +149,7 @@ defmodule Aprsme.CachedQueries do
     ]
 
     Enum.each(patterns, fn pattern ->
-      Cachex.del(:query_cache, pattern)
+      Cache.del(:query_cache, pattern)
     end)
   end
 
@@ -156,14 +157,14 @@ defmodule Aprsme.CachedQueries do
   Invalidate all cached queries
   """
   def invalidate_all_cache do
-    Cachex.clear(:query_cache)
+    Cache.clear(:query_cache)
   end
 
   @doc """
   Get cache statistics
   """
   def get_cache_stats do
-    {:ok, stats} = Cachex.stats(:query_cache)
+    {:ok, stats} = Cache.stats(:query_cache)
     stats
   end
 
@@ -173,7 +174,7 @@ defmodule Aprsme.CachedQueries do
   def get_path_station_positions_cached(callsigns) when is_list(callsigns) do
     cache_key = generate_cache_key("path_stations", Enum.sort(callsigns))
 
-    case Cachex.get(:query_cache, cache_key) do
+    case Cache.get(:query_cache, cache_key) do
       {:ok, result} when not is_nil(result) ->
         result
 
@@ -214,7 +215,7 @@ defmodule Aprsme.CachedQueries do
           end
 
         # Cache for 5 minutes
-        Cachex.put(:query_cache, cache_key, result, ttl: @cache_ttl_medium)
+        Cache.put(:query_cache, cache_key, result, ttl: @cache_ttl_medium)
         result
     end
   end

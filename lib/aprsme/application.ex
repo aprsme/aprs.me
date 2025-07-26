@@ -23,12 +23,8 @@ defmodule Aprsme.Application do
       Aprsme.Repo,
       # Start the PubSub system
       pubsub_config(),
-      # Start the rate limiter
-      Aprsme.RateLimiter,
-      # Start cache systems
-      %{id: :query_cache, start: {Cachex, :start_link, [:query_cache, [limit: 10_000]]}},
-      %{id: :device_cache, start: {Cachex, :start_link, [:device_cache, [limit: 5_000]]}},
-      %{id: :symbol_cache, start: {Cachex, :start_link, [:symbol_cache, [limit: 1_000]]}},
+      # Start Redis-based rate limiter and caches (only if Redis is available)
+      redis_children(),
       # Start circuit breaker
       Aprsme.CircuitBreaker,
       # Start device cache manager
@@ -182,6 +178,35 @@ defmodule Aprsme.Application do
       )
 
       {Phoenix.PubSub, name: Aprsme.PubSub}
+    end
+  end
+
+  defp redis_children do
+    if System.get_env("REDIS_URL") do
+      require Logger
+
+      Logger.info("Starting Redis-based caching and rate limiting")
+
+      [
+        # Redis-based rate limiter
+        Aprsme.RedisRateLimiter,
+        # Redis-based caches
+        {Aprsme.RedisCache, name: :query_cache},
+        {Aprsme.RedisCache, name: :device_cache},
+        {Aprsme.RedisCache, name: :symbol_cache}
+      ]
+    else
+      require Logger
+
+      Logger.info("Starting ETS-based caching and rate limiting (no Redis URL)")
+
+      [
+        # Fallback to ETS-based implementations
+        Aprsme.RateLimiter,
+        %{id: :query_cache, start: {Cachex, :start_link, [:query_cache, [limit: 10_000]]}},
+        %{id: :device_cache, start: {Cachex, :start_link, [:device_cache, [limit: 5_000]]}},
+        %{id: :symbol_cache, start: {Cachex, :start_link, [:symbol_cache, [limit: 1_000]]}}
+      ]
     end
   end
 end

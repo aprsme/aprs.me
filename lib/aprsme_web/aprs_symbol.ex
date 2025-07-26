@@ -238,14 +238,14 @@ defmodule AprsmeWeb.AprsSymbol do
     if is_nil(callsign) do
       cache_key = "symbol_html:#{symbol_table}:#{symbol_code}:#{size}"
 
-      case Cachex.get(:symbol_cache, cache_key) do
+      case Aprsme.Cache.get(:symbol_cache, cache_key) do
         {:ok, html} when not is_nil(html) ->
           html
 
         _ ->
           html = generate_marker_html(symbol_table, symbol_code, nil, size)
           # Cache for 1 hour since symbols don't change
-          Cachex.put(:symbol_cache, cache_key, html, ttl: to_timeout(hour: 1))
+          Aprsme.Cache.put(:symbol_cache, cache_key, html, ttl: Aprsme.Cache.to_timeout(hour: 1))
           html
       end
     else
