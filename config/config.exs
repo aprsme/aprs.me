@@ -31,17 +31,27 @@ config :aprsme, AprsmeWeb.Gettext,
   locales: ~w(en es de fr),
   default_locale: "en"
 
-# Configure Oban for background jobs
-config :aprsme, Oban,
-  repo: Aprsme.Repo,
-  plugins: [
-    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
-    {Oban.Plugins.Cron,
-     crontab: [
-       {"0 */6 * * *", Aprsme.Workers.PacketCleanupWorker}
-     ]}
+# Configure Exq for background jobs
+config :exq,
+  name: Exq,
+  host: "localhost",
+  port: 6379,
+  password: "",
+  database: 0,
+  concurrency: :infinite,
+  queues: [
+    {"default", 10},
+    {"maintenance", 2}
   ],
-  queues: [default: 10, maintenance: 2]
+  scheduler_enable: true,
+  scheduler_poll_timeout: 200,
+  poll_timeout: 50,
+  redis_timeout: 5000
+
+# Configure periodic cleanup job
+config :aprsme, :cleanup_scheduler,
+  enabled: true,
+  interval: 6 * 60 * 60 * 1000  # 6 hours in milliseconds
 
 config :aprsme,
   ecto_repos: [Aprsme.Repo]

@@ -26,7 +26,7 @@ defmodule Aprsme.Workers.PacketCleanupWorkerTest do
   describe "perform/1 with cleanup_days" do
     test "cleans up packets older than the specified number of days" do
       days = 30
-      job = %Oban.Job{args: %{"cleanup_days" => days}}
+      job_args = %{"cleanup_days" => days}
 
       # Create old packets that should be deleted
       old_time = DateTime.utc_now() |> DateTime.add(-(days + 1) * 86_400, :second) |> DateTime.truncate(:second)
@@ -36,7 +36,7 @@ defmodule Aprsme.Workers.PacketCleanupWorkerTest do
       recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
       insert_packets(3, %{received_at: recent_time})
 
-      assert :ok = PacketCleanupWorker.perform(job)
+      assert :ok = PacketCleanupWorker.perform(job_args)
 
       # Verify only recent packets remain
       assert Repo.aggregate(Packet, :count, :id) == 3
@@ -45,7 +45,7 @@ defmodule Aprsme.Workers.PacketCleanupWorkerTest do
 
   describe "perform/1 without cleanup_days" do
     test "cleans up packets using the default retention period" do
-      job = %Oban.Job{args: %{}}
+      job_args = %{}
 
       # Create very old packets that should be deleted (older than 365 days)
       old_time = DateTime.utc_now() |> DateTime.add(-400 * 86_400, :second) |> DateTime.truncate(:second)
@@ -55,7 +55,7 @@ defmodule Aprsme.Workers.PacketCleanupWorkerTest do
       recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
       insert_packets(3, %{received_at: recent_time})
 
-      assert :ok = PacketCleanupWorker.perform(job)
+      assert :ok = PacketCleanupWorker.perform(job_args)
 
       # Verify only recent packets remain
       assert Repo.aggregate(Packet, :count, :id) == 3

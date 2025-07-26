@@ -1,6 +1,6 @@
 defmodule Aprsme.Workers.PacketCleanupWorker do
   @moduledoc """
-  Oban worker for cleaning up old APRS packet data.
+  Exq worker for cleaning up old APRS packet data.
 
   This worker is responsible for:
   1. Removing packets older than the retention period (1 year by default)
@@ -8,7 +8,7 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
   3. Logging statistics about cleanup operations
   4. Supporting batch processing for large datasets
 
-  This worker is scheduled to run every 6 hours via Oban's cron feature for more frequent,
+  This worker is scheduled to run every 6 hours via Exq cron feature for more frequent,
   smaller cleanup operations to prevent large deletion spikes.
 
   ## Functions
@@ -16,8 +16,6 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
   - `cleanup_packets_older_than/1` - Cleanup packets older than specified days
   - `cleanup_packets_in_batches/1` - Batch cleanup for large datasets
   """
-
-  use Oban.Worker, queue: :maintenance, max_attempts: 3
 
   # Import modules needed for database operations
   import Ecto.Query
@@ -32,9 +30,8 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
   # Maximum time to spend on cleanup in milliseconds (5 minutes)
   @max_cleanup_time 5 * 60 * 1000
 
-  @impl Oban.Worker
-  @spec perform(Oban.Job.t()) :: :ok | {:error, String.t()}
-  def perform(%Oban.Job{args: %{"cleanup_days" => days}}) when is_integer(days) do
+  @spec perform(map()) :: :ok | {:error, String.t()}
+  def perform(%{"cleanup_days" => days}) when is_integer(days) do
     Logger.info("Starting scheduled APRS packet cleanup for packets older than #{days} days")
 
     # Count packets before cleanup for statistics
@@ -50,8 +47,8 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
     :ok
   end
 
-  @spec perform(Oban.Job.t()) :: :ok | {:error, String.t()}
-  def perform(%Oban.Job{args: _args}) do
+  @spec perform(map()) :: :ok | {:error, String.t()}
+  def perform(_args) do
     Logger.info("Starting scheduled APRS packet cleanup")
 
     # Count packets before cleanup for statistics
