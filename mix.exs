@@ -85,6 +85,7 @@ defmodule Aprsme.MixProject do
       {:phoenix_live_dashboard, "~> 0.8"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.0.17"},
+      {:phoenix_pubsub_redis, "~> 3.0"},
       {:postgrex, ">= 0.0.0"},
       {:swoosh, "~> 1.16"},
       {:resend, "~> 0.4.1"},
