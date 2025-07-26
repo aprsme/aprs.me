@@ -168,6 +168,10 @@ defmodule Aprsme.Application do
     redis_url = System.get_env("REDIS_URL")
 
     if cluster_enabled and redis_url do
+      require Logger
+
+      Logger.info("Starting Redis PubSub adapter with URL: #{redis_url}")
+
       {Phoenix.PubSub,
        name: Aprsme.PubSub,
        adapter: Phoenix.PubSub.Redis,
@@ -175,6 +179,12 @@ defmodule Aprsme.Application do
        node_name: node(),
        redis_options: [url: redis_url]}
     else
+      require Logger
+
+      Logger.info(
+        "Starting default PubSub adapter (cluster_enabled: #{cluster_enabled}, redis_url: #{inspect(redis_url)})"
+      )
+
       {Phoenix.PubSub, name: Aprsme.PubSub}
     end
   end
