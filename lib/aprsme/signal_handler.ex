@@ -13,7 +13,13 @@ defmodule Aprsme.SignalHandler do
 
   def init(_opts) do
     # Install signal handler for SIGTERM
-    :ok = :os.set_signal(:sigterm, :handle)
+    case :os.set_signal(:sigterm, :handle) do
+      :ok ->
+        Logger.info("SIGTERM signal handler installed")
+
+      error ->
+        Logger.warning("Failed to install SIGTERM handler: #{inspect(error)}")
+    end
 
     {:ok, %{}}
   end

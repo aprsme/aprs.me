@@ -69,7 +69,20 @@ defmodule Aprsme.ShutdownHandler do
   def terminate(reason, state) do
     Logger.info("ShutdownHandler terminating: #{inspect(reason)}")
 
-    if not state.shutting_down do
+    # Only initiate shutdown for specific reasons, not during normal shutdown
+    should_graceful_shutdown =
+      case reason do
+        # Normal shutdown, don't interfere
+        :shutdown -> false
+        # Normal shutdown with reason
+        {:shutdown, _} -> false
+        # Normal termination
+        :normal -> false
+        # Abnormal termination, do graceful shutdown
+        _ -> true
+      end
+
+    if should_graceful_shutdown and not state.shutting_down do
       initiate_shutdown(state)
       # Give some time for the shutdown process
       Process.sleep(state.drain_timeout)
