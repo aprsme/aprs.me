@@ -188,4 +188,25 @@ Based on current system state with Redis and PgBouncer already deployed:
 4. **Leader Election**: Only one pod maintains APRS-IS connection, preventing duplicates
 5. **High Availability**: Multiple replicas with automatic failover for all components
 
-Last updated: 2025-07-26 (Zero-Downtime Deployment Strategy)
+## Recent Updates (2025-07-26)
+
+### Docker Optimizations
+- Removed Node.js from Docker image (saved ~150MB)
+- Optimized Dockerfile for faster builds with better layer caching
+- Simplified from complex BuildKit features to basic 2-stage build
+- Added comprehensive .dockerignore file
+- Fixed permission issues with non-root user
+
+### Bug Fixes
+- Fixed PgBouncer database connection issues (added SKIP_DB_CREATE)
+- Fixed Redis connection errors (removed invalid pool_size option)
+- Fixed compilation warnings (grouped handle_info clauses)
+- Fixed ShutdownHandler interfering with startup
+- Fixed DeviceCache startup timing issues
+
+### CI/CD Improvements
+- Removed rollout wait from deployment workflow
+- Added concurrency control to cancel in-progress deployments
+- Simplified Docker build caching strategy
+
+Last updated: 2025-07-26 (Docker Optimizations & Bug Fixes)
