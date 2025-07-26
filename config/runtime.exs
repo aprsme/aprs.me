@@ -82,17 +82,10 @@ if config_env() == :prod do
     # Optimize for unnamed prepared statements (better for dynamic queries)
     prepare: :unnamed,
     # Connection parameters to leverage PostgreSQL settings
+    # Note: When using PgBouncer, only certain parameters are supported
     parameters: [
       # Application name for monitoring
-      application_name: "aprsme",
-      # Leverage synchronous_commit=off in postgresql.conf
-      synchronous_commit: "off",
-      # Match work_mem setting
-      work_mem: "16MB",
-      # Statement timeout as safety net
-      statement_timeout: "30s",
-      # Prevent idle transactions
-      idle_in_transaction_session_timeout: "60s"
+      application_name: "aprsme"
     ]
 
   config :aprsme, AprsmeWeb.Endpoint,
