@@ -53,18 +53,26 @@ defmodule Aprsme.DeviceCache do
 
   @impl true
   def init(_) do
+    # Delay initial load to allow Redis connections to establish
+    Process.send_after(self(), :initial_load, 1_000)
+
+    {:ok, %{initial_load_done: false}}
+  end
+
+  @impl true
+  def handle_info(:initial_load, state) do
     # Load devices on startup
     case load_devices_into_cache() do
       :ok ->
         # Schedule periodic refresh
         Process.send_after(self(), :refresh_cache, @refresh_interval)
+        {:noreply, %{state | initial_load_done: true}}
 
       :error ->
         # If initial load failed, retry sooner
-        Process.send_after(self(), :refresh_cache, 5_000)
+        Process.send_after(self(), :initial_load, 5_000)
+        {:noreply, state}
     end
-
-    {:ok, %{}}
   end
 
   @impl true

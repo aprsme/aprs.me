@@ -24,10 +24,6 @@ defmodule Aprsme.Application do
       # Start the PubSub system
       pubsub_config(),
       # Start Redis-based rate limiter and caches (only if Redis is available)
-      # Start signal handler for OS signals
-      Aprsme.SignalHandler,
-      # Start shutdown handler for graceful shutdowns
-      Aprsme.ShutdownHandler,
       # Start circuit breaker
       Aprsme.CircuitBreaker,
       # Start device cache manager
@@ -55,6 +51,15 @@ defmodule Aprsme.Application do
     ]
 
     children = children ++ redis_children()
+
+    # Add shutdown handlers at the end, after everything else is started
+    children =
+      children ++
+        [
+          Aprsme.SignalHandler,
+          Aprsme.ShutdownHandler
+        ]
+
     children = maybe_add_cluster_components(children)
     children = maybe_add_is_supervisor(children, Application.get_env(:aprsme, :env))
     children = maybe_add_aprs_connection(children, Application.get_env(:aprsme, :env))
