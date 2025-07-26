@@ -116,9 +116,14 @@ Tests use comprehensive mocking to prevent external connections:
 
 ## Important Documentation Updates
 
-- **MANDATORY**: Whenever you implement improvements or changes to the system, update `/docs/improvement-todos.md` with:
-  - Mark completed items as done with the implementation date
-  - Add any new improvements discovered during implementation
+- **MANDATORY**: Whenever you implement improvements or changes to the system:
+  1. Update `/CHANGELOG.md` with:
+     - Add new entries under `[Unreleased]` section
+     - Use categories: Added, Changed, Fixed, Removed
+     - Be specific and user-focused in descriptions
+  2. Update `/docs/improvement-todos.md` with:
+     - Mark completed items as done with the implementation date
+     - Add any new improvements discovered during implementation
   - Update priority levels based on new insights
   - Document any technical decisions or trade-offs made
 - This ensures continuity across sessions and helps track progress on system improvements
