@@ -13,8 +13,11 @@ defmodule Aprsme.Release do
 
     # Gettext translations are automatically compiled during Mix compilation
 
-    # Create database if it doesn't exist
-    create_database()
+    # Skip database creation when using PgBouncer
+    # The database should already exist
+    if System.get_env("SKIP_DB_CREATE") != "true" do
+      create_database()
+    end
 
     # Run migrations
     {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, &Ecto.Migrator.run(&1, :up, all: true))

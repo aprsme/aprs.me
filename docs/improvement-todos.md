@@ -41,6 +41,21 @@ This document tracks potential improvements identified during the multi-replica 
   - Rate limits now enforced cluster-wide
   - Prevents bypass by hitting different pods
 
+### ✅ Connection Draining for Graceful Shutdowns (2025-07-26)
+- **Status**: Completed - Updated for Zero-Downtime
+- **Impact**: High - Zero-downtime deployments
+- **Implementation**:
+  - Created `Aprsme.ShutdownHandler` with configurable drain timeout
+  - Created `Aprsme.SignalHandler` for proper SIGTERM handling
+  - **Silent shutdowns**: Removed all user notifications during graceful shutdown
+  - Updated health endpoint to return 503 when draining (15s delay)
+  - Added preStop lifecycle hook with 15s sleep
+  - Set terminationGracePeriodSeconds to 60 seconds
+  - Configurable DRAIN_TIMEOUT_MS environment variable (default 45s)
+  - Added PodDisruptionBudget to ensure minAvailable: 1
+  - StatefulSet uses RollingUpdate with parallel pod management
+  - Service configured with sessionAffinity: None for better distribution
+
 ## High Priority
 
 ### 2. Optimize Database Queries with Better Indexes
@@ -64,15 +79,6 @@ This document tracks potential improvements identified during the multi-replica 
   - Monitor APRS-IS connection stability
 
 ## Medium Priority
-
-### 4. Add Connection Draining for Graceful Shutdowns
-- **Status**: Pending
-- **Impact**: Medium - Better user experience during deployments
-- **Details**:
-  - Implement proper shutdown handlers for WebSocket connections
-  - Allow in-flight requests to complete before pod termination
-  - Add preStop hooks to Kubernetes deployment
-  - Handle SIGTERM gracefully
 
 
 ### 6. Add Comprehensive Health Checks
@@ -170,6 +176,9 @@ Based on current system state with Redis and PgBouncer already deployed:
 - Kubernetes cluster uses StatefulSet for stable pod naming and networking
 - Current setup handles ~8-21 packets/second with 2 replicas
 - All distributed features automatically fallback to local implementations if Redis is unavailable
+- Graceful shutdown process ensures zero-downtime deployments
+- Users experience no interruption during rolling updates
+- PodDisruptionBudget prevents all pods from being evicted simultaneously
 
 ## Current Architecture Summary
 
@@ -179,4 +188,4 @@ Based on current system state with Redis and PgBouncer already deployed:
 4. **Leader Election**: Only one pod maintains APRS-IS connection, preventing duplicates
 5. **High Availability**: Multiple replicas with automatic failover for all components
 
-Last updated: 2025-07-26
+Last updated: 2025-07-26 (Zero-Downtime Deployment Strategy)

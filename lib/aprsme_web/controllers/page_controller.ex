@@ -11,34 +11,58 @@ defmodule AprsmeWeb.PageController do
   end
 
   def health(conn, _params) do
-    # Check database connection
-    db_healthy =
-      try do
-        Aprsme.Repo.query!("SELECT 1")
-        true
-      rescue
-        _ -> false
-      end
-
-    # Get application version
+    # Use our health check plug logic
+    health_status = Application.get_env(:aprsme, :health_status, :healthy)
     version = :aprsme |> Application.spec(:vsn) |> List.to_string()
 
-    if db_healthy do
-      json(conn, %{
-        status: "ok",
-        version: version,
-        database: "connected",
-        timestamp: DateTime.utc_now()
-      })
-    else
-      conn
-      |> put_status(503)
-      |> json(%{
-        status: "error",
-        version: version,
-        database: "disconnected",
-        timestamp: DateTime.utc_now()
-      })
+    cond do
+      health_status == :draining ->
+        conn
+        |> put_status(503)
+        |> json(%{
+          status: "draining",
+          version: version,
+          message: "Application is draining connections",
+          timestamp: DateTime.utc_now()
+        })
+
+      Aprsme.ShutdownHandler.shutting_down?() ->
+        conn
+        |> put_status(503)
+        |> json(%{
+          status: "shutting_down",
+          version: version,
+          message: "Application is shutting down",
+          timestamp: DateTime.utc_now()
+        })
+
+      true ->
+        # Normal health check
+        db_healthy =
+          try do
+            Aprsme.Repo.query!("SELECT 1")
+            true
+          rescue
+            _ -> false
+          end
+
+        if db_healthy do
+          json(conn, %{
+            status: "ok",
+            version: version,
+            database: "connected",
+            timestamp: DateTime.utc_now()
+          })
+        else
+          conn
+          |> put_status(503)
+          |> json(%{
+            status: "error",
+            version: version,
+            database: "disconnected",
+            timestamp: DateTime.utc_now()
+          })
+        end
     end
   end
 

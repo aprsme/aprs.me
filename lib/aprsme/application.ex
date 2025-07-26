@@ -24,7 +24,10 @@ defmodule Aprsme.Application do
       # Start the PubSub system
       pubsub_config(),
       # Start Redis-based rate limiter and caches (only if Redis is available)
-      redis_children(),
+      # Start signal handler for OS signals
+      Aprsme.SignalHandler,
+      # Start shutdown handler for graceful shutdowns
+      Aprsme.ShutdownHandler,
       # Start circuit breaker
       Aprsme.CircuitBreaker,
       # Start device cache manager
@@ -51,6 +54,7 @@ defmodule Aprsme.Application do
       Aprsme.PacketPipelineSupervisor
     ]
 
+    children = children ++ redis_children()
     children = maybe_add_cluster_components(children)
     children = maybe_add_is_supervisor(children, Application.get_env(:aprsme, :env))
     children = maybe_add_aprs_connection(children, Application.get_env(:aprsme, :env))
@@ -191,9 +195,18 @@ defmodule Aprsme.Application do
         # Redis-based rate limiter
         Aprsme.RedisRateLimiter,
         # Redis-based caches
-        {Aprsme.RedisCache, name: :query_cache},
-        {Aprsme.RedisCache, name: :device_cache},
-        {Aprsme.RedisCache, name: :symbol_cache}
+        %{
+          id: :query_cache,
+          start: {Aprsme.RedisCache, :start_link, [[name: :query_cache]]}
+        },
+        %{
+          id: :device_cache,
+          start: {Aprsme.RedisCache, :start_link, [[name: :device_cache]]}
+        },
+        %{
+          id: :symbol_cache,
+          start: {Aprsme.RedisCache, :start_link, [[name: :symbol_cache]]}
+        }
       ]
     else
       require Logger

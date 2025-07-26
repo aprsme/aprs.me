@@ -75,7 +75,6 @@ defmodule Aprsme.MixProject do
       {:geocalc, "~> 0.8"},
       {:gen_stage, "~> 1.2"},
       {:gettext, "~> 0.26.2"},
-      {:hackney, "~> 1.24"},
       {:jason, "~> 1.4"},
       {:libcluster, "~> 3.3"},
       {:oban, "~> 2.11"},
@@ -88,6 +87,7 @@ defmodule Aprsme.MixProject do
       {:phoenix_pubsub_redis, "~> 3.0"},
       {:postgrex, ">= 0.0.0"},
       {:swoosh, "~> 1.16"},
+      # email service
       {:resend, "~> 0.4.1"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
