@@ -138,12 +138,23 @@ Tests use comprehensive mocking to prevent external connections:
 
 The application supports Kubernetes deployment with manifests in `k8s/` directory and GitHub Actions CI/CD pipeline. Database migrations run automatically via init containers.
 
+### Infrastructure
+
+The application runs on a highly available infrastructure:
+- **Kubernetes**: k3s cluster deployed across 3 VMs
+- **Virtualization**: Proxmox VE hosting the VMs
+- **Hardware**: 3 Intel N100 nodes, each with:
+  - 32GB RAM
+  - 1TB SSD storage
+  - Low power consumption (~15W per node)
+- **Distribution**: VMs spread across physical nodes for hardware redundancy
+
 ### Kubernetes Commands
 
 The app is deployed in a k3s cluster with the following structure:
 - **App name**: `aprs`
 - **Namespace**: `aprs`
-- **Deployment**: StatefulSet with 2 replicas
+- **Deployment**: StatefulSet with 2-3 replicas
 - **Manifests**: Located in `~/dev/infra/clusters/aprs/`
 
 Common kubectl commands for debugging:
