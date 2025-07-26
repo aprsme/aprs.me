@@ -27,8 +27,11 @@ config :aprsme, AprsmeWeb.Endpoint,
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
   server: false
 
-# Disable Oban during tests to prevent background job execution
-config :aprsme, Oban, testing: :inline
+# Disable Exq during tests to prevent background job execution
+config :exq, mode: :inline
+
+# Disable cleanup scheduler in test environment
+config :aprsme, :cleanup_scheduler, enabled: false
 
 # Disable initialize replay delay in test environment
 config :aprsme, :initialize_replay_delay, 0

@@ -77,7 +77,7 @@ defmodule Aprsme.MixProject do
       {:gettext, "~> 0.26.2"},
       {:jason, "~> 1.4"},
       {:libcluster, "~> 3.3"},
-      {:oban, "~> 2.11"},
+      {:exq, "~> 0.20"},
       {:phoenix, "~> 1.8.0-rc.3", override: true},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 4.0"},
@@ -149,12 +149,12 @@ defmodule Aprsme.MixProject do
   end
 
   defp aprs_dep do
-    {:aprs, path: "vendor/aprs"}
-    # if Mix.env() in [:dev] do
-    #   {:aprs, path: "vendor/aprs"}
-    # else
-    #   {:aprs, github: "aprsme/aprs", branch: "main"}
-    # end
+    # {:aprs, path: "vendor/aprs"}
+    if Mix.env() in [:dev, :test] do
+      {:aprs, github: "aprsme/aprs", branch: "main"}
+    else
+      {:aprs, github: "aprsme/aprs", branch: "main"}
+    end
   end
 
   # Copy Gleam BEAM files to the release
