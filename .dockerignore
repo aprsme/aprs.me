@@ -2,11 +2,16 @@
 .git/
 .github/
 .gitignore
+.gitattributes
 
 # Dependencies
 deps/
 _build/
 .elixir_ls/
+.mix/
+.fetch
+.hex/
+.cache/
 
 # Development files
 .DS_Store
@@ -16,42 +21,103 @@ _build/
 *.swp
 *.swo
 *~
+.tool-versions
+.envrc
 
 # Test files
 test/
 coveralls.json
 cover/
+.sobelow
+dialyzer/
+.dialyzer_ignore.exs
 
 # Documentation
 docs/
 README.md
 CLAUDE.md
 *.md
+LICENSE*
+CHANGELOG*
 
 # Temporary files
 *.log
+*.tmp
 tmp/
 temp/
+log/
 
 # Build artifacts
 erl_crash.dump
 *.ez
+*.beam
+!priv/gleam/*.beam
 
 # Phoenix specific
 priv/static/assets/
 priv/static/cache_manifest.json
+priv/gettext/.compile/
+.compile/
 
-# Node modules (if any left)
+# Node/npm artifacts (completely removed now)
 node_modules/
-npm-debug.log
+npm-debug.log*
+yarn-error.log*
+package.json
+package-lock.json
+yarn.lock
+.npm/
+.yarn/
 
 # Environment files
 .env
 .env.*
+env/
+*.env
 
-# Database dumps
+# Database files
 *.dump
 *.sql
+*.sqlite
+*.db
 
 # OS files
 Thumbs.db
+.DS_Store
+desktop.ini
+
+# Editor files
+*.sublime-*
+.kate-swp
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Container files
+docker-compose*.yml
+.dockerignore
+Dockerfile.*
+!Dockerfile
+
+# Kubernetes
+k8s/
+*.yaml
+*.yml
+
+# Scripts
+scripts/
+*.sh
+
+# Backup files
+*.bak
+*.backup
+*~
+*.orig
+
+# Archive files
+*.tar
+*.tar.gz
+*.zip
+*.tgz
