@@ -12,7 +12,11 @@ FROM ${BUILDER_IMAGE} AS builder
 
 # Install build dependencies
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update -y && apt-get install -y --no-install-recommends build-essential git curl \
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    make \
+    git \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Prepare build directory
@@ -33,18 +37,12 @@ COPY mix.exs mix.lock ./
 COPY vendor vendor
 RUN mix deps.get --only $MIX_ENV
 
-# Copy application code
+# Copy all application code
 COPY config config
-COPY priv priv
 COPY lib lib
 COPY assets assets
+COPY priv priv
 COPY rel rel
-# Copy Gleam source files and configuration
-COPY src src
-COPY gleam.toml gleam.toml
-# Copy pre-compiled Gleam BEAM files
-# This is crucial for production builds where gleam compiler is not available
-COPY priv/gleam priv/gleam
 
 # Compile all dependencies
 RUN mix deps.compile
@@ -74,30 +72,27 @@ FROM ${RUNNER_IMAGE}
 
 # Install runtime dependencies
 RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends libstdc++6 openssl libncurses5 locales ca-certificates \
+    apt-get install -y --no-install-recommends \
+    libstdc++6 \
+    openssl \
+    libncurses5 \
+    locales \
+    ca-certificates \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 ENV LANG="en_US.UTF-8" LANGUAGE="en_US:en" LC_ALL="en_US.UTF-8"
 
-# Set working directory and create it
+# Set working directory
 WORKDIR "/app"
-RUN mkdir -p /app
 
 # Set deployment timestamp to current time during runtime container build
 RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > /app/deployed_at.txt
 
-# Copy release from builder
+# Copy release from builder with correct ownership
 COPY --from=builder --chown=nobody:root /app/release ./
-
-# Set ownership for the entire app directory
-RUN chown -R nobody:root /app
 
 # Set user and command
 USER nobody
 CMD ["/app/bin/server"]
-
-# Optional: Add healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:4000/health || exit 1
