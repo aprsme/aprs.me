@@ -122,21 +122,6 @@ if config_env() == :prod do
 
   config :aprsme, :cluster_enabled, cluster_enabled
 
-  # Configure Redis PubSub when clustering is enabled
-  if cluster_enabled and System.get_env("REDIS_URL") do
-    config :aprsme, AprsmeWeb.Endpoint,
-      pubsub_server: Aprsme.PubSub,
-      pubsub: [
-        name: Aprsme.PubSub,
-        adapter: Phoenix.PubSub.Redis,
-        redis_pool_size: 10,
-        node_name: node(),
-        redis_options: [
-          url: System.get_env("REDIS_URL")
-        ]
-      ]
-  end
-
   # Optional: Set the default "from" email address
   config :aprsme,
     default_from_email: "w5isp@aprs.me"

@@ -22,7 +22,7 @@ defmodule Aprsme.Application do
       # Start the Ecto repository
       Aprsme.Repo,
       # Start the PubSub system
-      {Phoenix.PubSub, name: Aprsme.PubSub},
+      pubsub_config(),
       # Start the rate limiter
       Aprsme.RateLimiter,
       # Start cache systems
@@ -161,5 +161,21 @@ defmodule Aprsme.Application do
     require Logger
 
     Logger.info("Automatic migrations disabled")
+  end
+
+  defp pubsub_config do
+    cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
+    redis_url = System.get_env("REDIS_URL")
+
+    if cluster_enabled and redis_url do
+      {Phoenix.PubSub,
+       name: Aprsme.PubSub,
+       adapter: Phoenix.PubSub.Redis,
+       redis_pool_size: 10,
+       node_name: node(),
+       redis_options: [url: redis_url]}
+    else
+      {Phoenix.PubSub, name: Aprsme.PubSub}
+    end
   end
 end
