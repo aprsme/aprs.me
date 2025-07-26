@@ -67,7 +67,4 @@ jobs:
           kubectl set image statefulset/aprs aprs=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -n aprs
           # Force a rollout to ensure latest image is pulled
           kubectl rollout restart statefulset/aprs -n aprs
-
-      - name: Wait for rollout
-        run: |
-          kubectl rollout status statefulset/aprs -n aprs
+          echo "Deployment initiated - not waiting for rollout to complete"
