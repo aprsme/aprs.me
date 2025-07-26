@@ -8,18 +8,12 @@ defmodule Aprsme.RedisCache do
 
   # 5 minutes in seconds
   @default_ttl 300
-  @redis_pool_size 5
 
   def child_spec(opts) do
     name = Keyword.fetch!(opts, :name)
 
     children = [
-      {Redix,
-       name: redis_name(name),
-       host: redis_host(),
-       port: redis_port(),
-       password: redis_password(),
-       pool_size: @redis_pool_size}
+      {Redix, name: redis_name(name), host: redis_host(), port: redis_port(), password: redis_password()}
     ]
 
     %{

@@ -5,12 +5,9 @@ defmodule Aprsme.RedisRateLimiter do
 
   require Logger
 
-  @redis_pool_size 5
-
   def child_spec(_opts) do
     children = [
-      {Redix,
-       name: __MODULE__, host: redis_host(), port: redis_port(), password: redis_password(), pool_size: @redis_pool_size}
+      {Redix, name: __MODULE__, host: redis_host(), port: redis_port(), password: redis_password()}
     ]
 
     %{
