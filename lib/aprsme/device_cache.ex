@@ -60,6 +60,18 @@ defmodule Aprsme.DeviceCache do
   end
 
   @impl true
+  def handle_call(:refresh_cache, _from, state) do
+    result = load_devices_into_cache()
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_cast(:refresh_cache_async, state) do
+    load_devices_into_cache()
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(:initial_load, state) do
     # Load devices on startup
     case load_devices_into_cache() do
@@ -75,19 +87,6 @@ defmodule Aprsme.DeviceCache do
     end
   end
 
-  @impl true
-  def handle_call(:refresh_cache, _from, state) do
-    result = load_devices_into_cache()
-    {:reply, result, state}
-  end
-
-  @impl true
-  def handle_cast(:refresh_cache_async, state) do
-    load_devices_into_cache()
-    {:noreply, state}
-  end
-
-  @impl true
   def handle_info(:refresh_cache, state) do
     load_devices_into_cache()
 
