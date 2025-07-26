@@ -112,6 +112,15 @@ Tests use comprehensive mocking to prevent external connections:
 3. Run `mix test` - ensure all tests pass
 4. Only then commit and push your changes
 
+## Important Documentation Updates
+
+- **MANDATORY**: Whenever you implement improvements or changes to the system, update `/docs/improvement-todos.md` with:
+  - Mark completed items as done with the implementation date
+  - Add any new improvements discovered during implementation
+  - Update priority levels based on new insights
+  - Document any technical decisions or trade-offs made
+- This ensures continuity across sessions and helps track progress on system improvements
+
 ## Web Testing
 
 - **MANDATORY**: When viewing any website or web application, always use Puppeteer to take screenshots and interact with the page

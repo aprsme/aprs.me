@@ -2,18 +2,46 @@
 
 This document tracks potential improvements identified during the multi-replica Kubernetes deployment setup.
 
-## High Priority
+## Completed Improvements
 
-### 1. Implement Distributed Caching with Redis
-- **Status**: Pending
+### ✅ Redis PubSub Integration (2025-07-26)
+- **Impact**: High - Enables real-time updates across all replicas
+- **Implementation**:
+  - Added `phoenix_pubsub_redis` dependency
+  - Configured conditional Redis PubSub adapter in application.ex
+  - Fixed configuration to use correct URL format
+  - All replicas now share real-time packet updates
+
+### ✅ PgBouncer Connection Pooling (2025-07-26)
+- **Impact**: High - Efficient database connection management
+- **Implementation**:
+  - Deployed PgBouncer with transaction pooling mode
+  - Configured for 1000 max client connections, 25 pool size
+  - Reduced APRS pool size from 20 to 5 per pod
+  - Fixed runtime.exs to remove incompatible PostgreSQL parameters
+  - Currently showing 7 client connections served by 3 server connections
+
+### ✅ Distributed Caching with Redis (2025-07-26)
+- **Status**: Completed
 - **Impact**: High - Reduce database load, improve response times
-- **Details**:
-  - Cache frequently accessed packet queries
-  - Cache callsign lookups
-  - Cache weather data aggregations
-  - Cache map viewport data
-  - Use Cachex with Redis adapter or direct Redis commands
-  - Implement cache invalidation strategies
+- **Implementation**:
+  - Created `Aprsme.RedisCache` module with Cachex-compatible API
+  - Created `Aprsme.Cache` abstraction layer for seamless switching
+  - Migrated query_cache, device_cache, and symbol_cache to Redis
+  - Automatic fallback to ETS when Redis unavailable
+  - All cache data now shared across pods
+
+### ✅ Distributed Rate Limiting with Redis (2025-07-26)
+- **Status**: Completed
+- **Impact**: High - Consistent rate limiting across replicas
+- **Implementation**:
+  - Created `Aprsme.RedisRateLimiter` with sliding window algorithm
+  - Created `Aprsme.RateLimiterWrapper` for API compatibility
+  - Atomic Lua script ensures accurate counting
+  - Rate limits now enforced cluster-wide
+  - Prevents bypass by hitting different pods
+
+## High Priority
 
 ### 2. Optimize Database Queries with Better Indexes
 - **Status**: Pending
@@ -46,15 +74,6 @@ This document tracks potential improvements identified during the multi-replica 
   - Add preStop hooks to Kubernetes deployment
   - Handle SIGTERM gracefully
 
-### 5. Implement Distributed Rate Limiting Across Replicas
-- **Status**: Pending
-- **Impact**: Medium - Consistent rate limiting
-- **Details**:
-  - Currently using ETS-based rate limiting (not distributed)
-  - Use Redis for distributed rate limit counters
-  - Implement sliding window rate limiting
-  - Share rate limit state across all pods
-  - Consider using Hammer with Redis backend
 
 ### 6. Add Comprehensive Health Checks
 - **Status**: Pending
@@ -143,9 +162,21 @@ Based on current system state with Redis and PgBouncer already deployed:
 
 ## Notes
 
-- Redis infrastructure is already in place (used for PubSub)
-- PgBouncer is configured and working for connection pooling
-- Kubernetes cluster is configured with StatefulSet for stable networking
+- Redis infrastructure is deployed and actively used for:
+  - PubSub (Phoenix channels)
+  - Distributed caching (query, device, symbol caches)
+  - Distributed rate limiting
+- PgBouncer is configured with transaction pooling, reducing connection overhead
+- Kubernetes cluster uses StatefulSet for stable pod naming and networking
 - Current setup handles ~8-21 packets/second with 2 replicas
+- All distributed features automatically fallback to local implementations if Redis is unavailable
+
+## Current Architecture Summary
+
+1. **Load Balancing**: Kubernetes service distributes HTTP traffic across pods
+2. **Database Pooling**: PgBouncer provides connection multiplexing (7 clients → 3 server connections)
+3. **Distributed State**: Redis handles PubSub, caching, and rate limiting across all replicas
+4. **Leader Election**: Only one pod maintains APRS-IS connection, preventing duplicates
+5. **High Availability**: Multiple replicas with automatic failover for all components
 
 Last updated: 2025-07-26
