@@ -39,9 +39,11 @@ This is an Elixir Phoenix LiveView application that serves as a real-time APRS (
 - **CRITICAL**: ALWAYS run `mix format` BEFORE committing - never commit unformatted code
 - **MANDATORY**: Run `mix compile --warnings-as-errors` and ensure it passes before considering any task complete
 
-### Assets (No Node.js)
+### Assets (No Node.js Required)
 - `mix assets.deploy` - Build and minify frontend assets (Tailwind CSS + ESBuild)
-- Phoenix uses ESBuild directly without Node.js package managers
+- Phoenix uses standalone ESBuild and Tailwind binaries - no npm/yarn needed
+- JavaScript bundling handled by ESBuild
+- CSS compilation handled by Tailwind CLI
 
 ## Architecture
 

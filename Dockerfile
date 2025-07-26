@@ -63,19 +63,7 @@ RUN mkdir -p _build/prod/lib/aprsme/ebin && \
 # Now compile the main application
 RUN mix compile
 
-# Install Node.js for asset building
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Install npm dependencies
-WORKDIR /app/assets
-RUN npm install
-
-# Go back to app root
-WORKDIR /app
-
-# Compile assets
+# Compile assets using ESBuild and Tailwind (no Node.js needed)
 RUN mix assets.deploy
 
 # Compile and release
