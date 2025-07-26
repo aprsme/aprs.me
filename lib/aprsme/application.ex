@@ -200,18 +200,9 @@ defmodule Aprsme.Application do
         # Redis-based rate limiter
         Aprsme.RedisRateLimiter,
         # Redis-based caches
-        %{
-          id: :query_cache,
-          start: {Aprsme.RedisCache, :start_link, [[name: :query_cache]]}
-        },
-        %{
-          id: :device_cache,
-          start: {Aprsme.RedisCache, :start_link, [[name: :device_cache]]}
-        },
-        %{
-          id: :symbol_cache,
-          start: {Aprsme.RedisCache, :start_link, [[name: :symbol_cache]]}
-        }
+        {Aprsme.RedisCache, name: :query_cache},
+        {Aprsme.RedisCache, name: :device_cache},
+        {Aprsme.RedisCache, name: :symbol_cache}
       ]
     else
       require Logger
