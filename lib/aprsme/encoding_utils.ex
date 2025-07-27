@@ -76,6 +76,7 @@ defmodule Aprsme.EncodingUtils do
   def to_float(_), do: nil
 
   # Helper to check if a float is finite (not infinity or NaN)
+  @spec finite_float?(any()) :: boolean()
   defp finite_float?(float) when is_float(float) do
     # In Elixir, we can't have infinity or NaN in regular floats
     # This function is kept for defensive programming
@@ -319,6 +320,7 @@ defmodule Aprsme.EncodingUtils do
 
   def sanitize_data_extended(data_extended), do: data_extended
 
+  @spec sanitize_map_value(any()) :: any()
   defp sanitize_map_value(val) when is_binary(val), do: sanitize_string(val)
   defp sanitize_map_value(val), do: val
 

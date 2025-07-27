@@ -9,8 +9,6 @@ defmodule Aprsme.MixProject do
       archives: [],
       compilers: Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      erlc_paths: erlc_paths(Mix.env()),
-      erlc_include_path: "build/#{Mix.env()}/erlang/aprsme/include",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
