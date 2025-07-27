@@ -32,12 +32,9 @@ config :aprsme, AprsmeWeb.Gettext,
   default_locale: "en"
 
 # Configure Exq for background jobs
+# Redis connection settings are configured in runtime.exs
 config :exq,
   name: Exq,
-  host: "localhost",
-  port: 6379,
-  password: "",
-  database: 0,
   concurrency: :infinite,
   queues: [
     {"default", 10},
