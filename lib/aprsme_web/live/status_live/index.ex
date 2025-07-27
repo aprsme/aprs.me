@@ -137,7 +137,7 @@ defmodule AprsmeWeb.StatusLive.Index do
                   <div class="flex items-center">
                     <span class="text-sm font-medium opacity-70 mr-2">{gettext("Server:")}</span>
                     <span class="text-sm font-mono">
-                      {@aprs_status.server}:{@aprs_status.port}
+                      {@aprs_status.server}
                     </span>
                   </div>
 
@@ -316,6 +316,28 @@ defmodule AprsmeWeb.StatusLive.Index do
                       {gettext("Enabled")}
                     </div>
                   </div>
+
+                  <%= if Map.has_key?(@aprs_status.cluster_info, :all_nodes) do %>
+                    <div class="mt-4">
+                      <span class="text-sm font-medium opacity-70">{gettext("Cluster Nodes:")}</span>
+                      <div class="flex flex-wrap gap-2 mt-2">
+                        <%= for node_name <- @aprs_status.cluster_info.all_nodes do %>
+                          <div class={[
+                            "badge gap-1",
+                            if(node_name == @aprs_status.cluster_info.leader_node, do: "badge-primary", else: "badge-outline")
+                          ]}>
+                            <%= if node_name == @aprs_status.cluster_info.leader_node do %>
+                              <div class="w-2 h-2 bg-current rounded-full"></div>
+                            <% end %>
+                            <span class="font-mono text-xs">{node_name}</span>
+                          </div>
+                        <% end %>
+                      </div>
+                      <p class="text-xs opacity-70 mt-1">
+                        {gettext("Leader node")} <span class="badge badge-primary badge-xs">{gettext("highlighted")}</span>
+                      </p>
+                    </div>
+                  <% end %>
 
                   <p class="text-xs opacity-70 mt-2">
                     {gettext(

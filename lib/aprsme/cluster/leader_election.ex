@@ -210,7 +210,8 @@ defmodule Aprsme.Cluster.LeaderElection do
         Map.put(status, :cluster_info, %{
           total_nodes: length(all_nodes),
           connected_nodes: length(connected_statuses),
-          leader_node: get_leader_node_name()
+          leader_node: get_leader_node_name(),
+          all_nodes: all_nodes |> Enum.map(&to_string/1) |> Enum.sort()
         })
 
       [] ->
@@ -220,7 +221,8 @@ defmodule Aprsme.Cluster.LeaderElection do
         Map.put(local_status, :cluster_info, %{
           total_nodes: length(all_nodes),
           connected_nodes: 0,
-          leader_node: get_leader_node_name()
+          leader_node: get_leader_node_name(),
+          all_nodes: all_nodes |> Enum.map(&to_string/1) |> Enum.sort()
         })
     end
   end
