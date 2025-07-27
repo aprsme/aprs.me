@@ -108,13 +108,25 @@ Tests use comprehensive mocking to prevent external connections:
 ### Pre-Commit Checklist
 **CRITICAL**: NEVER commit or push code with syntax errors or compilation failures. Always validate before committing.
 
-1. Run `mix format` - ALWAYS do this first
-2. Run `mix compile --warnings-as-errors` - ensure no warnings or compilation errors
-3. Run `mix test` - ensure all tests pass (at minimum, ensure no syntax/compilation errors)
+**MANDATORY PRE-COMMIT STEPS** - Must be executed in this exact order before EVERY git commit:
+
+1. **`mix format`** - ALWAYS run this FIRST before any git operations
+   - This formats all Elixir code according to project standards
+   - **NEVER skip this step** - unformatted code should never be committed
+   
+2. **`mix compile --warnings-as-errors`** - ensure no warnings or compilation errors
+   - Must pass with zero warnings and zero errors
+   
+3. **`mix test`** - ensure all tests pass (at minimum, ensure no syntax/compilation errors)
+   - At minimum verify no compilation failures even if some tests fail
+   
 4. **MANDATORY**: If any step fails, fix the issues before proceeding
+   
 5. Only after ALL checks pass should you commit and push your changes
 
 **NEVER PUSH BROKEN CODE**: Syntax errors, compilation failures, or basic test failures should be fixed immediately before any git operations. Pushing broken code breaks CI/CD pipelines and wastes deployment resources.
+
+**REMEMBER**: Always run `mix format` before every commit - this is non-negotiable and must become automatic habit.
 
 ## Important Documentation Updates
 
