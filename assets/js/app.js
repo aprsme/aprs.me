@@ -189,11 +189,26 @@ Object.keys(WeatherChartHooks).forEach(hookName => {
   Hooks[hookName] = {
     ...originalHook,
     mounted() {
-      if (window.VendorLoader) {
+      const self = this;
+      if (window.VendorLoader && !window.chartBundleLoaded) {
+        // Load chart bundle and wait for it to complete
         window.VendorLoader.loadCharts();
-      }
-      if (originalHook.mounted) {
-        originalHook.mounted.call(this);
+        // Wait a bit for charts to load, then call mounted
+        const checkChartLoaded = () => {
+          if (window.Chart) {
+            if (originalHook.mounted) {
+              originalHook.mounted.call(self);
+            }
+          } else {
+            setTimeout(checkChartLoaded, 50);
+          }
+        };
+        setTimeout(checkChartLoaded, 100);
+      } else {
+        // Chart bundle already loaded or loading, call mounted
+        if (originalHook.mounted) {
+          originalHook.mounted.call(this);
+        }
       }
     }
   };

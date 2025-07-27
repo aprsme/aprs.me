@@ -1,5 +1,5 @@
 // Chart.js and date adapter are loaded globally from vendor bundle
-const Chart = window.Chart;
+// We'll access it later when it's actually loaded
 
 import type { ChartConfiguration, ChartType } from 'chart.js';
 import type { WeatherChartDataset, YAxisOptions } from '../types/chart-types';
@@ -300,6 +300,13 @@ function createChartHook(configKey: string): Hook {
                         }
                     }
                 };
+                
+                // Check if Chart.js is loaded
+                if (!window.Chart) {
+                    console.warn('Chart.js not loaded yet, retrying...');
+                    setTimeout(() => self.renderChart(), 100);
+                    return;
+                }
                 
                 self.chart = new window.Chart(canvas, chartConfig);
             };
