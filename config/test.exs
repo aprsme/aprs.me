@@ -52,7 +52,13 @@ config :aprsme, auto_migrate: false
 config :bcrypt_elixir, :log_rounds, 1
 
 # Disable Exq during tests to prevent background job execution
-config :exq, mode: :inline
+config :exq,
+  start_on_application: false,
+  mode: :inline
+
+# Disable Prometheus telemetry in test mode to avoid port conflicts
+config :aprsme, AprsmeWeb.Telemetry,
+  enabled: false
 
 # Configure ExVCR
 config :exvcr,
