@@ -52,5 +52,12 @@ defmodule AprsmeWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+
+  # Health check endpoint
+  plug AprsmeWeb.Plugs.HealthCheck
+
+  # Prometheus metrics endpoint
+  plug TelemetryMetricsPrometheus
+
   plug AprsmeWeb.Router
 end
