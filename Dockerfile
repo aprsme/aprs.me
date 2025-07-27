@@ -32,6 +32,8 @@ RUN mix deps.get --only $MIX_ENV && \
 # Copy and compile application
 COPY config config
 COPY lib lib
+COPY src src
+COPY gleam.toml ./
 COPY assets assets
 COPY priv priv
 COPY rel rel
