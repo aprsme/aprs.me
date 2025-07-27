@@ -22,17 +22,24 @@ defmodule Aprsme.Release do
     # Run migrations with distributed lock
     cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
     
+    # Configure longer timeouts for migration operations
+    migration_timeout = String.to_integer(System.get_env("MIGRATION_TIMEOUT", "7200000")) # 2 hours default
+    
     if cluster_enabled do
       Logger.info("Running migrations with distributed lock...")
-      # Ensure repo is started for advisory lock
-      {:ok, _} = Aprsme.Repo.start_link()
+      # Ensure repo is started for advisory lock with extended timeout
+      repo_config = Aprsme.Repo.config()
+                    |> Keyword.put(:timeout, migration_timeout)
+                    |> Keyword.put(:pool_timeout, 60_000)
+      
+      {:ok, _} = Aprsme.Repo.start_link(repo_config)
       
       Aprsme.MigrationLock.with_lock(Aprsme.Repo, fn ->
-        {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, &Ecto.Migrator.run(&1, :up, all: true))
+        run_migrations_with_timeout(migration_timeout)
       end)
     else
       Logger.info("Running migrations without lock (single node)...")
-      {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, &Ecto.Migrator.run(&1, :up, all: true))
+      run_migrations_with_timeout(migration_timeout)
     end
   end
 
@@ -82,6 +89,23 @@ defmodule Aprsme.Release do
     Application.get_env(:aprsme, :deployed_at) || DateTime.utc_now()
   end
 
+  defp run_migrations_with_timeout(timeout) do
+    require Logger
+    
+    Logger.info("Running migrations with timeout: #{timeout}ms")
+    
+    # Run with extended timeout configuration
+    repo_config = Aprsme.Repo.config()
+                  |> Keyword.put(:timeout, timeout)
+                  |> Keyword.put(:pool_timeout, 60_000)
+    
+    {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, fn repo ->
+      # Set session-level timeout for this connection
+      Ecto.Adapters.SQL.query!(repo, "SET statement_timeout = '#{div(timeout, 1000)}s'")
+      Ecto.Migrator.run(repo, :up, all: true)
+    end, [timeout: timeout])
+  end
+  
   defp read_deployment_timestamp do
     case File.read("/app/deployed_at.txt") do
       {:ok, timestamp} ->
