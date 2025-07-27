@@ -37,7 +37,7 @@ defmodule Aprsme.MigrationLock do
   defp acquire_lock(repo) do
     # Try to acquire an exclusive advisory lock (non-blocking)
     query = "SELECT pg_try_advisory_lock($1)"
-    
+
     case repo.query(query, [@migration_lock_id]) do
       {:ok, %{rows: [[true]]}} ->
         :ok
@@ -53,7 +53,7 @@ defmodule Aprsme.MigrationLock do
 
   defp release_lock(repo) do
     query = "SELECT pg_advisory_unlock($1)"
-    
+
     case repo.query(query, [@migration_lock_id]) do
       {:ok, %{rows: [[true]]}} ->
         :ok
@@ -77,7 +77,7 @@ defmodule Aprsme.MigrationLock do
   defp wait_for_migrations(repo, retries) do
     # Check if lock is still held
     query = "SELECT pg_try_advisory_lock($1)"
-    
+
     case repo.query(query, [@migration_lock_id]) do
       {:ok, %{rows: [[true]]}} ->
         # We got the lock, which means migrations are done

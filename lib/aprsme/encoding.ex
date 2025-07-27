@@ -24,13 +24,16 @@ defmodule Aprsme.Encoding do
   """
   @spec to_float_safe(binary()) :: {:ok, float()} | nil
   def to_float_safe(value) when is_binary(value) do
-    sanitized = value
-                |> String.trim()
-                |> String.slice(0, 30)  # Reasonable max length for a number
+    sanitized =
+      value
+      |> String.trim()
+      # Reasonable max length for a number
+      |> String.slice(0, 30)
 
     case Float.parse(sanitized) do
       {f, _} when f > -9.0e15 and f < 9.0e15 ->
         {:ok, f}
+
       _ ->
         nil
     end
@@ -56,48 +59,48 @@ defmodule Aprsme.Encoding do
   @spec has_weather_data(any(), any(), any(), any()) :: boolean()
   def has_weather_data(temperature, humidity, wind_speed, pressure) do
     not is_nil(temperature) or
-    not is_nil(humidity) or
-    not is_nil(wind_speed) or
-    not is_nil(pressure)
+      not is_nil(humidity) or
+      not is_nil(wind_speed) or
+      not is_nil(pressure)
   end
 
   @doc """
   Get encoding information about a binary
   """
   @spec encoding_info(binary()) :: %{
-    valid_utf8: boolean(),
-    byte_count: non_neg_integer(),
-    char_count: non_neg_integer() | nil,
-    invalid_at: non_neg_integer() | nil
-  }
+          valid_utf8: boolean(),
+          byte_count: non_neg_integer(),
+          char_count: non_neg_integer() | nil,
+          invalid_at: non_neg_integer() | nil
+        }
   def encoding_info(input) when is_binary(input) do
     byte_count = byte_size(input)
-    
-    case String.valid?(input) do
-      true ->
-        %{
-          valid_utf8: true,
-          byte_count: byte_count,
-          char_count: String.length(input),
-          invalid_at: nil
-        }
-      false ->
-        invalid_pos = find_invalid_byte_position(input)
-        %{
-          valid_utf8: false,
-          byte_count: byte_count,
-          char_count: nil,
-          invalid_at: invalid_pos
-        }
+
+    if String.valid?(input) do
+      %{
+        valid_utf8: true,
+        byte_count: byte_count,
+        char_count: String.length(input),
+        invalid_at: nil
+      }
+    else
+      invalid_pos = find_invalid_byte_position(input)
+
+      %{
+        valid_utf8: false,
+        byte_count: byte_count,
+        char_count: nil,
+        invalid_at: invalid_pos
+      }
     end
   end
 
   @spec encoding_info(any()) :: %{
-    valid_utf8: boolean(),
-    byte_count: non_neg_integer(),
-    char_count: nil,
-    invalid_at: nil
-  }
+          valid_utf8: boolean(),
+          byte_count: non_neg_integer(),
+          char_count: nil,
+          invalid_at: nil
+        }
   def encoding_info(_) do
     %{
       valid_utf8: false,
@@ -121,14 +124,12 @@ defmodule Aprsme.Encoding do
 
   @spec latin1_to_utf8(binary()) :: binary()
   defp latin1_to_utf8(input) do
-    try do
-      input
-      |> :binary.bin_to_list()
-      |> Enum.map(&latin1_char_to_utf8/1)
-      |> IO.iodata_to_binary()
-    rescue
-      _ -> ""
-    end
+    input
+    |> :binary.bin_to_list()
+    |> Enum.map(&latin1_char_to_utf8/1)
+    |> IO.iodata_to_binary()
+  rescue
+    _ -> ""
   end
 
   @spec latin1_char_to_utf8(0..255) :: binary()
@@ -166,6 +167,7 @@ defmodule Aprsme.Encoding do
           c when c >= 128 and c <= 159 -> false
           _ -> true
         end
+
       _ ->
         # Multi-codepoint grapheme, keep it
         true
@@ -186,11 +188,9 @@ defmodule Aprsme.Encoding do
 
   @spec valid_utf8_continuation?(binary(), non_neg_integer()) :: boolean()
   defp valid_utf8_continuation?(binary, pos) do
-    try do
-      <<_::binary-size(pos), _char::utf8, _::binary>> = binary
-      true
-    rescue
-      _ -> false
-    end
+    <<_::binary-size(pos), _char::utf8, _::binary>> = binary
+    true
+  rescue
+    _ -> false
   end
 end

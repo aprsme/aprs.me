@@ -49,14 +49,12 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec to_float(any()) :: float() | nil
   def to_float(value) when is_float(value) do
-    if finite_float?(value), do: value, else: nil
+    if finite_float?(value), do: value
   end
 
   def to_float(value) when is_integer(value) do
     if value >= -9.0e15 and value <= 9.0e15 do
       value * 1.0
-    else
-      nil
     end
   end
 
@@ -72,7 +70,7 @@ defmodule Aprsme.EncodingUtils do
 
   def to_float(%Decimal{} = value) do
     float = Decimal.to_float(value)
-    if finite_float?(float), do: float, else: nil
+    if finite_float?(float), do: float
   end
 
   def to_float(_), do: nil

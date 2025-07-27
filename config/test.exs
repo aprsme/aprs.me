@@ -27,9 +27,6 @@ config :aprsme, AprsmeWeb.Endpoint,
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
   server: false
 
-# Disable Exq during tests to prevent background job execution
-config :exq, mode: :inline
-
 # Disable cleanup scheduler in test environment
 config :aprsme, :cleanup_scheduler, enabled: false
 
@@ -53,6 +50,9 @@ config :aprsme, auto_migrate: false
 
 # Only in tests, remove the complexity from the password hashing algorithm
 config :bcrypt_elixir, :log_rounds, 1
+
+# Disable Exq during tests to prevent background job execution
+config :exq, mode: :inline
 
 # Configure ExVCR
 config :exvcr,

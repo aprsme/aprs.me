@@ -103,7 +103,7 @@ defmodule Aprsme.Repo.Migrations.AddOptimizedIndexes do
 
     # Analyze the table to update statistics after adding indexes
     execute "ANALYZE packets;"
-    
+
     # Reset statement timeout
     execute "RESET statement_timeout;"
     execute "RESET lock_timeout;"

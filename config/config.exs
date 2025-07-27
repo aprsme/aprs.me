@@ -31,24 +31,11 @@ config :aprsme, AprsmeWeb.Gettext,
   locales: ~w(en es de fr),
   default_locale: "en"
 
-# Configure Exq for background jobs
-# Redis connection settings are configured in runtime.exs
-config :exq,
-  name: Exq,
-  concurrency: :infinite,
-  queues: [
-    {"default", 10},
-    {"maintenance", 2}
-  ],
-  scheduler_enable: true,
-  scheduler_poll_timeout: 200,
-  poll_timeout: 50,
-  redis_timeout: 5000
-
 # Configure periodic cleanup job
 config :aprsme, :cleanup_scheduler,
   enabled: true,
-  interval: 6 * 60 * 60 * 1000  # 6 hours in milliseconds
+  # 6 hours in milliseconds
+  interval: 6 * 60 * 60 * 1000
 
 config :aprsme,
   ecto_repos: [Aprsme.Repo]
@@ -127,6 +114,20 @@ config :esbuild,
       ~w(vendor/js/date-adapter.js --outfile=../priv/static/assets/vendor/js/date-adapter.js --minify --target=es2017),
     cd: Path.expand("../assets", __DIR__)
   ]
+
+# Configure Exq for background jobs
+# Redis connection settings are configured in runtime.exs
+config :exq,
+  name: Exq,
+  concurrency: :infinite,
+  queues: [
+    {"default", 10},
+    {"maintenance", 2}
+  ],
+  scheduler_enable: true,
+  scheduler_poll_timeout: 200,
+  poll_timeout: 50,
+  redis_timeout: 5000
 
 config :gettext, :plural_forms, GettextPseudolocalize.Plural
 

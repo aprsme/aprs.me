@@ -52,7 +52,6 @@ defmodule Aprsme.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-
   # Specifies your project dependencies.
   #
   # Type `mix help deps` for examples and options.
@@ -107,7 +106,7 @@ defmodule Aprsme.MixProject do
       {:hammer, "~> 7.0"},
       {:cachex, "~> 4.1"},
       {:gettext_pseudolocalize, "~> 0.1"},
-      {:sentry, "~> 11.0"},
+      {:sentry, "~> 11.0"}
       # Gleam dependencies
     ]
   end
