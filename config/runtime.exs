@@ -119,6 +119,37 @@ if config_env() == :prod do
   config :aprsme,
     default_from_email: "w5isp@aprs.me"
 
+  # Configure Exq with Redis connection from environment
+  redis_url = System.get_env("REDIS_URL", "redis://localhost:6379")
+  redis_uri = URI.parse(redis_url)
+  
+  redis_host = redis_uri.host || "localhost"
+  redis_port = redis_uri.port || 6379
+  redis_password = case redis_uri.userinfo do
+    nil -> ""
+    userinfo -> 
+      case String.split(userinfo, ":") do
+        [_, password] -> password
+        _ -> ""
+      end
+  end
+  
+  # Extract database from path if present
+  redis_database = case redis_uri.path do
+    nil -> 0
+    "/" -> 0
+    path -> 
+      path |> String.trim_leading("/") |> String.to_integer()
+  rescue
+    _ -> 0
+  end
+
+  config :exq,
+    host: redis_host,
+    port: redis_port,
+    password: redis_password,
+    database: redis_database
+
   config :aprsme,
     ecto_repos: [Aprsme.Repo],
     aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
