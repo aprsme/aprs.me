@@ -146,11 +146,20 @@ if config_env() == :prod do
     _ -> 0
   end
 
-  config :exq,
+  exq_config = [
     host: redis_host,
     port: redis_port,
-    password: redis_password,
     database: redis_database
+  ]
+  
+  # Only add password if it's not empty
+  exq_config = if redis_password != "" and redis_password != nil do
+    Keyword.put(exq_config, :password, redis_password)
+  else
+    exq_config
+  end
+  
+  config :exq, exq_config
 
   config :aprsme,
     ecto_repos: [Aprsme.Repo],
