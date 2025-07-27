@@ -129,11 +129,27 @@ let Hooks = {};
 Hooks.APRSMap = {
   ...MapAPRSMap,
   mounted() {
-    if (window.VendorLoader) {
-      window.VendorLoader.loadMap();
-    }
-    if (MapAPRSMap.mounted) {
-      MapAPRSMap.mounted.call(this);
+    const self = this;
+    if (window.VendorLoader && !window.mapBundleLoaded) {
+      // Load map bundle and wait for it to complete
+      const script = document.createElement('script');
+      script.src = window.VendorLoader.mapBundleUrl;
+      script.onload = () => {
+        window.mapBundleLoaded = true;
+        // Now call the original mounted function
+        if (MapAPRSMap.mounted) {
+          MapAPRSMap.mounted.call(self);
+        }
+      };
+      script.onerror = () => {
+        console.error("Failed to load map bundle");
+      };
+      document.head.appendChild(script);
+    } else {
+      // Map bundle already loaded, proceed immediately
+      if (MapAPRSMap.mounted) {
+        MapAPRSMap.mounted.call(this);
+      }
     }
   }
 };
@@ -141,11 +157,27 @@ Hooks.APRSMap = {
 Hooks.InfoMap = {
   ...InfoMap,
   mounted() {
-    if (window.VendorLoader) {
-      window.VendorLoader.loadMap();
-    }
-    if (InfoMap.mounted) {
-      InfoMap.mounted.call(this);
+    const self = this;
+    if (window.VendorLoader && !window.mapBundleLoaded) {
+      // Load map bundle and wait for it to complete
+      const script = document.createElement('script');
+      script.src = window.VendorLoader.mapBundleUrl;
+      script.onload = () => {
+        window.mapBundleLoaded = true;
+        // Now call the original mounted function
+        if (InfoMap.mounted) {
+          InfoMap.mounted.call(self);
+        }
+      };
+      script.onerror = () => {
+        console.error("Failed to load map bundle");
+      };
+      document.head.appendChild(script);
+    } else {
+      // Map bundle already loaded, proceed immediately
+      if (InfoMap.mounted) {
+        InfoMap.mounted.call(this);
+      }
     }
   }
 };

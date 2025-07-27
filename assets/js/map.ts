@@ -157,6 +157,17 @@ let MapAPRSMap = {
 
   initializeMap(initialCenter: CenterData, initialZoom: number) {
     const self = this as unknown as LiveViewHookContext;
+    
+    // Check if Leaflet is still available
+    if (typeof window.L === "undefined") {
+      console.error("Leaflet library not loaded!");
+      self.handleFatalError("Leaflet library not available");
+      return;
+    }
+    
+    // Create a local reference to Leaflet for this function
+    const L = window.L;
+    
     // Ensure the element and its parent exist
     if (!self.el || !self.el.parentNode) {
       console.warn("Map element or parent not found, retrying...");

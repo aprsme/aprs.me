@@ -56,8 +56,5 @@ defmodule AprsmeWeb.Endpoint do
   # Health check endpoint
   plug AprsmeWeb.Plugs.HealthCheck
 
-  # Prometheus metrics endpoint
-  plug TelemetryMetricsPrometheus
-
   plug AprsmeWeb.Router
 end

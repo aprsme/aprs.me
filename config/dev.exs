@@ -72,6 +72,11 @@ config :aprsme, AprsmeWeb.Endpoint,
 # Run `mix help phx.gen.cert` for more information.
 config :aprsme, dev_routes: true
 
+# Disable Exq in development (no Redis required)
+# Jobs that would normally run in the background will be skipped
+config :exq,
+  start_on_application: false
+
 # Mailer configuration for development
 # Using Swoosh.Adapters.Local from config.exs which stores emails locally
 # Access sent emails at http://localhost:4000/dev/mailbox
