@@ -48,36 +48,16 @@ jobs:
         otp: ["27.3.4"]
         elixir: ["1.18.4"]
     steps:
-      # Step: Setup Elixir + Erlang + Gleam using erlef/setup-beam
-      - name: Set up Elixir, Erlang, and Gleam
+      # Step: Setup Elixir + Erlang using erlef/setup-beam
+      - name: Set up Elixir and Erlang
         uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
-          gleam-version: "1.5.1"
 
       # Step: Check out the code.
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # Step: Install mix_gleam archive
-      - name: Install mix_gleam
-        run: mix archive.install hex mix_gleam 0.6.2 --force
-
-      # Step: Cache Gleam packages
-      - name: Cache Gleam packages
-        id: cache-gleam
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-gleam-packages
-        with:
-          path: |
-            build
-            ~/.cache/gleam
-          key: ${{ runner.os }}-gleam-${{ env.cache-name }}-${{ hashFiles('**/gleam.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-gleam-${{ env.cache-name }}-
-            ${{ runner.os }}-gleam-
 
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
@@ -123,10 +103,6 @@ jobs:
       # the cached version.
       - name: Install dependencies
         run: mix deps.get
-
-      # Step: Compile Gleam code first
-      - name: Compile Gleam code
-        run: mix gleam_compile
 
       # Step: Compile the project treating any warnings as errors.
       # Customize this step if a different behavior is desired.
