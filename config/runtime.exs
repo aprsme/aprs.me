@@ -172,7 +172,14 @@ if config_env() == :prod do
     ecto_repos: [Aprsme.Repo],
     aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
     # config :aprsme, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
-    aprs_is_port: String.to_integer(System.get_env("APRS_PORT", "14580")),
+    aprs_is_port: case System.get_env("APRS_PORT", "14580") do
+      port when is_binary(port) ->
+        case Integer.parse(port) do
+          {int, ""} -> int
+          _ -> 14580  # fallback to default port if parsing fails
+        end
+      _ -> 14580
+    end,
     aprs_is_default_filter: System.get_env("APRS_FILTER"),
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
     aprs_is_password: System.get_env("APRS_PASSCODE"),
