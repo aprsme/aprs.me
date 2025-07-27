@@ -109,7 +109,9 @@ defmodule Aprsme.Release do
           # Set session-level timeout for this connection
           Ecto.Adapters.SQL.query!(repo, "SET statement_timeout = '#{div(timeout, 1000)}s'")
           Ecto.Migrator.run(repo, :up, all: true)
-        end, timeout: timeout)
+        end,
+        timeout: timeout
+      )
   end
 
   defp read_deployment_timestamp do
