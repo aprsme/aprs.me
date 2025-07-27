@@ -33,74 +33,88 @@ defmodule AprsmeWeb.Telemetry do
 
   def metrics do
     [
-      # Phoenix Metrics
-      summary("phoenix.endpoint.start.system_time",
-        unit: {:native, :millisecond}
+      # Phoenix Metrics - Use distribution for latency measurements
+      distribution("phoenix.endpoint.start.system_time",
+        unit: {:native, :millisecond},
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
-      summary("phoenix.endpoint.stop.duration",
-        unit: {:native, :millisecond}
+      distribution("phoenix.endpoint.stop.duration",
+        unit: {:native, :millisecond},
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
-      summary("phoenix.router_dispatch.start.system_time",
+      distribution("phoenix.router_dispatch.start.system_time",
         tags: [:route],
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
-      summary("phoenix.router_dispatch.exception.duration",
+      distribution("phoenix.router_dispatch.exception.duration",
         tags: [:route],
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
-      summary("phoenix.router_dispatch.stop.duration",
+      distribution("phoenix.router_dispatch.stop.duration",
         tags: [:route],
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
-      summary("phoenix.socket_connected.duration",
-        unit: {:native, :millisecond}
+      distribution("phoenix.socket_connected.duration",
+        unit: {:native, :millisecond},
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
-      summary("phoenix.channel_join.duration",
-        unit: {:native, :millisecond}
+      distribution("phoenix.channel_join.duration",
+        unit: {:native, :millisecond},
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
-      summary("phoenix.channel_handled_in.duration",
+      distribution("phoenix.channel_handled_in.duration",
         tags: [:event],
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
 
-      # Database Metrics
-      summary("aprsme.repo.query.total_time",
+      # Database Metrics - Use distribution for query times
+      distribution("aprsme.repo.query.total_time",
         unit: {:native, :millisecond},
-        description: "The sum of the other measurements"
+        description: "The sum of the other measurements",
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
-      summary("aprsme.repo.query.decode_time",
+      distribution("aprsme.repo.query.decode_time",
         unit: {:native, :millisecond},
-        description: "The time spent decoding the data received from the database"
+        description: "The time spent decoding the data received from the database",
+        buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000]
       ),
-      summary("aprsme.repo.query.query_time",
+      distribution("aprsme.repo.query.query_time",
         unit: {:native, :millisecond},
-        description: "The time spent executing the query"
+        description: "The time spent executing the query",
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
-      summary("aprsme.repo.query.queue_time",
+      distribution("aprsme.repo.query.queue_time",
         unit: {:native, :millisecond},
-        description: "The time spent waiting for a database connection"
+        description: "The time spent waiting for a database connection",
+        buckets: [1, 5, 10, 25, 50, 100, 250, 500, 1000]
       ),
-      summary("aprsme.repo.query.idle_time",
+      distribution("aprsme.repo.query.idle_time",
         unit: {:native, :millisecond},
-        description: "The time the connection spent waiting before being checked out for the query"
+        description: "The time the connection spent waiting before being checked out for the query",
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
 
-      # VM Metrics
-      summary("vm.memory.total", unit: {:byte, :kilobyte}),
-      summary("vm.total_run_queue_lengths.total"),
-      summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io"),
+      # VM Metrics - Use last_value for current state
+      last_value("vm.memory.total", unit: {:byte, :kilobyte}),
+      last_value("vm.total_run_queue_lengths.total"),
+      last_value("vm.total_run_queue_lengths.cpu"),
+      last_value("vm.total_run_queue_lengths.io"),
 
-      # GenStage Packet Pipeline Metrics
-      summary("aprsme.packet_pipeline.batch.count", unit: :event, description: "Number of packets in each batch"),
-      summary("aprsme.packet_pipeline.batch.success",
+      # GenStage Packet Pipeline Metrics - Use counter and distribution
+      counter("aprsme.packet_pipeline.batch.count", unit: :event, description: "Total number of packets processed"),
+      counter("aprsme.packet_pipeline.batch.success",
         unit: :event,
-        description: "Number of successful inserts per batch"
+        description: "Total number of successful inserts"
       ),
-      summary("aprsme.packet_pipeline.batch.error", unit: :event, description: "Number of errors per batch"),
-      summary("aprsme.packet_pipeline.batch.duration_ms",
+      counter("aprsme.packet_pipeline.batch.error", unit: :event, description: "Total number of errors"),
+      distribution("aprsme.packet_pipeline.batch.duration_ms",
         unit: :millisecond,
-        description: "Batch insert duration (ms)"
+        description: "Batch insert duration (ms)",
+        buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
       ),
 
       # Note: SystemMonitor and InsertOptimizer metrics removed after reverting performance optimizations
