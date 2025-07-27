@@ -4,6 +4,8 @@ defmodule AprsmeWeb.Telemetry do
 
   import Telemetry.Metrics
 
+  alias Aprsme.Telemetry.DatabaseMetrics
+
   def start_link(arg) do
     Supervisor.start_link(__MODULE__, arg, name: __MODULE__)
   end
@@ -129,7 +131,56 @@ defmodule AprsmeWeb.Telemetry do
       last_value("aprsme.spatial_pubsub.efficiency.ratio", unit: :percent, description: "Broadcast efficiency ratio"),
       counter("aprsme.spatial_pubsub.efficiency.saved_broadcasts",
         description: "Number of broadcasts saved by filtering"
-      )
+      ),
+
+      # Database Connection Pool Metrics
+      last_value("aprsme.repo.pool.size", description: "Configured pool size"),
+      last_value("aprsme.repo.pool.idle", description: "Number of idle connections"),
+      last_value("aprsme.repo.pool.busy", description: "Number of busy connections"),
+      last_value("aprsme.repo.pool.available", description: "Number of available connections"),
+      last_value("aprsme.repo.pool.queue_length", description: "Number of processes waiting for a connection"),
+      last_value("aprsme.repo.pool.total", description: "Total connections in pool"),
+
+      # PostgreSQL Database Metrics
+      last_value("aprsme.postgres.database.size_bytes", unit: {:byte, :megabyte}, description: "Database size"),
+      last_value("aprsme.postgres.connections.total", description: "Total database connections"),
+      last_value("aprsme.postgres.connections.active", description: "Active database connections"),
+      last_value("aprsme.postgres.connections.idle", description: "Idle database connections"),
+      last_value("aprsme.postgres.connections.idle_in_transaction", description: "Idle in transaction connections"),
+      last_value("aprsme.postgres.connections.waiting", description: "Connections waiting on locks"),
+
+      # Packets Table Metrics
+      last_value("aprsme.postgres.packets_table.live_tuples", description: "Number of live rows in packets table"),
+      last_value("aprsme.postgres.packets_table.dead_tuples", description: "Number of dead rows in packets table"),
+      counter("aprsme.postgres.packets_table.total_inserts", description: "Total inserts to packets table"),
+      counter("aprsme.postgres.packets_table.total_updates", description: "Total updates to packets table"),
+      counter("aprsme.postgres.packets_table.total_deletes", description: "Total deletes from packets table"),
+      last_value("aprsme.postgres.packets_table.table_size_bytes",
+        unit: {:byte, :megabyte},
+        description: "Packets table size"
+      ),
+      last_value("aprsme.postgres.packets_table.indexes_size_bytes",
+        unit: {:byte, :megabyte},
+        description: "Packets indexes size"
+      ),
+
+      # Query Performance Metrics
+      counter("aprsme.postgres.query_stats.total_calls", description: "Total number of queries executed"),
+      last_value("aprsme.postgres.query_stats.total_time_ms",
+        unit: :millisecond,
+        description: "Total query execution time"
+      ),
+      last_value("aprsme.postgres.query_stats.avg_time_ms",
+        unit: :millisecond,
+        description: "Average query execution time"
+      ),
+      last_value("aprsme.postgres.query_stats.max_time_ms",
+        unit: :millisecond,
+        description: "Maximum query execution time"
+      ),
+
+      # Replication Metrics (if applicable)
+      last_value("aprsme.postgres.replication.lag_seconds", unit: :second, description: "Replication lag in seconds")
     ]
   end
 
@@ -138,6 +189,9 @@ defmodule AprsmeWeb.Telemetry do
       # A module, function and arguments to be invoked periodically.
       # This function must call :telemetry.execute/3 and a metric must be added above.
       # {AprsmeWeb, :count_users, []}
+      {DatabaseMetrics, :collect_db_pool_metrics, []},
+      {DatabaseMetrics, :collect_postgres_metrics, []},
+      {DatabaseMetrics, :collect_pgbouncer_metrics, []}
     ]
   end
 end
