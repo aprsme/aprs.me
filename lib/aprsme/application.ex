@@ -63,7 +63,7 @@ defmodule Aprsme.Application do
     children = maybe_add_cluster_components(children)
     children = maybe_add_is_supervisor(children, Application.get_env(:aprsme, :env))
     children = maybe_add_aprs_connection(children, Application.get_env(:aprsme, :env))
-    children = maybe_add_exq(children)
+    # Exq is now started automatically via config, not in supervision tree
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -204,67 +204,39 @@ defmodule Aprsme.Application do
     end
   end
 
-  defp exq_config do
-    redis_url = System.get_env("REDIS_URL", "redis://localhost:6379")
-    
-    {Exq,
-     name: Exq,
-     host: parse_redis_host(redis_url),
-     port: parse_redis_port(redis_url),
-     password: parse_redis_password(redis_url),
-     database: parse_redis_database(redis_url),
-     concurrency: :infinite,
-     queues: [
-       {"default", 10},
-       {"maintenance", 2}
-     ],
-     scheduler_enable: true,
-     scheduler_poll_timeout: 200,
-     poll_timeout: 50,
-     redis_timeout: 5000}
-  end
+  # Removed - Exq configuration is now in runtime.exs
+  # defp exq_config do
+  #   redis_url = System.get_env("REDIS_URL", "redis://localhost:6379")
+  #   
+  #   {Exq,
+  #    name: Exq,
+  #    host: parse_redis_host(redis_url),
+  #    port: parse_redis_port(redis_url),
+  #    password: parse_redis_password(redis_url),
+  #    database: parse_redis_database(redis_url),
+  #    concurrency: :infinite,
+  #    queues: [
+  #      {"default", 10},
+  #      {"maintenance", 2}
+  #    ],
+  #    scheduler_enable: true,
+  #    scheduler_poll_timeout: 200,
+  #    poll_timeout: 50,
+  #    redis_timeout: 5000}
+  # end
 
-  defp parse_redis_host(redis_url) do
-    %URI{host: host} = URI.parse(redis_url)
-    host || "localhost"
-  end
+  # Removed - Redis parsing functions no longer needed
+  # Exq configuration is now handled in runtime.exs
 
-  defp parse_redis_port(redis_url) do
-    %URI{port: port} = URI.parse(redis_url)
-    port || 6379
-  end
-
-  defp parse_redis_password(redis_url) do
-    case URI.parse(redis_url) do
-      %URI{userinfo: nil} -> ""
-      %URI{userinfo: userinfo} ->
-        case String.split(userinfo, ":") do
-          [_user, password] -> password
-          _ -> ""
-        end
-    end
-  end
-
-  defp parse_redis_database(redis_url) do
-    case URI.parse(redis_url) do
-      %URI{path: nil} -> 0
-      %URI{path: ""} -> 0
-      %URI{path: "/" <> db} ->
-        case Integer.parse(db) do
-          {num, ""} -> num
-          _ -> 0
-        end
-    end
-  end
-
-  defp maybe_add_exq(children) do
-    env = Application.get_env(:aprsme, :env)
-    if env == :test do
-      children
-    else
-      children ++ [exq_config()]
-    end
-  end
+  # Removed - Exq is now started automatically via config
+  # defp maybe_add_exq(children) do
+  #   env = Application.get_env(:aprsme, :env)
+  #   if env == :test do
+  #     children
+  #   else
+  #     children ++ [exq_config()]
+  #   end
+  # end
 
   defp redis_children do
     if System.get_env("REDIS_URL") do

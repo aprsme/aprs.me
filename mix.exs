@@ -46,7 +46,7 @@ defmodule Aprsme.MixProject do
   def application do
     [
       mod: {Aprsme.Application, []},
-      extra_applications: [:hackney, :logger, :runtime_tools, :os_mon]
+      extra_applications: [:hackney, :logger, :runtime_tools, :os_mon, :exq]
     ]
   end
 
