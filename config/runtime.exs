@@ -135,11 +135,13 @@ if config_env() == :prod do
   end
   
   # Extract database from path if present
-  redis_database = case redis_uri.path do
-    nil -> 0
-    "/" -> 0
-    path -> 
-      path |> String.trim_leading("/") |> String.to_integer()
+  redis_database = try do
+    case redis_uri.path do
+      nil -> 0
+      "/" -> 0
+      path -> 
+        path |> String.trim_leading("/") |> String.to_integer()
+    end
   rescue
     _ -> 0
   end
