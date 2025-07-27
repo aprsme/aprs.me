@@ -66,8 +66,10 @@ defmodule Aprsme.DbOptimizer do
           opts
         )
 
-      case Repo.insert_all(schema, batch, insert_opts) do
-        {count, _} -> {:ok, count}
+      try do
+        {count, _} = Repo.insert_all(schema, batch, insert_opts)
+        {:ok, count}
+      rescue
         error -> {:error, error}
       end
     end)

@@ -382,7 +382,7 @@ defmodule Aprsme.Packets do
     bounds = Map.get(opts, :bounds)
 
     query =
-      Packet
+      from(p in Packet)
       |> QueryBuilder.with_position()
       |> QueryBuilder.with_time_range(opts)
       |> QueryBuilder.maybe_filter_region(opts)
@@ -416,7 +416,7 @@ defmodule Aprsme.Packets do
     bounds = Map.get(opts, :bounds)
 
     query =
-      Packet
+      from(p in Packet)
       |> QueryBuilder.with_position()
       |> QueryBuilder.with_time_range(opts)
       |> QueryBuilder.maybe_filter_region(opts)
