@@ -26,32 +26,7 @@ defmodule AprsmeWeb.Telemetry do
           {:telemetry_poller, measurements: periodic_measurements(), period: 10_000},
           # Add reporters as children of your supervision tree.
           # {Telemetry.Metrics.ConsoleReporter, metrics: metrics()}
-          {TelemetryMetricsPrometheus,
-           [
-             metrics: metrics(),
-             # Default buckets for distribution metrics
-             buckets: [
-               0.01,
-               0.025,
-               0.05,
-               0.1,
-               0.25,
-               0.5,
-               1,
-               2.5,
-               5,
-               10,
-               25,
-               50,
-               100,
-               250,
-               500,
-               1000,
-               2500,
-               5000,
-               10_000
-             ]
-           ]}
+          {TelemetryMetricsPrometheus, [metrics: metrics()]}
         ]
       end
 
@@ -59,57 +34,73 @@ defmodule AprsmeWeb.Telemetry do
   end
 
   def metrics do
+    # Default buckets for all distribution metrics
+    buckets = [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10_000]
+
     [
       # Phoenix Metrics - Use distribution for latency measurements
       distribution("phoenix.endpoint.start.system_time",
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: buckets]
       ),
       distribution("phoenix.endpoint.stop.duration",
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: buckets]
       ),
       distribution("phoenix.router_dispatch.start.system_time",
         tags: [:route],
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: buckets]
       ),
       distribution("phoenix.router_dispatch.exception.duration",
         tags: [:route],
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: buckets]
       ),
       distribution("phoenix.router_dispatch.stop.duration",
         tags: [:route],
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: buckets]
       ),
       distribution("phoenix.socket_connected.duration",
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: buckets]
       ),
       distribution("phoenix.channel_join.duration",
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: buckets]
       ),
       distribution("phoenix.channel_handled_in.duration",
         tags: [:event],
-        unit: {:native, :millisecond}
+        unit: {:native, :millisecond},
+        reporter_options: [buckets: buckets]
       ),
 
       # Database Metrics - Use distribution for query times
       distribution("aprsme.repo.query.total_time",
         unit: {:native, :millisecond},
-        description: "The sum of the other measurements"
+        description: "The sum of the other measurements",
+        reporter_options: [buckets: buckets]
       ),
       distribution("aprsme.repo.query.decode_time",
         unit: {:native, :millisecond},
-        description: "The time spent decoding the data received from the database"
+        description: "The time spent decoding the data received from the database",
+        reporter_options: [buckets: buckets]
       ),
       distribution("aprsme.repo.query.query_time",
         unit: {:native, :millisecond},
-        description: "The time spent executing the query"
+        description: "The time spent executing the query",
+        reporter_options: [buckets: buckets]
       ),
       distribution("aprsme.repo.query.queue_time",
         unit: {:native, :millisecond},
-        description: "The time spent waiting for a database connection"
+        description: "The time spent waiting for a database connection",
+        reporter_options: [buckets: buckets]
       ),
       distribution("aprsme.repo.query.idle_time",
         unit: {:native, :millisecond},
-        description: "The time the connection spent waiting before being checked out for the query"
+        description: "The time the connection spent waiting before being checked out for the query",
+        reporter_options: [buckets: buckets]
       ),
 
       # VM Metrics - Use last_value for current state
@@ -127,7 +118,8 @@ defmodule AprsmeWeb.Telemetry do
       counter("aprsme.packet_pipeline.batch.error", unit: :event, description: "Total number of errors"),
       distribution("aprsme.packet_pipeline.batch.duration_ms",
         unit: :millisecond,
-        description: "Batch insert duration (ms)"
+        description: "Batch insert duration (ms)",
+        reporter_options: [buckets: buckets]
       ),
 
       # Note: SystemMonitor and InsertOptimizer metrics removed after reverting performance optimizations
