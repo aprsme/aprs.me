@@ -187,7 +187,7 @@ defmodule Aprsme.Encoding do
   @spec valid_utf8_continuation?(binary(), non_neg_integer()) :: boolean()
   defp valid_utf8_continuation?(binary, pos) do
     try do
-      <<_::binary-size(pos), char::utf8, _::binary>> = binary
+      <<_::binary-size(pos), _char::utf8, _::binary>> = binary
       true
     rescue
       _ -> false

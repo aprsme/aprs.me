@@ -49,12 +49,14 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec to_float(any()) :: float() | nil
   def to_float(value) when is_float(value) do
-    if finite_float?(value), do: value
+    if finite_float?(value), do: value, else: nil
   end
 
   def to_float(value) when is_integer(value) do
     if value >= -9.0e15 and value <= 9.0e15 do
       value * 1.0
+    else
+      nil
     end
   end
 
@@ -70,7 +72,7 @@ defmodule Aprsme.EncodingUtils do
 
   def to_float(%Decimal{} = value) do
     float = Decimal.to_float(value)
-    if finite_float?(float), do: float
+    if finite_float?(float), do: float, else: nil
   end
 
   def to_float(_), do: nil
@@ -82,8 +84,6 @@ defmodule Aprsme.EncodingUtils do
     # This function is kept for defensive programming
     true
   end
-
-  defp finite_float?(_), do: false
 
   @doc """
   Converts various types to Decimal for database storage.

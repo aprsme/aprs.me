@@ -176,11 +176,6 @@ defmodule Aprsme.Application do
     Logger.info("Database migrations completed")
   end
 
-  defp do_migrate(false) do
-    require Logger
-
-    Logger.info("Automatic migrations disabled")
-  end
 
   defp pubsub_config do
     cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)

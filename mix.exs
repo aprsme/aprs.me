@@ -109,7 +109,6 @@ defmodule Aprsme.MixProject do
       {:gettext_pseudolocalize, "~> 0.1"},
       {:sentry, "~> 11.0"},
       # Gleam dependencies
-      {:gleeunit, "~> 1.0", only: [:dev, :test], runtime: false, app: false, compile: false}
     ]
   end
 

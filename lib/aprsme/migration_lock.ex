@@ -70,7 +70,7 @@ defmodule Aprsme.MigrationLock do
   end
 
   defp wait_for_migrations(_repo, 0) do
-    Logger.warn("Timeout waiting for migrations to complete")
+    Logger.warning("Timeout waiting for migrations to complete")
     :timeout
   end
 

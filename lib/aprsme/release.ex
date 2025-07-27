@@ -95,9 +95,9 @@ defmodule Aprsme.Release do
     Logger.info("Running migrations with timeout: #{timeout}ms")
     
     # Run with extended timeout configuration
-    repo_config = Aprsme.Repo.config()
-                  |> Keyword.put(:timeout, timeout)
-                  |> Keyword.put(:pool_timeout, 60_000)
+    _repo_config = Aprsme.Repo.config()
+                   |> Keyword.put(:timeout, timeout)
+                   |> Keyword.put(:pool_timeout, 60_000)
     
     {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, fn repo ->
       # Set session-level timeout for this connection
