@@ -24,7 +24,7 @@ RUN mix local.hex --force && \
 ENV MIX_ENV=prod
 
 # Install mix dependencies
-COPY mix.exs mix.lock ./
+COPY mix.exs mix.lock gleam.toml ./
 COPY vendor vendor
 RUN mix deps.get --only $MIX_ENV && \
     mix deps.compile
@@ -32,6 +32,7 @@ RUN mix deps.get --only $MIX_ENV && \
 # Copy and compile application
 COPY config config
 COPY lib lib
+COPY src src
 COPY assets assets
 COPY priv priv
 COPY rel rel
@@ -40,6 +41,7 @@ COPY rel rel
 RUN cd vendor/aprs && mix compile && cd ../.. && \
     mkdir -p _build/prod/lib/aprs/ebin && \
     cp -r vendor/aprs/_build/prod/lib/aprs/ebin/* _build/prod/lib/aprs/ebin/ && \
+    mix gleam.compile && \
     mix compile && \
     mix assets.deploy && \
     mix release
