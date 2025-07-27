@@ -324,7 +324,10 @@ defmodule AprsmeWeb.StatusLive.Index do
                         <%= for node_name <- @aprs_status.cluster_info.all_nodes do %>
                           <div class={[
                             "badge gap-1",
-                            if(node_name == @aprs_status.cluster_info.leader_node, do: "badge-primary", else: "badge-outline")
+                            if(node_name == @aprs_status.cluster_info.leader_node,
+                              do: "badge-primary",
+                              else: "badge-outline"
+                            )
                           ]}>
                             <%= if node_name == @aprs_status.cluster_info.leader_node do %>
                               <div class="w-2 h-2 bg-current rounded-full"></div>

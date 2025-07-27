@@ -106,10 +106,15 @@ Tests use comprehensive mocking to prevent external connections:
 - Write descriptive test names that explain behavior
 
 ### Pre-Commit Checklist
+**CRITICAL**: NEVER commit or push code with syntax errors or compilation failures. Always validate before committing.
+
 1. Run `mix format` - ALWAYS do this first
-2. Run `mix compile --warnings-as-errors` - ensure no warnings
-3. Run `mix test` - ensure all tests pass
-4. Only then commit and push your changes
+2. Run `mix compile --warnings-as-errors` - ensure no warnings or compilation errors
+3. Run `mix test` - ensure all tests pass (at minimum, ensure no syntax/compilation errors)
+4. **MANDATORY**: If any step fails, fix the issues before proceeding
+5. Only after ALL checks pass should you commit and push your changes
+
+**NEVER PUSH BROKEN CODE**: Syntax errors, compilation failures, or basic test failures should be fixed immediately before any git operations. Pushing broken code breaks CI/CD pipelines and wastes deployment resources.
 
 ## Important Documentation Updates
 

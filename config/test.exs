@@ -27,6 +27,9 @@ config :aprsme, AprsmeWeb.Endpoint,
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
   server: false
 
+# Disable Prometheus telemetry in test mode to avoid port conflicts
+config :aprsme, AprsmeWeb.Telemetry, enabled: false
+
 # Disable cleanup scheduler in test environment
 config :aprsme, :cleanup_scheduler, enabled: false
 
@@ -55,10 +58,6 @@ config :bcrypt_elixir, :log_rounds, 1
 config :exq,
   start_on_application: false,
   mode: :inline
-
-# Disable Prometheus telemetry in test mode to avoid port conflicts
-config :aprsme, AprsmeWeb.Telemetry,
-  enabled: false
 
 # Configure ExVCR
 config :exvcr,
