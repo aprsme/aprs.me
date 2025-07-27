@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aprs
+  namespace: aprs
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: migrate
+        image: ghcr.io/aprsme/aprs.me:latest
+        imagePullPolicy: Always
+        command: ["/app/bin/migrate"]
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: database-url-pgbouncer
+              name: aprs-secret
+        - name: SECRET_KEY_BASE
+          valueFrom:
+            secretKeyRef:
+              key: secret-key-base
+              name: aprs-secret
+        - name: MIX_ENV
+          value: prod
+        - name: SKIP_DB_CREATE
+          value: "true"
+        - name: CLUSTER_ENABLED
+          value: "false"  # Disable clustering for migration runner
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi

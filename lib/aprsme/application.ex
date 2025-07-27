@@ -91,7 +91,20 @@ defmodule Aprsme.Application do
 
   defp migrate do
     auto_migrate = Application.get_env(:aprsme, :auto_migrate, true)
-    do_migrate(auto_migrate)
+    cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
+    
+    # In cluster mode, prefer init containers or manual migration
+    # to avoid race conditions between nodes
+    if auto_migrate and not cluster_enabled do
+      do_migrate(true)
+    else
+      require Logger
+      if cluster_enabled do
+        Logger.info("Skipping auto-migration in cluster mode")
+      else
+        Logger.info("Auto-migration disabled")
+      end
+    end
 
     # Gettext translations are automatically compiled during Mix compilation
   rescue

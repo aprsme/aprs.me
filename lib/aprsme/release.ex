@@ -19,8 +19,21 @@ defmodule Aprsme.Release do
       create_database()
     end
 
-    # Run migrations
-    {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, &Ecto.Migrator.run(&1, :up, all: true))
+    # Run migrations with distributed lock
+    cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
+    
+    if cluster_enabled do
+      Logger.info("Running migrations with distributed lock...")
+      # Ensure repo is started for advisory lock
+      {:ok, _} = Aprsme.Repo.start_link()
+      
+      Aprsme.MigrationLock.with_lock(Aprsme.Repo, fn ->
+        {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, &Ecto.Migrator.run(&1, :up, all: true))
+      end)
+    else
+      Logger.info("Running migrations without lock (single node)...")
+      {:ok, _, _} = Ecto.Migrator.with_repo(Aprsme.Repo, &Ecto.Migrator.run(&1, :up, all: true))
+    end
   end
 
   defp create_database do
