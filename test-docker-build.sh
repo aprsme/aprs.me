@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Testing Docker build with Gleam support..."
+echo "Testing Docker build..."
 
 # Build the Docker image
 echo "Building Docker image..."

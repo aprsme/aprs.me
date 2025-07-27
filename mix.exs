@@ -6,7 +6,7 @@ defmodule Aprsme.MixProject do
       app: :aprsme,
       version: "0.2.0",
       elixir: "~> 1.17",
-      archives: [mix_gleam: "~> 0.6"],
+      archives: [],
       compilers: Mix.compilers(),
       elixirc_paths: elixirc_paths(Mix.env()),
       erlc_paths: erlc_paths(Mix.env()),
@@ -23,7 +23,7 @@ defmodule Aprsme.MixProject do
       ],
       releases: [
         aprsme: [
-          steps: [:assemble, &copy_gleam_files/1]
+          steps: [:assemble]
         ]
       ]
     ]
@@ -54,11 +54,6 @@ defmodule Aprsme.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-  # Specifies erlc paths per environment for Gleam compilation
-  defp erlc_paths(_env) do
-    # Only include src directory to avoid compiling Gleam's internal scripts
-    ["src"]
-  end
 
   # Specifies your project dependencies.
   #
@@ -116,7 +111,6 @@ defmodule Aprsme.MixProject do
       {:gettext_pseudolocalize, "~> 0.1"},
       {:sentry, "~> 11.0"},
       # Gleam dependencies
-      {:gleam_stdlib, ">= 0.60.0 and < 1.0.0", app: false, compile: false, override: true},
       {:gleeunit, "~> 1.0", only: [:dev, :test], runtime: false, app: false, compile: false}
     ]
   end
@@ -129,11 +123,11 @@ defmodule Aprsme.MixProject do
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
     [
-      setup: ["setup_gleam", "deps.get", "ecto.setup", "gleam_compile"],
-      compile: ["gleam_compile", "compile"],
+      setup: ["deps.get", "ecto.setup"],
+      compile: ["compile"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["gleam_compile", "ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.deploy": [
         "tailwind default --minify",
         "esbuild vendor",
@@ -158,24 +152,4 @@ defmodule Aprsme.MixProject do
   end
 
   # Copy Gleam BEAM files to the release
-  defp copy_gleam_files(release) do
-    app_dir = Path.join([release.path, "lib", "aprsme-#{release.version}", "ebin"])
-    File.mkdir_p!(app_dir)
-
-    # Copy from priv/gleam if available
-    priv_gleam = "priv/gleam"
-
-    if File.exists?(priv_gleam) do
-      priv_gleam
-      |> File.ls!()
-      |> Enum.filter(&String.ends_with?(&1, ".beam"))
-      |> Enum.each(fn beam_file ->
-        src = Path.join(priv_gleam, beam_file)
-        dest = Path.join(app_dir, beam_file)
-        File.copy!(src, dest)
-      end)
-    end
-
-    release
-  end
 end

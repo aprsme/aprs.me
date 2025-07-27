@@ -1,19 +1,12 @@
 defmodule Aprsme.EncodingUtils do
   @moduledoc """
-  Elixir wrapper for the Gleam encoding utilities.
-  Provides a compatible API with the original EncodingUtils module.
+  Encoding utilities for handling APRS packet data.
+  Provides functions for sanitizing strings, converting encodings,
+  and validating data.
   """
 
   alias Aprs.Types.MicE
-
-  # The Gleam module is compiled with @ separator in the beam name
-  @gleam_module :aprsme@encoding
-
-  # Optional compile-time check to suppress warnings
-  @compile {:no_warn_undefined, {@gleam_module, :sanitize_string, 1}}
-  @compile {:no_warn_undefined, {@gleam_module, :to_float_safe, 1}}
-  @compile {:no_warn_undefined, {@gleam_module, :to_hex, 1}}
-  @compile {:no_warn_undefined, {@gleam_module, :encoding_info, 1}}
+  alias Aprsme.Encoding
 
   @doc """
   Sanitizes a binary to ensure it can be safely JSON encoded.
@@ -32,7 +25,7 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec sanitize_string(binary() | nil | any()) :: binary() | nil | any()
   def sanitize_string(binary) when is_binary(binary) do
-    @gleam_module.sanitize_string(binary)
+    Encoding.sanitize_string(binary)
   end
 
   def sanitize_string(nil), do: nil
@@ -69,9 +62,9 @@ defmodule Aprsme.EncodingUtils do
     # Sanitize and use Gleam's safe conversion
     sanitized = value |> sanitize_string() |> to_string()
 
-    case @gleam_module.to_float_safe(sanitized) do
-      {:some, f} -> f
-      :none -> nil
+    case Encoding.to_float_safe(sanitized) do
+      {:ok, f} -> f
+      nil -> nil
     end
   end
 
@@ -339,7 +332,7 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec to_hex(binary()) :: String.t()
   def to_hex(binary) when is_binary(binary) do
-    @gleam_module.to_hex(binary)
+    Encoding.to_hex(binary)
   end
 
   @doc """
@@ -354,27 +347,6 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec encoding_info(binary()) :: map()
   def encoding_info(binary) when is_binary(binary) do
-    # Call Gleam function and convert the result
-    case @gleam_module.encoding_info(binary) do
-      {:encoding_info, valid_utf8, byte_count, char_count, invalid_at} ->
-        base = %{
-          valid_utf8: valid_utf8,
-          byte_count: byte_count
-        }
-
-        base
-        |> maybe_add_field(:char_count, char_count)
-        |> maybe_add_field(:invalid_at, invalid_at)
-
-      _ ->
-        # Fallback
-        %{
-          valid_utf8: String.valid?(binary),
-          byte_count: byte_size(binary)
-        }
-    end
+    Encoding.encoding_info(binary)
   end
-
-  defp maybe_add_field(map, _key, :none), do: map
-  defp maybe_add_field(map, key, {:some, value}), do: Map.put(map, key, value)
 end

@@ -18,8 +18,7 @@ WORKDIR /app
 
 # Install hex + rebar
 RUN mix local.hex --force && \
-    mix local.rebar --force && \
-    mix archive.install hex mix_gleam 0.6.2 --force
+    mix local.rebar --force
 
 ENV MIX_ENV=prod
 
@@ -32,8 +31,6 @@ RUN mix deps.get --only $MIX_ENV && \
 # Copy and compile application
 COPY config config
 COPY lib lib
-COPY src src
-COPY gleam.toml ./
 COPY assets assets
 COPY priv priv
 COPY rel rel

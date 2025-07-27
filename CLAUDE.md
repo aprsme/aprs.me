@@ -8,7 +8,6 @@ Before setting up the project, ensure you have the following installed:
 - Elixir 1.17+
 - Erlang/OTP
 - PostgreSQL with PostGIS extension
-- **Gleam** (required for Gleam modules) - Install from https://gleam.run/getting-started/installing/
 
 ## Project Overview
 
@@ -17,8 +16,7 @@ This is an Elixir Phoenix LiveView application that serves as a real-time APRS (
 ## Development Commands
 
 ### Setup
-- `mix archive.install hex mix_gleam --force` - Install mix_gleam archive (required first step)
-- `mix setup` - Complete project setup (deps.get + ecto.setup + gleam compilation)
+- `mix setup` - Complete project setup (deps.get + ecto.setup)
 - `mix deps.get` - Install dependencies
 - `mix ecto.setup` - Create database, run migrations, and seed data
 - `mix ecto.reset` - Drop and recreate database
@@ -67,7 +65,6 @@ This is an Elixir Phoenix LiveView application that serves as a real-time APRS (
 - Oban for background job processing
 - GenStage for packet processing pipelines
 - Tailwind CSS + ESBuild for frontend assets (no Node.js)
-- Gleam for additional type-safe modules (requires mix_gleam archive)
 
 ## Test-Driven Development
 
