@@ -1547,8 +1547,8 @@ let MapAPRSMap = {
       marker.openPopup();
     }
 
-    // Add to OMS for overlapping marker handling
-    if (self.oms && marker && self.map && !marker._isClusterMarker) {
+    // Add to OMS for overlapping marker handling (only non-historical markers)
+    if (self.oms && marker && self.map && !marker._isClusterMarker && !(marker as APRSMarker)._isHistorical) {
       self.oms.addMarker(marker);
     }
   },
