@@ -5,8 +5,22 @@ defmodule Aprsme.DevicesSeeder do
   alias Aprsme.Repo
 
   def seed_from_json(path \\ "test/support/test_devices.json") do
-    {:ok, body} = File.read(path)
-    {:ok, json} = Jason.decode(body)
+    case File.read(path) do
+      {:ok, body} ->
+        case Jason.decode(body) do
+          {:ok, json} ->
+            seed_from_decoded_json(json)
+
+          {:error, reason} ->
+            {:error, "Failed to decode JSON: #{inspect(reason)}"}
+        end
+
+      {:error, reason} ->
+        {:error, "Failed to read file #{path}: #{inspect(reason)}"}
+    end
+  end
+
+  defp seed_from_decoded_json(json) do
     tocalls = Map.get(json, "tocalls", %{})
     mice = Map.get(json, "mice", %{})
     micelegacy = Map.get(json, "micelegacy", %{})
@@ -17,6 +31,8 @@ defmodule Aprsme.DevicesSeeder do
     Enum.each([tocalls, mice, micelegacy], fn group ->
       seed_device_group(group, now)
     end)
+
+    {:ok, :seeded}
   end
 
   defp seed_device_group(group, now) do

@@ -118,7 +118,15 @@ defmodule Aprsme.StreamingPacketsPubSub do
       Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
         subscribers
         |> Stream.filter(fn {_pid, bounds} -> packet_in_bounds?(lat, lon, bounds) end)
-        |> Enum.each(fn {pid, _bounds} -> send(pid, {:streaming_packet, packet}) end)
+        |> Enum.each(fn {pid, _bounds} ->
+          # Only send if process is alive
+          if Process.alive?(pid) do
+            send(pid, {:streaming_packet, packet})
+          else
+            # Clean up dead subscriber
+            :ets.delete(@table_name, pid)
+          end
+        end)
       end)
     end
 

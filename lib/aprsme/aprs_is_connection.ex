@@ -114,8 +114,16 @@ defmodule Aprsme.AprsIsConnection do
 
   @impl true
   def handle_call({:send, packet}, _from, %{socket: socket} = state) when is_port(socket) do
-    :ok = :gen_tcp.send(socket, packet <> "\r\n")
-    {:reply, :ok, state}
+    # Safely send to socket with error handling
+    case :gen_tcp.send(socket, packet <> "\r\n") do
+      :ok ->
+        {:reply, :ok, state}
+
+      {:error, reason} = error ->
+        Logger.error("Failed to send packet: #{inspect(reason)}")
+        # Socket is likely closed, reset state
+        {:reply, error, %{state | socket: nil}}
+    end
   end
 
   def handle_call({:send, _packet}, _from, state) do
@@ -141,9 +149,12 @@ defmodule Aprsme.AprsIsConnection do
     passcode = Application.get_env(:aprsme, :aprsme_is_passcode, "00000")
     filter = Application.get_env(:aprsme, :aprsme_is_filter, "")
 
-    opts = [:binary, active: true, packet: :line, keepalive: true]
+    # Add timeout to prevent indefinite hanging
+    opts = [:binary, active: true, packet: :line, keepalive: true, send_timeout: 5000]
+    # 10 seconds
+    connect_timeout = 10_000
 
-    case :gen_tcp.connect(host, port, opts) do
+    case :gen_tcp.connect(host, port, opts, connect_timeout) do
       {:ok, socket} ->
         login = "user #{callsign} pass #{passcode} vers aprs.me 0.1 #{filter}\r\n"
         :ok = :gen_tcp.send(socket, login)

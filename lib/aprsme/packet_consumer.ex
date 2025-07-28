@@ -127,14 +127,12 @@ defmodule Aprsme.PacketConsumer do
     chunk_size = Application.get_env(:aprsme, :packet_pipeline)[:batch_size] || 100
 
     # Use Stream for memory-efficient processing
-    results =
+    # Process and reduce in one pass to avoid materializing the entire list
+    {success_count, error_count} =
       packets
       |> Stream.chunk_every(chunk_size)
       |> Stream.map(&process_chunk/1)
-      |> Enum.to_list()
-
-    {success_count, error_count} =
-      Enum.reduce(results, {0, 0}, fn {success, error}, {total_success, total_error} ->
+      |> Enum.reduce({0, 0}, fn {success, error}, {total_success, total_error} ->
         {total_success + success, total_error + error}
       end)
 
@@ -511,6 +509,7 @@ defmodule Aprsme.PacketConsumer do
 
   defp truncate_datetimes_to_second(%DateTime{} = dt), do: DateTime.truncate(dt, :second)
   defp truncate_datetimes_to_second({:ok, %DateTime{} = dt}), do: DateTime.truncate(dt, :second)
+  defp truncate_datetimes_to_second({:error, _reason}), do: nil
 
   defp truncate_datetimes_to_second(term) when is_map(term) and not is_struct(term) do
     Map.new(term, fn {k, v} -> {k, truncate_datetimes_to_second(v)} end)
