@@ -671,7 +671,7 @@ defmodule AprsmeWeb.MapLive.Index do
       end)
       |> Enum.filter(& &1)
 
-    socket = 
+    socket =
       if Enum.any?(station_packets) do
         # Build packet data for the RF path stations
         packet_data_list = DataBuilder.build_packet_data_list(station_packets)

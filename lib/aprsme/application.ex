@@ -9,6 +9,9 @@ defmodule Aprsme.Application do
 
   @impl true
   def start(_type, _args) do
+    # Initialize deployment timestamp
+    Aprsme.Release.init()
+
     # Run migrations on startup
     migrate()
 

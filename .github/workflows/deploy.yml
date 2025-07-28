@@ -74,7 +74,32 @@ jobs:
 
       - name: Deploy to K3s
         run: |
+          # Get current timestamp in ISO8601 format
+          DEPLOYED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Create a temporary patch file with the deployment timestamp
+          cat > /tmp/deployed-at-patch.yaml <<EOF
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: aprs
+            namespace: aprs
+          spec:
+            template:
+              spec:
+                containers:
+                - name: aprs
+                  env:
+                  - name: DEPLOYED_AT
+                    value: "$DEPLOYED_AT"
+          EOF
+          
+          # Apply the patch to set the deployment timestamp
+          kubectl patch statefulset aprs -n aprs --patch-file=/tmp/deployed-at-patch.yaml
+          
+          # Update the image
           kubectl set image statefulset/aprs aprs=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -n aprs
+          
           # Force a rollout to ensure latest image is pulled
           kubectl rollout restart statefulset/aprs -n aprs
-          echo "Deployment initiated - not waiting for rollout to complete"
+          echo "Deployment initiated with timestamp $DEPLOYED_AT - not waiting for rollout to complete"

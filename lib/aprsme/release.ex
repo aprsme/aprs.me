@@ -75,10 +75,29 @@ defmodule Aprsme.Release do
   This is called during application startup.
   """
   def init do
-    # Read deployment timestamp from file
-    deployed_at = read_deployment_timestamp()
+    # Check if deployment timestamp is provided via environment variable
+    # This allows k8s deployments to set a persistent timestamp
+    deployed_at =
+      case System.get_env("DEPLOYED_AT") do
+        nil ->
+          # Fallback to current time for local development or non-k8s deployments
+          DateTime.utc_now()
 
-    # Add to application config
+        timestamp_str ->
+          # Parse the ISO8601 timestamp from environment variable
+          case DateTime.from_iso8601(timestamp_str) do
+            {:ok, datetime, _offset} ->
+              datetime
+
+            {:error, _} ->
+              require Logger
+
+              Logger.warning("Invalid DEPLOYED_AT timestamp: #{timestamp_str}, using current time")
+              DateTime.utc_now()
+          end
+      end
+
+    # Store in application config
     Application.put_env(:aprsme, :deployed_at, deployed_at)
 
     deployed_at
@@ -88,7 +107,16 @@ defmodule Aprsme.Release do
   Get the deployment timestamp.
   """
   def deployed_at do
-    Application.get_env(:aprsme, :deployed_at) || DateTime.utc_now()
+    case Application.get_env(:aprsme, :deployed_at) do
+      nil ->
+        # If not initialized yet, initialize now
+        timestamp = DateTime.utc_now()
+        Application.put_env(:aprsme, :deployed_at, timestamp)
+        timestamp
+
+      timestamp ->
+        timestamp
+    end
   end
 
   defp run_migrations_with_timeout(timeout) do
@@ -112,19 +140,5 @@ defmodule Aprsme.Release do
         end,
         timeout: timeout
       )
-  end
-
-  defp read_deployment_timestamp do
-    case File.read("/app/deployed_at.txt") do
-      {:ok, timestamp} ->
-        case DateTime.from_iso8601(String.trim(timestamp)) do
-          {:ok, datetime, _} -> datetime
-          _ -> DateTime.utc_now()
-        end
-
-      _ ->
-        # Fallback to current time if file doesn't exist
-        DateTime.utc_now()
-    end
   end
 end

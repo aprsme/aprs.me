@@ -57,9 +57,8 @@ ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
 
 WORKDIR /app
 
-# Create deployment timestamp before switching users
-RUN date -u +"%Y-%m-%dT%H:%M:%SZ" > /app/deployed_at.txt && \
-    chown elixir:root /app/deployed_at.txt
+# Ensure proper ownership
+RUN chown -R elixir:root /app
 
 COPY --from=builder --chown=elixir:root /app/_build/prod/rel/aprsme ./
 
