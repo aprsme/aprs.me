@@ -272,6 +272,8 @@ defmodule Aprsme.PacketConsumer do
           else
             # Normal single-node broadcasting
             Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
+            # Also broadcast to SpatialPubSub for viewport-based filtering
+            Aprsme.SpatialPubSub.broadcast_packet(packet)
           end
         end)
       rescue

@@ -107,6 +107,9 @@ defmodule AprsmeWeb.MapLive.Index do
     # Still subscribe to bad packets (they don't have location)
     Phoenix.PubSub.subscribe(Aprsme.PubSub, "bad_packets")
 
+    # Subscribe to StreamingPacketsPubSub with initial bounds
+    Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), default_bounds)
+
     Process.send_after(self(), :cleanup_old_packets, 60_000)
     # Schedule UI update timer to refresh "time ago" display every 30 seconds
     Process.send_after(self(), :update_time_display, 30_000)
@@ -665,6 +668,8 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
 
   def handle_info({:spatial_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
+
+  def handle_info({:streaming_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
 
   def handle_info({:load_rf_path_station_packets, stations}, socket) do
     # Load the most recent packet for each RF path station
@@ -1532,6 +1537,9 @@ defmodule AprsmeWeb.MapLive.Index do
       Aprsme.SpatialPubSub.unregister_client(socket.assigns.spatial_client_id)
     end
 
+    # Unsubscribe from StreamingPacketsPubSub
+    Aprsme.StreamingPacketsPubSub.unsubscribe(self())
+
     if socket.assigns.buffer_timer, do: Process.cancel_timer(socket.assigns.buffer_timer)
     # Clean up any pending bounds update timer
     if socket.assigns[:bounds_update_timer] do
@@ -1636,6 +1644,9 @@ defmodule AprsmeWeb.MapLive.Index do
     if socket.assigns[:spatial_client_id] do
       Aprsme.SpatialPubSub.update_viewport(socket.assigns.spatial_client_id, map_bounds)
     end
+
+    # Update StreamingPacketsPubSub subscription with new bounds
+    Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), map_bounds)
 
     # Check if this is the initial load or if bounds have actually changed
     is_initial_load = socket.assigns[:needs_initial_historical_load] || !socket.assigns[:initial_bounds_loaded]
