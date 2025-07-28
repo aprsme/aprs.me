@@ -108,6 +108,8 @@ defmodule AprsmeWeb.MapLive.Index do
     Phoenix.PubSub.subscribe(Aprsme.PubSub, "bad_packets")
 
     Process.send_after(self(), :cleanup_old_packets, 60_000)
+    # Schedule UI update timer to refresh "time ago" display every 30 seconds
+    Process.send_after(self(), :update_time_display, 30_000)
 
     socket
     |> assign(:spatial_client_id, client_id)
@@ -655,6 +657,8 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_info(:initialize_replay, socket), do: handle_info_initialize_replay(socket)
 
   def handle_info(:cleanup_old_packets, socket), do: handle_cleanup_old_packets(socket)
+
+  def handle_info(:update_time_display, socket), do: handle_update_time_display(socket)
 
   def handle_info(:reload_historical_packets, socket), do: handle_reload_historical_packets(socket)
 
@@ -1405,6 +1409,15 @@ defmodule AprsmeWeb.MapLive.Index do
     {:noreply, assign(socket, packet_state: updated_packet_state)}
   end
 
+  defp handle_update_time_display(socket) do
+    # Schedule next update
+    Process.send_after(self(), :update_time_display, 30_000)
+
+    # Simply triggering a re-render will cause time_ago_in_words to recalculate
+    # No need to update any assigns, just return the socket
+    {:noreply, socket}
+  end
+
   defp handle_reload_historical_packets(socket) do
     require Logger
 
@@ -1670,8 +1683,6 @@ defmodule AprsmeWeb.MapLive.Index do
       socket
       |> assign(map_bounds: map_bounds, packet_state: updated_packet_state)
       |> assign(needs_initial_historical_load: false)
-      # Update last update timestamp when map bounds change - this triggers data refresh
-      |> assign(last_update_at: DateTime.utc_now())
 
     # Load historical packets for the new bounds (now socket.assigns.map_bounds is correct)
     Logger.debug("Starting progressive historical loading for new bounds")
