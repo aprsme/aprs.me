@@ -321,6 +321,27 @@ window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 // connect if there are any LiveViews on the page
 liveSocket.connect();
 
+// Workaround for Phoenix LiveView bug where fallback timer isn't cleared
+// after successful WebSocket connection
+window.addEventListener("phx:live_socket:connect", (info) => {
+  const socket = liveSocket.socket;
+  if (socket && socket.fallbackTimer) {
+    clearTimeout(socket.fallbackTimer);
+    socket.fallbackTimer = null;
+    console.log("[LiveSocket] Cleared fallback timer after successful connection");
+  }
+});
+
+// Also check periodically in case the event doesn't fire
+setTimeout(() => {
+  const socket = liveSocket.socket;
+  if (socket && socket.isConnected() && socket.fallbackTimer) {
+    clearTimeout(socket.fallbackTimer);
+    socket.fallbackTimer = null;
+    console.log("[LiveSocket] Cleared lingering fallback timer");
+  }
+}, 5000);
+
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
