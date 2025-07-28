@@ -334,10 +334,13 @@ defmodule Aprsme.Packet do
     symbol_code = data_extended[:symbol_code] || data_extended["symbol_code"]
     symbol_table_id = data_extended[:symbol_table_id] || data_extended["symbol_table_id"]
 
+    # Clean comment by removing altitude and PHG data
+    comment = clean_comment(data_extended[:comment] || data_extended["comment"])
+
     map
     |> maybe_put(:symbol_code, symbol_code)
     |> maybe_put(:symbol_table_id, symbol_table_id)
-    |> maybe_put(:comment, data_extended[:comment] || data_extended["comment"])
+    |> maybe_put(:comment, comment)
     |> maybe_put(:timestamp, data_extended[:timestamp] || data_extended["timestamp"])
     |> maybe_put(
       :aprs_messaging,
@@ -353,6 +356,22 @@ defmodule Aprsme.Packet do
   end
 
   defp put_equipment_fields(map, data_extended) do
+    # Extract altitude from comment if not already in data_extended
+    altitude =
+      data_extended[:altitude] || data_extended["altitude"] ||
+        extract_altitude_from_comment(data_extended[:comment] || data_extended["comment"])
+
+    # Extract PHG from comment if not already in data_extended
+    phg =
+      data_extended[:phg] || data_extended["phg"] ||
+        extract_phg_from_comment(data_extended[:comment] || data_extended["comment"])
+
+    # Update data_extended with extracted values
+    data_extended =
+      data_extended
+      |> Map.put(:altitude, altitude)
+      |> Map.put(:phg, phg)
+
     map
     |> maybe_put(:manufacturer, data_extended[:manufacturer] || data_extended["manufacturer"])
     |> maybe_put(
@@ -361,7 +380,8 @@ defmodule Aprsme.Packet do
     )
     |> maybe_put(:course, data_extended[:course] || data_extended["course"])
     |> maybe_put(:speed, data_extended[:speed] || data_extended["speed"])
-    |> maybe_put(:altitude, data_extended[:altitude] || data_extended["altitude"])
+    |> maybe_put(:altitude, altitude)
+    |> maybe_put(:phg, phg)
     |> put_phg_fields(data_extended)
   end
 
@@ -589,4 +609,83 @@ defmodule Aprsme.Packet do
   # end
 
   # def distance_between(_, _), do: nil
+
+  # Clean comment by removing altitude and PHG data
+  defp clean_comment(nil), do: nil
+
+  defp clean_comment(comment) when is_binary(comment) do
+    comment
+    # Remove altitude
+    |> String.replace(~r/\s*\/A=\d{6}/, "")
+    # Remove PHG
+    |> String.replace(~r/PHG\d{4}\s*/, "")
+    |> String.trim()
+  end
+
+  defp clean_comment(comment), do: comment
+
+  # Extract altitude from APRS comment field (e.g., "/A=000680" means 680 feet)
+  defp extract_altitude_from_comment(nil), do: nil
+
+  defp extract_altitude_from_comment(comment) when is_binary(comment) do
+    case Regex.run(~r/\/A=(\d{6})/, comment) do
+      [_, altitude_str] ->
+        # Convert string to integer (altitude in feet)
+        case Integer.parse(altitude_str) do
+          # Convert to float
+          {altitude, _} -> altitude * 1.0
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp extract_altitude_from_comment(_), do: nil
+
+  # Extract PHG (Power-Height-Gain) from APRS comment field (e.g., "PHG5530")
+  defp extract_phg_from_comment(nil), do: nil
+
+  defp extract_phg_from_comment(comment) when is_binary(comment) do
+    case Regex.run(~r/PHG(\d)(\d)(\d)(\d)/, comment) do
+      [_, power, height, gain, dir] ->
+        %{
+          power: calculate_phg_power(power),
+          height: calculate_phg_height(height),
+          gain: String.to_integer(gain),
+          directivity: calculate_phg_directivity(dir)
+        }
+
+      _ ->
+        nil
+    end
+  end
+
+  defp extract_phg_from_comment(_), do: nil
+
+  # PHG power calculation: power = n^2 watts
+  defp calculate_phg_power(n) when is_binary(n) do
+    case Integer.parse(n) do
+      {num, _} -> num * num
+      _ -> 0
+    end
+  end
+
+  # PHG height calculation: height = 10 * 2^n feet
+  defp calculate_phg_height(n) when is_binary(n) do
+    case Integer.parse(n) do
+      {num, _} -> 10 * trunc(:math.pow(2, num))
+      _ -> 10
+    end
+  end
+
+  # PHG directivity: 0-8 = directional (n * 45 degrees), 9 = omni (360 degrees)
+  defp calculate_phg_directivity(n) when is_binary(n) do
+    case Integer.parse(n) do
+      {9, _} -> 360
+      {num, _} when num >= 0 and num <= 8 -> num * 45
+      _ -> 0
+    end
+  end
 end

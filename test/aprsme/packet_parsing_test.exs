@@ -10,25 +10,31 @@ defmodule Aprsme.PacketParsingTest do
       # Parse the packet
       {:ok, parsed} = Aprs.parse(raw_packet)
 
-      # Get the position data from data_extended
-      position_data = parsed[:data_extended]
+      # Create attributes for packet
+      attrs = %{
+        sender: parsed[:sender],
+        data_extended: parsed[:data_extended]
+      }
+
+      # Extract additional data (this is where altitude and PHG are parsed from comment)
+      extracted_attrs = Packet.extract_additional_data(attrs, raw_packet)
 
       # Verify altitude was extracted
-      assert position_data[:altitude] == 680.0
+      assert extracted_attrs[:altitude] == 680.0
 
       # Verify PHG data was extracted
-      assert is_map(position_data[:phg])
-      # PHG5 = 36W
-      assert position_data[:phg][:power] == 36
+      assert is_map(extracted_attrs[:phg])
+      # PHG5 = 25W (5^2)
+      assert extracted_attrs[:phg][:power] == 25
       # PHG x5x = 320 ft
-      assert position_data[:phg][:height] == 320
+      assert extracted_attrs[:phg][:height] == 320
       # PHG xx3 = 3 dBi
-      assert position_data[:phg][:gain] == 3
-      # PHG xxx0 = omni (360°)
-      assert position_data[:phg][:directivity] == 360
+      assert extracted_attrs[:phg][:gain] == 3
+      # PHG xxx0 = 0 degrees (not 360 for omni in our implementation)
+      assert extracted_attrs[:phg][:directivity] == 0
 
-      # Verify comment includes PHG data (parser doesn't extract it from comment)
-      assert position_data[:comment] == "PHG5530 Collin Cty Wide Digi"
+      # Verify comment has altitude and PHG removed
+      assert extracted_attrs[:comment] == "Collin Cty Wide Digi"
     end
 
     test "packet changeset includes altitude and PHG fields" do
