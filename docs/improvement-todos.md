@@ -76,6 +76,16 @@ This document tracks potential improvements identified during the multi-replica 
     - Weather queries: ~2-3ms
     - Distinct callsign queries: ~4ms
 
+### ✅ Fix PostgreSQL Notification Trigger for Info Page Updates (2025-07-28)
+- **Status**: Completed
+- **Impact**: High - Fix real-time updates on info pages
+- **Implementation**:
+  - Updated `notify_packets_insert` trigger to send all required fields
+  - Previously only sent: id, sender, lat, lon, inserted_at
+  - Now includes: altitude, course, speed, symbol data, device info, PHG data, etc.
+  - Info page (/info/:callsign) now updates in real-time with complete packet data
+  - Ensures all UI elements refresh properly when new packets arrive
+
 ### 3. Add Metrics and Monitoring with Prometheus
 - **Status**: Pending
 - **Impact**: High - Production visibility
