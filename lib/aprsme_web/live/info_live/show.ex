@@ -53,13 +53,21 @@ defmodule AprsmeWeb.InfoLive.Show do
   @impl true
   def handle_info({:postgres_packet, packet}, socket) do
     # Since we're subscribed to callsign-specific topic, no need to filter
+    # The packet from PostgreSQL notify already contains all fields
     process_packet_update(packet, socket)
   end
 
   def handle_info(_message, socket), do: {:noreply, socket}
 
-  defp process_packet_update(_incoming_packet, socket) do
-    # Refresh data when new packet arrives
+  defp process_packet_update(incoming_packet, socket) do
+    # Log for debugging
+    require Logger
+
+    Logger.debug(
+      "InfoLive received packet update for #{socket.assigns.callsign}: #{inspect(Map.get(incoming_packet, "raw_packet"))}"
+    )
+
+    # Refresh all data when new packet arrives
     packet = get_latest_packet(socket.assigns.callsign)
     packet = if packet, do: SharedPacketHandler.enrich_with_device_info(packet)
     # Get locale from socket assigns

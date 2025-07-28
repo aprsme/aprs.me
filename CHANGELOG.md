@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - PostgreSQL notify trigger now sends all required fields for info page updates
 - Info page real-time updates now display all packet details correctly
+- Enhanced PostgreSQL notify to include complete packet data (device info, weather data, SSIDs, etc.)
 
 ## [0.2.0] - 2025-07-26
 
