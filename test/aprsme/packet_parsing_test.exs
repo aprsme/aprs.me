@@ -22,16 +22,15 @@ defmodule Aprsme.PacketParsingTest do
       # Verify altitude was extracted
       assert extracted_attrs[:altitude] == 680.0
 
-      # Verify PHG data was extracted
-      assert is_map(extracted_attrs[:phg])
+      # Verify PHG data was extracted into individual fields
       # PHG5 = 25W (5^2)
-      assert extracted_attrs[:phg][:power] == 25
+      assert extracted_attrs[:phg_power] == 25
       # PHG x5x = 320 ft
-      assert extracted_attrs[:phg][:height] == 320
+      assert extracted_attrs[:phg_height] == 320
       # PHG xx3 = 3 dBi
-      assert extracted_attrs[:phg][:gain] == 3
+      assert extracted_attrs[:phg_gain] == 3
       # PHG xxx0 = 0 degrees (not 360 for omni in our implementation)
-      assert extracted_attrs[:phg][:directivity] == 0
+      assert extracted_attrs[:phg_directivity] == 0
 
       # Verify comment has altitude and PHG removed
       assert extracted_attrs[:comment] == "Collin Cty Wide Digi"

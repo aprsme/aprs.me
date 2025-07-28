@@ -381,7 +381,7 @@ defmodule Aprsme.Packet do
     |> maybe_put(:course, data_extended[:course] || data_extended["course"])
     |> maybe_put(:speed, data_extended[:speed] || data_extended["speed"])
     |> maybe_put(:altitude, altitude)
-    |> maybe_put(:phg, phg)
+    # Don't add :phg to the map - it will be split into individual fields by put_phg_fields
     |> put_phg_fields(data_extended)
   end
 
