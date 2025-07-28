@@ -19,8 +19,8 @@ defmodule AprsmeWeb.Components.InfoMapComponent do
     ~H"""
     <div
       id={@id}
-      class="info-map-container rounded-lg overflow-hidden shadow-md"
-      style={"height: #{@height};"}
+      class="info-map-container overflow-hidden h-full"
+      style={"height: #{@height}; min-height: 320px;"}
       phx-hook="InfoMap"
       data-lat={@lat}
       data-lon={@lon}
