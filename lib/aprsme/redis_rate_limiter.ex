@@ -107,7 +107,9 @@ defmodule Aprsme.RedisRateLimiter do
            [
              ["ZREMRANGEBYSCORE", key, 0, window_start],
              ["ZCARD", key]
-           ], timeout: @redis_timeout) do
+           ],
+           timeout: @redis_timeout
+         ) do
       {:ok, [_, count]} ->
         {:ok, count}
 
