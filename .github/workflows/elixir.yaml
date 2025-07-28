@@ -46,7 +46,7 @@ jobs:
       # and running the workflow steps.
       matrix:
         otp: ["27.3.4"]
-        elixir: ["1.18.4"]
+        elixir: ["1.19.0-rc.0"]
     steps:
       # Step: Setup Elixir + Erlang using erlef/setup-beam
       - name: Set up Elixir and Erlang
