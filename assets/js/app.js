@@ -54,6 +54,8 @@ import MapAPRSMap from "./map";
 import ErrorBoundary from "./hooks/error_boundary";
 // Import info map hook
 import { InfoMap } from "./hooks/info_map";
+// Import time ago hook
+import TimeAgoHook from "./hooks/time_ago_hook";
 
 // Responsive Slideover Hook
 let ResponsiveSlideoverHook = {
@@ -218,6 +220,7 @@ Object.keys(WeatherChartHooks).forEach(hookName => {
 Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
 Hooks.BodyClassHook = BodyClassHook;
 Hooks.ErrorBoundary = ErrorBoundary;
+Hooks.TimeAgoHook = TimeAgoHook;
 
 // Helper function to get theme-aware colors
 const getThemeColors = () => {

@@ -34,6 +34,14 @@ defmodule Aprsme.PostgresNotifier do
         # Broadcast to the general packet topic
         Phoenix.PubSub.broadcast(Aprsme.PubSub, @packet_topic, {:postgres_packet, packet})
 
+        # Broadcast to callsign-specific topic
+        callsign = Map.get(packet, "sender") || Map.get(packet, :sender)
+
+        if is_binary(callsign) and callsign != "" do
+          normalized_callsign = String.upcase(String.trim(callsign))
+          Phoenix.PubSub.broadcast(Aprsme.PubSub, "packets:#{normalized_callsign}", {:postgres_packet, packet})
+        end
+
         # Also broadcast to callsign-specific weather topic if it's a weather packet
         broadcast_weather_packet_if_relevant(packet)
 

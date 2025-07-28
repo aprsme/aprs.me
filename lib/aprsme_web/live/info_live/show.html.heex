@@ -102,7 +102,12 @@
                 <dt class="text-xs font-medium opacity-70">{gettext("Last Position")}</dt>
                 <dd class="mt-1 text-sm">
                   <%= if @packet.received_at do %>
-                    <div class="font-semibold">
+                    <div
+                      class="font-semibold"
+                      phx-hook="TimeAgoHook"
+                      id="last-position-time"
+                      data-timestamp={DateTime.to_iso8601(@packet.received_at)}
+                    >
                       {AprsmeWeb.TimeHelpers.time_ago_in_words(@packet.received_at)}
                     </div>
                     <div class="text-xs opacity-70 font-mono">
@@ -381,8 +386,13 @@
                             <% end %>
                           </td>
                           <td class="opacity-70">
-                            <%= if ssid_info.last_heard do %>
-                              <span class="text-sm">
+                            <%= if ssid_info.last_heard && ssid_info.last_heard.timestamp do %>
+                              <span
+                                class="text-sm"
+                                phx-hook="TimeAgoHook"
+                                id={"ssid-time-#{ssid_info.ssid}"}
+                                data-timestamp={ssid_info.last_heard.timestamp}
+                              >
                                 {ssid_info.last_heard.time_ago}
                               </span>
                             <% else %>
@@ -466,7 +476,12 @@
                     </td>
                     <td class="opacity-70">
                       <%= if neighbor.last_heard do %>
-                        <div class="font-semibold">
+                        <div
+                          class="font-semibold"
+                          phx-hook="TimeAgoHook"
+                          id={"neighbor-time-#{neighbor.callsign}"}
+                          data-timestamp={neighbor.last_heard.timestamp}
+                        >
                           {neighbor.last_heard.time_ago}
                         </div>
                         <div class="text-xs opacity-70 font-mono">

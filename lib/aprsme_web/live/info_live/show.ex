@@ -20,9 +20,9 @@ defmodule AprsmeWeb.InfoLive.Show do
   def mount(%{"callsign" => callsign}, _session, socket) do
     normalized_callsign = Callsign.normalize(callsign)
 
-    # Subscribe to Postgres notifications for live updates
+    # Subscribe to callsign-specific topic for live updates
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, "packets:#{normalized_callsign}")
     end
 
     packet = get_latest_packet(normalized_callsign)
@@ -52,31 +52,13 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   @impl true
   def handle_info({:postgres_packet, packet}, socket) do
-    require Logger
-
-    # Debug log to see if we're receiving packets
-    packet_sender = Map.get(packet, "sender") || Map.get(packet, :sender, "unknown")
-    Logger.debug("InfoLive received packet from sender: #{packet_sender} for callsign: #{socket.assigns.callsign}")
-
-    SharedPacketHandler.handle_packet_update(packet, socket,
-      filter_fn: SharedPacketHandler.callsign_filter(socket.assigns.callsign),
-      process_fn: &process_packet_update/2,
-      enrich_packet: false
-    )
+    # Since we're subscribed to callsign-specific topic, no need to filter
+    process_packet_update(packet, socket)
   end
 
-  def handle_info(message, socket) do
-    require Logger
-
-    Logger.debug("InfoLive received unknown message: #{inspect(message)}")
-    {:noreply, socket}
-  end
+  def handle_info(_message, socket), do: {:noreply, socket}
 
   defp process_packet_update(_incoming_packet, socket) do
-    require Logger
-
-    Logger.debug("InfoLive processing packet update for callsign: #{socket.assigns.callsign}")
-
     # Refresh data when new packet arrives
     packet = get_latest_packet(socket.assigns.callsign)
     packet = if packet, do: SharedPacketHandler.enrich_with_device_info(packet)
@@ -103,8 +85,7 @@ defmodule AprsmeWeb.InfoLive.Show do
   defp get_latest_packet(callsign) do
     # Get the most recent packet for this callsign, regardless of type
     # This ensures we show the most recent activity, not just position packets
-    # Use cached version for better performance
-    Aprsme.CachedQueries.get_latest_packet_for_callsign_cached(callsign)
+    Packets.get_latest_packet_for_callsign(callsign)
   end
 
   defp get_neighbors(nil, _callsign, _locale), do: []
@@ -180,18 +161,21 @@ defmodule AprsmeWeb.InfoLive.Show do
       if timestamp_dt do
         %{
           time_ago: AprsmeWeb.TimeHelpers.time_ago_in_words(timestamp_dt),
-          formatted: Calendar.strftime(timestamp_dt, "%Y-%m-%d %H:%M:%S UTC")
+          formatted: Calendar.strftime(timestamp_dt, "%Y-%m-%d %H:%M:%S UTC"),
+          timestamp: DateTime.to_iso8601(timestamp_dt)
         }
       else
         %{
           time_ago: gettext("Unknown"),
-          formatted: ""
+          formatted: "",
+          timestamp: nil
         }
       end
     else
       %{
         time_ago: gettext("Unknown"),
-        formatted: ""
+        formatted: "",
+        timestamp: nil
       }
     end
   end

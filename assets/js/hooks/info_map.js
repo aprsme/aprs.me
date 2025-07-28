@@ -1,6 +1,51 @@
 // Simple map hook for displaying a single station on the info page
 export const InfoMap = {
   mounted() {
+    this.initializeMap();
+  },
+
+  updated() {
+    // When the element updates, check if we need to update the marker
+    const lat = parseFloat(this.el.dataset.lat);
+    const lon = parseFloat(this.el.dataset.lon);
+    const symbolHtml = this.el.dataset.symbolHtml;
+
+    // Validate coordinates
+    if (isNaN(lat) || isNaN(lon)) {
+      return;
+    }
+
+    // If map doesn't exist yet, initialize it
+    if (!this.map) {
+      this.initializeMap();
+      return;
+    }
+
+    // Update marker position if it changed
+    if (this.marker) {
+      const currentPos = this.marker.getLatLng();
+      if (currentPos.lat !== lat || currentPos.lng !== lon) {
+        // Animate the marker to the new position
+        this.marker.setLatLng([lat, lon]);
+        
+        // Update the popup content
+        const callsign = this.el.dataset.callsign;
+        this.marker.setPopupContent(`<strong>${callsign}</strong><br/>Lat: ${lat.toFixed(6)}<br/>Lon: ${lon.toFixed(6)}`);
+        
+        // Optionally pan the map to the new position with animation
+        this.map.panTo([lat, lon], { animate: true, duration: 1 });
+      }
+
+      // Update marker icon if symbol changed
+      if (symbolHtml !== this.lastSymbolHtml) {
+        const markerIcon = this.createMarkerIcon(symbolHtml);
+        this.marker.setIcon(markerIcon);
+        this.lastSymbolHtml = symbolHtml;
+      }
+    }
+  },
+
+  initializeMap() {
     // Check if Leaflet is available
     if (typeof L === "undefined") {
       console.error("Leaflet not loaded for InfoMap");
@@ -37,34 +82,11 @@ export const InfoMap = {
       }).addTo(this.map);
 
       // Create marker icon
-      let markerIcon;
-      if (symbolHtml) {
-        // Use the APRS symbol if provided
-        markerIcon = L.divIcon({
-          html: symbolHtml,
-          className: 'aprs-info-marker',
-          iconSize: [32, 32],
-          iconAnchor: [16, 16]
-        });
-      } else {
-        // Default marker
-        markerIcon = L.divIcon({
-          html: `<div style="
-            width: 24px;
-            height: 24px;
-            background-color: #3b82f6;
-            border: 3px solid white;
-            border-radius: 50%;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-          "></div>`,
-          className: '',
-          iconSize: [24, 24],
-          iconAnchor: [12, 12]
-        });
-      }
+      const markerIcon = this.createMarkerIcon(symbolHtml);
+      this.lastSymbolHtml = symbolHtml;
 
       // Add marker for the station
-      const marker = L.marker([lat, lon], { icon: markerIcon })
+      this.marker = L.marker([lat, lon], { icon: markerIcon })
         .addTo(this.map)
         .bindPopup(`<strong>${callsign}</strong><br/>Lat: ${lat.toFixed(6)}<br/>Lon: ${lon.toFixed(6)}`);
 
@@ -77,6 +99,33 @@ export const InfoMap = {
 
     } catch (error) {
       console.error("Error initializing InfoMap:", error);
+    }
+  },
+
+  createMarkerIcon(symbolHtml) {
+    if (symbolHtml) {
+      // Use the APRS symbol if provided
+      return L.divIcon({
+        html: symbolHtml,
+        className: 'aprs-info-marker',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+    } else {
+      // Default marker
+      return L.divIcon({
+        html: `<div style="
+          width: 24px;
+          height: 24px;
+          background-color: #3b82f6;
+          border: 3px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        "></div>`,
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
     }
   },
 
