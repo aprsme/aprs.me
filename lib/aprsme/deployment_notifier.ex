@@ -7,7 +7,7 @@ defmodule Aprsme.DeploymentNotifier do
 
   require Logger
 
-  @check_interval :timer.seconds(30)
+  @check_interval 30_000
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
