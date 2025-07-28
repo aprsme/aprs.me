@@ -52,6 +52,12 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   @impl true
   def handle_info({:postgres_packet, packet}, socket) do
+    require Logger
+
+    # Debug log to see if we're receiving packets
+    packet_sender = Map.get(packet, "sender") || Map.get(packet, :sender, "unknown")
+    Logger.debug("InfoLive received packet from sender: #{packet_sender} for callsign: #{socket.assigns.callsign}")
+
     SharedPacketHandler.handle_packet_update(packet, socket,
       filter_fn: SharedPacketHandler.callsign_filter(socket.assigns.callsign),
       process_fn: &process_packet_update/2,
@@ -59,9 +65,18 @@ defmodule AprsmeWeb.InfoLive.Show do
     )
   end
 
-  def handle_info(_message, socket), do: {:noreply, socket}
+  def handle_info(message, socket) do
+    require Logger
 
-  defp process_packet_update(_packet, socket) do
+    Logger.debug("InfoLive received unknown message: #{inspect(message)}")
+    {:noreply, socket}
+  end
+
+  defp process_packet_update(_incoming_packet, socket) do
+    require Logger
+
+    Logger.debug("InfoLive processing packet update for callsign: #{socket.assigns.callsign}")
+
     # Refresh data when new packet arrives
     packet = get_latest_packet(socket.assigns.callsign)
     packet = if packet, do: SharedPacketHandler.enrich_with_device_info(packet)
