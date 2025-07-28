@@ -47,7 +47,7 @@ defmodule AprsmeWeb.Plugs.HealthCheck do
       health_status == :draining ->
         {:error, "Application is draining connections"}
 
-      Aprsme.ShutdownHandler.shutting_down?() ->
+      shutting_down?() ->
         {:error, "Application is shutting down"}
 
       true ->
@@ -104,5 +104,27 @@ defmodule AprsmeWeb.Plugs.HealthCheck do
     :ok
   rescue
     _ -> {:error, "PubSub check failed"}
+  end
+
+  defp shutting_down? do
+    # Check if ShutdownHandler process exists and is shutting down
+    case Process.whereis(Aprsme.ShutdownHandler) do
+      nil ->
+        # Process doesn't exist, not shutting down
+        false
+
+      pid when is_pid(pid) ->
+        # Process exists, check if alive and call it
+        if Process.alive?(pid) do
+          try do
+            GenServer.call(pid, :shutting_down?, 5000)
+          catch
+            :exit, _ -> false
+            _, _ -> false
+          end
+        else
+          false
+        end
+    end
   end
 end
