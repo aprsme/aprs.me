@@ -45,11 +45,6 @@ const libraries = [
     name: 'topbar',
     url: 'https://unpkg.com/topbar@3.0.0/topbar.min.js',
     minUrl: 'https://unpkg.com/topbar@3.0.0/topbar.min.js'
-  },
-  {
-    name: 'leaflet-vectorgrid',
-    url: 'https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js',
-    minUrl: 'https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js'
   }
 ];
 

@@ -15,7 +15,7 @@ const LEAFLET_USED_FEATURES = [
   'L.polyline', 'L.circle', 'L.circleMarker', 'L.control', 'L.DomUtil', 'L.DomEvent',
   
   // Plugins used
-  'L.heatLayer', 'L.markerClusterGroup', 'L.vectorGrid'
+  'L.heatLayer', 'L.markerClusterGroup'
 ];
 
 const CHARTJS_USED_FEATURES = [
@@ -69,8 +69,7 @@ function createMinimalVendorBundle() {
     'leaflet-heat.js', 
     'leaflet-markercluster.js',
     'overlapping-marker-spiderfier.js',
-    'topbar.js',
-    'leaflet-vectorgrid.js'
+    'topbar.js'
   ];
   
   let optimizedBundle = '';
@@ -97,8 +96,8 @@ function createMinimalVendorBundle() {
     optimizedBundle += `\n/* chartjs-adapter-date-fns */\n${content}\n`;
   }
   
-  // Add topbar and vectorgrid
-  ['topbar.js', 'leaflet-vectorgrid.js'].forEach(file => {
+  // Add topbar
+  ['topbar.js'].forEach(file => {
     const filePath = path.join(jsDir, file);
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf8');

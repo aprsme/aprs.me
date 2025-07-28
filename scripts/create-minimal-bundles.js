@@ -122,12 +122,6 @@ function createOptimizedPlugins() {
     }
   });
   
-  // Add vector grid only if needed (conditional loading)
-  const vectorGridPath = path.join(JS_DIR, 'leaflet-vectorgrid.js');
-  if (fs.existsSync(vectorGridPath)) {
-    const vectorGridContent = fs.readFileSync(vectorGridPath, 'utf8');
-    pluginBundle += `\n/* leaflet-vectorgrid.js - lazy loaded */\nwindow.LeafletVectorGrid = (function() {\n${vectorGridContent}\nreturn L.vectorGrid;\n})();\n`;
-  }
   
   fs.writeFileSync(path.join(JS_DIR, 'plugins-optimized.js'), pluginBundle);
   return pluginBundle.length;
