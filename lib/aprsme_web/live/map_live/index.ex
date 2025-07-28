@@ -28,6 +28,7 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.MapLive.UrlParams
   alias AprsmeWeb.TimeUtils
   alias Phoenix.LiveView.Socket
+  alias Phoenix.Socket.Broadcast
 
   @impl true
   def mount(params, session, socket) do
@@ -106,6 +107,9 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Still subscribe to bad packets (they don't have location)
     Phoenix.PubSub.subscribe(Aprsme.PubSub, "bad_packets")
+
+    # Subscribe to deployment events
+    Phoenix.PubSub.subscribe(Aprsme.PubSub, "deployment_events")
 
     # Subscribe to StreamingPacketsPubSub with initial bounds
     Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), default_bounds)
@@ -671,6 +675,13 @@ defmodule AprsmeWeb.MapLive.Index do
 
   def handle_info({:streaming_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
 
+  def handle_info(
+        %Broadcast{topic: "deployment_events", payload: {:new_deployment, %{deployed_at: deployed_at}}},
+        socket
+      ) do
+    {:noreply, assign(socket, :deployed_at, deployed_at)}
+  end
+
   def handle_info({:load_rf_path_station_packets, stations}, socket) do
     # Load the most recent packet for each RF path station
     station_packets =
@@ -722,7 +733,7 @@ defmodule AprsmeWeb.MapLive.Index do
     end
   end
 
-  def handle_info(%Phoenix.Socket.Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket),
+  def handle_info(%Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket),
     do: handle_info({:postgres_packet, packet}, socket)
 
   def handle_info({:show_error, message}, socket) do

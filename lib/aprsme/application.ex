@@ -49,6 +49,8 @@ defmodule Aprsme.Application do
       Aprsme.CleanupScheduler,
       Aprsme.Presence,
       Aprsme.PostgresNotifier,
+      # Start deployment notifier
+      Aprsme.DeploymentNotifier,
       # Start the packet processing pipeline
       Aprsme.PacketPipelineSupervisor
     ]

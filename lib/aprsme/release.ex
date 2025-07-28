@@ -100,6 +100,27 @@ defmodule Aprsme.Release do
     # Store in application config
     Application.put_env(:aprsme, :deployed_at, deployed_at)
 
+    # Notify about deployment after a short delay to ensure PubSub is started
+    # In k8s, this will notify all connected clients about the new deployment
+    if System.get_env("DEPLOYED_AT") do
+      spawn(fn ->
+        # Wait for application to start
+        Process.sleep(10_000)
+
+        try do
+          require Logger
+
+          Aprsme.DeploymentNotifier.notify_deployment(deployed_at)
+          Logger.info("Deployment notification sent for timestamp: #{deployed_at}")
+        rescue
+          error ->
+            require Logger
+
+            Logger.warning("Failed to send deployment notification: #{inspect(error)}")
+        end
+      end)
+    end
+
     deployed_at
   end
 
