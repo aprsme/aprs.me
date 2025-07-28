@@ -325,7 +325,6 @@ let MapAPRSMap = {
           retryCount.delete(src);
         }
       });
-      }
 
       tileLayer.addTo(self.map);
     } catch (error) {
