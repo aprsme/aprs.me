@@ -102,7 +102,14 @@ defmodule Aprsme.DeviceCache do
     require Logger
 
     try do
-      devices = Repo.all(Devices)
+      devices =
+        try do
+          Repo.all(Devices)
+        rescue
+          error ->
+            Logger.error("Failed to load devices from database: #{inspect(error)}")
+            []
+        end
 
       # Store all devices in cache
       case Cache.put(@cache_name, :all_devices, devices) do

@@ -8,6 +8,8 @@ defmodule Aprsme.RedisCache do
 
   # 5 minutes in seconds
   @default_ttl 300
+  # 5 seconds timeout for Redis operations
+  @redis_timeout 5000
 
   def child_spec(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -29,7 +31,7 @@ defmodule Aprsme.RedisCache do
   def get(cache_name, key) do
     redis_key = make_redis_key(cache_name, key)
 
-    case Redix.command(redis_name(cache_name), ["GET", redis_key]) do
+    case Redix.command(redis_name(cache_name), ["GET", redis_key], timeout: @redis_timeout) do
       {:ok, nil} ->
         {:ok, nil}
 
@@ -50,7 +52,7 @@ defmodule Aprsme.RedisCache do
     ttl = Keyword.get(opts, :ttl, @default_ttl)
     serialized = serialize(value)
 
-    case Redix.command(redis_name(cache_name), ["SETEX", redis_key, ttl, serialized]) do
+    case Redix.command(redis_name(cache_name), ["SETEX", redis_key, ttl, serialized], timeout: @redis_timeout) do
       {:ok, "OK"} ->
         {:ok, true}
 
@@ -66,7 +68,7 @@ defmodule Aprsme.RedisCache do
   def del(cache_name, key) do
     redis_key = make_redis_key(cache_name, key)
 
-    case Redix.command(redis_name(cache_name), ["DEL", redis_key]) do
+    case Redix.command(redis_name(cache_name), ["DEL", redis_key], timeout: @redis_timeout) do
       {:ok, _} ->
         {:ok, true}
 
@@ -85,7 +87,7 @@ defmodule Aprsme.RedisCache do
     # Use SCAN to find keys matching pattern
     case scan_keys(cache_name, redis_pattern) do
       {:ok, keys} when keys != [] ->
-        case Redix.command(redis_name(cache_name), ["DEL" | keys]) do
+        case Redix.command(redis_name(cache_name), ["DEL" | keys], timeout: @redis_timeout) do
           {:ok, count} ->
             {:ok, count}
 
@@ -110,7 +112,7 @@ defmodule Aprsme.RedisCache do
 
     case scan_keys(cache_name, pattern) do
       {:ok, keys} when keys != [] ->
-        case Redix.pipeline(redis_name(cache_name), Enum.map(keys, &["DEL", &1])) do
+        case Redix.pipeline(redis_name(cache_name), Enum.map(keys, &["DEL", &1]), timeout: @redis_timeout) do
           {:ok, _results} ->
             {:ok, true}
 
@@ -152,7 +154,7 @@ defmodule Aprsme.RedisCache do
   def exists?(cache_name, key) do
     redis_key = make_redis_key(cache_name, key)
 
-    case Redix.command(redis_name(cache_name), ["EXISTS", redis_key]) do
+    case Redix.command(redis_name(cache_name), ["EXISTS", redis_key], timeout: @redis_timeout) do
       {:ok, 1} -> true
       {:ok, 0} -> false
       {:error, _} -> false
@@ -165,7 +167,7 @@ defmodule Aprsme.RedisCache do
   def ttl(cache_name, key) do
     redis_key = make_redis_key(cache_name, key)
 
-    case Redix.command(redis_name(cache_name), ["TTL", redis_key]) do
+    case Redix.command(redis_name(cache_name), ["TTL", redis_key], timeout: @redis_timeout) do
       # Key doesn't exist
       {:ok, -2} -> {:ok, nil}
       # Key exists but has no TTL
@@ -202,7 +204,9 @@ defmodule Aprsme.RedisCache do
   end
 
   defp scan_keys(cache_name, pattern, cursor, acc) do
-    case Redix.command(redis_name(cache_name), ["SCAN", cursor, "MATCH", pattern, "COUNT", "100"]) do
+    case Redix.command(redis_name(cache_name), ["SCAN", cursor, "MATCH", pattern, "COUNT", "100"],
+           timeout: @redis_timeout
+         ) do
       {:ok, [new_cursor, keys]} ->
         new_acc = acc ++ keys
 

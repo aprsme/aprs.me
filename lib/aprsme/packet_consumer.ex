@@ -249,30 +249,35 @@ defmodule Aprsme.PacketConsumer do
   # Broadcast packets asynchronously to avoid blocking
   defp broadcast_packets_async(packets) do
     Task.start(fn ->
-      cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
+      try do
+        cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
 
-      Enum.each(packets, fn packet_attrs ->
-        # Convert back to a format suitable for broadcasting
-        packet = %{
-          sender: packet_attrs[:sender],
-          latitude: packet_attrs[:lat],
-          longitude: packet_attrs[:lon],
-          received_at: packet_attrs[:received_at],
-          data_type: packet_attrs[:data_type],
-          altitude: packet_attrs[:altitude],
-          speed: packet_attrs[:speed],
-          course: packet_attrs[:course],
-          comment: packet_attrs[:comment]
-        }
+        Enum.each(packets, fn packet_attrs ->
+          # Convert back to a format suitable for broadcasting
+          packet = %{
+            sender: packet_attrs[:sender],
+            latitude: packet_attrs[:lat],
+            longitude: packet_attrs[:lon],
+            received_at: packet_attrs[:received_at],
+            data_type: packet_attrs[:data_type],
+            altitude: packet_attrs[:altitude],
+            speed: packet_attrs[:speed],
+            course: packet_attrs[:course],
+            comment: packet_attrs[:comment]
+          }
 
-        if cluster_enabled do
-          # Use cluster distributor to broadcast to all nodes
-          Aprsme.Cluster.PacketDistributor.distribute_packet(packet)
-        else
-          # Normal single-node broadcasting
-          Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
-        end
-      end)
+          if cluster_enabled do
+            # Use cluster distributor to broadcast to all nodes
+            Aprsme.Cluster.PacketDistributor.distribute_packet(packet)
+          else
+            # Normal single-node broadcasting
+            Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
+          end
+        end)
+      rescue
+        error ->
+          Logger.error("Failed to broadcast packets asynchronously: #{inspect(error)}")
+      end
     end)
   end
 

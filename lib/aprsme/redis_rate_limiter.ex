@@ -5,6 +5,9 @@ defmodule Aprsme.RedisRateLimiter do
 
   require Logger
 
+  # 5 seconds timeout for Redis operations
+  @redis_timeout 5000
+
   def child_spec(_opts) do
     children = [
       {Redix, name: __MODULE__, host: redis_host(), port: redis_port(), password: redis_password()}
@@ -58,7 +61,9 @@ defmodule Aprsme.RedisRateLimiter do
     end
     """
 
-    case Redix.command(__MODULE__, ["EVAL", lua_script, 1, key, now, window_start, limit, window_ms]) do
+    case Redix.command(__MODULE__, ["EVAL", lua_script, 1, key, now, window_start, limit, window_ms],
+           timeout: @redis_timeout
+         ) do
       {:ok, [1, count]} ->
         {:allow, count}
 
@@ -78,7 +83,7 @@ defmodule Aprsme.RedisRateLimiter do
   def reset(bucket) do
     key = make_key(bucket)
 
-    case Redix.command(__MODULE__, ["DEL", key]) do
+    case Redix.command(__MODULE__, ["DEL", key], timeout: @redis_timeout) do
       {:ok, _} ->
         :ok
 
@@ -97,10 +102,12 @@ defmodule Aprsme.RedisRateLimiter do
     key = make_key(bucket)
 
     # Clean up old entries and count
-    case Redix.pipeline(__MODULE__, [
-           ["ZREMRANGEBYSCORE", key, 0, window_start],
-           ["ZCARD", key]
-         ]) do
+    case Redix.pipeline(
+           __MODULE__,
+           [
+             ["ZREMRANGEBYSCORE", key, 0, window_start],
+             ["ZCARD", key]
+           ], timeout: @redis_timeout) do
       {:ok, [_, count]} ->
         {:ok, count}
 

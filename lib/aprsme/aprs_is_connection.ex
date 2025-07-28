@@ -50,25 +50,24 @@ defmodule Aprsme.AprsIsConnection do
 
   @impl true
   def handle_info(:connect, state) do
-    case connect_aprs_is() do
-      {:ok, socket} ->
+    # Use circuit breaker for connection attempts
+    case Aprsme.CircuitBreaker.call(:aprs_is, &connect_aprs_is/0, 15_000) do
+      {:ok, {:ok, socket}} ->
         Logger.info("Connected to APRS-IS")
         :telemetry.execute([:aprsme, :is, :connected], %{}, %{})
         {:noreply, %{state | socket: socket, backoff: @reconnect_initial}}
 
-      {:error, reason} ->
-        Logger.error("APRS-IS connection failed, retrying with backoff",
-          connection_error:
-            LogSanitizer.log_data(
-              reason: reason,
-              backoff_ms: state.backoff,
-              next_attempt: DateTime.add(DateTime.utc_now(), state.backoff, :millisecond)
-            )
-        )
+      {:ok, {:error, reason}} ->
+        handle_connection_error(reason, state)
 
-        :telemetry.execute([:aprsme, :is, :connect_error], %{}, %{reason: reason})
-        schedule_connect(state.backoff)
-        {:noreply, %{state | socket: nil, backoff: min(state.backoff * 2, @reconnect_max)}}
+      {:error, :circuit_open} ->
+        Logger.warning("APRS-IS circuit breaker is open, delaying reconnection")
+        # Use longer backoff when circuit is open
+        schedule_connect(@reconnect_max)
+        {:noreply, %{state | socket: nil, backoff: @reconnect_max}}
+
+      {:error, reason} ->
+        handle_connection_error(reason, state)
     end
   end
 
@@ -140,6 +139,21 @@ defmodule Aprsme.AprsIsConnection do
 
   defp schedule_connect(delay) do
     Process.send_after(self(), :connect, delay)
+  end
+
+  defp handle_connection_error(reason, state) do
+    Logger.error("APRS-IS connection failed, retrying with backoff",
+      connection_error:
+        LogSanitizer.log_data(
+          reason: reason,
+          backoff_ms: state.backoff,
+          next_attempt: DateTime.add(DateTime.utc_now(), state.backoff, :millisecond)
+        )
+    )
+
+    :telemetry.execute([:aprsme, :is, :connect_error], %{}, %{reason: reason})
+    schedule_connect(state.backoff)
+    {:noreply, %{state | socket: nil, backoff: min(state.backoff * 2, @reconnect_max)}}
   end
 
   defp connect_aprs_is do

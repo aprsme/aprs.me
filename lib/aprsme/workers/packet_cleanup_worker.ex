@@ -45,6 +45,10 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
 
     # Return success
     :ok
+  rescue
+    error ->
+      Logger.error("Packet cleanup failed: #{inspect(error)}\n#{inspect(__STACKTRACE__)}")
+      {:error, "Cleanup failed: #{inspect(error)}"}
   end
 
   @spec perform(map()) :: :ok | {:error, String.t()}
@@ -64,10 +68,18 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
 
     # Return success
     :ok
+  rescue
+    error ->
+      Logger.error("Packet cleanup failed: #{inspect(error)}\n#{inspect(__STACKTRACE__)}")
+      {:error, "Cleanup failed: #{inspect(error)}"}
   end
 
   defp count_total_packets do
     Repo.aggregate(Packet, :count, :id)
+  rescue
+    error ->
+      Logger.error("Failed to count packets: #{inspect(error)}")
+      0
   end
 
   defp cleanup_old_packets_batched do
@@ -159,17 +171,24 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
 
         ids ->
           # Delete the batch
-          {deleted_count, _} = Repo.delete_all(from(p in Packet, where: p.id in ^ids))
+          try do
+            {deleted_count, _} = Repo.delete_all(from(p in Packet, where: p.id in ^ids))
 
-          new_total_deleted = total_deleted + deleted_count
-          new_batches_processed = batches_processed + 1
+            new_total_deleted = total_deleted + deleted_count
+            new_batches_processed = batches_processed + 1
 
-          Logger.debug(
-            "Cleanup batch #{new_batches_processed}: deleted #{deleted_count} packets (total: #{new_total_deleted})"
-          )
+            Logger.debug(
+              "Cleanup batch #{new_batches_processed}: deleted #{deleted_count} packets (total: #{new_total_deleted})"
+            )
 
-          # Continue with next batch
-          cleanup_packets_in_batches(cutoff_time, start_time, new_total_deleted, new_batches_processed)
+            # Continue with next batch
+            cleanup_packets_in_batches(cutoff_time, start_time, new_total_deleted, new_batches_processed)
+          rescue
+            error ->
+              Logger.error("Failed to delete batch of packets: #{inspect(error)}")
+              # Return what we've deleted so far
+              {total_deleted, batches_processed}
+          end
       end
     end
   end
@@ -196,5 +215,9 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
         limit: ^batch_size
       )
     )
+  rescue
+    error ->
+      Logger.error("Failed to get packet IDs for deletion: #{inspect(error)}")
+      []
   end
 end

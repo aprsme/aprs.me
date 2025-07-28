@@ -14,6 +14,8 @@ defmodule Aprsme.Packets do
   alias Aprsme.Repo
   alias AprsmeWeb.TimeUtils
 
+  require Logger
+
   @doc """
   Stores a packet in the database.
 
@@ -424,7 +426,13 @@ defmodule Aprsme.Packets do
       |> maybe_filter_by_bounds(bounds)
       |> select(count())
 
-    Repo.one(query) || 0
+    case Repo.one(query) do
+      nil -> 0
+      count when is_integer(count) -> count
+      _ -> 0
+    end
+  rescue
+    _ -> 0
   end
 
   @doc """
@@ -648,6 +656,8 @@ defmodule Aprsme.Packets do
       from p in Packet,
         select: min(p.received_at)
     )
+  rescue
+    _ -> nil
   end
 
   @doc """
@@ -702,6 +712,10 @@ defmodule Aprsme.Packets do
     |> QueryBuilder.recent_position_packets()
     |> QueryBuilder.chronological()
     |> Repo.all()
+  rescue
+    error ->
+      Logger.error("Failed to get last hour packets: #{inspect(error)}")
+      []
   end
 
   # @doc """

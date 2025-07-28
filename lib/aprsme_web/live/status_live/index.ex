@@ -4,6 +4,8 @@ defmodule AprsmeWeb.StatusLive.Index do
   """
   use AprsmeWeb, :live_view
 
+  require Logger
+
   # 5 seconds - reduced from 1 second to improve performance
   @refresh_interval 5_000
 
@@ -38,8 +40,29 @@ defmodule AprsmeWeb.StatusLive.Index do
     self_pid = self()
 
     Task.start(fn ->
-      status = get_aprs_status()
-      send(self_pid, {:status_updated, status})
+      try do
+        status = get_aprs_status()
+        send(self_pid, {:status_updated, status})
+      rescue
+        error ->
+          Logger.error("Failed to refresh APRS status: #{inspect(error)}")
+          # Send empty/default status on error
+          send(
+            self_pid,
+            {:status_updated,
+             %{
+               connected: false,
+               uptime_seconds: 0,
+               data_rate: 0,
+               packet_stats: %{
+                 packets_per_second: 0,
+                 last_packet_at: nil
+               },
+               stored_packet_count: 0,
+               error: "Failed to fetch status"
+             }}
+          )
+      end
     end)
 
     # Schedule next refresh

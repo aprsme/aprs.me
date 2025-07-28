@@ -200,6 +200,14 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
               []
           end
 
+        # If tracking a callsign and this is the first batch, also load RF path stations
+        socket =
+          if socket.assigns.tracked_callsign != "" and batch_offset == 0 do
+            load_rf_path_stations(socket, historical_packets)
+          else
+            socket
+          end
+
         process_loaded_packets(socket, historical_packets, packet_data_list, batch_offset)
       else
         socket
@@ -335,6 +343,27 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
 
   defp send_heat_map_for_current_bounds(socket) do
     # This function should be moved to DisplayManager module
+    socket
+  end
+
+  defp load_rf_path_stations(socket, packets) do
+    # Extract unique RF path stations from all packets
+    rf_path_stations =
+      packets
+      |> Enum.flat_map(fn packet ->
+        path = Map.get(packet, :path, "")
+        AprsmeWeb.MapLive.RfPath.parse_rf_path(path)
+      end)
+      |> Enum.uniq()
+      |> Enum.reject(&(&1 == ""))
+      # Limit to prevent too many queries
+      |> Enum.take(20)
+
+    if Enum.any?(rf_path_stations) do
+      # Schedule loading of RF path station packets
+      Process.send_after(self(), {:load_rf_path_station_packets, rf_path_stations}, 100)
+    end
+
     socket
   end
 end

@@ -9,6 +9,7 @@ defmodule AprsmeWeb.MapLive.Index do
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_patch: 2, put_flash: 3]
 
+  alias Aprsme.CachedQueries
   alias Aprsme.Packets.Clustering
   alias AprsmeWeb.Endpoint
   alias AprsmeWeb.Live.Shared.BoundsUtils
@@ -660,6 +661,29 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
 
   def handle_info({:spatial_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
+
+  def handle_info({:load_rf_path_station_packets, stations}, socket) do
+    # Load the most recent packet for each RF path station
+    station_packets =
+      stations
+      |> Enum.map(fn callsign ->
+        CachedQueries.get_latest_packet_for_callsign_cached(callsign)
+      end)
+      |> Enum.filter(& &1)
+
+    socket = 
+      if Enum.any?(station_packets) do
+        # Build packet data for the RF path stations
+        packet_data_list = DataBuilder.build_packet_data_list(station_packets)
+
+        # Send these packets to the frontend
+        DisplayManager.add_markers_if_any(socket, packet_data_list)
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
 
   def handle_info({:process_pending_bounds}, socket) do
     if socket.assigns.pending_bounds && !socket.assigns.historical_loading do

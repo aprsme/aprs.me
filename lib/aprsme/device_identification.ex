@@ -114,7 +114,12 @@ defmodule Aprsme.DeviceIdentification do
   @week_seconds 7 * 24 * 60 * 60
 
   def maybe_refresh_devices do
-    last = Repo.one(from d in Devices, order_by: [desc: d.updated_at], limit: 1)
+    last =
+      try do
+        Repo.one(from d in Devices, order_by: [desc: d.updated_at], limit: 1)
+      rescue
+        _ -> nil
+      end
 
     last_time =
       case last && last.updated_at do
@@ -200,7 +205,12 @@ defmodule Aprsme.DeviceIdentification do
 
   def lookup_device_by_identifier(identifier) when is_binary(identifier) do
     # Fetch all device patterns from DB
-    devices = Repo.all(Devices)
+    devices =
+      try do
+        Repo.all(Devices)
+      rescue
+        _ -> []
+      end
 
     Enum.find(devices, fn device ->
       pattern = device.identifier
