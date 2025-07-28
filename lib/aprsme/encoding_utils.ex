@@ -341,9 +341,9 @@ defmodule Aprsme.EncodingUtils do
   ## Examples
 
       iex> Aprsme.EncodingUtils.encoding_info("Hello")
-      %{valid_utf8: true, byte_count: 5, char_count: 5}
+      %{valid_utf8: true, byte_count: 5, char_count: 5, invalid_at: nil}
       iex> Aprsme.EncodingUtils.encoding_info(<<72, 101, 211, 108, 111>>)
-      %{valid_utf8: false, byte_count: 5, invalid_at: 2}
+      %{valid_utf8: false, byte_count: 5, char_count: nil, invalid_at: 2}
   """
   @spec encoding_info(binary()) :: map()
   def encoding_info(binary) when is_binary(binary) do

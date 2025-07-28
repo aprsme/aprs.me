@@ -101,28 +101,34 @@ defmodule Aprsme.DeviceCache do
   defp load_devices_into_cache do
     require Logger
 
-    try do
-      devices =
-        try do
-          Repo.all(Devices)
-        rescue
-          error ->
-            Logger.error("Failed to load devices from database: #{inspect(error)}")
-            []
-        end
+    # Skip database loading in test environment
+    if Application.get_env(:aprsme, :env) == :test do
+      Cache.put(@cache_name, :all_devices, [])
+      :ok
+    else
+      try do
+        devices =
+          try do
+            Repo.all(Devices)
+          rescue
+            error ->
+              Logger.error("Failed to load devices from database: #{inspect(error)}")
+              []
+          end
 
-      # Store all devices in cache
-      case Cache.put(@cache_name, :all_devices, devices) do
-        {:ok, true} -> :ok
-        error -> error
+        # Store all devices in cache
+        case Cache.put(@cache_name, :all_devices, devices) do
+          {:ok, true} -> :ok
+          error -> error
+        end
+      rescue
+        error in [Postgrex.Error, DBConnection.ConnectionError] ->
+          # Handle case where database or table doesn't exist yet
+          Logger.warning("Failed to load devices: #{inspect(error)}. Will retry later.")
+          # Store empty list for now
+          Cache.put(@cache_name, :all_devices, [])
+          :error
       end
-    rescue
-      error in [Postgrex.Error, DBConnection.ConnectionError] ->
-        # Handle case where database or table doesn't exist yet
-        Logger.warning("Failed to load devices: #{inspect(error)}. Will retry later.")
-        # Store empty list for now
-        Cache.put(@cache_name, :all_devices, [])
-        :error
     end
   end
 

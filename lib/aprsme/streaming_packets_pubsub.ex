@@ -115,18 +115,28 @@ defmodule Aprsme.StreamingPacketsPubSub do
         ])
 
       # Send to matching subscribers using BroadcastTaskSupervisor
+      # Collect dead pids to clean up
+      server_pid = self()
+
       Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
-        subscribers
-        |> Stream.filter(fn {_pid, bounds} -> packet_in_bounds?(lat, lon, bounds) end)
-        |> Enum.each(fn {pid, _bounds} ->
-          # Only send if process is alive
-          if Process.alive?(pid) do
-            send(pid, {:streaming_packet, packet})
-          else
-            # Clean up dead subscriber
-            :ets.delete(@table_name, pid)
-          end
-        end)
+        dead_pids =
+          subscribers
+          |> Stream.filter(fn {_pid, bounds} -> packet_in_bounds?(lat, lon, bounds) end)
+          |> Enum.reduce([], fn {pid, _bounds}, acc ->
+            # Only send if process is alive
+            if Process.alive?(pid) do
+              send(pid, {:streaming_packet, packet})
+              acc
+            else
+              # Collect dead pid for cleanup
+              [pid | acc]
+            end
+          end)
+
+        # Send dead pids back to GenServer for cleanup
+        if dead_pids != [] do
+          send(server_pid, {:cleanup_dead_subscribers, dead_pids})
+        end
       end)
     end
 
@@ -137,6 +147,16 @@ defmodule Aprsme.StreamingPacketsPubSub do
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     # Clean up subscriber when process dies
     :ets.delete(@table_name, pid)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({:cleanup_dead_subscribers, pids}, state) do
+    # Clean up dead subscribers from the GenServer process
+    Enum.each(pids, fn pid ->
+      :ets.delete(@table_name, pid)
+    end)
+
     {:noreply, state}
   end
 

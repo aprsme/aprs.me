@@ -3,9 +3,6 @@ defmodule Aprsme.Repo.Migrations.AddOptimizedIndexes do
   @disable_ddl_transaction true
   @disable_migration_lock true
 
-  # Increase timeout for large table operations
-  @migration_timeout :timer.minutes(30)
-
   def up do
     # Set statement timeout for this migration session
     execute "SET statement_timeout = '30min';"
