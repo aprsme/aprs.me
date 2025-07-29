@@ -505,7 +505,10 @@ let MapAPRSMap = {
           self.markers.forEach((marker, id) => {
             const markerState = self.markerStates.get(String(id));
             // Only add most recent markers (those with icons) to OMS for spidering
-            if (marker && !marker._isClusterMarker && markerState && markerState.is_most_recent_for_callsign) {
+            // Fallback: if is_most_recent_for_callsign is undefined, exclude historical markers as before
+            const shouldAddToOms = markerState?.is_most_recent_for_callsign === true || 
+                                   (markerState?.is_most_recent_for_callsign == null && !marker._isHistorical);
+            if (marker && !marker._isClusterMarker && markerState && shouldAddToOms) {
               self.oms.addMarker(marker);
             }
           });
@@ -1550,7 +1553,10 @@ let MapAPRSMap = {
     }
 
     // Add to OMS for overlapping marker handling (only most recent packets with icons)
-    if (self.oms && marker && self.map && !marker._isClusterMarker && data.is_most_recent_for_callsign) {
+    // Fallback: if is_most_recent_for_callsign is undefined, exclude historical markers as before
+    const shouldAddToOms = data.is_most_recent_for_callsign === true || 
+                           (data.is_most_recent_for_callsign == null && !(marker as APRSMarker)._isHistorical);
+    if (self.oms && marker && self.map && !marker._isClusterMarker && shouldAddToOms) {
       self.oms.addMarker(marker);
     }
   },
