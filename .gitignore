@@ -49,3 +49,6 @@ server.log
 
 # Gleam compile script that causes Erlang compilation errors
 gleam@@compile.erl
+
+# Test screenshots
+/test/screenshots/
