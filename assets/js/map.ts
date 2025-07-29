@@ -502,8 +502,10 @@ let MapAPRSMap = {
         if (self.oms) {
           // Clear and re-add all markers to OMS on zoom change
           self.oms.clearMarkers();
-          self.markers.forEach((marker) => {
-            if (marker && !marker._isHistorical && !marker._isClusterMarker) {
+          self.markers.forEach((marker, id) => {
+            const markerState = self.markerStates.get(String(id));
+            // Only add most recent markers (those with icons) to OMS for spidering
+            if (marker && !marker._isClusterMarker && markerState && markerState.is_most_recent_for_callsign) {
               self.oms.addMarker(marker);
             }
           });
@@ -1547,8 +1549,8 @@ let MapAPRSMap = {
       marker.openPopup();
     }
 
-    // Add to OMS for overlapping marker handling (only non-historical markers)
-    if (self.oms && marker && self.map && !marker._isClusterMarker && !(marker as APRSMarker)._isHistorical) {
+    // Add to OMS for overlapping marker handling (only most recent packets with icons)
+    if (self.oms && marker && self.map && !marker._isClusterMarker && data.is_most_recent_for_callsign) {
       self.oms.addMarker(marker);
     }
   },
