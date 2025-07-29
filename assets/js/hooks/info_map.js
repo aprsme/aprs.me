@@ -11,7 +11,9 @@ export const InfoMap = {
     const symbolHtml = this.el.dataset.symbolHtml;
 
     // Validate coordinates
+    const callsign = this.el.dataset.callsign;
     if (isNaN(lat) || isNaN(lon)) {
+      console.warn(`InfoMap: Invalid coordinates lat=${lat}, lon=${lon} for ${callsign} during update`);
       return;
     }
 
@@ -61,7 +63,7 @@ export const InfoMap = {
 
     // Validate coordinates
     if (isNaN(lat) || isNaN(lon)) {
-      console.error("Invalid coordinates for InfoMap");
+      console.warn(`InfoMap: Invalid coordinates lat=${lat}, lon=${lon} for ${callsign}`);
       return;
     }
 

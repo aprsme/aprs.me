@@ -43,5 +43,30 @@ defmodule AprsmeWeb.InfoLive.PositionChangeTest do
       new_packet = %{lat: Decimal.new("40.7200"), lon: Decimal.new("-74.0060")}
       assert Show.position_changed_for_test(current_packet, new_packet)
     end
+
+    test "handles coordinates at equator/prime meridian (0.0 is valid)" do
+      current_packet = %{lat: 0.0, lon: 0.0}
+      # Small change from valid 0.0
+      new_packet = %{lat: 0.0005, lon: 0.0}
+      refute Show.position_changed_for_test(current_packet, new_packet)
+    end
+
+    test "detects change when coordinates become invalid (nil)" do
+      current_packet = %{lat: 40.7128, lon: -74.0060}
+      new_packet = %{lat: nil, lon: -74.0060}
+      assert Show.position_changed_for_test(current_packet, new_packet)
+    end
+
+    test "detects change when coordinates become valid from invalid" do
+      current_packet = %{lat: nil, lon: -74.0060}
+      new_packet = %{lat: 40.7128, lon: -74.0060}
+      assert Show.position_changed_for_test(current_packet, new_packet)
+    end
+
+    test "handles both coordinates being invalid" do
+      current_packet = %{lat: nil, lon: nil}
+      new_packet = %{lat: nil, lon: nil}
+      assert Show.position_changed_for_test(current_packet, new_packet)
+    end
   end
 end
