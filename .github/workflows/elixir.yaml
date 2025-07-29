@@ -115,6 +115,16 @@ jobs:
       - name: Check Formatting
         run: mix format --check-formatted
 
+      # Step: Install ChromeDriver for integration tests
+      - name: Setup ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+        with:
+          chromedriver-version: '119.0.6045.105'
+
       # Step: Execute the tests.
       - name: Run tests
         run: mix test
+
+      # Step: Run integration tests separately with Wallaby
+      - name: Run integration tests
+        run: mix test --only integration

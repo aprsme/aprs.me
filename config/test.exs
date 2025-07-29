@@ -25,7 +25,7 @@ config :aprsme, AprsmeWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
-  server: false
+  server: true
 
 # Disable Prometheus telemetry in test mode to avoid port conflicts
 config :aprsme, AprsmeWeb.Telemetry, enabled: false
@@ -79,3 +79,11 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Configure Wallaby
+config :wallaby,
+  driver: Wallaby.Chrome,
+  chromedriver: [headless: true],
+  screenshot_on_failure: true,
+  screenshot_dir: "test/screenshots",
+  base_url: "http://localhost:4002"
