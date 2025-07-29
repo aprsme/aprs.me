@@ -37,6 +37,11 @@ config :aprsme, :cleanup_scheduler,
   # 6 hours in milliseconds
   interval: 6 * 60 * 60 * 1000
 
+# Configure position tracking sensitivity
+config :aprsme, :position_tracking,
+  # Position change threshold in degrees (~100 meters at equator)
+  change_threshold: 0.001
+
 config :aprsme,
   ecto_repos: [Aprsme.Repo]
 
