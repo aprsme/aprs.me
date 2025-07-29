@@ -1,5 +1,6 @@
 defmodule Aprsme.BroadcastTaskSupervisorTest do
   use ExUnit.Case, async: true
+
   import ExUnit.CaptureLog
 
   alias Aprsme.BroadcastTaskSupervisor
