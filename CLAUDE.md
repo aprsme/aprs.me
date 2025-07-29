@@ -233,3 +233,11 @@ The application uses distributed Erlang clustering to ensure only one APRS-IS co
    - Default replicas: 3 (configurable in `aprs-deployment.yaml`)
    - Only leader processes APRS packets
    - All nodes serve web traffic
+
+## 1Password Integration
+
+When working with passwords and secrets:
+- **ALWAYS** use 1Password account ID: `YOOATCZZSVGH7AD6VABUVPORLI`
+- Store all passwords, API keys, and secrets in 1Password
+- Use the `op` CLI tool for programmatic access
+- Never hardcode passwords in configuration files
