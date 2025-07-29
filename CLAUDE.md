@@ -70,12 +70,16 @@ This is an Elixir Phoenix LiveView application that serves as a real-time APRS (
 
 **MANDATORY**: Follow strict test-driven development (TDD) practices:
 
+**CRITICAL**: When a new feature or bug is introduced, ALWAYS write a test for it FIRST, then write the code to satisfy the test. This is non-negotiable.
+
 1. **Red Phase**: Write failing tests first before implementing any functionality
 2. **Green Phase**: Write minimal code to make tests pass
 3. **Refactor Phase**: Improve code while keeping tests green
 
 ### TDD Workflow
-- Always write tests before implementing new features or fixing bugs
+- **ALWAYS** write tests before implementing new features or fixing bugs
+- When addressing a bug, first write a test that reproduces the bug (it should fail)
+- When adding a feature, first write tests that define the expected behavior
 - Start with the simplest failing test case
 - Write only enough code to make the test pass
 - Refactor with confidence knowing tests will catch regressions
