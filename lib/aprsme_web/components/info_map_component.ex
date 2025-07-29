@@ -28,7 +28,7 @@ defmodule AprsmeWeb.Components.InfoMapComponent do
       data-callsign={@callsign}
       data-symbol-html={@symbol_html}
     >
-      <div class="h-full w-full bg-base-200 flex items-center justify-center">
+      <div id={"#{@id}-loading"} class="h-full w-full bg-base-200 flex items-center justify-center">
         <span class="loading loading-spinner loading-lg"></span>
       </div>
     </div>

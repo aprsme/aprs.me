@@ -67,27 +67,55 @@ defmodule AprsmeWeb.InfoLive.Show do
       "InfoLive received packet update for #{socket.assigns.callsign}: #{inspect(Map.get(incoming_packet, "raw_packet"))}"
     )
 
-    # Refresh all data when new packet arrives
-    packet = get_latest_packet(socket.assigns.callsign)
-    packet = if packet, do: SharedPacketHandler.enrich_with_device_info(packet)
-    # Get locale from socket assigns
-    locale = Map.get(socket.assigns, :locale, "en")
-    neighbors = get_neighbors(packet, socket.assigns.callsign, locale)
-    has_weather_packets = PacketUtils.has_weather_packets?(socket.assigns.callsign)
-    other_ssids = get_other_ssids(socket.assigns.callsign)
-    heard_by_stations = get_heard_by_stations(socket.assigns.callsign, locale)
-    stations_heard_by = get_stations_heard_by(socket.assigns.callsign, locale)
+    # Get the new packet data
+    new_packet = get_latest_packet(socket.assigns.callsign)
+    new_packet = if new_packet, do: SharedPacketHandler.enrich_with_device_info(new_packet)
 
-    socket =
-      socket
-      |> assign(:packet, packet)
-      |> assign(:neighbors, neighbors)
-      |> assign(:has_weather_packets, has_weather_packets)
-      |> assign(:other_ssids, other_ssids)
-      |> assign(:heard_by_stations, heard_by_stations)
-      |> assign(:stations_heard_by, stations_heard_by)
+    current_packet = socket.assigns.packet
 
-    {:noreply, socket}
+    # Check if this is a position update by comparing location and other key fields
+    position_changed = position_changed?(current_packet, new_packet)
+
+    if position_changed do
+      # Only update position-related data if position changed
+      # Get locale from socket assigns
+      locale = Map.get(socket.assigns, :locale, "en")
+      neighbors = get_neighbors(new_packet, socket.assigns.callsign, locale)
+
+      socket =
+        socket
+        |> assign(:packet, new_packet)
+        |> assign(:neighbors, neighbors)
+
+      {:noreply, socket}
+    else
+      # Just update the packet data (for timestamp, comment, etc.) without affecting neighbors
+      socket = assign(socket, :packet, new_packet)
+
+      {:noreply, socket}
+    end
+  end
+
+  defp position_changed?(nil, _new_packet), do: true
+  defp position_changed?(_current_packet, nil), do: false
+
+  defp position_changed?(current_packet, new_packet) do
+    # Compare lat/lon to see if position actually changed
+    current_lat = to_float(current_packet.lat)
+    current_lon = to_float(current_packet.lon)
+    new_lat = to_float(new_packet.lat)
+    new_lon = to_float(new_packet.lon)
+
+    # Consider position changed if coordinates differ by more than ~100 meters (0.001 degrees)
+    lat_diff = abs(current_lat - new_lat)
+    lon_diff = abs(current_lon - new_lon)
+
+    lat_diff > 0.001 or lon_diff > 0.001
+  end
+
+  # Expose for testing
+  if Mix.env() == :test do
+    def position_changed_for_test(current, new), do: position_changed?(current, new)
   end
 
   defp get_latest_packet(callsign) do

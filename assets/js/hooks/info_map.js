@@ -65,6 +65,12 @@ export const InfoMap = {
       return;
     }
 
+    // Hide loading spinner
+    const loadingEl = this.el.querySelector(`#${this.el.id}-loading`);
+    if (loadingEl) {
+      loadingEl.style.display = 'none';
+    }
+
     // Initialize the map
     try {
       this.map = L.map(this.el, {
