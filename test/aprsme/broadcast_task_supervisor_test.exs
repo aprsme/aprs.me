@@ -1,5 +1,6 @@
 defmodule Aprsme.BroadcastTaskSupervisorTest do
   use ExUnit.Case, async: true
+  import ExUnit.CaptureLog
 
   alias Aprsme.BroadcastTaskSupervisor
 
@@ -89,14 +90,17 @@ defmodule Aprsme.BroadcastTaskSupervisorTest do
     end
 
     test "handles errors in async functions gracefully" do
-      # This should not crash the supervisor
-      {:ok, _pid} =
-        BroadcastTaskSupervisor.async_execute(fn ->
-          raise "Test error"
-        end)
+      # Capture logs to suppress the expected error output
+      capture_log(fn ->
+        # This should not crash the supervisor
+        {:ok, _pid} =
+          BroadcastTaskSupervisor.async_execute(fn ->
+            raise "Test error"
+          end)
 
-      # Give it time to fail - reduced from 50ms to 10ms
-      Process.sleep(10)
+        # Give it time to fail - reduced from 50ms to 10ms
+        Process.sleep(10)
+      end)
 
       # Supervisor should still be running
       stats = BroadcastTaskSupervisor.get_stats()
