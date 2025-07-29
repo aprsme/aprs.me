@@ -321,6 +321,19 @@ topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
 window.addEventListener("phx:page-loading-start", (_info) => topbar.show(100));
 window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 
+// Handle connection draining reconnect events
+window.addEventListener("phx:reconnect", (e) => {
+  const delay = e.detail.delay || 1000;
+  console.log(`[LiveSocket] Reconnecting in ${delay}ms due to connection draining...`);
+  setTimeout(() => {
+    // Disconnect and reconnect to potentially land on a different server
+    liveSocket.disconnect();
+    setTimeout(() => {
+      liveSocket.connect();
+    }, 100);
+  }, delay);
+});
+
 // connect if there are any LiveViews on the page
 liveSocket.connect();
 

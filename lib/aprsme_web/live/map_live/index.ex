@@ -94,33 +94,51 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   defp do_setup_subscriptions(socket, true) do
-    # Generate a unique client ID for this LiveView instance
-    client_id = "liveview_#{:erlang.phash2(self())}"
+    # Check if we should accept new connections
+    if Application.get_env(:aprsme, :cluster_enabled, false) and
+         not Aprsme.ConnectionMonitor.accepting_connections?() do
+      # Redirect to another node or show message
+      socket
+      |> put_flash(:info, "This server is currently at capacity. Please try again in a moment.")
+      |> push_event("redirect_to_least_loaded", %{})
+      |> assign(:connection_draining, true)
+    else
+      # Generate a unique client ID for this LiveView instance
+      client_id = "liveview_#{:erlang.phash2(self())}"
 
-    # Register with spatial PubSub (will get viewport later)
-    # Start with a default viewport that will be updated when we get actual bounds
-    default_bounds = %{north: 90.0, south: -90.0, east: 180.0, west: -180.0}
-    {:ok, spatial_topic} = Aprsme.SpatialPubSub.register_viewport(client_id, default_bounds)
+      # Register with connection monitor
+      if Application.get_env(:aprsme, :cluster_enabled, false) do
+        Aprsme.ConnectionMonitor.register_connection()
+        # Subscribe to drain events for this node
+        Phoenix.PubSub.subscribe(Aprsme.PubSub, "connection:drain:#{Node.self()}")
+      end
 
-    # Subscribe to the spatial topic for this client
-    Phoenix.PubSub.subscribe(Aprsme.PubSub, spatial_topic)
+      # Register with spatial PubSub (will get viewport later)
+      # Start with a default viewport that will be updated when we get actual bounds
+      default_bounds = %{north: 90.0, south: -90.0, east: 180.0, west: -180.0}
+      {:ok, spatial_topic} = Aprsme.SpatialPubSub.register_viewport(client_id, default_bounds)
 
-    # Still subscribe to bad packets (they don't have location)
-    Phoenix.PubSub.subscribe(Aprsme.PubSub, "bad_packets")
+      # Subscribe to the spatial topic for this client
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, spatial_topic)
 
-    # Subscribe to deployment events
-    Phoenix.PubSub.subscribe(Aprsme.PubSub, "deployment_events")
+      # Still subscribe to bad packets (they don't have location)
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, "bad_packets")
 
-    # Subscribe to StreamingPacketsPubSub with initial bounds
-    Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), default_bounds)
+      # Subscribe to deployment events
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, "deployment_events")
 
-    Process.send_after(self(), :cleanup_old_packets, 60_000)
-    # Schedule UI update timer to refresh "time ago" display every 30 seconds
-    Process.send_after(self(), :update_time_display, 30_000)
+      # Subscribe to StreamingPacketsPubSub with initial bounds
+      Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), default_bounds)
 
-    socket
-    |> assign(:spatial_client_id, client_id)
-    |> assign(:spatial_topic, spatial_topic)
+      Process.send_after(self(), :cleanup_old_packets, 60_000)
+      # Schedule UI update timer to refresh "time ago" display every 30 seconds
+      Process.send_after(self(), :update_time_display, 30_000)
+
+      socket
+      |> assign(:spatial_client_id, client_id)
+      |> assign(:spatial_topic, spatial_topic)
+      |> assign(:connection_draining, false)
+    end
   end
 
   defp do_setup_subscriptions(socket, false), do: socket
@@ -680,6 +698,19 @@ defmodule AprsmeWeb.MapLive.Index do
         socket
       ) do
     {:noreply, assign(socket, :deployed_at, deployed_at)}
+  end
+
+  def handle_info({:drain_connections, to_drain}, socket) do
+    # Check if this connection should be drained
+    # Use a random selection to determine if this connection should disconnect
+    if :rand.uniform(100) <= to_drain * 10 do
+      # Gracefully disconnect this client
+      socket
+      |> put_flash(:info, "Server load balancing in progress. Reconnecting...")
+      |> push_event("reconnect", %{delay: :rand.uniform(5000)})
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info({:load_rf_path_station_packets, stations}, socket) do
@@ -1543,6 +1574,12 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def terminate(_reason, socket) do
+    # Unregister from connection monitor
+    if Application.get_env(:aprsme, :cluster_enabled, false) and
+         not socket.assigns[:connection_draining] do
+      Aprsme.ConnectionMonitor.unregister_connection()
+    end
+
     # Cleanup spatial registration if we have a client ID
     if socket.assigns[:spatial_client_id] do
       Aprsme.SpatialPubSub.unregister_client(socket.assigns.spatial_client_id)

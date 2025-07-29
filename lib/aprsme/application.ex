@@ -140,7 +140,8 @@ defmodule Aprsme.Application do
             Aprsme.DynamicSupervisor,
             Aprsme.Cluster.LeaderElection,
             Aprsme.Cluster.ConnectionManager,
-            Aprsme.Cluster.PacketReceiver
+            Aprsme.Cluster.PacketReceiver,
+            Aprsme.ConnectionMonitor
           ]
         end
 

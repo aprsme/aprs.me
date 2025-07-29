@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated column `has_weather` with trigger for query optimization
 - Region and data_type composite indexes for filtering
 - BRIN indexes consideration for time-series data
+- Connection draining and load balancing for clustered deployments
+  - Monitors CPU usage and connection counts across cluster nodes
+  - Automatically drains connections when node is overloaded (>70% CPU or 2x average connections)
+  - Gracefully reconnects clients to less loaded nodes
+  - Improves overall cluster stability and performance
 
 ### Changed
 - Query performance improved by 50-90% for common operations
@@ -26,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PostgreSQL notify trigger now sends all required fields for info page updates
 - Info page real-time updates now display all packet details correctly
 - Enhanced PostgreSQL notify to include complete packet data (device info, weather data, SSIDs, etc.)
+- Mic-E packet comment parsing now properly extracts altitude data and removes telemetry suffixes
+  - Altitude data (e.g., "6;}" = 218 feet) is now parsed and stored
+  - Telemetry markers (_%...) are removed from comments
+  - Non-human-readable encoded data is no longer displayed as comments
 
 ## [0.2.0] - 2025-07-26
 
