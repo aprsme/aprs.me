@@ -98,6 +98,21 @@ if config_env() == :prod do
       exq_config
     end
 
+  # Parse SSL configuration from environment
+  ssl_enabled = System.get_env("DATABASE_SSL", "false") == "true"
+  ssl_verify = System.get_env("DATABASE_SSL_VERIFY", "true") == "true"
+
+  ssl_opts =
+    if ssl_enabled do
+      if ssl_verify do
+        [ssl: true]
+      else
+        [ssl: true, ssl_opts: [verify: :verify_none]]
+      end
+    else
+      []
+    end
+
   # ## Configuring the mailer
   #
   # Configure Resend for email delivery
@@ -105,55 +120,42 @@ if config_env() == :prod do
     adapter: Resend.Swoosh.Adapter,
     api_key: System.get_env("RESEND_API_KEY")
 
-  # Parse SSL configuration from environment
-  ssl_enabled = System.get_env("DATABASE_SSL", "false") == "true"
-  ssl_verify = System.get_env("DATABASE_SSL_VERIFY", "true") == "true"
-  
-  ssl_opts = if ssl_enabled do
-    if ssl_verify do
-      [ssl: true]
-    else
-      [ssl: true, ssl_opts: [verify: :verify_none]]
-    end
-  else
-    []
-  end
-
-  config :aprsme, Aprsme.Repo,
-    Keyword.merge(
-      [
-        url: database_url,
-        # Increased pool size for better concurrency (was 25)
-        pool_size: String.to_integer(System.get_env("POOL_SIZE") || "45"),
-        # Increased timeout for ARM system under load
-        pool_timeout: String.to_integer(System.get_env("POOL_TIMEOUT") || "10000"),
-        # Match PostgreSQL statement timeout capabilities
-        timeout: String.to_integer(System.get_env("DB_TIMEOUT") || "30000"),
-        socket_options:
-          maybe_ipv6 ++
-            [
-              # TCP optimizations for better connection handling
-              keepalive: true,
-              nodelay: true,
-              recbuf: 8192,
-              sndbuf: 8192
-            ],
-        types: Aprsme.PostgresTypes,
-        # Reduced queue target for faster response
-        queue_target: 100,
-        # Check queue more frequently
-        queue_interval: 1_000,
-        # Optimize for unnamed prepared statements (better for dynamic queries)
-        prepare: :unnamed,
-        # Connection parameters to leverage PostgreSQL settings
-        # Note: When using PgBouncer, only certain parameters are supported
-        parameters: [
-          # Application name for monitoring
-          application_name: "aprsme"
-        ]
-      ],
-      ssl_opts
-    )
+  config :aprsme,
+         Aprsme.Repo,
+         Keyword.merge(
+           [
+             url: database_url,
+             # Increased pool size for better concurrency (was 25)
+             pool_size: String.to_integer(System.get_env("POOL_SIZE") || "45"),
+             # Increased timeout for ARM system under load
+             pool_timeout: String.to_integer(System.get_env("POOL_TIMEOUT") || "10000"),
+             # Match PostgreSQL statement timeout capabilities
+             timeout: String.to_integer(System.get_env("DB_TIMEOUT") || "30000"),
+             socket_options:
+               maybe_ipv6 ++
+                 [
+                   # TCP optimizations for better connection handling
+                   keepalive: true,
+                   nodelay: true,
+                   recbuf: 8192,
+                   sndbuf: 8192
+                 ],
+             types: Aprsme.PostgresTypes,
+             # Reduced queue target for faster response
+             queue_target: 100,
+             # Check queue more frequently
+             queue_interval: 1_000,
+             # Optimize for unnamed prepared statements (better for dynamic queries)
+             prepare: :unnamed,
+             # Connection parameters to leverage PostgreSQL settings
+             # Note: When using PgBouncer, only certain parameters are supported
+             parameters: [
+               # Application name for monitoring
+               application_name: "aprsme"
+             ]
+           ],
+           ssl_opts
+         )
 
   config :aprsme, AprsmeWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
