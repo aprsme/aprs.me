@@ -45,7 +45,7 @@ defmodule Aprsme.Repo.Migrations.FixPacketNotifyTrigger do
         'rain_24h', NEW.rain_24h,
         'rain_midnight', NEW.rain_midnight,
         'luminosity', NEW.luminosity,
-        'snow_24h', NEW.snow_24h,
+        'snow', NEW.snow,
         'has_weather', NEW.has_weather,
         'inserted_at', NEW.inserted_at
       )::text;
@@ -113,7 +113,7 @@ defmodule Aprsme.Repo.Migrations.FixPacketNotifyTrigger do
         'rain_24h', NEW.rain_24h,
         'rain_midnight', NEW.rain_midnight,
         'luminosity', NEW.luminosity,
-        'snow_24h', NEW.snow_24h,
+        'snow', NEW.snow,
         'has_weather', NEW.has_weather,
         'inserted_at', NEW.inserted_at
       )::text;

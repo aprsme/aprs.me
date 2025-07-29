@@ -195,14 +195,28 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
   """
   @spec get_timestamp(map()) :: String.t()
   def get_timestamp(packet) do
-    cond do
-      Map.has_key?(packet, :received_at) && packet.received_at ->
-        DateTime.to_iso8601(packet.received_at)
+    received_at = Map.get(packet, :received_at) || Map.get(packet, "received_at")
 
-      Map.has_key?(packet, "received_at") && packet["received_at"] ->
-        DateTime.to_iso8601(packet["received_at"])
+    case received_at do
+      nil ->
+        ""
 
-      true ->
+      %DateTime{} = dt ->
+        DateTime.to_iso8601(dt)
+
+      %NaiveDateTime{} = ndt ->
+        ndt
+        |> DateTime.from_naive!("Etc/UTC")
+        |> DateTime.to_iso8601()
+
+      timestamp when is_binary(timestamp) ->
+        # If it's already a string, try to parse and reformat it
+        case DateTime.from_iso8601(timestamp) do
+          {:ok, dt, _} -> DateTime.to_iso8601(dt)
+          _ -> timestamp
+        end
+
+      _ ->
         ""
     end
   end
