@@ -83,7 +83,20 @@ config :swoosh, :api_client, false
 # Configure Wallaby
 config :wallaby,
   driver: Wallaby.Chrome,
-  chromedriver: [headless: true],
+  chromedriver: [
+    headless: true,
+    # Additional Chrome options for CI stability
+    args: [
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--window-size=1280,720"
+    ]
+  ],
   screenshot_on_failure: true,
   screenshot_dir: "test/screenshots",
-  base_url: "http://localhost:4002"
+  base_url: "http://localhost:4002",
+  # Increase default timeouts for CI environment
+  max_wait_time: "WALLABY_MAX_WAIT_TIME" |> System.get_env("5000") |> String.to_integer(),
+  # Pool configuration for concurrent tests
+  pool_size: 1

@@ -9,13 +9,14 @@ defmodule AprsmeWeb.MapIntegrationTest do
   import Wallaby.Browser
 
   alias Aprsme.Repo
+  alias Ecto.Adapters.SQL.Sandbox
   alias Wallaby.Query
 
   @moduletag :integration
 
   setup do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
-    Ecto.Adapters.SQL.Sandbox.mode(Repo, {:shared, self()})
+    :ok = Sandbox.checkout(Repo)
+    Sandbox.mode(Repo, {:shared, self()})
     {:ok, %{}}
   end
 

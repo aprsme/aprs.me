@@ -6,14 +6,15 @@ defmodule AprsmeWeb.SimpleIntegrationTest do
   use Wallaby.Feature
 
   import Wallaby.Browser
-  
+
+  alias Ecto.Adapters.SQL.Sandbox
   alias Wallaby.Query
 
   @moduletag :integration
 
   setup do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Aprsme.Repo)
-    Ecto.Adapters.SQL.Sandbox.mode(Aprsme.Repo, {:shared, self()})
+    :ok = Sandbox.checkout(Aprsme.Repo)
+    Sandbox.mode(Aprsme.Repo, {:shared, self()})
     {:ok, %{}}
   end
 
