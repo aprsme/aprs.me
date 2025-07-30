@@ -54,6 +54,9 @@ config :aprsme, auto_migrate: false
 # Only in tests, remove the complexity from the password hashing algorithm
 config :bcrypt_elixir, :log_rounds, 1
 
+# Disable ErrorTracker in test environment to avoid database ownership issues
+config :error_tracker, enabled: false
+
 # Disable Exq during tests to prevent background job execution
 config :exq,
   start_on_application: false,
