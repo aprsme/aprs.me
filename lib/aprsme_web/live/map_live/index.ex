@@ -9,7 +9,7 @@ defmodule AprsmeWeb.MapLive.Index do
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_patch: 2, put_flash: 3]
 
-  alias Aprsme.CachedQueries
+  alias Aprsme.Packets
   alias Aprsme.Packets.Clustering
   alias AprsmeWeb.Endpoint
   alias AprsmeWeb.Live.Shared.BoundsUtils
@@ -179,7 +179,7 @@ defmodule AprsmeWeb.MapLive.Index do
       if tracked_callsign == "" do
         nil
       else
-        CachedQueries.get_latest_packet_for_callsign_cached(tracked_callsign)
+        Packets.get_latest_packet_for_callsign(tracked_callsign)
       end
 
     assign(socket,
@@ -757,7 +757,7 @@ defmodule AprsmeWeb.MapLive.Index do
     station_packets =
       stations
       |> Enum.map(fn callsign ->
-        CachedQueries.get_latest_packet_for_callsign_cached(callsign)
+        Packets.get_latest_packet_for_callsign(callsign)
       end)
       |> Enum.filter(& &1)
 

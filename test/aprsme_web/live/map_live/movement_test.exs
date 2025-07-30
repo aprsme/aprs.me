@@ -11,7 +11,7 @@ defmodule AprsmeWeb.MapLive.MovementTest do
   describe "GPS drift filtering" do
     setup do
       # Mock the Packets module to return empty results for historical queries
-      stub(Aprsme.PacketsMock, :get_recent_packets_optimized, fn _args -> [] end)
+      stub(Aprsme.PacketsMock, :get_recent_packets, fn _args -> [] end)
       :ok
     end
 

@@ -7,7 +7,6 @@ defmodule Aprsme.PacketsBehaviour do
   @callback stream_packets_for_replay(map()) :: Enumerable.t()
   @callback get_packets_for_replay(map()) :: list()
   @callback get_recent_packets(map()) :: list()
-  @callback get_recent_packets_optimized(map()) :: list()
   @callback get_nearby_stations(float(), float(), String.t() | nil, map()) :: list()
   @callback get_weather_packets(String.t(), DateTime.t(), DateTime.t(), map()) :: list()
   @callback clean_old_packets() :: {:ok, non_neg_integer()} | {:error, any()}

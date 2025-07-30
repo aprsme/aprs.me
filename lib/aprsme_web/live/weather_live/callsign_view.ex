@@ -121,12 +121,12 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
 
   defp get_latest_weather_packet(callsign) do
     # Use optimized cached query that checks recent data first
-    Aprsme.CachedQueries.get_latest_weather_packet_cached(callsign)
+    Aprsme.Packets.get_latest_weather_packet(callsign)
   end
 
   defp get_weather_history(callsign, start_time, end_time) do
     # Use cached queries to avoid repeated database hits
-    Aprsme.CachedQueries.get_weather_packets_cached(callsign, start_time, end_time, %{limit: 500})
+    Aprsme.Packets.get_weather_packets(callsign, start_time, end_time, %{limit: 500})
   end
 
   defp default_time_range do

@@ -17,7 +17,7 @@ defmodule Aprsme.MockHelpers do
       {:ok, []}
     end)
 
-    Mox.stub(Aprsme.PacketsMock, :get_recent_packets_optimized, fn _opts ->
+    Mox.stub(Aprsme.PacketsMock, :get_recent_packets, fn _opts ->
       []
     end)
 

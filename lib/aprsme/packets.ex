@@ -204,7 +204,7 @@ defmodule Aprsme.Packets do
       {:ok, packet} ->
         # Invalidate cache for this packet's callsign
         if Map.has_key?(attrs, :sender) do
-          Aprsme.CachedQueries.invalidate_callsign_cache(attrs.sender)
+          # Cache invalidation removed - no longer using CachedQueries
         end
 
         {:ok, packet}
@@ -436,32 +436,12 @@ defmodule Aprsme.Packets do
   end
 
   @doc """
-  Gets recent packets for the map view.
-  This is used for initial map loading to show only recent packets.
+  Gets recent packets for initial map load.
+  This uses an efficient query pattern for the most common use case.
   """
   @impl true
   @spec get_recent_packets(map()) :: [struct()]
   def get_recent_packets(opts \\ %{}) do
-    # Use provided hours_back or default to 24 hours
-    opts_with_time =
-      if Map.has_key?(opts, :hours_back) do
-        opts
-      else
-        Map.put(opts, :hours_back, 24)
-      end
-
-    opts_with_time
-    |> QueryBuilder.recent_position_packets()
-    |> Repo.all()
-  end
-
-  @doc """
-  Gets recent packets optimized for initial map load.
-  This uses a more efficient query pattern for the most common use case.
-  """
-  @impl true
-  @spec get_recent_packets_optimized(map()) :: [struct()]
-  def get_recent_packets_optimized(opts \\ %{}) do
     # Use hours_back from opts if provided, otherwise default to 24 hours
     hours_back = Map.get(opts, :hours_back, 24)
     time_ago = DateTime.add(DateTime.utc_now(), -hours_back * 3600, :second)
@@ -812,41 +792,46 @@ defmodule Aprsme.Packets do
   """
   @spec get_latest_weather_packet(String.t()) :: struct() | nil
   def get_latest_weather_packet(callsign) when is_binary(callsign) do
-    # First try last 24 hours
-    one_day_ago = TimeUtils.one_day_ago()
-
-    recent_packet =
-      Repo.one(
-        from(p in Packet,
-          where: p.sender == ^callsign,
-          where:
-            not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
-              not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
-          where: p.received_at >= ^one_day_ago,
-          order_by: [desc: p.received_at],
-          limit: 1
-        )
-      )
-
-    case recent_packet do
-      nil ->
-        # If no recent packet, expand to 7 days
-        one_week_ago = TimeUtils.one_week_ago()
-
-        Repo.one(
-          from(p in Packet,
-            where: p.sender == ^callsign,
-            where:
-              not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
-                not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
-            where: p.received_at >= ^one_week_ago,
-            order_by: [desc: p.received_at],
-            limit: 1
-          )
-        )
-
-      packet ->
-        packet
+    # Use proper index with short time window first
+    case get_latest_weather_in_window(callsign, 24) do
+      nil -> get_latest_weather_in_window(callsign, 168)
+      packet -> packet
     end
+  end
+
+  @doc """
+  Check if a callsign has any weather packets.
+  """
+  def has_weather_packets?(callsign) when is_binary(callsign) do
+    import Ecto.Query
+
+    query =
+      from p in Packet,
+        where: p.sender == ^callsign,
+        where:
+          not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
+            not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
+        limit: 1,
+        select: true
+
+    Repo.exists?(query)
+  end
+
+  defp get_latest_weather_in_window(callsign, hours) do
+    import Ecto.Query
+
+    since = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
+
+    query =
+      from p in Packet,
+        where: p.sender == ^callsign,
+        where: p.received_at > ^since,
+        where:
+          not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
+            not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
+        order_by: [desc: p.received_at],
+        limit: 1
+
+    Repo.one(query)
   end
 end

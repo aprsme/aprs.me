@@ -4,8 +4,8 @@ defmodule AprsmeWeb.Api.V1.CallsignController do
   """
   use AprsmeWeb, :controller
 
-  alias Aprsme.CachedQueries
   alias Aprsme.ErrorHandler
+  alias Aprsme.Packets
   alias AprsmeWeb.Api.V1.CallsignJSON
 
   action_fallback AprsmeWeb.Api.V1.FallbackController
@@ -70,7 +70,7 @@ defmodule AprsmeWeb.Api.V1.CallsignController do
     # Get the most recent packet for this callsign regardless of age or type
     # Use cached version for better performance with error handling
     fn ->
-      case CachedQueries.get_latest_packet_for_callsign_cached(callsign) do
+      case Packets.get_latest_packet_for_callsign(callsign) do
         nil -> {:error, :not_found}
         packet -> {:ok, packet}
       end

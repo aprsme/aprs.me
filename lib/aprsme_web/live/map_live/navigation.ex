@@ -5,7 +5,7 @@ defmodule AprsmeWeb.MapLive.Navigation do
 
   import Phoenix.Component, only: [assign: 3]
 
-  alias Aprsme.CachedQueries
+  alias Aprsme.Packets
   alias AprsmeWeb.MapLive.UrlParams
   alias AprsmeWeb.MapLive.Utils
   alias Phoenix.LiveView
@@ -40,7 +40,7 @@ defmodule AprsmeWeb.MapLive.Navigation do
   @spec handle_callsign_tracking(binary(), map(), integer(), boolean()) :: {map(), integer()}
   def handle_callsign_tracking(tracked_callsign, map_center, map_zoom, has_explicit_url_params) do
     if tracked_callsign != "" and not has_explicit_url_params do
-      case CachedQueries.get_latest_packet_for_callsign_cached(tracked_callsign) do
+      case Packets.get_latest_packet_for_callsign(tracked_callsign) do
         %{lat: lat, lon: lon} when is_number(lat) and is_number(lon) ->
           {%{lat: lat, lng: lon}, 12}
 

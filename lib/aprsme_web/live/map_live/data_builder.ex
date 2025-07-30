@@ -464,8 +464,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
 
   @spec has_weather_packets?(String.t()) :: boolean()
   defp has_weather_packets?(callsign) when is_binary(callsign) do
-    # Use cached query for better performance
-    Aprsme.CachedQueries.has_weather_packets_cached?(callsign)
+    Aprsme.Packets.has_weather_packets?(callsign)
   rescue
     _ -> false
   end

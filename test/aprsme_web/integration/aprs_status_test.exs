@@ -100,7 +100,7 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
       Mox.set_mox_global()
 
       # Stub the function that will be called during bounds changes
-      Mox.stub(Aprsme.PacketsMock, :get_recent_packets_optimized, fn _opts -> [] end)
+      Mox.stub(Aprsme.PacketsMock, :get_recent_packets, fn _opts -> [] end)
 
       {:ok, view, _html} = live(conn, "/")
 

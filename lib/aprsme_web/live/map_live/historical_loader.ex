@@ -5,7 +5,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
 
   import Phoenix.Component, only: [assign: 3]
 
-  alias Aprsme.CachedQueries
+  alias Aprsme.Packets
   alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
   alias AprsmeWeb.MapLive.DataBuilder
   alias Phoenix.LiveView
@@ -147,11 +147,11 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
       # Adjust batch size if it would exceed the limit
       adjusted_batch_size = min(batch_size, max_packets_for_zoom - offset)
 
-      packets_module = Application.get_env(:aprsme, :packets_module, Aprsme.Packets)
+      packets_module = Application.get_env(:aprsme, :packets_module, Packets)
 
       historical_packets =
         try do
-          if packets_module == Aprsme.Packets do
+          if packets_module == Packets do
             # Use cached queries for better performance
             # Include zoom level in cache key for better cache efficiency
             params = %{
@@ -168,10 +168,10 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
             historical_hours = SharedPacketUtils.parse_historical_hours(socket.assigns.historical_hours || "1")
             params = Map.put(params, :hours_back, historical_hours)
 
-            CachedQueries.get_recent_packets_cached(params)
+            Packets.get_recent_packets(params)
           else
             # Fallback for testing
-            packets_module.get_recent_packets_optimized(%{
+            packets_module.get_recent_packets(%{
               bounds: bounds,
               limit: batch_size,
               offset: offset

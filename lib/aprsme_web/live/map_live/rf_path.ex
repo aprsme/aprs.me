@@ -3,7 +3,7 @@ defmodule AprsmeWeb.MapLive.RfPath do
   Handles RF path parsing and visualization for APRS packets.
   """
 
-  alias Aprsme.CachedQueries
+  alias Aprsme.Packets
   alias AprsmeWeb.MapLive.Utils
 
   @doc """
@@ -52,7 +52,7 @@ defmodule AprsmeWeb.MapLive.RfPath do
   end
 
   defp get_station_position(callsign) do
-    case CachedQueries.get_latest_packet_for_callsign_cached(callsign) do
+    case Packets.get_latest_packet_for_callsign(callsign) do
       %{lat: lat, lon: lon} when is_number(lat) and is_number(lon) ->
         %{
           callsign: callsign,
