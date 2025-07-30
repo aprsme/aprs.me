@@ -125,6 +125,15 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
   end
 
   def collect_postgres_metrics do
+    # Skip database metrics collection in test environment
+    if Application.get_env(:aprsme, :env) == :test do
+      :ok
+    else
+      do_collect_postgres_metrics()
+    end
+  end
+
+  defp do_collect_postgres_metrics do
     # Database size
     case Aprsme.Repo.query("SELECT pg_database_size(current_database()) as size") do
       {:ok, %{rows: [[size]]}} ->
