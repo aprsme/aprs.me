@@ -15,7 +15,7 @@ defmodule AprsmeWeb.SimpleIntegrationTest do
   setup do
     :ok = Sandbox.checkout(Aprsme.Repo)
     Sandbox.mode(Aprsme.Repo, {:shared, self()})
-    
+
     {:ok, %{}}
   end
 
