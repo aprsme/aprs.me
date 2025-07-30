@@ -108,7 +108,8 @@ defmodule Aprsme.MixProject do
       {:cachex, "~> 4.1"},
       {:gettext_pseudolocalize, "~> 0.1"},
       {:sentry, "~> 11.0"},
-      {:wallaby, "~> 0.30.10", only: :test}
+      {:wallaby, "~> 0.30.10", only: :test},
+      {:lazy_html, ">= 0.1.0", only: :test}
       # Gleam dependencies
     ]
   end
