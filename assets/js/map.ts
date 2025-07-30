@@ -571,8 +571,8 @@ let MapAPRSMap = {
     if (typeof window.OverlappingMarkerSpiderfier !== "undefined") {
       self.oms = new window.OverlappingMarkerSpiderfier(self.map, {
         keepSpiderfied: true,
-        nearbyDistance: 40,
-        circleSpiralSwitchover: 9,
+        nearbyDistance: 60,
+        circleSpiralSwitchover: 12,
         legWeight: 2,
       });
 
