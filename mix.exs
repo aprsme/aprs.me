@@ -79,7 +79,6 @@ defmodule Aprsme.MixProject do
       {:phoenix_pubsub_redis, "~> 3.0"},
       {:postgrex, ">= 0.0.0"},
       {:swoosh, "~> 1.16"},
-      # email service
       {:resend, "~> 0.4.1"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},

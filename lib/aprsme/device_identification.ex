@@ -204,6 +204,16 @@ defmodule Aprsme.DeviceIdentification do
   def lookup_device_by_identifier(nil), do: nil
 
   def lookup_device_by_identifier(identifier) when is_binary(identifier) do
+    # Use device cache for better performance
+    if Code.ensure_loaded?(Aprsme.DeviceCache) do
+      Aprsme.DeviceCache.lookup_device(identifier)
+    else
+      # Fallback to direct DB lookup if no cache available
+      lookup_device_from_db(identifier)
+    end
+  end
+
+  defp lookup_device_from_db(identifier) do
     # Fetch all device patterns from DB
     devices =
       try do

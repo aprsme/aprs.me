@@ -10,9 +10,9 @@ defmodule Aprsme.Packets do
   alias Aprs.Types.MicE
   alias Aprsme.BadPacket
   alias Aprsme.Packet
+  alias Aprsme.Packets.PreparedQueries
   alias Aprsme.Packets.QueryBuilder
   alias Aprsme.Repo
-  alias AprsmeWeb.TimeUtils
 
   require Logger
 
@@ -480,51 +480,28 @@ defmodule Aprsme.Packets do
   @impl true
   @spec get_nearby_stations(float(), float(), String.t() | nil, map()) :: [struct()]
   def get_nearby_stations(lat, lon, exclude_callsign \\ nil, opts \\ %{}) do
-    limit = Map.get(opts, :limit, 10)
-    hours_back = Map.get(opts, :hours_back, 1)
-    cutoff_time = TimeUtils.hours_ago(hours_back)
+    # Use KNN (K-nearest neighbors) query for better performance
+    results = PreparedQueries.get_nearby_stations_knn(lat, lon, exclude_callsign, opts)
 
-    # Use named prepared statement for better performance (future optimization)
-    # _statement_name = if exclude_callsign, do: "nearby_stations_exclude", else: "nearby_stations"
-
-    # Use DISTINCT ON for better performance than window functions
-    # First get most recent packet per callsign, then order by distance
-    # Add spatial bounds to use indexes effectively
-    query = """
-    SELECT * FROM (
-      SELECT DISTINCT ON (p.base_callsign)
-        p.*,
-        ST_Distance(p.location::geography, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) as distance
-      FROM packets p
-      WHERE p.has_position = true
-        AND p.received_at >= $3
-        AND p.location IS NOT NULL
-        #{if exclude_callsign, do: "AND p.sender != $4", else: ""}
-        AND ST_DWithin(
-          p.location::geography,
-          ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-          100000  -- 100km radius for initial filtering
-        )
-      ORDER BY p.base_callsign, p.received_at DESC
-    ) AS recent_packets
-    ORDER BY distance ASC
-    LIMIT #{if exclude_callsign, do: "$5", else: "$4"}
-    """
-
-    params =
-      if exclude_callsign do
-        [lat, lon, cutoff_time, exclude_callsign, limit]
+    # Convert results back to Packet structs if needed
+    Enum.map(results, fn result ->
+      # If result is already a Packet struct, return it
+      if is_struct(result, Packet) do
+        result
       else
-        [lat, lon, cutoff_time, limit]
+        # Otherwise, create a minimal Packet struct from the map
+        %Packet{
+          sender: result.callsign,
+          base_callsign: result.base_callsign,
+          lat: result.lat,
+          lon: result.lon,
+          received_at: result.received_at,
+          symbol_table_id: result.symbol_table_id,
+          symbol_code: result.symbol_code,
+          comment: result.comment
+        }
       end
-
-    case Repo.query(query, params) do
-      {:ok, result} ->
-        Enum.map(result.rows, &Repo.load(Packet, {result.columns, &1}))
-
-      {:error, _} ->
-        []
-    end
+    end)
   end
 
   @doc """
@@ -780,10 +757,8 @@ defmodule Aprsme.Packets do
   """
   @spec get_latest_packet_for_callsign(String.t()) :: struct() | nil
   def get_latest_packet_for_callsign(callsign) when is_binary(callsign) do
-    callsign
-    |> QueryBuilder.callsign_history(%{limit: 1})
-    |> QueryBuilder.with_coordinates()
-    |> Repo.one()
+    # Use prepared statement for better performance
+    PreparedQueries.get_latest_packet_for_callsign(callsign)
   end
 
   @doc """
@@ -803,18 +778,8 @@ defmodule Aprsme.Packets do
   Check if a callsign has any weather packets.
   """
   def has_weather_packets?(callsign) when is_binary(callsign) do
-    import Ecto.Query
-
-    query =
-      from p in Packet,
-        where: p.sender == ^callsign,
-        where:
-          not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
-            not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
-        limit: 1,
-        select: true
-
-    Repo.exists?(query)
+    # Use prepared statement for better performance
+    PreparedQueries.has_weather_packets?(callsign)
   end
 
   defp get_latest_weather_in_window(callsign, hours) do

@@ -22,6 +22,7 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.MapLive.HistoricalLoader
   alias AprsmeWeb.MapLive.MapHelpers
   alias AprsmeWeb.MapLive.Navigation
+  alias AprsmeWeb.MapLive.PacketBatcher
   alias AprsmeWeb.MapLive.PacketManager
   alias AprsmeWeb.MapLive.PacketProcessor
   alias AprsmeWeb.MapLive.RfPath
@@ -182,6 +183,9 @@ defmodule AprsmeWeb.MapLive.Index do
         Packets.get_latest_packet_for_callsign(tracked_callsign)
       end
 
+    # Start packet batcher for efficient updates
+    {:ok, batcher_pid} = PacketBatcher.start_link(self())
+
     assign(socket,
       map_ready: false,
       map_bounds: initial_bounds,
@@ -200,6 +204,7 @@ defmodule AprsmeWeb.MapLive.Index do
       map_page: true,
       packet_buffer: [],
       buffer_timer: nil,
+      batcher_pid: batcher_pid,
       station_popup_open: false,
       initial_bounds_loaded: false,
       needs_initial_historical_load: tracked_callsign != "",
@@ -360,6 +365,15 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("marker_hover_start", %{"id" => _id, "path" => path, "lat" => lat, "lng" => lng}, socket) do
     require Logger
 
+    # Cancel any pending hover end timer
+    socket =
+      if socket.assigns[:hover_end_timer] do
+        Process.cancel_timer(socket.assigns.hover_end_timer)
+        assign(socket, hover_end_timer: nil)
+      else
+        socket
+      end
+
     # Validate coordinates first
     lat_float = ParamUtils.safe_parse_coordinate(lat, 0.0, -90.0, 90.0)
     lng_float = ParamUtils.safe_parse_coordinate(lng, 0.0, -180.0, 180.0)
@@ -390,8 +404,9 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_event("marker_hover_end", _params, socket) do
-    # Clear the RF path lines
-    {:noreply, push_event(socket, "clear_rf_path", %{})}
+    # Debounce hover end to prevent flicker during rapid mouse movements
+    timer = Process.send_after(self(), :clear_rf_path, 100)
+    {:noreply, assign(socket, hover_end_timer: timer)}
   end
 
   @impl true
@@ -726,11 +741,56 @@ defmodule AprsmeWeb.MapLive.Index do
 
   def handle_info(:reload_historical_packets, socket), do: handle_reload_historical_packets(socket)
 
-  def handle_info({:postgres_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
+  def handle_info({:postgres_packet, packet}, socket) do
+    # Add packet to batcher instead of processing immediately
+    if socket.assigns[:batcher_pid] do
+      PacketBatcher.add_packet(socket.assigns.batcher_pid, packet)
+    else
+      handle_info_postgres_packet(packet, socket)
+    end
 
-  def handle_info({:spatial_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
+    {:noreply, socket}
+  end
 
-  def handle_info({:streaming_packet, packet}, socket), do: handle_info_postgres_packet(packet, socket)
+  def handle_info({:spatial_packet, packet}, socket) do
+    # Add packet to batcher instead of processing immediately
+    if socket.assigns[:batcher_pid] do
+      PacketBatcher.add_packet(socket.assigns.batcher_pid, packet)
+    else
+      handle_info_postgres_packet(packet, socket)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:streaming_packet, packet}, socket) do
+    # Add packet to batcher instead of processing immediately
+    if socket.assigns[:batcher_pid] do
+      PacketBatcher.add_packet(socket.assigns.batcher_pid, packet)
+    else
+      handle_info_postgres_packet(packet, socket)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:packet_batch, packets}, socket) do
+    # Process batch of packets efficiently
+    socket =
+      Enum.reduce(packets, socket, fn packet, acc_socket ->
+        case handle_info_postgres_packet(packet, acc_socket) do
+          {:noreply, new_socket} -> new_socket
+          _ -> acc_socket
+        end
+      end)
+
+    {:noreply, socket}
+  end
+
+  def handle_info(:clear_rf_path, socket) do
+    # Clear the RF path lines with debouncing
+    {:noreply, push_event(socket, "clear_rf_path", %{})}
+  end
 
   def handle_info(
         %Broadcast{topic: "deployment_events", payload: {:new_deployment, %{deployed_at: deployed_at}}},
@@ -1708,17 +1768,31 @@ defmodule AprsmeWeb.MapLive.Index do
     end
   end
 
+  # Configurable debounce delay (in milliseconds)
+  @bounds_update_debounce_ms Application.compile_env(:aprsme, :bounds_update_debounce_ms, 400)
+
   defp schedule_bounds_update(map_bounds, socket) do
     # Cancel existing timer if present
     if socket.assigns[:bounds_update_timer] do
-      Process.cancel_timer(socket.assigns.bounds_update_timer)
+      case Process.cancel_timer(socket.assigns.bounds_update_timer) do
+        false ->
+          # Timer already fired, receive the message to clear it
+          receive do
+            {:process_bounds_update, _} -> :ok
+          after
+            0 -> :ok
+          end
+
+        _ ->
+          :ok
+      end
     end
 
     # Cancel any in-progress historical loading to prevent race conditions
     socket = HistoricalLoader.cancel_pending_loads(socket)
 
-    # Increase debounce time slightly for better stability during rapid zooming
-    timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, 400)
+    # Use configurable debounce time for better stability during rapid zooming
+    timer_ref = Process.send_after(self(), {:process_bounds_update, map_bounds}, @bounds_update_debounce_ms)
     socket = assign(socket, bounds_update_timer: timer_ref, pending_bounds: map_bounds)
     {:noreply, socket}
   end
