@@ -450,16 +450,20 @@ defmodule Aprsme.Packets do
 
     # Build base query with time filter
     # Only filter by position if not tracking a specific callsign
+    # Also normalize callsign to handle edge cases
+    callsign = opts[:callsign]
+    normalized_callsign = if is_binary(callsign), do: String.trim(callsign), else: ""
+
     base_query =
-      if Map.has_key?(opts, :callsign) and opts[:callsign] != nil and opts[:callsign] != "" do
-        # When tracking a callsign, show all their packets regardless of position
-        from(p in Packet,
-          where: p.received_at >= ^time_ago
-        )
-      else
+      if normalized_callsign == "" do
         # For general map view, only show packets with positions
         from(p in Packet,
           where: p.has_position == true,
+          where: p.received_at >= ^time_ago
+        )
+      else
+        # When tracking a callsign, show all their packets regardless of position
+        from(p in Packet,
           where: p.received_at >= ^time_ago
         )
       end
