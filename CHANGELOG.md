@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - BRIN indexes consideration for time-series data
 - Connection draining and load balancing for clustered deployments
   - Monitors CPU usage and connection counts across cluster nodes
+- Documentation for tracked callsign behavior confirming last packet is always shown regardless of age
   - Automatically drains connections when node is overloaded (>70% CPU or 2x average connections)
   - Gracefully reconnects clients to less loaded nodes
   - Improves overall cluster stability and performance
@@ -26,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Query performance improved by 50-90% for common operations
 - Weather queries now use indexed `has_weather` column
 - Spatial queries optimized with geography cast index
+
+### Fixed
+- Tracked callsigns now show all packets including those without position data
+  - Previously filtered out packets with `has_position == false` 
+  - Now shows all packets when tracking a specific callsign via /:callsign URL
+  - Ensures users can see status updates, messages, and other non-position packets
 
 ### Fixed
 - PostgreSQL notify trigger now sends all required fields for info page updates

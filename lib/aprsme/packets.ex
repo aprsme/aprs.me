@@ -448,12 +448,21 @@ defmodule Aprsme.Packets do
     limit = Map.get(opts, :limit, 200)
     offset = Map.get(opts, :offset, 0)
 
-    # Build base query with time and position filters
+    # Build base query with time filter
+    # Only filter by position if not tracking a specific callsign
     base_query =
-      from(p in Packet,
-        where: p.has_position == true,
-        where: p.received_at >= ^time_ago
-      )
+      if Map.has_key?(opts, :callsign) and opts[:callsign] != nil and opts[:callsign] != "" do
+        # When tracking a callsign, show all their packets regardless of position
+        from(p in Packet,
+          where: p.received_at >= ^time_ago
+        )
+      else
+        # For general map view, only show packets with positions
+        from(p in Packet,
+          where: p.has_position == true,
+          where: p.received_at >= ^time_ago
+        )
+      end
 
     # Apply spatial and other filters BEFORE limiting
     # This ensures we get the most recent packets within the specified bounds
