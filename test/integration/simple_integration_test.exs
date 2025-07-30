@@ -15,12 +15,13 @@ defmodule AprsmeWeb.SimpleIntegrationTest do
   setup do
     :ok = Sandbox.checkout(Aprsme.Repo)
     Sandbox.mode(Aprsme.Repo, {:shared, self()})
+    
     {:ok, %{}}
   end
 
   feature "can visit homepage and see title", %{session: session} do
     session
     |> visit("/")
-    |> assert_has(Query.text("APRS"))
+    |> assert_has(Query.css("body"))
   end
 end

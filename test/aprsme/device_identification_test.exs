@@ -2,6 +2,8 @@ defmodule Aprsme.DeviceIdentificationTest do
   use Aprsme.DataCase, async: true
 
   alias Aprsme.DeviceIdentification
+  alias Aprsme.Devices
+  alias Aprsme.Repo
 
   doctest DeviceIdentification
 
@@ -97,6 +99,13 @@ defmodule Aprsme.DeviceIdentificationTest do
       # Seed the devices table from the JSON
       Aprsme.DevicesSeeder.seed_from_json()
 
+      # Force cache refresh in test environment
+      if Code.ensure_loaded?(Aprsme.DeviceCache) do
+        # Manually refresh cache with seeded data
+        devices = Repo.all(Devices)
+        Aprsme.Cache.put(:device_cache, :all_devices, devices)
+      end
+
       # Should match
       found = DeviceIdentification.lookup_device_by_identifier("APSK21")
       assert found
@@ -108,6 +117,13 @@ defmodule Aprsme.DeviceIdentificationTest do
     test "matches Mic-E device identifier from raw packet" do
       # Seed the devices table from the JSON
       Aprsme.DevicesSeeder.seed_from_json()
+
+      # Force cache refresh in test environment
+      if Code.ensure_loaded?(Aprsme.DeviceCache) do
+        # Manually refresh cache with seeded data
+        devices = Repo.all(Devices)
+        Aprsme.Cache.put(:device_cache, :all_devices, devices)
+      end
 
       # The device identifier extracted from the raw packet is "]="
       found = DeviceIdentification.lookup_device_by_identifier("]=")
