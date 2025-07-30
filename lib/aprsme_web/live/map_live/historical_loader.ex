@@ -171,7 +171,23 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
             historical_hours = SharedPacketUtils.parse_historical_hours(socket.assigns.historical_hours || "1")
             params = Map.put(params, :hours_back, historical_hours)
 
-            Packets.get_recent_packets(params)
+            # Get recent packets within time filter
+            recent_packets = Packets.get_recent_packets(params)
+
+            # If tracking a callsign and this is the first batch, ensure we always include 
+            # the most recent packet for that callsign, even if it's older than the time filter
+            if socket.assigns.tracked_callsign != "" and batch_offset == 0 do
+              latest_packet = Packets.get_latest_packet_for_callsign(socket.assigns.tracked_callsign)
+
+              if latest_packet && not Enum.any?(recent_packets, &(&1.id == latest_packet.id)) do
+                # Add the latest packet to the beginning of the list so it's prioritized
+                [latest_packet | recent_packets]
+              else
+                recent_packets
+              end
+            else
+              recent_packets
+            end
           else
             # Fallback for testing
             packets_module.get_recent_packets(%{
