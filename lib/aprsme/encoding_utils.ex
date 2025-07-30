@@ -56,8 +56,6 @@ defmodule Aprsme.EncodingUtils do
   def to_float(value) when is_integer(value) do
     if value >= -9.0e15 and value <= 9.0e15 do
       value * 1.0
-    else
-      nil
     end
   end
 
@@ -76,7 +74,6 @@ defmodule Aprsme.EncodingUtils do
   end
 
   def to_float(_), do: nil
-
 
   @doc """
   Converts various types to Decimal for database storage.

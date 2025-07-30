@@ -10,6 +10,8 @@ defmodule AprsmeWeb.UserAuth do
   # Make the remember me cookie valid for 60 days.
   # If you want bump or reduce this value, also change
   # the token expiry itself in UserToken.
+  alias Phoenix.LiveView.Socket
+
   @max_age 60 * 60 * 24 * 60
   @remember_me_cookie "_aprs_web_user_remember_me"
   @remember_me_options [sign: true, max_age: @max_age, same_site: "Lax"]
@@ -26,6 +28,7 @@ defmodule AprsmeWeb.UserAuth do
   disconnected on log out. The line can be safely removed
   if you are not using LiveView.
   """
+  @spec log_in_user(Plug.Conn.t(), %Aprsme.Accounts.User{}, map()) :: Plug.Conn.t()
   def log_in_user(conn, user, params \\ %{}) do
     token = Accounts.generate_user_session_token(user)
     user_return_to = get_session(conn, :user_return_to)
@@ -69,6 +72,7 @@ defmodule AprsmeWeb.UserAuth do
 
   It clears all session data for safety. See renew_session.
   """
+  @spec log_out_user(Plug.Conn.t()) :: Plug.Conn.t()
   def log_out_user(conn) do
     user_token = get_session(conn, :user_token)
     user_token && Accounts.delete_user_session_token(user_token)
@@ -87,6 +91,7 @@ defmodule AprsmeWeb.UserAuth do
   Authenticates the user by looking into the session
   and remember me token.
   """
+  @spec fetch_current_user(Plug.Conn.t(), any()) :: Plug.Conn.t()
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
     user = user_token && Accounts.get_user_by_session_token(user_token)
@@ -144,6 +149,7 @@ defmodule AprsmeWeb.UserAuth do
         live "/profile", ProfileLive, :index
       end
   """
+  @spec on_mount(atom(), map(), map(), Socket.t()) :: {:cont | :halt, Socket.t()}
   def on_mount(:mount_current_user, _params, session, socket) do
     {:cont, mount_current_user(session, socket)}
   end
@@ -189,6 +195,7 @@ defmodule AprsmeWeb.UserAuth do
   @doc """
   Used for routes that require the user to not be authenticated.
   """
+  @spec redirect_if_user_is_authenticated(Plug.Conn.t(), any()) :: Plug.Conn.t()
   def redirect_if_user_is_authenticated(conn, _opts) do
     case conn.assigns[:current_user] do
       nil ->
@@ -207,6 +214,7 @@ defmodule AprsmeWeb.UserAuth do
   If you want to enforce the user email is confirmed before
   they use the application at all, here would be a good place.
   """
+  @spec require_authenticated_user(Plug.Conn.t(), any()) :: Plug.Conn.t()
   def require_authenticated_user(conn, _opts) do
     case conn.assigns[:current_user] do
       nil ->

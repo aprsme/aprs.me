@@ -7,6 +7,7 @@ defmodule AprsmeWeb.TimeHelpers do
   @doc """
   Returns a human-readable string for how long ago the given DateTime was.
   """
+  @spec time_ago_in_words(nil | NaiveDateTime.t() | DateTime.t()) :: String.t()
   def time_ago_in_words(nil), do: gettext("unknown time") <> " " <> gettext("ago")
 
   def time_ago_in_words(%NaiveDateTime{} = naive_datetime) do
@@ -42,6 +43,7 @@ defmodule AprsmeWeb.TimeHelpers do
   Handles ISO 8601 strings, Unix timestamps in milliseconds, and existing
   DateTime or NaiveDateTime structs.
   """
+  @spec to_datetime(String.t() | integer() | DateTime.t() | NaiveDateTime.t() | any()) :: DateTime.t() | nil
   def to_datetime(ts) do
     cond do
       is_binary(ts) ->
