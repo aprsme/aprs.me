@@ -872,6 +872,25 @@ defmodule AprsmeWeb.MapLive.Index do
     end
   end
 
+  def handle_info({:historical_loading_timeout, generation}, socket) do
+    # Only process if generation matches current loading generation and we're still loading
+    if generation == socket.assigns.loading_generation && socket.assigns.historical_loading do
+      require Logger
+
+      Logger.warning("Historical loading timeout reached, forcing completion")
+
+      socket =
+        socket
+        |> assign(:historical_loading, false)
+        |> assign(:loading_batch, socket.assigns.total_batches || 1)
+
+      {:noreply, socket}
+    else
+      # Stale timeout or already completed, ignore it
+      {:noreply, socket}
+    end
+  end
+
   def handle_info(%Broadcast{topic: "aprs_messages", event: "packet", payload: packet}, socket),
     do: handle_info({:postgres_packet, packet}, socket)
 

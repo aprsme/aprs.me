@@ -49,6 +49,9 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
     # Cancel any pending batch tasks
     socket = cancel_pending_loads(socket)
 
+    # Add a failsafe timeout to prevent infinite loading
+    Process.send_after(self(), {:historical_loading_timeout, new_generation}, 30_000)
+
     # For high zoom levels, load everything in one batch for maximum speed
     zoom = socket.assigns.map_zoom || 5
 
@@ -210,7 +213,24 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
 
         process_loaded_packets(socket, historical_packets, packet_data_list, batch_offset)
       else
-        socket
+        # No packets found - handle this as a completed batch to prevent infinite loading
+        require Logger
+
+        Logger.debug(
+          "No historical packets found for batch #{batch_offset}, hours_back: #{Map.get(socket.assigns, :historical_hours, "1")}, callsign: #{Map.get(socket.assigns, :tracked_callsign, "")}"
+        )
+
+        total_batches = socket.assigns.total_batches || 1
+        is_final_batch = batch_offset >= total_batches - 1
+
+        # Update progress for user feedback
+        socket = assign(socket, :loading_batch, batch_offset + 1)
+
+        # Mark loading as complete if this was the final batch or if we're doing single-batch loading
+        socket = update_loading_status(socket, is_final_batch)
+
+        # Process any pending bounds update if loading is complete
+        handle_pending_bounds(socket, is_final_batch)
       end
     end
   end
