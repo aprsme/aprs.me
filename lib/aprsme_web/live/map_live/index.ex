@@ -62,8 +62,8 @@ defmodule AprsmeWeb.MapLive.Index do
     # Setup additional subscriptions if connected
     socket = setup_additional_subscriptions(socket)
 
-    # Handle callsign tracking
-    tracked_callsign = Map.get(params, "call", "")
+    # Handle callsign tracking - check path params first, then query params
+    tracked_callsign = Map.get(params, "callsign", Map.get(params, "call", ""))
 
     {final_map_center, final_map_zoom} =
       Navigation.handle_callsign_tracking(
@@ -169,6 +169,14 @@ defmodule AprsmeWeb.MapLive.Index do
     historical_hours = Map.get(socket.assigns, :historical_hours, "1")
     packet_age_threshold = Map.get(socket.assigns, :packet_age_threshold, one_hour_ago)
 
+    # If tracking a specific callsign, fetch their latest packet
+    tracked_callsign_latest_packet =
+      if tracked_callsign == "" do
+        nil
+      else
+        CachedQueries.get_latest_packet_for_callsign_cached(tracked_callsign)
+      end
+
     assign(socket,
       map_ready: false,
       map_bounds: initial_bounds,
@@ -178,6 +186,7 @@ defmodule AprsmeWeb.MapLive.Index do
       packet_state: PacketManager.init_packet_state(),
       overlay_callsign: "",
       tracked_callsign: tracked_callsign,
+      tracked_callsign_latest_packet: tracked_callsign_latest_packet,
       trail_duration: trail_duration,
       historical_hours: historical_hours,
       packet_age_threshold: packet_age_threshold,
@@ -270,12 +279,14 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Filter by time and bounds
     filtered_packets =
-      filter_packets_by_time_and_bounds(
+      filter_packets_by_time_and_bounds_with_tracked(
         Map.new(current_packets, fn packet ->
           {get_callsign_key(packet), packet}
         end),
         socket.assigns.map_bounds,
-        socket.assigns.packet_age_threshold
+        socket.assigns.packet_age_threshold,
+        socket.assigns.tracked_callsign,
+        socket.assigns.tracked_callsign_latest_packet
       )
 
     visible_packets_list = DataBuilder.build_packet_data_list_from_map(filtered_packets, false, socket)
@@ -310,6 +321,21 @@ defmodule AprsmeWeb.MapLive.Index do
         socket
       else
         Navigation.zoom_to_current_location(socket)
+      end
+
+    # If we're tracking a callsign and have its latest packet, display it immediately
+    socket =
+      if socket.assigns.tracked_callsign != "" and socket.assigns.tracked_callsign_latest_packet do
+        packet = socket.assigns.tracked_callsign_latest_packet
+        packet_data = DataBuilder.build_packet_data(packet)
+
+        push_event(socket, "add_historical_packets_batch", %{
+          packets: [packet_data],
+          batch: 0,
+          is_final: false
+        })
+      else
+        socket
       end
 
     # Wait for JavaScript to send the actual map bounds before loading historical packets
@@ -836,6 +862,8 @@ defmodule AprsmeWeb.MapLive.Index do
       packet_sender = Map.get(packet, :sender, Map.get(packet, "sender", ""))
 
       if String.upcase(packet_sender) == String.upcase(socket.assigns.tracked_callsign) do
+        # Update the tracked callsign's latest packet
+        socket = assign(socket, :tracked_callsign_latest_packet, packet)
         process_packet_for_display(packet, socket)
       else
         {:noreply, socket}
@@ -1552,6 +1580,25 @@ defmodule AprsmeWeb.MapLive.Index do
         SharedPacketUtils.packet_within_time_threshold?(packet, time_threshold)
     end)
     |> Map.new()
+  end
+
+  @spec filter_packets_by_time_and_bounds_with_tracked(map(), map(), DateTime.t(), String.t(), map() | nil) :: map()
+  defp filter_packets_by_time_and_bounds_with_tracked(
+         packets,
+         bounds,
+         time_threshold,
+         tracked_callsign,
+         tracked_latest_packet
+       ) do
+    filtered = filter_packets_by_time_and_bounds(packets, bounds, time_threshold)
+
+    # Always include the tracked callsign's latest packet if we have one
+    if tracked_callsign != "" and tracked_latest_packet do
+      key = get_callsign_key(tracked_latest_packet)
+      Map.put(filtered, key, tracked_latest_packet)
+    else
+      filtered
+    end
   end
 
   # Helper functions for marker operations

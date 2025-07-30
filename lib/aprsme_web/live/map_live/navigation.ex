@@ -60,6 +60,7 @@ defmodule AprsmeWeb.MapLive.Navigation do
 
   def handle_callsign_search(callsign, socket) do
     if Utils.valid_callsign?(callsign) do
+      # Navigate to the new URL structure with the callsign as a path param
       {:noreply, LiveView.push_navigate(socket, to: "/#{callsign}")}
     else
       {:noreply, LiveView.put_flash(socket, :error, "Invalid callsign format")}
