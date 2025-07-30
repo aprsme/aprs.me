@@ -63,7 +63,12 @@ defmodule AprsmeWeb.MapLive.Index do
     socket = setup_additional_subscriptions(socket)
 
     # Handle callsign tracking - check path params first, then query params
-    tracked_callsign = Map.get(params, "callsign", Map.get(params, "call", ""))
+    tracked_callsign =
+      case Map.get(params, "callsign", Map.get(params, "call", "")) do
+        "" -> ""
+        nil -> ""
+        callsign -> callsign |> String.trim() |> String.upcase()
+      end
 
     {final_map_center, final_map_zoom} =
       Navigation.handle_callsign_tracking(

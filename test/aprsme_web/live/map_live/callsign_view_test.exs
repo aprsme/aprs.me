@@ -1,27 +1,32 @@
 defmodule AprsmeWeb.MapLive.CallsignViewTest do
   use AprsmeWeb.ConnCase
 
-  import Phoenix.ConnTest
+  import Phoenix.LiveViewTest
 
-  describe "CallsignView redirects" do
-    test "redirects to main map with call parameter", %{conn: conn} do
-      conn = get(conn, "/W5ISP-9")
-      assert redirected_to(conn) == "/?call=W5ISP-9"
+  describe "CallsignView displays map for callsign" do
+    test "displays map with callsign in path", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/W5ISP-9")
+      assert has_element?(view, "#aprs-map")
+      assert render(view) =~ "W5ISP-9"
     end
 
-    test "redirects lowercase callsigns", %{conn: conn} do
-      conn = get(conn, "/w5isp-9")
-      assert redirected_to(conn) == "/?call=w5isp-9"
+    test "handles lowercase callsigns", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/w5isp-9")
+      assert has_element?(view, "#aprs-map")
+      # Callsigns are normalized to uppercase
+      assert render(view) =~ "W5ISP-9"
     end
 
-    test "redirects callsign without SSID", %{conn: conn} do
-      conn = get(conn, "/W5ISP")
-      assert redirected_to(conn) == "/?call=W5ISP"
+    test "handles callsign without SSID", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/W5ISP")
+      assert has_element?(view, "#aprs-map")
+      assert render(view) =~ "W5ISP"
     end
 
-    test "redirects special characters in callsign", %{conn: conn} do
-      conn = get(conn, "/TEST-123")
-      assert redirected_to(conn) == "/?call=TEST-123"
+    test "handles special characters in callsign", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/TEST-123")
+      assert has_element?(view, "#aprs-map")
+      assert render(view) =~ "TEST-123"
     end
   end
 end
