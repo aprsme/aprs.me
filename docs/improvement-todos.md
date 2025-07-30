@@ -48,6 +48,16 @@ This document tracks potential improvements identified during the multi-replica 
   - Created `Aprsme.ShutdownHandler` with configurable drain timeout
   - Created `Aprsme.SignalHandler` for proper SIGTERM handling
   - **Silent shutdowns**: Removed all user notifications during graceful shutdown
+
+### ✅ Tracked Callsign Always Shows Last Packet (2025-07-30)
+- **Status**: Fixed - Now Shows All Packets Including Non-Position
+- **Impact**: High - User experience for tracking specific stations
+- **Implementation**:
+  - Fixed `get_recent_packets` to not filter by `has_position` when tracking callsign
+  - Confirmed `get_latest_packet_for_callsign` fetches without time restrictions
+  - Verified `filter_packets_by_time_and_bounds_with_tracked` always includes tracked packet
+  - Added documentation explaining the behavior
+  - Users can now see status updates, messages, and other non-position packets
   - Updated health endpoint to return 503 when draining (15s delay)
   - Added preStop lifecycle hook with 15s sleep
   - Set terminationGracePeriodSeconds to 60 seconds
