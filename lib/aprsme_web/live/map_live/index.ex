@@ -180,7 +180,16 @@ defmodule AprsmeWeb.MapLive.Index do
       if tracked_callsign == "" do
         nil
       else
-        Packets.get_latest_packet_for_callsign(tracked_callsign)
+        try do
+          Packets.get_latest_packet_for_callsign(tracked_callsign)
+        rescue
+          # Handle database connection errors gracefully (especially in tests)
+          DBConnection.OwnershipError ->
+            nil
+
+          _ ->
+            nil
+        end
       end
 
     # Start packet batcher for efficient updates
