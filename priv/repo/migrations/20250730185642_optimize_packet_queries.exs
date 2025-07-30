@@ -27,11 +27,11 @@ defmodule Aprsme.Repo.Migrations.OptimizePacketQueries do
     WHERE device_identifier IS NOT NULL
     """
 
-    # Partial index for recent packets (last 7 days) - very useful for most queries
+    # Index for recent packets - using simple timestamp ordering
+    # Note: We can't use NOW() in the WHERE clause as it's not immutable
     execute """
     CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_packets_recent_only 
     ON packets(received_at DESC)
-    WHERE received_at > NOW() - INTERVAL '7 days'
     """
 
     # Index for weather packet lookups by callsign
