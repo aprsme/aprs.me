@@ -403,12 +403,12 @@ defmodule AprsmeWeb.MapLive.Index do
         # Clear tracking
         socket
         |> assign(tracked_callsign: "")
-        |> push_patch(to: "/")
+        |> update_url_with_current_state()
       else
-        # Set tracking
+        # Set tracking and navigate to callsign URL
         socket
         |> assign(tracked_callsign: normalized_callsign)
-        |> push_patch(to: "/?call=#{normalized_callsign}")
+        |> push_patch(to: "/#{normalized_callsign}")
       end
 
     {:noreply, socket}
@@ -419,7 +419,7 @@ defmodule AprsmeWeb.MapLive.Index do
     socket =
       socket
       |> assign(tracked_callsign: "", overlay_callsign: "")
-      |> push_patch(to: "/")
+      |> update_url_with_current_state()
 
     {:noreply, socket}
   end
@@ -605,7 +605,15 @@ defmodule AprsmeWeb.MapLive.Index do
           do: "&hist=#{socket.assigns[:historical_hours]}",
           else: ""
 
-      new_path = "/?lat=#{lat}&lng=#{lng}&z=#{zoom}#{trail_param}#{hist_param}"
+      # Preserve callsign in path if tracking
+      base_path =
+        if socket.assigns.tracked_callsign == "" do
+          "/"
+        else
+          "/#{socket.assigns.tracked_callsign}"
+        end
+
+      new_path = "#{base_path}?lat=#{lat}&lng=#{lng}&z=#{zoom}#{trail_param}#{hist_param}"
       Logger.debug("Updating URL to: #{new_path}")
       push_patch(socket, to: new_path, replace: true)
     end
