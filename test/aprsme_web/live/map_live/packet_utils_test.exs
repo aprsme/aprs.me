@@ -29,8 +29,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
 
       result = PacketUtils.build_packet_data(packet, true)
 
-      assert result != nil
-      assert result["popup"] != nil
+      assert result
+      assert result["popup"]
 
       popup = result["popup"]
 
@@ -81,8 +81,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
 
       result = PacketUtils.build_packet_data(packet, true)
 
-      assert result != nil
-      assert result["popup"] != nil
+      assert result
+      assert result["popup"]
 
       popup = result["popup"]
 
@@ -119,8 +119,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
 
       result = PacketUtils.build_packet_data(packet, true)
 
-      assert result != nil
-      assert result["popup"] != nil
+      assert result
+      assert result["popup"]
 
       popup = result["popup"]
 
@@ -157,8 +157,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
 
       result = PacketUtils.build_packet_data(packet, true)
 
-      assert result != nil
-      assert result["popup"] != nil
+      assert result
+      assert result["popup"]
 
       popup = result["popup"]
 
@@ -194,8 +194,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
 
       result = PacketUtils.build_packet_data(packet, true)
 
-      assert result != nil
-      assert result["popup"] != nil
+      assert result
+      assert result["popup"]
 
       popup = result["popup"]
 
@@ -227,8 +227,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
 
       result = PacketUtils.build_packet_data(packet, true)
 
-      assert result != nil
-      assert result["popup"] != nil
+      assert result
+      assert result["popup"]
 
       popup = result["popup"]
 
@@ -261,8 +261,8 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
 
       result = PacketUtils.build_packet_data(packet, true)
 
-      assert result != nil
-      assert result["popup"] != nil
+      assert result
+      assert result["popup"]
 
       popup = result["popup"]
 

@@ -220,9 +220,6 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
           nil ->
             "#{value}"
         end
-
-      _ ->
-        "#{value}"
     end
   end
 end

@@ -30,7 +30,7 @@ defmodule AprsmeWeb.MapLive.UrlParams do
   def parse_latitude(nil), do: @default_center.lat
 
   def parse_latitude(lat_str) do
-    ParamUtils.parse_float_in_range(lat_str, @default_center.lat, -90, 90)
+    ParamUtils.parse_float_in_range(lat_str, @default_center.lat, -90.0, 90.0)
   end
 
   @doc """
@@ -40,7 +40,7 @@ defmodule AprsmeWeb.MapLive.UrlParams do
   def parse_longitude(nil), do: @default_center.lng
 
   def parse_longitude(lng_str) do
-    ParamUtils.parse_float_in_range(lng_str, @default_center.lng, -180, 180)
+    ParamUtils.parse_float_in_range(lng_str, @default_center.lng, -180.0, 180.0)
   end
 
   @doc """

@@ -89,7 +89,7 @@ defmodule Aprsme.Cluster.LeaderElection do
 
       :no ->
         leader_pid = :global.whereis_name(@election_key)
-        leader_node = if leader_pid, do: node(leader_pid)
+        leader_node = if leader_pid != :undefined and is_pid(leader_pid), do: node(leader_pid)
         Logger.info("Not elected as leader. Current leader is on node #{inspect(leader_node)}")
         {:noreply, %{state | is_leader: false, leader_node: leader_node}}
     end

@@ -66,7 +66,7 @@ defmodule Aprsme.IsTest do
       assert AprsIsMock.simulate_connection_state(true) == :ok
       status = AprsIsMock.get_status()
       assert status.connected == true
-      assert status.connected_at != nil
+      assert status.connected_at
 
       # Simulate disconnected state
       assert AprsIsMock.simulate_connection_state(false) == :ok

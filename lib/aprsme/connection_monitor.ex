@@ -197,8 +197,8 @@ defmodule Aprsme.ConnectionMonitor do
     # Get CPU usage from scheduler utilization
     # Use Erlang's cpu_sup if available, otherwise estimate from scheduler utilization
     case :cpu_sup.util() do
-      {:ok, busy, _, _} ->
-        busy / 100.0
+      util when is_number(util) ->
+        util / 100.0
 
       _ ->
         # Fallback to scheduler wall time

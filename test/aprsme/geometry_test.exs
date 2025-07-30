@@ -62,7 +62,7 @@ defmodule Aprsme.GeometryTest do
       changeset = Packet.changeset(%Packet{}, attrs)
 
       assert changeset.valid?
-      assert get_change(changeset, :location) != nil
+      assert get_change(changeset, :location)
       assert get_change(changeset, :has_position) == true
 
       location = get_change(changeset, :location)
@@ -112,7 +112,7 @@ defmodule Aprsme.GeometryTest do
       assert {:ok, packet} = Packets.store_packet(attrs)
       assert packet.sender == "TEST-1"
       assert packet.has_position == true
-      assert packet.location != nil
+      assert packet.location
       assert %Geo.Point{} = packet.location
       assert_in_delta elem(packet.location.coordinates, 1), 32.2743, 0.0001
       assert_in_delta elem(packet.location.coordinates, 0), -96.7970, 0.0001
@@ -195,18 +195,18 @@ defmodule Aprsme.GeometryTest do
   describe "coordinate conversion and validation" do
     test "handles various coordinate formats" do
       # Test float coordinates
-      assert Packet.create_point(32.7767, -96.7970) != nil
+      assert Packet.create_point(32.7767, -96.7970)
 
       # Test integer coordinates
-      assert Packet.create_point(33, -97) != nil
+      assert Packet.create_point(33, -97)
 
       # Test boundary values
-      assert Packet.create_point(90.0, 180.0) != nil
-      assert Packet.create_point(-90.0, -180.0) != nil
+      assert Packet.create_point(90.0, 180.0)
+      assert Packet.create_point(-90.0, -180.0)
 
       # Test just inside boundaries
-      assert Packet.create_point(89.9999, 179.9999) != nil
-      assert Packet.create_point(-89.9999, -179.9999) != nil
+      assert Packet.create_point(89.9999, 179.9999)
+      assert Packet.create_point(-89.9999, -179.9999)
     end
 
     test "rejects coordinates outside valid ranges" do
@@ -221,13 +221,13 @@ defmodule Aprsme.GeometryTest do
 
     test "handles edge case coordinates" do
       # Test zero coordinates
-      assert Packet.create_point(0.0, 0.0) != nil
+      assert Packet.create_point(0.0, 0.0)
 
       # Test very small coordinates
-      assert Packet.create_point(0.000001, 0.000001) != nil
+      assert Packet.create_point(0.000001, 0.000001)
 
       # Test coordinates near boundaries
-      assert Packet.create_point(89.999999, 179.999999) != nil
+      assert Packet.create_point(89.999999, 179.999999)
     end
   end
 
@@ -252,7 +252,7 @@ defmodule Aprsme.GeometryTest do
       assert {:ok, packet} = Packets.store_packet(attrs)
       assert packet.sender == "TEST-1"
       assert packet.has_position == true
-      assert packet.location != nil
+      assert packet.location
     end
 
     test "stores packet with standard position data" do

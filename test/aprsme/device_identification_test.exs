@@ -99,10 +99,10 @@ defmodule Aprsme.DeviceIdentificationTest do
 
       # Should match
       found = DeviceIdentification.lookup_device_by_identifier("APSK21")
-      assert found != nil
+      assert found
       assert found.identifier == "APS???"
-      assert found.model != nil
-      assert found.vendor != nil
+      assert found.model
+      assert found.vendor
     end
 
     test "matches Mic-E device identifier from raw packet" do
@@ -111,10 +111,10 @@ defmodule Aprsme.DeviceIdentificationTest do
 
       # The device identifier extracted from the raw packet is "]="
       found = DeviceIdentification.lookup_device_by_identifier("]=")
-      assert found != nil
+      assert found
       assert found.identifier == "]="
-      assert found.model != nil
-      assert found.vendor != nil
+      assert found.model
+      assert found.vendor
     end
   end
 end

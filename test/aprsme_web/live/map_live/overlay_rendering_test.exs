@@ -93,7 +93,7 @@ defmodule AprsmeWeb.MapLive.OverlayRenderingTest do
 
       # Verify it's a single background image (no overlay)
       assert symbol_html =~ "background-image: url(/aprs-symbols/aprs-symbols-128-0@2x.png)"
-      assert not (symbol_html =~ "background-image: url(/aprs-symbols/aprs-symbols-128-0@2x.png), url")
+      refute symbol_html =~ "background-image: url(/aprs-symbols/aprs-symbols-128-0@2x.png), url"
 
       # Verify the position for _ symbol
       assert symbol_html =~ "background-position: -448.0px -96.0px"

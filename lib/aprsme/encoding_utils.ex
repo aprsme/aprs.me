@@ -49,12 +49,15 @@ defmodule Aprsme.EncodingUtils do
   """
   @spec to_float(any()) :: float() | nil
   def to_float(value) when is_float(value) do
-    if finite_float?(value), do: value
+    # In Elixir, floats are always finite (no infinity or NaN)
+    value
   end
 
   def to_float(value) when is_integer(value) do
     if value >= -9.0e15 and value <= 9.0e15 do
       value * 1.0
+    else
+      nil
     end
   end
 
@@ -69,19 +72,11 @@ defmodule Aprsme.EncodingUtils do
   end
 
   def to_float(%Decimal{} = value) do
-    float = Decimal.to_float(value)
-    if finite_float?(float), do: float
+    Decimal.to_float(value)
   end
 
   def to_float(_), do: nil
 
-  # Helper to check if a float is finite (not infinity or NaN)
-  @spec finite_float?(any()) :: boolean()
-  defp finite_float?(float) when is_float(float) do
-    # In Elixir, we can't have infinity or NaN in regular floats
-    # This function is kept for defensive programming
-    true
-  end
 
   @doc """
   Converts various types to Decimal for database storage.

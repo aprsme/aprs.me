@@ -15,7 +15,7 @@
                 AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@weather_packet) %>
               <% symbol_table =
                 if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
-              <% symbol_code = symbol_code || ">" %>
+              <% symbol_code = (symbol_code || ">") |> to_string() %>
               <% table_id =
                 if symbol_table == "/", do: "0", else: if(symbol_table == "]", do: "2", else: "1") %>
               <% symbol_code_ord =

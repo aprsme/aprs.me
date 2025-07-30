@@ -154,7 +154,7 @@ defmodule Aprsme.Packets.QueryBuilder do
   def recent_position_packets(opts \\ %{}) do
     limit = opts[:limit] || opts["limit"] || 100
 
-    Packet
+    from(p in Packet)
     |> with_position()
     |> with_time_range(opts)
     |> maybe_filter_region(opts)
@@ -175,7 +175,7 @@ defmodule Aprsme.Packets.QueryBuilder do
   def callsign_history(callsign, opts \\ %{}) do
     limit = opts[:limit] || opts["limit"] || 100
 
-    Packet
+    from(p in Packet)
     |> for_callsign(callsign)
     |> with_time_range(opts)
     |> recent_first()
@@ -197,7 +197,7 @@ defmodule Aprsme.Packets.QueryBuilder do
     callsign = opts[:callsign] || opts["callsign"]
 
     query =
-      Packet
+      from(p in Packet)
       |> weather_only()
       |> with_time_range(opts)
       |> recent_first()

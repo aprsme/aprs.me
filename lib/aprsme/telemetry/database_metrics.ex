@@ -104,21 +104,6 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
                   %{}
                 )
             end
-
-          _ ->
-            # No children, use defaults
-            :telemetry.execute(
-              [:aprsme, :repo, :pool],
-              %{
-                size: pool_size,
-                idle: 0,
-                busy: 0,
-                available: 0,
-                queue_length: 0,
-                total: 0
-              },
-              %{}
-            )
         end
     end
   rescue

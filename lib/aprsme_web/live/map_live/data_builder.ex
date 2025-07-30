@@ -198,7 +198,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   def build_simple_popup(packet, has_weather) do
     # Build popup HTML directly without database queries
     callsign = get_packet_field(packet, :sender, "Unknown")
-    timestamp_dt = get_packet_received_at(packet) || DateTime.utc_now()
+    timestamp_dt = get_packet_received_at(packet)
     cache_buster = System.system_time(:millisecond)
 
     # Check if this packet itself is a weather packet
