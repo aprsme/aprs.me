@@ -1062,8 +1062,26 @@ defmodule AprsmeWeb.MapLive.Index do
         cursor: pointer;
       }
 
+      @media (prefers-color-scheme: dark) {
+        .locate-button {
+          background: rgb(30 41 59); /* slate-800 */
+          border-color: rgba(255, 255, 255, 0.1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .locate-button svg {
+          fill: #e2e8f0; /* slate-200 */
+        }
+      }
+
       .locate-button:hover {
         background: #f4f4f4;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .locate-button:hover {
+          background: rgb(51 65 85); /* slate-700 */
+        }
       }
 
       .aprs-marker {
@@ -1149,6 +1167,13 @@ defmodule AprsmeWeb.MapLive.Index do
         box-sizing: border-box;
       }
 
+      @media (prefers-color-scheme: dark) {
+        .slideover-panel {
+          background: rgb(15 23 42); /* slate-900 */
+          box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+        }
+      }
+
       /* Ensure proper box-sizing for all children */
       .slideover-panel * {
         box-sizing: border-box;
@@ -1197,6 +1222,14 @@ defmodule AprsmeWeb.MapLive.Index do
         box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
       }
 
+      @media (prefers-color-scheme: dark) {
+        .slideover-toggle {
+          background: rgb(30 41 59); /* slate-800 */
+          border-color: rgba(255, 255, 255, 0.1);
+          box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+        }
+      }
+
       .slideover-toggle.slideover-open {
         right: 352px;
       }
@@ -1214,6 +1247,12 @@ defmodule AprsmeWeb.MapLive.Index do
 
       .slideover-toggle:hover {
         background: #f3f4f6;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .slideover-toggle:hover {
+          background: rgb(51 65 85); /* slate-700 */
+        }
       }
     </style>
 
@@ -1308,7 +1347,7 @@ defmodule AprsmeWeb.MapLive.Index do
       phx-hook="ResponsiveSlideoverHook"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between p-6 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+      <div class="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div class="flex items-center space-x-2">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path
@@ -1345,10 +1384,10 @@ defmodule AprsmeWeb.MapLive.Index do
       </div>
       
     <!-- Content -->
-      <div class="p-6 space-y-6 bg-slate-50 flex-1 overflow-y-auto">
+      <div class="p-6 space-y-6 bg-slate-50 dark:bg-slate-900 flex-1 overflow-y-auto">
         <!-- Callsign Search -->
         <div class="space-y-4">
-          <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-2">
             <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
@@ -1367,7 +1406,7 @@ defmodule AprsmeWeb.MapLive.Index do
                 value={@tracked_callsign || @overlay_callsign}
                 phx-change="update_callsign"
                 placeholder={gettext("Enter callsign...")}
-                class="flex-1 px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm uppercase placeholder-slate-400 transition-all duration-200 hover:border-slate-400"
+                class="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm uppercase placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-200 hover:border-slate-400 dark:hover:border-slate-500 bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
               />
               <button
                 type="submit"
@@ -1395,7 +1434,7 @@ defmodule AprsmeWeb.MapLive.Index do
         
     <!-- Trail Duration -->
         <div class="space-y-4">
-          <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-2">
             <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
@@ -1409,7 +1448,7 @@ defmodule AprsmeWeb.MapLive.Index do
           <form phx-change="update_trail_duration" class="relative">
             <select
               name="trail_duration"
-              class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white text-gray-900 appearance-none transition-all duration-200 hover:border-slate-400"
+              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white appearance-none transition-all duration-200 hover:border-slate-400 dark:hover:border-slate-500"
             >
               <option value="1" selected={@trail_duration == "1"}>
                 {ngettext("1 Hour", "%{count} Hours", 1)}
@@ -1440,7 +1479,7 @@ defmodule AprsmeWeb.MapLive.Index do
         
     <!-- Historical Data -->
         <div class="space-y-4">
-          <label class="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-2">
             <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
@@ -1454,7 +1493,7 @@ defmodule AprsmeWeb.MapLive.Index do
           <form phx-change="update_historical_hours" class="relative">
             <select
               name="historical_hours"
-              class="w-full px-4 py-3 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white text-gray-900 appearance-none transition-all duration-200 hover:border-slate-400"
+              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white appearance-none transition-all duration-200 hover:border-slate-400 dark:hover:border-slate-500"
             >
               <option value="1" selected={@historical_hours == "1"}>
                 {ngettext("1 Hour", "%{count} Hours", 1)}
@@ -1481,8 +1520,8 @@ defmodule AprsmeWeb.MapLive.Index do
         </div>
         
     <!-- Navigation -->
-        <div class="pt-4 border-t border-slate-200 space-y-3">
-          <div class="flex items-center space-x-2 text-sm text-slate-600 mb-3">
+        <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+          <div class="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400 mb-3">
             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
@@ -1503,8 +1542,8 @@ defmodule AprsmeWeb.MapLive.Index do
         </div>
         
     <!-- Last Update -->
-        <div class="pt-4 border-t border-slate-200 space-y-3">
-          <div class="flex items-center space-x-2 text-sm text-slate-600">
+        <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+          <div class="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400">
             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
@@ -1515,21 +1554,21 @@ defmodule AprsmeWeb.MapLive.Index do
             </svg>
             <span class="font-medium">{gettext("Last Update")}</span>
           </div>
-          <div class="text-xs text-slate-500">
+          <div class="text-xs text-slate-500 dark:text-slate-400">
             <%= if @last_update_at do %>
               <div class="font-mono">{time_ago_in_words(@last_update_at)}</div>
-              <div class="font-mono text-slate-400">
+              <div class="font-mono text-slate-400 dark:text-slate-500">
                 {Calendar.strftime(@last_update_at, "%Y-%m-%d %H:%M UTC")}
               </div>
             <% else %>
-              <div class="font-mono text-slate-500">No updates yet</div>
+              <div class="font-mono text-slate-500 dark:text-slate-400">No updates yet</div>
             <% end %>
           </div>
         </div>
         
     <!-- Deployment Information -->
-        <div class="pt-4 border-t border-slate-200 space-y-3">
-          <div class="flex items-center space-x-2 text-sm text-slate-600">
+        <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+          <div class="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400">
             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
@@ -1540,7 +1579,7 @@ defmodule AprsmeWeb.MapLive.Index do
             </svg>
             <span class="font-medium">{gettext("Last Deploy")}</span>
           </div>
-          <div class="text-xs text-slate-500">
+          <div class="text-xs text-slate-500 dark:text-slate-400">
             <div class="font-mono">{time_ago_in_words(@deployed_at)}</div>
             <div class="font-mono text-slate-400">
               {Calendar.strftime(@deployed_at, "%Y-%m-%d %H:%M UTC")}
