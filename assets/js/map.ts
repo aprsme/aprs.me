@@ -578,7 +578,7 @@ let MapAPRSMap = {
           usual: '#222',
           highlighted: '#f00'
         },
-        spiderfyDistanceMultiplier: 2
+        spiderfyDistanceMultiplier: 3.5
       });
 
       // Add click handler for spiderfied markers
