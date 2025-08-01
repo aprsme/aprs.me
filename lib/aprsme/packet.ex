@@ -52,6 +52,9 @@ defmodule Aprsme.Packet do
     field(:speed, :float)
     field(:altitude, :float)
 
+    # Position ambiguity level (0-4)
+    field(:position_ambiguity, :integer)
+
     # PHG (Power-Height-Gain) fields
     field(:phg_power, :integer)
     field(:phg_height, :integer)
@@ -115,6 +118,7 @@ defmodule Aprsme.Packet do
       :course,
       :speed,
       :altitude,
+      :position_ambiguity,
       :phg_power,
       :phg_height,
       :phg_gain,
@@ -346,6 +350,7 @@ defmodule Aprsme.Packet do
       :aprs_messaging,
       data_extended[:aprs_messaging?] || data_extended["aprs_messaging?"]
     )
+    |> maybe_put(:position_ambiguity, data_extended[:position_ambiguity] || data_extended["position_ambiguity"])
   end
 
   defp put_weather_fields(map, data_extended) do

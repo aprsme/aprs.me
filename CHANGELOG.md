@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatically drains connections when node is overloaded (>70% CPU or 2x average connections)
   - Gracefully reconnects clients to less loaded nodes
   - Improves overall cluster stability and performance
+- Position ambiguity support from APRS parser
+  - Added `position_ambiguity` field to packets table (integer, 0-4)
+  - Automatically captures position ambiguity level when parsing APRS packets
+  - Supports ambiguity levels 0-4 as defined in APRS specification
 
 ### Changed
 - Query performance improved by 50-90% for common operations
