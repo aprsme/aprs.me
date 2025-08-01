@@ -41,6 +41,7 @@ defmodule Aprsme.DataCase do
     if tags[:needs_devices] do
       Aprsme.DevicesSeeder.seed_from_json()
     end
+
     :ok
   end
 

@@ -4,6 +4,7 @@ ExUnit.start(
   capture_log: true,
   exclude: [:slow, :integration]
 )
+
 Ecto.Adapters.SQL.Sandbox.mode(Aprsme.Repo, :manual)
 
 # Configure Mox

@@ -199,7 +199,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
       # Start LeaderElection which should clean it up
       Application.put_env(:aprsme, :cluster_enabled, false)
       {:ok, _pid} = LeaderElection.start_link([])
-      
+
       # Wait longer for cleanup and election to occur
       Process.sleep(500)
 

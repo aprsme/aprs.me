@@ -137,7 +137,7 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
       # ConnectionManager will check with LeaderElection
       # In test environment, it will get that it's the leader
       # This is OK - we're just testing that it handles the check without crashing
-      
+
       # Send initial state check
       send(pid, :check_initial_state)
       Process.sleep(100)

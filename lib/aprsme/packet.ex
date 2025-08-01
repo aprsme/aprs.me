@@ -303,9 +303,10 @@ defmodule Aprsme.Packet do
       end
 
     # Also process telemetry fields from top-level attrs if not already processed
-    telemetry_data = 
+    telemetry_data =
       if Map.has_key?(additional_data, :telemetry_vals) do
-        %{}  # Already processed from data_extended
+        # Already processed from data_extended
+        %{}
       else
         # Process from top-level attrs
         put_telemetry_fields(%{}, attrs)
