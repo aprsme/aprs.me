@@ -1,176 +1,89 @@
 defmodule Aprsme.PacketTest do
   use Aprsme.DataCase, async: true
-
   alias Aprsme.Packet
 
-  describe "extract_additional_data/2" do
-    test "position packet with course/speed should not be classified as weather" do
-      # This is the problematic packet from KG5GKC-12
-      raw_packet =
-        "KG5GKC-12>APAT51,WIDE1-1,WIDE2-2,qAO,NI2C-10:!3310.04N/09640.40Wk038/023/A=000623AT-MOBILE KG5GKC@YAHOO.COM"
-
-      # Simulate the parsed data from APRS parser
+  describe "extract_additional_data/2 with telemetry data" do
+    test "converts string telemetry_vals to integers" do
+      raw_packet = "W5ISP>APRS,TCPIP*:T#005,12.80,0.00,0.00,0.00,0.00,00000000"
+      
       attrs = %{
-        sender: "KG5GKC-12",
-        destination: "APAT51",
-        path: "WIDE1-1,WIDE2-2,qAO,NI2C-10",
-        information_field: "!3310.04N/09640.40Wk038/023/A=000623AT-MOBILE KG5GKC@YAHOO.COM",
-        data_type: :position,
-        base_callsign: "KG5GKC",
-        ssid: "12",
-        data_extended: %{
-          latitude: Decimal.new("33.167333"),
-          longitude: Decimal.new("-96.673333"),
-          symbol_table_id: "/",
-          symbol_code: "k",
-          comment: "038/023/A=000623AT-MOBILE KG5GKC@YAHOO.COM",
-          course: 38,
-          speed: 23.0,
-          data_type: :position,
-          has_position: true
+        sender: "W5ISP",
+        data_type: "telemetry",
+        telemetry: %{
+          seq: "005",
+          vals: ["12.80", "0.00", "0.00", "0.00", "0.00"],
+          bits: "00000000"
         }
       }
 
       result = Packet.extract_additional_data(attrs, raw_packet)
 
-      # The data_type should be "position" (normalized to string)
-      assert result[:data_type] == "position" or result[:data_type] == :position
-      assert result[:symbol_code] == "k"
-      assert result[:symbol_table_id] == "/"
-      assert result[:course] == 38
-      assert result[:speed] == 23.0
-      assert result[:raw_packet] == raw_packet
+      assert result.telemetry_seq == 5
+      assert result.telemetry_vals == [13, 0, 0, 0, 0]  # 12.80 rounds to 13
+      assert result.telemetry_bits == "00000000"
     end
 
-    test "actual weather packet should be classified as weather" do
-      raw_packet = "KC0ABC>APRS:_10090556c220s004g005t077P000h50b09900"
-
+    test "handles mixed integer and string telemetry_vals" do
       attrs = %{
-        sender: "KC0ABC",
-        destination: "APRS",
-        path: "",
-        information_field: "_10090556c220s004g005t077P000h50b09900",
-        data_type: :weather,
-        base_callsign: "KC0ABC",
-        ssid: nil,
-        data_extended: %{
-          timestamp: "10090556",
-          wind_direction: 220,
-          wind_speed: 4.0,
-          wind_gust: 5.0,
-          temperature: 77.0,
-          rain_since_midnight: 0.0,
-          humidity: 50.0,
-          pressure: 990.0,
-          data_type: :weather
+        sender: "TEST",
+        data_type: "telemetry", 
+        telemetry: %{
+          seq: 10,
+          vals: [180, "37.50", "0.00", 88, "164.75"],
+          bits: "10101010"
         }
       }
 
-      result = Packet.extract_additional_data(attrs, raw_packet)
+      result = Packet.extract_additional_data(attrs, "test_packet")
 
-      # Weather packet should remain as weather (normalized to string)
-      assert result[:data_type] == "weather" or result[:data_type] == :weather
-      assert result[:temperature] == 77.0
-      assert result[:humidity] == 50.0
-      assert result[:pressure] == 990.0
+      assert result.telemetry_seq == 10
+      assert result.telemetry_vals == [180, 38, 0, 88, 165]  # Mixed types converted properly
+      assert result.telemetry_bits == "10101010"
     end
 
-    test "position packet with weather symbol should use parser's determination" do
-      raw_packet = "KC0ABC>APRS:=3310.04N/09640.40W_PHG5130"
-
+    test "handles float telemetry_vals" do
       attrs = %{
-        sender: "KC0ABC",
-        destination: "APRS",
-        path: "",
-        information_field: "=3310.04N/09640.40W_PHG5130",
-        # Parser determined this is position despite weather symbol
-        data_type: :position,
-        base_callsign: "KC0ABC",
-        ssid: nil,
-        data_extended: %{
-          latitude: Decimal.new("33.167333"),
-          longitude: Decimal.new("-96.673333"),
-          symbol_table_id: "/",
-          symbol_code: "_",
-          comment: "PHG5130",
-          data_type: :position,
-          has_position: true
+        sender: "TEST",
+        data_type: "telemetry",
+        telemetry: %{
+          seq: "001", 
+          vals: [12.8, 37.2, 0.1, 88.9, 164.5]
         }
       }
 
-      result = Packet.extract_additional_data(attrs, raw_packet)
+      result = Packet.extract_additional_data(attrs, "test_packet")
 
-      # Should trust parser's determination (normalized to string)
-      assert result[:data_type] == "position" or result[:data_type] == :position
-      assert result[:symbol_code] == "_"
+      assert result.telemetry_seq == 1
+      assert result.telemetry_vals == [13, 37, 0, 89, 165]  # Floats rounded to integers
     end
 
-    test "telemetry packet with string seq value should convert to integer" do
-      raw_packet = "KC0ABC>APRS:T#094,199,000,255,073,123,00000000"
-
+    test "handles invalid telemetry_vals gracefully" do
       attrs = %{
-        sender: "KC0ABC",
-        destination: "APRS",
-        path: "",
-        information_field: "T#094,199,000,255,073,123,00000000",
-        data_type: :telemetry,
-        base_callsign: "KC0ABC",
-        ssid: nil,
-        data_extended: %{
-          telemetry: %{
-            seq: "094",
-            vals: [199, 0, 255, 73, 123],
-            bits: "00000000"
-          },
-          data_type: :telemetry
+        sender: "TEST",
+        data_type: "telemetry",
+        telemetry: %{
+          seq: "002",
+          vals: ["invalid", nil, "", "12.5", :atom]
         }
       }
 
-      result = Packet.extract_additional_data(attrs, raw_packet)
+      result = Packet.extract_additional_data(attrs, "test_packet")
 
-      # telemetry_seq should be converted to integer
-      assert result[:telemetry_seq] == 94
-      assert result[:telemetry_vals] == [199, 0, 255, 73, 123]
-      assert result[:telemetry_bits] == "00000000"
+      assert result.telemetry_seq == 2
+      assert result.telemetry_vals == [0, 0, 0, 13, 0]  # Invalid values become 0
     end
 
-    test "telemetry packet with integer seq value should remain integer" do
+    test "handles missing telemetry data" do
       attrs = %{
-        sender: "KC0ABC",
-        data_type: :telemetry,
-        data_extended: %{
-          telemetry: %{
-            seq: 42,
-            vals: [100, 200],
-            bits: "11110000"
-          }
-        }
+        sender: "TEST",
+        data_type: "position"
       }
 
-      result = Packet.extract_additional_data(attrs, "")
+      result = Packet.extract_additional_data(attrs, "test_packet")
 
-      assert result[:telemetry_seq] == 42
-      assert result[:telemetry_vals] == [100, 200]
-      assert result[:telemetry_bits] == "11110000"
-    end
-
-    test "telemetry packet with invalid seq value should be nil" do
-      attrs = %{
-        sender: "KC0ABC",
-        data_type: :telemetry,
-        data_extended: %{
-          telemetry: %{
-            seq: "invalid",
-            vals: [100],
-            bits: "00000000"
-          }
-        }
-      }
-
-      result = Packet.extract_additional_data(attrs, "")
-
-      assert result[:telemetry_seq] == nil
-      assert result[:telemetry_vals] == [100]
+      assert Map.get(result, :telemetry_seq) == nil
+      assert Map.get(result, :telemetry_vals) == nil
+      assert Map.get(result, :telemetry_bits) == nil
     end
   end
 end

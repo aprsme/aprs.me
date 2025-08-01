@@ -302,7 +302,18 @@ defmodule Aprsme.Packet do
           %{}
       end
 
-    Map.merge(base_attrs, additional_data)
+    # Also process telemetry fields from top-level attrs if not already processed
+    telemetry_data = 
+      if Map.has_key?(additional_data, :telemetry_vals) do
+        %{}  # Already processed from data_extended
+      else
+        # Process from top-level attrs
+        put_telemetry_fields(%{}, attrs)
+      end
+
+    base_attrs
+    |> Map.merge(additional_data)
+    |> Map.merge(telemetry_data)
   end
 
   # Extract data from standard map-based data_extended
@@ -454,9 +465,37 @@ defmodule Aprsme.Packet do
           nil
       end
 
+    # Convert telemetry_vals from strings to integers
+    telemetry_vals =
+      case telemetry[:vals] || telemetry["vals"] do
+        nil ->
+          nil
+
+        vals when is_list(vals) ->
+          Enum.map(vals, fn
+            val when is_binary(val) ->
+              case Float.parse(val) do
+                {num, _} -> round(num)
+                _ -> 0
+              end
+
+            val when is_integer(val) ->
+              val
+
+            val when is_float(val) ->
+              round(val)
+
+            _ ->
+              0
+          end)
+
+        _ ->
+          nil
+      end
+
     map
     |> maybe_put(:telemetry_seq, telemetry_seq)
-    |> maybe_put(:telemetry_vals, telemetry[:vals] || telemetry["vals"])
+    |> maybe_put(:telemetry_vals, telemetry_vals)
     |> maybe_put(:telemetry_bits, telemetry[:bits] || telemetry["bits"])
   end
 
