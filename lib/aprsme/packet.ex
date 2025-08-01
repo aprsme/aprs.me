@@ -55,6 +55,10 @@ defmodule Aprsme.Packet do
     # Position ambiguity level (0-4)
     field(:position_ambiguity, :integer)
 
+    # Position resolution and format
+    field(:posresolution, :float)
+    field(:format, :string)
+
     # PHG (Power-Height-Gain) fields
     field(:phg_power, :integer)
     field(:phg_height, :integer)
@@ -65,6 +69,11 @@ defmodule Aprsme.Packet do
     field(:addressee, :string)
     field(:message_text, :string)
     field(:message_number, :string)
+
+    # Telemetry fields
+    field(:telemetry_seq, :integer)
+    field(:telemetry_vals, {:array, :integer})
+    field(:telemetry_bits, :string)
 
     field(:device_identifier, :string)
 
@@ -119,6 +128,8 @@ defmodule Aprsme.Packet do
       :speed,
       :altitude,
       :position_ambiguity,
+      :posresolution,
+      :format,
       :phg_power,
       :phg_height,
       :phg_gain,
@@ -126,6 +137,9 @@ defmodule Aprsme.Packet do
       :addressee,
       :message_text,
       :message_number,
+      :telemetry_seq,
+      :telemetry_vals,
+      :telemetry_bits,
       :device_identifier
     ])
     |> validate_required([
@@ -324,6 +338,7 @@ defmodule Aprsme.Packet do
       |> put_weather_fields(combined_data)
       |> put_equipment_fields(combined_data)
       |> put_message_fields(combined_data)
+      |> put_telemetry_fields(combined_data)
 
     # Don't override data_type - trust the APRS parser's determination
     # The parser already correctly identifies weather packets by:
@@ -351,6 +366,8 @@ defmodule Aprsme.Packet do
       data_extended[:aprs_messaging?] || data_extended["aprs_messaging?"]
     )
     |> maybe_put(:position_ambiguity, data_extended[:position_ambiguity] || data_extended["position_ambiguity"])
+    |> maybe_put(:posresolution, data_extended[:posresolution] || data_extended["posresolution"])
+    |> maybe_put(:format, data_extended[:format] || data_extended["format"])
   end
 
   defp put_weather_fields(map, data_extended) do
@@ -412,6 +429,16 @@ defmodule Aprsme.Packet do
       :message_number,
       data_extended[:message_number] || data_extended["message_number"]
     )
+  end
+
+  defp put_telemetry_fields(map, data_extended) do
+    # Check for telemetry data in various locations
+    telemetry = data_extended[:telemetry] || data_extended["telemetry"] || data_extended
+
+    map
+    |> maybe_put(:telemetry_seq, telemetry[:seq] || telemetry["seq"])
+    |> maybe_put(:telemetry_vals, telemetry[:vals] || telemetry["vals"])
+    |> maybe_put(:telemetry_bits, telemetry[:bits] || telemetry["bits"])
   end
 
   # Extract data from MicE packets

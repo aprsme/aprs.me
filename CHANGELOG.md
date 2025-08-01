@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `position_ambiguity` field to packets table (integer, 0-4)
   - Automatically captures position ambiguity level when parsing APRS packets
   - Supports ambiguity levels 0-4 as defined in APRS specification
+- Enhanced APRS parser integration with latest improvements
+  - Added `posresolution` field showing position accuracy in meters (18.52m for uncompressed, 0.291m for compressed)
+  - Added `format` field indicating "compressed" or "uncompressed" position type
+  - Added telemetry fields (`telemetry_seq`, `telemetry_vals`, `telemetry_bits`) for telemetry packet support
+  - Improved coordinate handling with direct float support from parser
+  - Fixed compressed latitude divisor calculation for more accurate position decoding
 
 ### Changed
 - Query performance improved by 50-90% for common operations
