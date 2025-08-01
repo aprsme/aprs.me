@@ -465,12 +465,12 @@ defmodule Aprsme.Packet do
     %{}
     |> maybe_put(:lat, mic_e[:latitude])
     |> maybe_put(:lon, mic_e[:longitude])
-    |> maybe_put(:comment, mic_e.message)
-    |> maybe_put(:manufacturer, mic_e.manufacturer)
-    |> maybe_put(:course, mic_e.heading)
-    |> maybe_put(:speed, mic_e.speed)
-    |> maybe_put(:symbol_code, mic_e.symbol_code)
-    |> maybe_put(:symbol_table_id, mic_e.symbol_table_id)
+    |> maybe_put(:comment, mic_e[:message])
+    |> maybe_put(:manufacturer, mic_e[:manufacturer])
+    |> maybe_put(:course, mic_e[:heading])
+    |> maybe_put(:speed, mic_e[:speed])
+    |> maybe_put(:symbol_code, mic_e[:symbol_code])
+    |> maybe_put(:symbol_table_id, mic_e[:symbol_table_id])
   end
 
   # Extract data from converted MicE map (from struct_to_map conversion)

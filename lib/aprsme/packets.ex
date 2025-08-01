@@ -231,7 +231,7 @@ defmodule Aprsme.Packets do
     error_type =
       case error do
         %{type: type} -> type
-        %{__struct__: struct} -> struct
+        %{__struct__: struct} -> struct |> to_string() |> String.replace("Elixir.", "")
         _ -> "UnknownError"
       end
 
@@ -256,7 +256,7 @@ defmodule Aprsme.Packets do
     error_type =
       case error do
         %{type: type} -> type
-        %{__struct__: struct} -> struct
+        %{__struct__: struct} -> struct |> to_string() |> String.replace("Elixir.", "")
         _ -> "UnknownError"
       end
 
