@@ -119,6 +119,12 @@ defmodule Aprsme.Cluster.LeaderElection do
   end
 
   @impl true
+  def handle_info(msg, state) do
+    Logger.debug("LeaderElection received unexpected message: #{inspect(msg)}")
+    {:noreply, state}
+  end
+
+  @impl true
   def terminate(reason, state) do
     if state.is_leader do
       Logger.info("Leader stepping down due to: #{inspect(reason)}")
