@@ -109,6 +109,12 @@ defmodule Aprsme.Cluster.LeaderElection do
   end
 
   @impl true
+  def handle_info(msg, state) do
+    Logger.debug("LeaderElection received unexpected message: #{inspect(msg)}")
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_call(:is_leader?, _from, state) do
     {:reply, state.is_leader, state}
   end
@@ -116,12 +122,6 @@ defmodule Aprsme.Cluster.LeaderElection do
   @impl true
   def handle_call(:current_leader, _from, state) do
     {:reply, state.leader_node, state}
-  end
-
-  @impl true
-  def handle_info(msg, state) do
-    Logger.debug("LeaderElection received unexpected message: #{inspect(msg)}")
-    {:noreply, state}
   end
 
   @impl true
