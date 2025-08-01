@@ -367,7 +367,7 @@ defmodule Aprsme.Packet do
     )
     |> maybe_put(:position_ambiguity, data_extended[:position_ambiguity] || data_extended["position_ambiguity"])
     |> maybe_put(:posresolution, data_extended[:posresolution] || data_extended["posresolution"])
-    |> maybe_put(:format, data_extended[:format] || data_extended["format"])
+    |> maybe_put(:format, normalize_format_field(data_extended[:format] || data_extended["format"]))
   end
 
   defp put_weather_fields(map, data_extended) do
@@ -720,4 +720,10 @@ defmodule Aprsme.Packet do
       _ -> 0
     end
   end
+
+  # Normalize format field from atom to string
+  defp normalize_format_field(nil), do: nil
+  defp normalize_format_field(format) when is_atom(format), do: to_string(format)
+  defp normalize_format_field(format) when is_binary(format), do: format
+  defp normalize_format_field(_), do: nil
 end
