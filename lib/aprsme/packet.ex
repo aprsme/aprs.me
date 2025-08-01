@@ -435,8 +435,27 @@ defmodule Aprsme.Packet do
     # Check for telemetry data in various locations
     telemetry = data_extended[:telemetry] || data_extended["telemetry"] || data_extended
 
+    # Convert telemetry_seq to integer if it's a string
+    telemetry_seq =
+      case telemetry[:seq] || telemetry["seq"] do
+        nil ->
+          nil
+
+        seq when is_binary(seq) ->
+          case Integer.parse(seq) do
+            {num, _} -> num
+            _ -> nil
+          end
+
+        seq when is_integer(seq) ->
+          seq
+
+        _ ->
+          nil
+      end
+
     map
-    |> maybe_put(:telemetry_seq, telemetry[:seq] || telemetry["seq"])
+    |> maybe_put(:telemetry_seq, telemetry_seq)
     |> maybe_put(:telemetry_vals, telemetry[:vals] || telemetry["vals"])
     |> maybe_put(:telemetry_bits, telemetry[:bits] || telemetry["bits"])
   end

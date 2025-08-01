@@ -104,5 +104,73 @@ defmodule Aprsme.PacketTest do
       assert result[:data_type] == "position" or result[:data_type] == :position
       assert result[:symbol_code] == "_"
     end
+
+    test "telemetry packet with string seq value should convert to integer" do
+      raw_packet = "KC0ABC>APRS:T#094,199,000,255,073,123,00000000"
+
+      attrs = %{
+        sender: "KC0ABC",
+        destination: "APRS",
+        path: "",
+        information_field: "T#094,199,000,255,073,123,00000000",
+        data_type: :telemetry,
+        base_callsign: "KC0ABC",
+        ssid: nil,
+        data_extended: %{
+          telemetry: %{
+            seq: "094",
+            vals: [199, 0, 255, 73, 123],
+            bits: "00000000"
+          },
+          data_type: :telemetry
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, raw_packet)
+
+      # telemetry_seq should be converted to integer
+      assert result[:telemetry_seq] == 94
+      assert result[:telemetry_vals] == [199, 0, 255, 73, 123]
+      assert result[:telemetry_bits] == "00000000"
+    end
+
+    test "telemetry packet with integer seq value should remain integer" do
+      attrs = %{
+        sender: "KC0ABC",
+        data_type: :telemetry,
+        data_extended: %{
+          telemetry: %{
+            seq: 42,
+            vals: [100, 200],
+            bits: "11110000"
+          }
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "")
+
+      assert result[:telemetry_seq] == 42
+      assert result[:telemetry_vals] == [100, 200]
+      assert result[:telemetry_bits] == "11110000"
+    end
+
+    test "telemetry packet with invalid seq value should be nil" do
+      attrs = %{
+        sender: "KC0ABC",
+        data_type: :telemetry,
+        data_extended: %{
+          telemetry: %{
+            seq: "invalid",
+            vals: [100],
+            bits: "00000000"
+          }
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "")
+
+      assert result[:telemetry_seq] == nil
+      assert result[:telemetry_vals] == [100]
+    end
   end
 end
