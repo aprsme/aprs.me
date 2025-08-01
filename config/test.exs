@@ -14,10 +14,12 @@ config :aprsme, Aprsme.Repo,
   hostname: "localhost",
   database: "aprsme_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: System.schedulers_online() * 2,
+  pool_size: System.schedulers_online() * 4,
   types: Aprsme.PostgresTypes,
-  ownership_timeout: 300_000,
-  timeout: 300_000
+  ownership_timeout: 60_000,
+  timeout: 15_000,
+  queue_target: 50,
+  queue_interval: 100
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
@@ -74,8 +76,8 @@ config :exvcr,
 config :hammer,
   backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
 
-# Print only warnings and errors during test
-config :logger, level: :warning
+# Disable logging during test for better performance
+config :logger, level: :error
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime

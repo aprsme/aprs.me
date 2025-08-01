@@ -37,7 +37,10 @@ defmodule Aprsme.DataCase do
 
   setup tags do
     Aprsme.DataCase.setup_sandbox(tags)
-    Aprsme.DevicesSeeder.seed_from_json()
+    # Only seed devices for tests that need them
+    if tags[:needs_devices] do
+      Aprsme.DevicesSeeder.seed_from_json()
+    end
     :ok
   end
 

@@ -154,6 +154,9 @@ defmodule Aprsme.PacketConsumerTest do
 
     test "respects max_batch_size and drops excess packets" do
       import ExUnit.CaptureLog
+      
+      # Temporarily enable warning level for this test
+      Logger.configure(level: :warning)
       # Create more packets than max_batch_size
       events =
         for i <- 1..150 do
@@ -183,6 +186,9 @@ defmodule Aprsme.PacketConsumerTest do
 
       # Should log warning about dropped packets
       assert log =~ "Dropped 50 packets due to batch size limit"
+      
+      # Reset log level
+      Logger.configure(level: :error)
 
       # Only max_batch_size packets should be processed
       packet_count = Repo.aggregate(Packet, :count)

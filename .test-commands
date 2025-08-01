@@ -1,0 +1,19 @@
+# Fast Test Commands
+
+# Run only fast tests (excludes slow and integration tests)
+alias test-fast="mix test --exclude slow --exclude integration"
+
+# Run all tests including slow ones
+alias test-all="mix test"
+
+# Run tests with coverage (slower)
+alias test-cover="mix test --cover"
+
+# Run tests continuously during development
+alias test-watch="mix test.watch --exclude slow --exclude integration"
+
+# Run only failing tests
+alias test-failed="mix test --failed"
+
+# Run stale tests (only tests affected by code changes)  
+alias test-stale="mix test --stale --exclude slow --exclude integration"

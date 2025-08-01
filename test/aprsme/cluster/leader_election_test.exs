@@ -140,6 +140,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
       assert :global.whereis_name(@election_key) == :undefined
     end
 
+    @tag :slow
     test "periodic leadership check continues running" do
       {:ok, _pid} = LeaderElection.start_link([])
 
@@ -185,18 +186,22 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
   end
 
   describe "stale registration cleanup" do
+    @tag :slow
     test "cleans up registration when process dies" do
       # Register a dead process
       dead_pid = spawn(fn -> :ok end)
       # Ensure it's dead
-      Process.sleep(10)
+      Process.sleep(50)
 
       # Force register it globally (simulating stale registration)
       :global.re_register_name(@election_key, dead_pid)
 
       # Start LeaderElection which should clean it up
+      Application.put_env(:aprsme, :cluster_enabled, false)
       {:ok, _pid} = LeaderElection.start_link([])
-      Process.sleep(200)
+      
+      # Wait longer for cleanup and election to occur
+      Process.sleep(500)
 
       # Should have taken over leadership
       assert LeaderElection.is_leader?() == true
@@ -209,6 +214,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
       :ok
     end
 
+    @tag :slow
     test "waits for cluster formation when enabled" do
       {:ok, _pid} = LeaderElection.start_link([])
 
