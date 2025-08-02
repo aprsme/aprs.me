@@ -71,7 +71,8 @@ defmodule AprsmeWeb.MapLive.MovementTest do
       send(view.pid, {:postgres_packet, drift_packet})
 
       # The view should not push a new_packet event for GPS drift
-      refute_push_event(view, "new_packet", %{id: "TEST-1"}, 200)
+      # Using a longer timeout to avoid flaky tests on slower systems
+      refute_push_event(view, "new_packet", %{id: "TEST-1"}, 2000)
     end
 
     test "updates marker for significant movement", %{conn: conn} do

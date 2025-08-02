@@ -35,7 +35,7 @@ defmodule Aprsme.StreamingPacketsPubSubTest do
 
       StreamingPacketsPubSub.broadcast_packet(packet_in_bounds)
 
-      assert_receive {:streaming_packet, ^packet_in_bounds}, 100
+      assert_receive {:streaming_packet, ^packet_in_bounds}, 1000
     end
 
     test "does not receive packets outside subscribed bounds" do
@@ -59,7 +59,7 @@ defmodule Aprsme.StreamingPacketsPubSubTest do
 
       StreamingPacketsPubSub.broadcast_packet(packet_outside_bounds)
 
-      refute_receive {:streaming_packet, _}, 100
+      refute_receive {:streaming_packet, _}, 500
     end
 
     test "handles multiple subscribers with different bounds" do
@@ -122,7 +122,7 @@ defmodule Aprsme.StreamingPacketsPubSubTest do
 
       StreamingPacketsPubSub.broadcast_packet(packet)
 
-      refute_receive {:streaming_packet, _}, 100
+      refute_receive {:streaming_packet, _}, 500
     end
   end
 

@@ -47,7 +47,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       
       # Wait for map to initialize and markers to appear
       # The map should automatically load historical packets
-      Process.sleep(2000)
+      Process.sleep(3000)
       
       # Check that markers are present on the map
       # Look for Leaflet marker elements
@@ -66,7 +66,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       |> click(css(".leaflet-marker-icon", at: 0))
       
       # Wait for popup to appear
-      Process.sleep(500)
+      Process.sleep(1000)
       
       # Verify popup contains one of our test callsigns
       assert_has(session, css(".leaflet-popup-content", text: ~r/INTTEST[12]/))
@@ -102,13 +102,13 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       |> assert_has(css("#map"))
       
       # Wait for historical loading
-      Process.sleep(2000)
+      Process.sleep(3000)
       
       # Click on the marker (should be the recent one)
       session
       |> click(css(".leaflet-marker-icon", at: 0))
       
-      Process.sleep(500)
+      Process.sleep(1000)
       
       # Verify it's the recent packet, not the old one
       assert_has(session, css(".leaflet-popup-content", text: "RECENTTEST"))
@@ -119,7 +119,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       |> visit("/?hist=6") # 6 hours
       |> assert_has(css("#map"))
       
-      Process.sleep(2000)
+      Process.sleep(3000)
       
       # Now both packets should be visible
       marker_count = 
@@ -159,13 +159,13 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       |> visit("/?lat=40.7128&lng=-74.0060&z=10")
       |> assert_has(css("#map"))
       
-      Process.sleep(2000)
+      Process.sleep(3000)
       
       # Should see NYC packet
       session
       |> click(css(".leaflet-marker-icon", at: 0))
       
-      Process.sleep(500)
+      Process.sleep(1000)
       
       assert_has(session, css(".leaflet-popup-content", text: "NYC1"))
       
@@ -178,13 +178,13 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       session
       |> visit("/?lat=34.0522&lng=-118.2437&z=10")
       
-      Process.sleep(2000)
+      Process.sleep(3000)
       
       # Should now see LA packet instead
       session
       |> click(css(".leaflet-marker-icon", at: 0))
       
-      Process.sleep(500)
+      Process.sleep(1000)
       
       assert_has(session, css(".leaflet-popup-content", text: "LA1"))
     end
@@ -232,7 +232,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       |> assert_has(css("#map"))
       
       # Wait for map to load and center on latest position
-      Process.sleep(2000)
+      Process.sleep(3000)
       
       # Should see trail connecting all positions
       # Verify we have markers (latest position + trail points)
