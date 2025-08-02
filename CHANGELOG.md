@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports ambiguity levels 0-4 as defined in APRS specification
 - Enhanced APRS parser integration with latest improvements
   - Added `posresolution` field showing position accuracy in meters (18.52m for uncompressed, 0.291m for compressed)
+  - Added 20 new database fields for enhanced parser compatibility
+  - Implemented weather data extraction with dedicated `wx` field support
+  - Enhanced PHG parsing to handle both string format and legacy map structure
+  - Added radio range field extraction from comments
+  - Added standard parser compatibility fields for better integration
   - Added `format` field indicating "compressed" or "uncompressed" position type
   - Added telemetry fields (`telemetry_seq`, `telemetry_vals`, `telemetry_bits`) for telemetry packet support
   - Improved coordinate handling with direct float support from parser
@@ -43,8 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Previously filtered out packets with `has_position == false` 
   - Now shows all packets when tracking a specific callsign via /:callsign URL
   - Ensures users can see status updates, messages, and other non-position packets
-
-### Fixed
 - PostgreSQL notify trigger now sends all required fields for info page updates
 - Info page real-time updates now display all packet details correctly
 - Enhanced PostgreSQL notify to include complete packet data (device info, weather data, SSIDs, etc.)
@@ -52,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Altitude data (e.g., "6;}" = 218 feet) is now parsed and stored
   - Telemetry markers (_%...) are removed from comments
   - Non-human-readable encoded data is no longer displayed as comments
+- Historical packets now load on initial page load for all users
+  - Previously only loaded historical data when tracking a specific callsign
+  - Fixed by setting `needs_initial_historical_load` to true for all map views
+  - Ensures users see recent activity immediately when visiting the map
 
 ## [0.2.0] - 2025-07-26
 

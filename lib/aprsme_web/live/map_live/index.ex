@@ -216,7 +216,8 @@ defmodule AprsmeWeb.MapLive.Index do
       batcher_pid: batcher_pid,
       station_popup_open: false,
       initial_bounds_loaded: false,
-      needs_initial_historical_load: tracked_callsign != "",
+      # Always load historical data on initial page load
+      needs_initial_historical_load: true,
       # Loading state management
       historical_loading: false,
       loading_generation: 0,
