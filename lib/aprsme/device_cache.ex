@@ -138,12 +138,12 @@ defmodule Aprsme.DeviceCache do
 
       cond do
         String.contains?(pattern, "?") ->
-          try do
-            regex = wildcard_pattern_to_regex(pattern)
-            Regex.match?(regex, identifier)
-          rescue
-            _e in Regex.CompileError ->
-              false
+          # Use cached regex compilation
+          regex_pattern = wildcard_pattern_to_regex_string(pattern)
+
+          case Aprsme.RegexCache.get_or_compile(regex_pattern) do
+            {:ok, regex} -> Regex.match?(regex, identifier)
+            {:error, _} -> false
           end
 
         String.contains?(pattern, "*") ->
@@ -156,8 +156,8 @@ defmodule Aprsme.DeviceCache do
     end)
   end
 
-  # Converts a pattern with ? wildcards to a regex
-  defp wildcard_pattern_to_regex(pattern) when is_binary(pattern) do
+  # Converts a pattern with ? wildcards to a regex string (for caching)
+  defp wildcard_pattern_to_regex_string(pattern) when is_binary(pattern) do
     # Replace ? with a placeholder, escape all regex metacharacters except the placeholder,
     # then replace placeholder with .
     pattern
@@ -165,9 +165,6 @@ defmodule Aprsme.DeviceCache do
     # Escape all regex metacharacters
     |> String.replace(~r/([\\.\+\*\?\[\^\]\$\(\)\{\}=!<>\|:\-])/, "\\\\\\1")
     |> String.replace("__WILDCARD__", ".")
-    |> then(fn s ->
-      regex = "^" <> s <> "$"
-      ~r/#{regex}/
-    end)
+    |> then(fn s -> "^" <> s <> "$" end)
   end
 end

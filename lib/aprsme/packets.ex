@@ -136,33 +136,26 @@ defmodule Aprsme.Packets do
   defp extract_lon_from_ext_map(_), do: nil
 
   defp set_lat_lon(attrs, lat, lon) do
-    round6 = fn
-      nil ->
-        nil
-
-      %Decimal{} = d ->
-        Decimal.round(d, 6)
-
-      n when is_float(n) ->
-        Float.round(n, 6)
-
-      n when is_integer(n) ->
-        n * 1.0
-
-      n when is_binary(n) ->
-        case Float.parse(n) do
-          {f, _} -> Float.round(f, 6)
-          :error -> nil
-        end
-
-      _ ->
-        nil
-    end
-
+    # Optimize: avoid creating anonymous function on each call
     attrs
-    |> Map.put(:lat, round6.(lat))
-    |> Map.put(:lon, round6.(lon))
+    |> Map.put(:lat, round_coordinate(lat))
+    |> Map.put(:lon, round_coordinate(lon))
   end
+
+  # Moved out as a separate function to avoid recreating on each call
+  defp round_coordinate(nil), do: nil
+  defp round_coordinate(%Decimal{} = d), do: Decimal.round(d, 6)
+  defp round_coordinate(n) when is_float(n), do: Float.round(n, 6)
+  defp round_coordinate(n) when is_integer(n), do: n * 1.0
+
+  defp round_coordinate(n) when is_binary(n) do
+    case Float.parse(n) do
+      {f, _} -> Float.round(f, 6)
+      :error -> nil
+    end
+  end
+
+  defp round_coordinate(_), do: nil
 
   defp normalize_ssid(attrs) do
     case Map.get(attrs, :ssid) do

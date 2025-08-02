@@ -51,7 +51,8 @@ defmodule Aprsme.PacketConsumer do
         _from,
         %{batch: batch, batch_size: batch_size, max_batch_size: max_batch_size, timer: timer} = state
       ) do
-    new_batch = batch ++ events
+    # More efficient: prepend events to batch (O(n) where n = length of events)
+    new_batch = events ++ batch
     new_batch_length = length(new_batch)
 
     cond do

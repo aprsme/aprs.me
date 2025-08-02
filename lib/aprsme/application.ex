@@ -29,6 +29,8 @@ defmodule Aprsme.Application do
       # Start Redis-based rate limiter and caches (only if Redis is available)
       # Start circuit breaker
       Aprsme.CircuitBreaker,
+      # Start regex cache for performance
+      Aprsme.RegexCache,
       # Start device cache manager
       Aprsme.DeviceCache,
       # Start broadcast task supervisor for async operations
