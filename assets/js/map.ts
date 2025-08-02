@@ -418,6 +418,8 @@ let MapAPRSMap = {
           // Send initial bounds to trigger historical loading
           if (self.map && self.pushEvent && typeof self.pushEvent === "function") {
             saveMapState(self.map, self.pushEvent.bind(self));
+            // Also send bounds to server to trigger historical loading
+            self.sendBoundsToServer();
           }
 
           // Also send update_map_state to ensure URL updates and bounds processing
@@ -435,6 +437,8 @@ let MapAPRSMap = {
               self.pushEvent("map_ready", {});
               if (self.map) {
                 saveMapState(self.map, self.pushEvent.bind(self));
+                // Also send bounds to server to trigger historical loading
+                self.sendBoundsToServer();
               }
               // Also trigger map state update after a delay
               setTimeout(() => {
