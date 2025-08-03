@@ -62,9 +62,10 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
           symbol_table_id: "/"
         })
 
-      # Navigate to the map
+      # Navigate to the map with the test location in view
+      # Center on New York area where our test packets are located
       session
-      |> visit("/")
+      |> visit("/?lat=40.735&lon=-73.996&zoom=11")
       |> assert_has(css("#aprs-map"))
 
       # Wait for map to initialize and markers to appear
@@ -123,7 +124,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
 
       # Navigate to map with 1 hour historical range (default)
       session
-      |> visit("/?hist=1")
+      |> visit("/?hist=1&lat=39.8283&lon=-98.5795&zoom=6")
       |> assert_has(css("#aprs-map"))
 
       # Wait for historical loading
@@ -140,7 +141,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       # Now test with extended historical range
       session
       # 6 hours
-      |> visit("/?hist=6")
+      |> visit("/?hist=6&lat=39.8283&lon=-98.5795&zoom=6")
       |> assert_has(css("#aprs-map"))
 
       Process.sleep(3000)
@@ -250,7 +251,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
 
       # Navigate to tracked callsign URL
       session
-      |> visit("/TRACK1-9")
+      |> visit("/TRACK1-9?lat=39.8283&lon=-98.5795&zoom=4")
       |> assert_has(css("#aprs-map"))
 
       # Wait for map to load and center on latest position
