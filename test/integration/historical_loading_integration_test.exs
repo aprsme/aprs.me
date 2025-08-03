@@ -34,33 +34,41 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
     @describetag timeout: 60_000
     feature "displays historical packets immediately after map loads", %{session: session} do
       # Create test packets with known positions
+      # Make sure they're recent enough to be loaded
       now = DateTime.utc_now()
 
-      _packet1 =
+      packet1 =
         packet_fixture(%{
           sender: "INTTEST1",
           base_callsign: "INTTEST1",
           ssid: "0",
-          lat: 40.7128,
-          lon: -74.0060,
+          lat: Decimal.new("40.7128"),
+          lon: Decimal.new("-74.0060"),
           received_at: DateTime.add(now, -20 * 60, :second),
           comment: "Integration test station 1",
           symbol_code: "k",
-          symbol_table_id: "/"
+          symbol_table_id: "/",
+          has_position: true,
+          data_type: "position"
         })
 
-      _packet2 =
+      packet2 =
         packet_fixture(%{
           sender: "INTTEST2",
           base_callsign: "INTTEST2",
           ssid: "0",
-          lat: 40.7580,
-          lon: -73.9855,
+          lat: Decimal.new("40.7580"),
+          lon: Decimal.new("-73.9855"),
           received_at: DateTime.add(now, -10 * 60, :second),
           comment: "Integration test station 2",
           symbol_code: "-",
-          symbol_table_id: "/"
+          symbol_table_id: "/",
+          has_position: true,
+          data_type: "position"
         })
+
+      # Debug: Verify packets were created
+      IO.puts("Created packets: #{inspect([packet1.id, packet2.id])}")
 
       # Navigate to the map with the test location in view
       # Center on New York area where our test packets are located
@@ -68,26 +76,57 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       |> visit("/?lat=40.735&lon=-73.996&zoom=11")
       |> assert_has(css("#aprs-map"))
 
-      # Wait for map to initialize
+      # Wait for map container to be present
+      assert_has(session, css(".leaflet-container"))
+
+      # Wait for map to fully initialize
       Process.sleep(2000)
 
-      # Ensure map has initialized and trigger bounds update
+      # Execute script to check map state and manually trigger historical loading
       execute_script(session, """
-        if (window.aprsMap && window.aprsMap.map) {
-          // Trigger bounds_changed event to load historical packets
-          const bounds = window.aprsMap.map.getBounds();
-          if (bounds && window.APRSMap && window.APRSMap.prototype.sendBoundsToServer) {
-            window.APRSMap.prototype.sendBoundsToServer.call(window.aprsMap);
-          }
+        // Check if map is initialized
+        if (!window.aprsMap || !window.aprsMap.map) {
+          console.error('Map not initialized');
+          return false;
         }
+        
+        // Get the LiveView hook
+        const mapElement = document.getElementById('aprs-map');
+        if (!mapElement || !mapElement.__hook__) {
+          console.error('Map hook not found');
+          return false;
+        }
+        
+        // Manually push a bounds_changed event
+        mapElement.__hook__.pushEvent('bounds_changed', {
+          north: 40.9,
+          south: 40.6,
+          east: -73.8,
+          west: -74.2,
+          zoom: 11
+        });
+        
+        return true;
       """)
 
-      # Wait for historical packets to load
-      Process.sleep(3000)
+      # Wait for packets to load and render
+      Process.sleep(5000)
+
+      # Try to find markers with a more specific selector
+      # Leaflet markers have specific classes
+      markers = all(session, css(".leaflet-marker-icon"))
+
+      if length(markers) == 0 do
+        # Take screenshot for debugging
+        take_screenshot(session, name: "no_markers_found")
+
+        # Check if there are any error messages
+        page_text = text(session)
+        IO.puts("Page text: #{page_text}")
+      end
 
       # Check that markers are present on the map
-      # Look for Leaflet marker elements
-      assert_has(session, css(".leaflet-marker-icon"))
+      assert length(markers) > 0, "Expected to find markers on the map, but found #{length(markers)}"
 
       # Verify at least 2 markers are present (our test packets)
       marker_count =
