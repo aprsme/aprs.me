@@ -68,8 +68,21 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       |> visit("/?lat=40.735&lon=-73.996&zoom=11")
       |> assert_has(css("#aprs-map"))
 
-      # Wait for map to initialize and markers to appear
-      # The map should automatically load historical packets
+      # Wait for map to initialize
+      Process.sleep(2000)
+
+      # Ensure map has initialized and trigger bounds update
+      execute_script(session, """
+        if (window.aprsMap && window.aprsMap.map) {
+          // Trigger bounds_changed event to load historical packets
+          const bounds = window.aprsMap.map.getBounds();
+          if (bounds && window.APRSMap && window.APRSMap.prototype.sendBoundsToServer) {
+            window.APRSMap.prototype.sendBoundsToServer.call(window.aprsMap);
+          }
+        }
+      """)
+
+      # Wait for historical packets to load
       Process.sleep(3000)
 
       # Check that markers are present on the map

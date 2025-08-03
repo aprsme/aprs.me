@@ -43,9 +43,22 @@ defmodule Aprsme.PacketsFixtures do
           Map.merge(base_attrs, %{base_callsign: base, ssid: ssid})
       end
 
+    # Ensure location is set if lat/lon are provided
+    final_attrs_with_location =
+      if final_attrs[:lat] && final_attrs[:lon] do
+        location = %Geo.Point{
+          coordinates: {Decimal.to_float(final_attrs[:lon]), Decimal.to_float(final_attrs[:lat])},
+          srid: 4326
+        }
+
+        Map.put(final_attrs, :location, location)
+      else
+        final_attrs
+      end
+
     {:ok, packet} =
       attrs
-      |> Enum.into(final_attrs)
+      |> Enum.into(final_attrs_with_location)
       |> then(&Packet.changeset(%Packet{}, &1))
       |> Repo.insert()
 
