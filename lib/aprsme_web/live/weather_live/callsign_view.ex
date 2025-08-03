@@ -196,14 +196,41 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   }
 
   @doc """
+  Checks if a weather field has a valid value (not nil, "N/A", or empty).
+  """
+  def has_weather_field?(packet, field) do
+    value = PacketUtils.get_weather_field(packet, field)
+
+    case value do
+      nil -> false
+      "N/A" -> false
+      "" -> false
+      _ -> true
+    end
+  end
+
+  @doc """
   Formats weather values with appropriate units based on locale.
   """
   def format_weather_value(packet, key, locale) do
     value = PacketUtils.get_weather_field(packet, key)
 
     case value do
+      nil ->
+        nil
+
       "N/A" ->
-        "N/A"
+        nil
+
+      value when is_number(value) ->
+        case @weather_formatters[key] do
+          {formatter, separator} ->
+            {converted_value, unit} = formatter.(value, locale)
+            "#{converted_value}#{separator}#{unit}"
+
+          nil ->
+            "#{value}"
+        end
 
       value when is_binary(value) ->
         case @weather_formatters[key] do
@@ -214,12 +241,15 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
                 "#{converted_value}#{separator}#{unit}"
 
               :error ->
-                value
+                nil
             end
 
           nil ->
             "#{value}"
         end
+
+      _ ->
+        nil
     end
   end
 end

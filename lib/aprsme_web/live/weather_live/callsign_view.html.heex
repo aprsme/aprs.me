@@ -86,58 +86,75 @@
                 <% end %>
               </dd>
             </div>
-            <div>
-              <dt class="text-xs font-medium opacity-70">{gettext("Temperature")}</dt>
-              <dd class="mt-1 text-sm font-semibold">
-                {format_weather_value(@weather_packet, :temperature, @locale)}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs font-medium opacity-70">{gettext("Humidity")}</dt>
-              <dd class="mt-1 text-sm font-semibold">
-                {PacketUtils.get_weather_field(@weather_packet, :humidity)}%
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs font-medium opacity-70">{gettext("Wind")}</dt>
-              <dd class="mt-1 text-sm font-semibold">
-                {PacketUtils.get_weather_field(@weather_packet, :wind_direction)}° @ {format_weather_value(
-                  @weather_packet,
-                  :wind_speed,
-                  @locale
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs font-medium opacity-70">{gettext("Gusts")}</dt>
-              <dd class="mt-1 text-sm font-semibold">
-                {format_weather_value(@weather_packet, :wind_gust, @locale)}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs font-medium opacity-70">{gettext("Pressure")}</dt>
-              <dd class="mt-1 text-sm font-semibold">
-                {PacketUtils.get_weather_field(@weather_packet, :pressure)} hPa
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs font-medium opacity-70">{gettext("Rain (1h)")}</dt>
-              <dd class="mt-1 text-sm font-semibold">
-                {format_weather_value(@weather_packet, :rain_1h, @locale)}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs font-medium opacity-70">{gettext("Rain (24h)")}</dt>
-              <dd class="mt-1 text-sm font-semibold">
-                {format_weather_value(@weather_packet, :rain_24h, @locale)}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-xs font-medium opacity-70">{gettext("Rain (since midnight)")}</dt>
-              <dd class="mt-1 text-sm font-semibold">
-                {format_weather_value(@weather_packet, :rain_since_midnight, @locale)}
-              </dd>
-            </div>
+            <%= if has_weather_field?(@weather_packet, :temperature) do %>
+              <div>
+                <dt class="text-xs font-medium opacity-70">{gettext("Temperature")}</dt>
+                <dd class="mt-1 text-sm font-semibold">
+                  {format_weather_value(@weather_packet, :temperature, @locale)}
+                </dd>
+              </div>
+            <% end %>
+            <%= if has_weather_field?(@weather_packet, :humidity) do %>
+              <div>
+                <dt class="text-xs font-medium opacity-70">{gettext("Humidity")}</dt>
+                <dd class="mt-1 text-sm font-semibold">
+                  {PacketUtils.get_weather_field(@weather_packet, :humidity)}%
+                </dd>
+              </div>
+            <% end %>
+            <%= if has_weather_field?(@weather_packet, :wind_direction) || has_weather_field?(@weather_packet, :wind_speed) do %>
+              <div>
+                <dt class="text-xs font-medium opacity-70">{gettext("Wind")}</dt>
+                <dd class="mt-1 text-sm font-semibold">
+                  <%= if has_weather_field?(@weather_packet, :wind_direction) do %>
+                    {PacketUtils.get_weather_field(@weather_packet, :wind_direction)}°
+                  <% end %>
+                  <%= if has_weather_field?(@weather_packet, :wind_speed) do %>
+                    @ {format_weather_value(@weather_packet, :wind_speed, @locale)}
+                  <% end %>
+                </dd>
+              </div>
+            <% end %>
+            <%= if has_weather_field?(@weather_packet, :wind_gust) do %>
+              <div>
+                <dt class="text-xs font-medium opacity-70">{gettext("Gusts")}</dt>
+                <dd class="mt-1 text-sm font-semibold">
+                  {format_weather_value(@weather_packet, :wind_gust, @locale)}
+                </dd>
+              </div>
+            <% end %>
+            <%= if has_weather_field?(@weather_packet, :pressure) do %>
+              <div>
+                <dt class="text-xs font-medium opacity-70">{gettext("Pressure")}</dt>
+                <dd class="mt-1 text-sm font-semibold">
+                  {PacketUtils.get_weather_field(@weather_packet, :pressure)} hPa
+                </dd>
+              </div>
+            <% end %>
+            <%= if has_weather_field?(@weather_packet, :rain_1h) do %>
+              <div>
+                <dt class="text-xs font-medium opacity-70">{gettext("Rain (1h)")}</dt>
+                <dd class="mt-1 text-sm font-semibold">
+                  {format_weather_value(@weather_packet, :rain_1h, @locale)}
+                </dd>
+              </div>
+            <% end %>
+            <%= if has_weather_field?(@weather_packet, :rain_24h) do %>
+              <div>
+                <dt class="text-xs font-medium opacity-70">{gettext("Rain (24h)")}</dt>
+                <dd class="mt-1 text-sm font-semibold">
+                  {format_weather_value(@weather_packet, :rain_24h, @locale)}
+                </dd>
+              </div>
+            <% end %>
+            <%= if has_weather_field?(@weather_packet, :rain_since_midnight) do %>
+              <div>
+                <dt class="text-xs font-medium opacity-70">{gettext("Rain (since midnight)")}</dt>
+                <dd class="mt-1 text-sm font-semibold">
+                  {format_weather_value(@weather_packet, :rain_since_midnight, @locale)}
+                </dd>
+              </div>
+            <% end %>
             <div class="col-span-2">
               <dt class="text-xs font-medium opacity-70">{gettext("Raw Packet")}</dt>
               <dd class="mt-1 text-xs font-mono break-all">
