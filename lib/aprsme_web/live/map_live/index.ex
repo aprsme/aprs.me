@@ -4,7 +4,6 @@ defmodule AprsmeWeb.MapLive.Index do
   """
   use AprsmeWeb, :live_view
 
-  import AprsmeWeb.Components.ErrorBoundary
   import AprsmeWeb.Live.Shared.PacketUtils, only: [get_callsign_key: 1]
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_patch: 2, put_flash: 3]
@@ -266,6 +265,9 @@ defmodule AprsmeWeb.MapLive.Index do
   # Handle both bounds_changed and update_bounds events
   @impl true
   def handle_event(event, %{"bounds" => bounds}, socket) when event in ["bounds_changed", "update_bounds"] do
+    require Logger
+
+    Logger.debug("Received #{event} event with bounds: #{inspect(bounds)}")
     handle_bounds_update(bounds, socket)
   end
 
@@ -361,6 +363,17 @@ defmodule AprsmeWeb.MapLive.Index do
     # Wait for JavaScript to send the actual map bounds before loading historical packets
     # The calculated bounds might be too small/inaccurate
     Logger.debug("Map ready - waiting for JavaScript to send actual bounds before loading historical packets")
+
+    # If we need initial historical load and have bounds, trigger it
+    socket =
+      if socket.assigns.needs_initial_historical_load and socket.assigns.map_bounds do
+        Logger.debug("Map ready with needs_initial_historical_load=true, triggering historical loading")
+        # Send a message to trigger bounds processing
+        send(self(), {:process_bounds_update, socket.assigns.map_bounds})
+        socket
+      else
+        socket
+      end
 
     {:noreply, socket}
   end
@@ -1257,19 +1270,17 @@ defmodule AprsmeWeb.MapLive.Index do
       }
     </style>
 
-    <.error_boundary id="map-error-boundary">
-      <div
-        id="aprs-map"
-        class={if @slideover_open, do: "slideover-open", else: "slideover-closed"}
-        phx-hook="APRSMap"
-        phx-update="ignore"
-        data-center={Jason.encode!(@map_center)}
-        data-zoom={@map_zoom}
-        role="application"
-        aria-label={gettext("APRS packet map showing real-time amateur radio stations")}
-      >
-      </div>
-    </.error_boundary>
+    <div
+      id="aprs-map"
+      class={if @slideover_open, do: "slideover-open", else: "slideover-closed"}
+      phx-hook="APRSMap"
+      phx-update="ignore"
+      data-center={Jason.encode!(@map_center)}
+      data-zoom={@map_zoom}
+      role="application"
+      aria-label={gettext("APRS packet map showing real-time amateur radio stations")}
+    >
+    </div>
 
     <button class="locate-button" phx-click="locate_me" title={Gettext.gettext(AprsmeWeb.Gettext, "Find my location")}>
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#374151" stroke="none">
@@ -1947,6 +1958,11 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Load historical packets for the new bounds (now socket.assigns.map_bounds is correct)
     Logger.debug("Starting progressive historical loading for new bounds")
+
+    Logger.debug(
+      "Current assigns: historical_loading=#{socket.assigns.historical_loading}, map_bounds=#{inspect(socket.assigns.map_bounds)}"
+    )
+
     socket = HistoricalLoader.start_progressive_historical_loading(socket)
 
     # Mark initial historical as completed if this was the initial load

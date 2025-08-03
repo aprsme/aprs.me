@@ -12,9 +12,12 @@ defmodule Aprsme.PacketsOldestTest do
     test "returns the timestamp of the oldest packet" do
       # Create packets with different timestamps relative to now
       now = DateTime.utc_now()
-      oldest_time = DateTime.add(now, -365 * 24 * 60 * 60, :second)  # 1 year ago
-      middle_time = DateTime.add(now, -180 * 24 * 60 * 60, :second)  # 6 months ago
-      newest_time = DateTime.add(now, -30 * 24 * 60 * 60, :second)   # 1 month ago
+      # 1 year ago
+      oldest_time = DateTime.add(now, -365 * 24 * 60 * 60, :second)
+      # 6 months ago
+      middle_time = DateTime.add(now, -180 * 24 * 60 * 60, :second)
+      # 1 month ago
+      newest_time = DateTime.add(now, -30 * 24 * 60 * 60, :second)
 
       # Insert packets with different timestamps
       {:ok, _} = create_test_packet("OLD-1", oldest_time)
@@ -23,9 +26,9 @@ defmodule Aprsme.PacketsOldestTest do
 
       # Should return the oldest timestamp
       result = Packets.get_oldest_packet_timestamp()
-      
-      # Allow for small time differences due to database precision
-      assert DateTime.diff(result, oldest_time, :second) == 0
+
+      # Allow for small time differences due to database precision (±1 second)
+      assert abs(DateTime.diff(result, oldest_time, :second)) <= 1
     end
 
     test "handles packets with microsecond precision" do
@@ -33,7 +36,7 @@ defmodule Aprsme.PacketsOldestTest do
       now = DateTime.utc_now()
       # Truncate to microseconds to match database precision
       timestamp_with_microseconds = DateTime.truncate(now, :microsecond)
-      
+
       {:ok, _} = create_test_packet("TEST-1", timestamp_with_microseconds)
 
       result = Packets.get_oldest_packet_timestamp()

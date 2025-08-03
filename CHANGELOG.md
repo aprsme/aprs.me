@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports ambiguity levels 0-4 as defined in APRS specification
 - Enhanced APRS parser integration with latest improvements
   - Added `posresolution` field showing position accuracy in meters (18.52m for uncompressed, 0.291m for compressed)
+- Upgraded vendor/aprs parser to version 0.1.5+ with comprehensive compatibility improvements
+  - Added standard APRS parser fields: posambiguity, format, alive, symboltable, symbolcode, messaging
+  - Enhanced weather data extraction with dedicated `wx` field
+  - Added radio range (RNG) parsing from comments
+  - Improved PHG data format handling (now returns string representation)
+  - Added telemetry fields (seq, vals, bits) extraction
+  - Better UTF-8 handling and error messages for invalid position data
+  - Fixed compressed latitude calculation and third-party traffic parsing
+  - Added support for alternate compressed position formats
   - Added 20 new database fields for enhanced parser compatibility
   - Implemented weather data extraction with dedicated `wx` field support
   - Enhanced PHG parsing to handle both string format and legacy map structure

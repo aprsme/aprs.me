@@ -111,7 +111,5 @@ defmodule AprsmeWeb.MapLive.PacketBatcher do
 
     # Send batch to parent LiveView
     send(parent_pid, {:packet_batch, packets})
-
-    Logger.debug("Processing batch of #{length(packets)} packets")
   end
 end

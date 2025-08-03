@@ -34,6 +34,8 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
   def start_progressive_historical_loading(socket) do
     require Logger
 
+    Logger.debug("HistoricalLoader: Starting progressive historical loading")
+
     Logger.debug(
       "start_progressive_historical_loading called with zoom: #{socket.assigns.map_zoom}, bounds: #{inspect(socket.assigns.map_bounds)}"
     )
@@ -128,6 +130,8 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
   defp do_load_historical_batch(%{assigns: %{map_bounds: nil}} = socket, _batch_offset), do: socket
 
   defp do_load_historical_batch(%{assigns: %{map_bounds: bounds}} = socket, batch_offset) do
+    require Logger
+
     bounds_list = [
       bounds.west,
       bounds.south,
@@ -172,7 +176,9 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
             params = Map.put(params, :hours_back, historical_hours)
 
             # Get recent packets within time filter
+            Logger.debug("HistoricalLoader: Querying packets with params: #{inspect(params)}")
             recent_packets = Packets.get_recent_packets(params)
+            Logger.debug("HistoricalLoader: Got #{length(recent_packets)} packets")
 
             # If tracking a callsign and this is the first batch, ensure we always include 
             # the most recent packet for that callsign, even if it's older than the time filter
@@ -300,6 +306,12 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
 
   # Handle high zoom (markers)
   defp handle_zoom_based_display(socket, _historical_packets, packet_data_list, is_final_batch, batch_offset) do
+    require Logger
+
+    Logger.debug(
+      "HistoricalLoader: Pushing #{length(packet_data_list)} packets to client, batch #{batch_offset}, is_final: #{is_final_batch}"
+    )
+
     # Use LiveView's efficient push_event for incremental updates
     LiveView.push_event(socket, "add_historical_packets_batch", %{
       packets: packet_data_list,

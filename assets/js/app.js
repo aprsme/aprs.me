@@ -1,3 +1,5 @@
+console.log("app.js loading...");
+
 // If you want to use Phoenix channels, run `mix help phx.gen.channel`
 // to get started and then uncomment the line below.
 // import "./user_socket.js"
@@ -124,23 +126,28 @@ let BodyClassHook = {
   },
 };
 
-// APRS Map Hook
+// APRS MapAPRSMap Hook
 let Hooks = {};
 
 // Map hooks - load map bundle when needed
+// Store original mounted function before creating wrapper
+const originalMapMounted = MapAPRSMap.mounted;
 Hooks.APRSMap = {
   ...MapAPRSMap,
   mounted() {
+    console.log("APRSMap wrapper mounted() called");
     const self = this;
     if (window.VendorLoader && !window.mapBundleLoaded) {
+      console.log("Loading map bundle...");
       // Load map bundle and wait for it to complete
       const script = document.createElement('script');
       script.src = window.VendorLoader.mapBundleUrl;
       script.onload = () => {
+        console.log("Map bundle loaded, calling original mounted");
         window.mapBundleLoaded = true;
         // Now call the original mounted function
-        if (MapAPRSMap.mounted) {
-          MapAPRSMap.mounted.call(self);
+        if (originalMapMounted) {
+          originalMapMounted.call(self);
         }
       };
       script.onerror = () => {
@@ -148,9 +155,10 @@ Hooks.APRSMap = {
       };
       document.head.appendChild(script);
     } else {
+      console.log("Map bundle already loaded, calling original mounted");
       // Map bundle already loaded, proceed immediately
-      if (MapAPRSMap.mounted) {
-        MapAPRSMap.mounted.call(this);
+      if (originalMapMounted) {
+        originalMapMounted.call(this);
       }
     }
   }
@@ -176,7 +184,7 @@ Hooks.InfoMap = {
       };
       document.head.appendChild(script);
     } else {
-      // Map bundle already loaded, proceed immediately
+      // MapAPRSMap bundle already loaded, proceed immediately
       if (InfoMap.mounted) {
         InfoMap.mounted.call(this);
       }
@@ -263,7 +271,7 @@ window.localStorage.setItem("theme", theme);
 window.reRenderAllCharts = () => {
   // Store all chart instances globally so we can access them
   if (!window.chartInstances) {
-    window.chartInstances = new Map();
+    window.chartInstances = new MapAPRSMap();
   }
 
   // Re-render all stored chart instances
@@ -310,6 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+console.log("Creating LiveSocket with hooks:", Object.keys(Hooks));
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },

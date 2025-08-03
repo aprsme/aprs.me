@@ -64,6 +64,7 @@ import {
 let MapAPRSMap = {
   mounted() {
     const self = this as unknown as LiveViewHookContext;
+    console.log("APRSMap hook mounted() called on element:", this.el);
     // Initialize error tracking
     self.errors = [];
     self.initializationAttempts = 0;
@@ -438,6 +439,7 @@ let MapAPRSMap = {
               if (self.map) {
                 saveMapState(self.map, self.pushEvent.bind(self));
                 // Also send bounds to server to trigger historical loading
+                console.log("Calling sendBoundsToServer after map_ready (retry)");
                 self.sendBoundsToServer();
               }
               // Also trigger map state update after a delay
@@ -1059,6 +1061,11 @@ let MapAPRSMap = {
     self.handleEvent(
       "add_historical_packets_batch",
       (data: { packets: MarkerData[]; batch: number; is_final: boolean }) => {
+        console.log("Received add_historical_packets_batch event:", {
+          packetCount: data.packets?.length || 0,
+          batch: data.batch,
+          is_final: data.is_final
+        });
         try {
           if (data.packets && Array.isArray(data.packets)) {
             // Process all packets immediately for maximum speed
@@ -1325,6 +1332,7 @@ let MapAPRSMap = {
 
   sendBoundsToServer() {
     const self = this as unknown as LiveViewHookContext;
+    console.log("sendBoundsToServer called, map:", !!self.map, "isDestroyed:", self.isDestroyed);
     if (!self.map || self.isDestroyed) return;
 
     try {
@@ -1351,6 +1359,7 @@ let MapAPRSMap = {
           },
           zoom: zoom,
         };
+        console.log("Sending bounds_changed event:", boundsData);
         self.pushEvent("bounds_changed", boundsData);
       }
     } catch (error) {

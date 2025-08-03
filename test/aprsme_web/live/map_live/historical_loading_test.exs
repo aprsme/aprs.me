@@ -81,7 +81,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
       packet_ids = Enum.map(recent_packets, & &1.id)
       assert packet1.id in packet_ids
       assert packet2.id in packet_ids
-      refute Enum.any?(packet_ids, fn id -> id == _old_packet.id end)
+      refute _old_packet.id in packet_ids
     end
 
     test "loads historical packets with custom historical hours setting", %{conn: conn} do
@@ -239,26 +239,27 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
   describe "historical packet push events" do
     test "sends add_historical_packets_batch events to client", %{conn: conn} do
       now = DateTime.utc_now()
-      
+
       # Create test packets
-      packets = for i <- 1..5 do
-        packet_fixture(%{
-          sender: "PUSH#{i}",
-          base_callsign: "PUSH#{i}",
-          ssid: "0",
-          lat: 40.7 + (i * 0.01),
-          lon: -74.0 + (i * 0.01),
-          received_at: DateTime.add(now, -(i * 5 * 60), :second),
-          comment: "Push test station #{i}"
-        })
-      end
-      
+      packets =
+        for i <- 1..5 do
+          packet_fixture(%{
+            sender: "PUSH#{i}",
+            base_callsign: "PUSH#{i}",
+            ssid: "0",
+            lat: 40.7 + i * 0.01,
+            lon: -74.0 + i * 0.01,
+            received_at: DateTime.add(now, -(i * 5 * 60), :second),
+            comment: "Push test station #{i}"
+          })
+        end
+
       # Connect to the map at high zoom (should use marker mode, not heat map)
       {:ok, view, _html} = live(conn, "/?z=12")
-      
+
       # Send map_ready event
       assert render_hook(view, "map_ready", %{})
-      
+
       # Send bounds that include all test packets
       bounds = %{
         "north" => 40.8,
@@ -266,29 +267,30 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
         "east" => -73.9,
         "west" => -74.1
       }
-      
+
       # Send bounds_changed event
       assert render_hook(view, "bounds_changed", %{"bounds" => bounds})
-      
+
       # Wait for historical loading
       Process.sleep(200)
-      
+
       # Verify all packets would be included in the query
-      recent_packets = Packets.get_recent_packets(%{
-        bounds: [bounds["west"], bounds["south"], bounds["east"], bounds["north"]],
-        hours_back: 1,
-        limit: 500
-      })
-      
+      recent_packets =
+        Packets.get_recent_packets(%{
+          bounds: [bounds["west"], bounds["south"], bounds["east"], bounds["north"]],
+          hours_back: 1,
+          limit: 500
+        })
+
       packet_ids = Enum.map(recent_packets, & &1.id)
       assert length(packet_ids) >= 5
-      
+
       # Verify all our test packets are included
       for packet <- packets do
         assert packet.id in packet_ids
       end
     end
-    
+
     test "does not send historical packets when bounds are invalid", %{conn: conn} do
       # Create a test packet
       packet_fixture(%{
@@ -300,13 +302,13 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
         received_at: DateTime.add(DateTime.utc_now(), -30 * 60, :second),
         comment: "Test for invalid bounds"
       })
-      
+
       # Connect to the map
       {:ok, view, _html} = live(conn, "/")
-      
+
       # Send map_ready event
       assert render_hook(view, "map_ready", %{})
-      
+
       # Send invalid bounds (north < south)
       invalid_bounds = %{
         "north" => 40.5,
@@ -314,13 +316,13 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
         "east" => -73.7,
         "west" => -74.3
       }
-      
+
       # This should not cause an error, but bounds won't be processed
       assert render_hook(view, "bounds_changed", %{"bounds" => invalid_bounds})
-      
+
       # Wait briefly
       Process.sleep(100)
-      
+
       # Since we can't check internal state, we verify the view is still functional
       # by sending valid bounds and checking it still works
       valid_bounds = %{
@@ -329,11 +331,11 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
         "east" => -73.7,
         "west" => -74.3
       }
-      
+
       assert render_hook(view, "bounds_changed", %{"bounds" => valid_bounds})
     end
   end
-  
+
   describe "progressive historical loading" do
     test "loads packets in batches for low zoom levels", %{conn: conn} do
       now = DateTime.utc_now()

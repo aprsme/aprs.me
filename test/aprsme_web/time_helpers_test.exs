@@ -8,7 +8,7 @@ defmodule AprsmeWeb.TimeHelpersTest do
       # Use a fixed reference time for all tests to ensure consistency
       # This prevents tests from failing due to timing issues
       reference_time = ~U[2024-01-15 12:00:00Z]
-      
+
       # Mock DateTime.utc_now() to return our reference time
       # Note: Since time_ago_in_words likely uses DateTime.utc_now() internally,
       # we need to test with actual time differences

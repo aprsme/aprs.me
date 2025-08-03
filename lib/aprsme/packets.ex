@@ -435,6 +435,10 @@ defmodule Aprsme.Packets do
   @impl true
   @spec get_recent_packets(map()) :: [struct()]
   def get_recent_packets(opts \\ %{}) do
+    require Logger
+
+    Logger.debug("Packets.get_recent_packets called with opts: #{inspect(opts)}")
+
     # Use hours_back from opts if provided, otherwise default to 24 hours
     hours_back = Map.get(opts, :hours_back, 24)
     time_ago = DateTime.add(DateTime.utc_now(), -hours_back * 3600, :second)
@@ -475,7 +479,9 @@ defmodule Aprsme.Packets do
       |> offset(^offset)
       |> QueryBuilder.with_coordinates()
 
-    Repo.all(query)
+    result = Repo.all(query)
+    Logger.debug("Packets.get_recent_packets returning #{length(result)} packets")
+    result
   end
 
   @doc """

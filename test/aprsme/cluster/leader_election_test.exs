@@ -31,11 +31,17 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
       assert {:ok, pid} = LeaderElection.start_link([])
       assert Process.alive?(pid)
       assert Process.whereis(LeaderElection) == pid
+
+      # Clean up after this specific test
+      GenServer.stop(pid)
     end
 
     test "registers with the given name" do
-      {:ok, _pid} = LeaderElection.start_link([])
+      {:ok, pid} = LeaderElection.start_link([])
       assert Process.whereis(LeaderElection)
+
+      # Clean up after this specific test
+      GenServer.stop(pid)
     end
   end
 
