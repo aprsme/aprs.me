@@ -93,7 +93,23 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
 
   defp should_update_weather?(current_packet, new_packet) do
     # Only update if the new packet is actually newer
-    DateTime.after?(new_packet.received_at, current_packet.received_at)
+    # Handle both atom and string keys
+    new_received_at = Map.get(new_packet, :received_at) || Map.get(new_packet, "received_at")
+    current_received_at = Map.get(current_packet, :received_at) || Map.get(current_packet, "received_at")
+
+    case {new_received_at, current_received_at} do
+      {nil, _} ->
+        false
+
+      {_, nil} ->
+        true
+
+      {new_time, current_time} when is_binary(new_time) and is_binary(current_time) ->
+        new_time > current_time
+
+      {new_time, current_time} ->
+        DateTime.after?(new_time, current_time)
+    end
   end
 
   defp update_weather_data(socket) do
