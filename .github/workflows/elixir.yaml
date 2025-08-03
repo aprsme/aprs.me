@@ -120,6 +120,12 @@ jobs:
         uses: nanasess/setup-chromedriver@v2
         # Note: Using latest stable version instead of pinned version for better compatibility
 
+      # Step: Start ChromeDriver in the background
+      - name: Start ChromeDriver
+        run: |
+          chromedriver --port=4444 --url-base=/wd/hub &
+          sleep 2
+
       # Step: Execute the tests.
       - name: Run tests
         run: mix test
@@ -132,3 +138,4 @@ jobs:
           # Increase timeouts for browser tests in CI environment
           WALLABY_SCREENSHOT_ON_FAILURE: true
           WALLABY_MAX_WAIT_TIME: 30000
+          CHROMEDRIVER_URL: http://localhost:4444/wd/hub

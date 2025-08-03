@@ -95,6 +95,11 @@ config :wallaby,
       "--no-sandbox",
       "--disable-dev-shm-usage",
       "--disable-gpu",
+      "--disable-setuid-sandbox",
+      "--disable-extensions",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding",
       "--window-size=1280,720"
     ]
   ],
@@ -104,4 +109,6 @@ config :wallaby,
   # Increase default timeouts for CI environment
   max_wait_time: "WALLABY_MAX_WAIT_TIME" |> System.get_env("5000") |> String.to_integer(),
   # Pool configuration for concurrent tests
-  pool_size: 1
+  pool_size: 1,
+  # Use ChromeDriver URL from environment if available (for CI)
+  chromedriver_base_url: System.get_env("CHROMEDRIVER_URL")

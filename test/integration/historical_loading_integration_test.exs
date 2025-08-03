@@ -31,6 +31,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
 
   describe "historical packet loading on page load" do
     @describetag :integration
+    @describetag timeout: 60_000
     feature "displays historical packets immediately after map loads", %{session: session} do
       # Create test packets with known positions
       now = DateTime.utc_now()
