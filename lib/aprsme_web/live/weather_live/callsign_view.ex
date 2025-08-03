@@ -107,6 +107,20 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
       {new_time, current_time} when is_binary(new_time) and is_binary(current_time) ->
         new_time > current_time
 
+      {new_time, current_time} when is_binary(new_time) ->
+        # Parse string timestamp and compare
+        case DateTime.from_iso8601(new_time <> "Z") do
+          {:ok, new_dt, _} -> DateTime.after?(new_dt, current_time)
+          _ -> false
+        end
+
+      {new_time, current_time} when is_binary(current_time) ->
+        # Parse string timestamp and compare
+        case DateTime.from_iso8601(current_time <> "Z") do
+          {:ok, current_dt, _} -> DateTime.after?(new_time, current_dt)
+          _ -> true
+        end
+
       {new_time, current_time} ->
         DateTime.after?(new_time, current_time)
     end
