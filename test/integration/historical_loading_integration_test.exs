@@ -10,6 +10,25 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
   import Wallaby.Browser
   import Wallaby.Query
 
+  alias Aprsme.Repo
+  alias Ecto.Adapters.SQL.Sandbox
+
+  setup do
+    :ok = Sandbox.checkout(Repo)
+    # Use shared mode for Wallaby tests
+    Sandbox.mode(Repo, {:shared, self()})
+
+    # Use real Packets module for integration tests
+    Application.put_env(:aprsme, :packets_module, Aprsme.Packets)
+
+    on_exit(fn ->
+      # Restore mock for other tests
+      Application.put_env(:aprsme, :packets_module, Aprsme.PacketsMock)
+    end)
+
+    {:ok, %{}}
+  end
+
   describe "historical packet loading on page load" do
     @describetag :integration
     feature "displays historical packets immediately after map loads", %{session: session} do
@@ -45,7 +64,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       # Navigate to the map
       session
       |> visit("/")
-      |> assert_has(css("#map", text: ""))
+      |> assert_has(css("#aprs-map"))
 
       # Wait for map to initialize and markers to appear
       # The map should automatically load historical packets
@@ -104,7 +123,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       # Navigate to map with 1 hour historical range (default)
       session
       |> visit("/?hist=1")
-      |> assert_has(css("#map"))
+      |> assert_has(css("#aprs-map"))
 
       # Wait for historical loading
       Process.sleep(3000)
@@ -121,7 +140,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       session
       # 6 hours
       |> visit("/?hist=6")
-      |> assert_has(css("#map"))
+      |> assert_has(css("#aprs-map"))
 
       Process.sleep(3000)
 
@@ -163,7 +182,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       # Start focused on NYC
       session
       |> visit("/?lat=40.7128&lng=-74.0060&z=10")
-      |> assert_has(css("#map"))
+      |> assert_has(css("#aprs-map"))
 
       Process.sleep(3000)
 
@@ -231,7 +250,7 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       # Navigate to tracked callsign URL
       session
       |> visit("/TRACK1-9")
-      |> assert_has(css("#map"))
+      |> assert_has(css("#aprs-map"))
 
       # Wait for map to load and center on latest position
       Process.sleep(3000)
