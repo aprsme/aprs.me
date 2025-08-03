@@ -324,6 +324,9 @@ defmodule Aprsme.PacketConsumer do
     # Explicitly remove raw_weather_data to prevent insert_all errors
     |> Map.delete(:raw_weather_data)
     |> Map.delete("raw_weather_data")
+    # Remove gpsfixstatus field that was added by the parser but not in schema
+    |> Map.delete(:gpsfixstatus)
+    |> Map.delete("gpsfixstatus")
     # Create PostGIS geometry for location field
     |> create_location_geometry()
   rescue
