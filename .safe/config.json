@@ -1,0 +1,10 @@
+{
+  "output": "stdio",
+  "version": "1.0",
+  "project": {
+    "name": "aprs.me",
+    "type": "beam",
+    "apps": [],
+    "paths": []
+  }
+}
