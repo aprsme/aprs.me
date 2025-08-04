@@ -1,4 +1,4 @@
-name: Erlang CI
+name: SAFE Scan
 
 on:
   push:
@@ -9,19 +9,62 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  test:
+    # Set up a Postgres DB service. By default, Phoenix applications
+    # use Postgres. This creates a database for running tests.
+    # Additional services can be defined here if required.
+    services:
+      db:
+        image: postgis/postgis:17-3.5
+        ports: ["5432:5432"]
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     runs-on: ubuntu-latest
-
+    name: Test on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    strategy:
+      # Specify the OTP and Elixir versions to use when building
+      # and running the workflow steps.
+      matrix:
+        otp: ["27.3.4"]
+        elixir: ["1.19.0-rc.0"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: erlef/setup-beam@v1
+      # Step: Setup Elixir + Erlang using erlef/setup-beam
+      - name: Set up Elixir and Erlang
+        uses: erlef/setup-beam@v1
         with:
-          otp-version: "24"
-          rebar3-version: "3.20.0"
-      - name: Compile
-        run: rebar3 compile
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
 
+      # Step: Check out the code.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step: Define how to cache deps. Restores existing cache if present.
+      - name: Cache deps
+        id: cache-deps
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-elixir-deps
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ env.cache-name }}-
+      - name: Install dependencies
+        run: mix deps.get
+      - name: Compiles without warnings
+        run: mix compile --warnings-as-errors
       - name: Upload _build directory
         uses: actions/upload-artifact@v4
         with:
