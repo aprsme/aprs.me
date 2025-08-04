@@ -308,6 +308,7 @@ defmodule Aprsme.PacketConsumer do
 
     # Apply the same processing as the original store_packet function
     attrs
+    |> convert_coordinate_field_names()
     |> normalize_packet_attrs()
     |> set_received_at()
     |> patch_lat_lon_from_data_extended()
@@ -383,6 +384,15 @@ defmodule Aprsme.PacketConsumer do
     |> Map.delete("gpsfixstatus")
     |> Map.delete(:raw_weather_data)
     |> Map.delete("raw_weather_data")
+    # Additional fields found in production logs
+    |> Map.delete(:dao)
+    |> Map.delete("dao")
+    |> Map.delete(:longitude)
+    |> Map.delete("longitude")
+    |> Map.delete(:latitude)
+    |> Map.delete("latitude")
+    |> Map.delete(:itemname)
+    |> Map.delete("itemname")
   end
 
   # Helper functions for coordinate validation and point creation
@@ -413,6 +423,23 @@ defmodule Aprsme.PacketConsumer do
   defp valid_packet?(nil), do: false
   defp valid_packet?(%{sender: sender}) when is_binary(sender) and byte_size(sender) > 0, do: true
   defp valid_packet?(_), do: false
+
+  # Convert latitude/longitude to lat/lon if present at top level
+  defp convert_coordinate_field_names(attrs) do
+    attrs
+    |> then(fn a ->
+      case Map.get(a, :latitude) do
+        nil -> a
+        lat -> a |> Map.put(:lat, lat) |> Map.delete(:latitude)
+      end
+    end)
+    |> then(fn a ->
+      case Map.get(a, :longitude) do
+        nil -> a
+        lon -> a |> Map.put(:lon, lon) |> Map.delete(:longitude)
+      end
+    end)
+  end
 
   # Helper functions copied from Packets module for consistency
   defp normalize_packet_attrs(attrs) do
