@@ -334,10 +334,10 @@ defmodule Aprsme.PacketConsumer do
     |> Map.delete(:data_extended)
     |> normalize_numeric_types()
     |> truncate_datetimes_to_second()
-    # Remove all non-schema fields
-    |> remove_non_schema_fields()
-    # Create PostGIS geometry for location field
+    # Create PostGIS geometry for location field BEFORE filtering
     |> create_location_geometry()
+    # Remove all non-schema fields - do this LAST to ensure all processing is done
+    |> remove_non_schema_fields()
   rescue
     error ->
       Logger.error("Failed to prepare packet for batch insert: #{inspect(error)}")
@@ -364,40 +364,8 @@ defmodule Aprsme.PacketConsumer do
 
   # Helper function to remove fields that exist in parser output but not in database schema
   defp remove_non_schema_fields(attrs) do
-    attrs
-    # Remove fields that parser adds but aren't in our schema
-    |> Map.delete(:type)
-    |> Map.delete("type")
-    |> Map.delete(:digipeaters)
-    |> Map.delete("digipeaters")
-    |> Map.delete(:daodatumbyte)
-    |> Map.delete("daodatumbyte")
-    |> Map.delete(:mbits)
-    |> Map.delete("mbits")
-    |> Map.delete(:message)
-    |> Map.delete("message")
-    |> Map.delete(:phg)
-    |> Map.delete("phg")
-    |> Map.delete(:wx)
-    |> Map.delete("wx")
-    |> Map.delete(:resultcode)
-    |> Map.delete("resultcode")
-    |> Map.delete(:resultmsg)
-    |> Map.delete("resultmsg")
-    |> Map.delete(:gpsfixstatus)
-    |> Map.delete("gpsfixstatus")
-    |> Map.delete(:raw_weather_data)
-    |> Map.delete("raw_weather_data")
-    # Additional fields that need coordinate name mapping
-    |> Map.delete(:longitude)
-    |> Map.delete("longitude")
-    |> Map.delete(:latitude)
-    |> Map.delete("latitude")
-    # Fields with naming mismatches
-    |> Map.delete(:aprs_messaging?)
-    |> Map.delete("aprs_messaging?")
-    |> Map.delete(:raw_data)
-    |> Map.delete("raw_data")
+    # Use whitelist approach - only keep fields that are in our schema
+    Aprsme.PacketFieldWhitelist.filter_fields(attrs)
   end
 
   # Helper functions for coordinate validation and point creation
