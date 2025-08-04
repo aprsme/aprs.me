@@ -237,6 +237,14 @@ defmodule Aprsme.PacketConsumer do
     case Repo.insert_all(Aprsme.Packet, valid_packets, insert_opts) do
       {:error, error} ->
         Logger.error("Batch insert failed: #{inspect(error)}")
+
+        # Log sample packet to help debug field issues
+        if length(valid_packets) > 0 do
+          sample_packet = List.first(valid_packets)
+          Logger.error("Sample packet fields: #{inspect(Map.keys(sample_packet))}")
+          Logger.error("Sample packet data: #{inspect(sample_packet)}")
+        end
+
         {0, length(packets)}
 
       {inserted_count, _} ->
@@ -321,12 +329,8 @@ defmodule Aprsme.PacketConsumer do
     |> Map.delete(:data_extended)
     |> normalize_numeric_types()
     |> truncate_datetimes_to_second()
-    # Explicitly remove raw_weather_data to prevent insert_all errors
-    |> Map.delete(:raw_weather_data)
-    |> Map.delete("raw_weather_data")
-    # Remove gpsfixstatus field that was added by the parser but not in schema
-    |> Map.delete(:gpsfixstatus)
-    |> Map.delete("gpsfixstatus")
+    # Remove all non-schema fields
+    |> remove_non_schema_fields()
     # Create PostGIS geometry for location field
     |> create_location_geometry()
   rescue
@@ -351,6 +355,34 @@ defmodule Aprsme.PacketConsumer do
     else
       attrs
     end
+  end
+
+  # Helper function to remove fields that exist in parser output but not in database schema
+  defp remove_non_schema_fields(attrs) do
+    attrs
+    # Remove fields that parser adds but aren't in our schema
+    |> Map.delete(:type)
+    |> Map.delete("type")
+    |> Map.delete(:digipeaters)
+    |> Map.delete("digipeaters")
+    |> Map.delete(:daodatumbyte)
+    |> Map.delete("daodatumbyte")
+    |> Map.delete(:mbits)
+    |> Map.delete("mbits")
+    |> Map.delete(:message)
+    |> Map.delete("message")
+    |> Map.delete(:phg)
+    |> Map.delete("phg")
+    |> Map.delete(:wx)
+    |> Map.delete("wx")
+    |> Map.delete(:resultcode)
+    |> Map.delete("resultcode")
+    |> Map.delete(:resultmsg)
+    |> Map.delete("resultmsg")
+    |> Map.delete(:gpsfixstatus)
+    |> Map.delete("gpsfixstatus")
+    |> Map.delete(:raw_weather_data)
+    |> Map.delete("raw_weather_data")
   end
 
   # Helper functions for coordinate validation and point creation

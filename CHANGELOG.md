@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed packet storage failure in production due to non-schema fields from updated APRS parser
+  - Remove `type`, `digipeaters`, `daodatumbyte`, `mbits`, `message`, `phg`, `wx`, `resultcode`, `resultmsg` fields before database insertion
+  - Enhanced error logging to capture sample packet data when batch inserts fail
+  - Created helper function `remove_non_schema_fields/1` to centralize field removal logic
+
 ### Added
 - Database query optimization with 10 new performance indexes
 - Functional index on upper(sender) for case-insensitive searches
