@@ -450,7 +450,8 @@ defmodule Aprsme.PacketConsumer do
 
   # Convert field names that don't match our schema
   defp convert_field_names(attrs) do
-    then(attrs, fn a ->
+    attrs
+    |> then(fn a ->
       # Convert aprs_messaging? to aprs_messaging
       case Map.get(a, :aprs_messaging?) || Map.get(a, "aprs_messaging?") do
         nil ->
@@ -461,6 +462,16 @@ defmodule Aprsme.PacketConsumer do
           |> Map.put(:aprs_messaging, value)
           |> Map.delete(:aprs_messaging?)
           |> Map.delete("aprs_messaging?")
+      end
+    end)
+    |> then(fn a ->
+      # Convert timestamp from integer to string if needed
+      case Map.get(a, :timestamp) do
+        timestamp when is_integer(timestamp) ->
+          Map.put(a, :timestamp, Integer.to_string(timestamp))
+
+        _ ->
+          a
       end
     end)
   end
