@@ -96,6 +96,15 @@ defmodule Aprsme.Packet do
 
     field(:device_identifier, :string)
 
+    # APRS Items/Objects support
+    field(:item_name, :string)
+    field(:object_name, :string)
+    field(:is_item, :boolean, default: false)
+    field(:is_object, :boolean, default: false)
+
+    # DAO (Datum As Offset) extension for extra position precision
+    field(:dao, :map)
+
     embeds_one(:data_extended, DataExtended)
 
     timestamps(type: :utc_datetime)
@@ -172,7 +181,12 @@ defmodule Aprsme.Packet do
       :messaging,
       :rain_midnight,
       :has_weather,
-      :device_identifier
+      :device_identifier,
+      :item_name,
+      :object_name,
+      :is_item,
+      :is_object,
+      :dao
     ])
     |> validate_required([
       :base_callsign,

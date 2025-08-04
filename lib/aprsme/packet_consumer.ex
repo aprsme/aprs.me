@@ -303,6 +303,9 @@ defmodule Aprsme.PacketConsumer do
     # Extract additional data from the parsed packet including raw packet
     attrs = Aprsme.Packet.extract_additional_data(attrs, attrs[:raw_packet] || "")
 
+    # Detect and set item/object fields
+    attrs = detect_item_or_object(attrs)
+
     # Normalize data_type to string if it's an atom
     attrs = normalize_data_type(attrs)
 
@@ -384,15 +387,11 @@ defmodule Aprsme.PacketConsumer do
     |> Map.delete("gpsfixstatus")
     |> Map.delete(:raw_weather_data)
     |> Map.delete("raw_weather_data")
-    # Additional fields found in production logs
-    |> Map.delete(:dao)
-    |> Map.delete("dao")
+    # Additional fields that need coordinate name mapping
     |> Map.delete(:longitude)
     |> Map.delete("longitude")
     |> Map.delete(:latitude)
     |> Map.delete("latitude")
-    |> Map.delete(:itemname)
-    |> Map.delete("itemname")
   end
 
   # Helper functions for coordinate validation and point creation
@@ -423,6 +422,57 @@ defmodule Aprsme.PacketConsumer do
   defp valid_packet?(nil), do: false
   defp valid_packet?(%{sender: sender}) when is_binary(sender) and byte_size(sender) > 0, do: true
   defp valid_packet?(_), do: false
+
+  # Detect if packet is an item or object and set appropriate fields
+  defp detect_item_or_object(attrs) do
+    cond do
+      # Check for itemname field from parser
+      Map.has_key?(attrs, :itemname) or Map.has_key?(attrs, "itemname") ->
+        item_name = Map.get(attrs, :itemname) || Map.get(attrs, "itemname")
+
+        attrs
+        |> Map.put(:item_name, item_name)
+        |> Map.put(:is_item, true)
+        |> Map.delete(:itemname)
+        |> Map.delete("itemname")
+
+      # Check for object data type and extract object name from data_extended
+      attrs[:data_type] == "object" or attrs["data_type"] == "object" ->
+        object_name = extract_object_name(attrs)
+
+        attrs
+        |> Map.put(:object_name, object_name)
+        |> Map.put(:is_object, true)
+
+      # Check information field for object format (starts with ;)
+      is_binary(attrs[:information_field]) and String.starts_with?(attrs[:information_field], ";") ->
+        # Extract object name from information field
+        object_name = extract_object_name_from_info_field(attrs[:information_field])
+
+        attrs
+        |> Map.put(:object_name, object_name)
+        |> Map.put(:is_object, true)
+
+      true ->
+        attrs
+    end
+  end
+
+  defp extract_object_name(attrs) do
+    case attrs[:data_extended] do
+      %{name: name} when is_binary(name) -> name
+      %{"name" => name} when is_binary(name) -> name
+      _ -> nil
+    end
+  end
+
+  defp extract_object_name_from_info_field(info_field) do
+    # Object format: ;OBJECTNAM*DDHHMMz...
+    case Regex.run(~r/^;([A-Z0-9 ]{9})\*/, info_field) do
+      [_, name] -> String.trim(name)
+      _ -> nil
+    end
+  end
 
   # Convert latitude/longitude to lat/lon if present at top level
   defp convert_coordinate_field_names(attrs) do

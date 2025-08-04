@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Database fields for APRS items and objects support:
+  - `item_name`, `object_name` fields to identify items/objects
+  - `is_item`, `is_object` boolean flags for filtering
+  - `dao` field to store DAO (Datum As Offset) extension data for extra position precision
+- Automatic detection of items/objects during packet processing
+- Database indexes for efficient item/object queries
+
 ### Fixed
 - Fixed packet storage failure in production due to non-schema fields from updated APRS parser
   - Remove `type`, `digipeaters`, `daodatumbyte`, `mbits`, `message`, `phg`, `wx`, `resultcode`, `resultmsg` fields before database insertion
