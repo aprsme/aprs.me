@@ -312,6 +312,7 @@ defmodule Aprsme.PacketConsumer do
     # Apply the same processing as the original store_packet function
     attrs
     |> convert_coordinate_field_names()
+    |> convert_field_names()
     |> normalize_packet_attrs()
     |> set_received_at()
     |> patch_lat_lon_from_data_extended()
@@ -392,6 +393,11 @@ defmodule Aprsme.PacketConsumer do
     |> Map.delete("longitude")
     |> Map.delete(:latitude)
     |> Map.delete("latitude")
+    # Fields with naming mismatches
+    |> Map.delete(:aprs_messaging?)
+    |> Map.delete("aprs_messaging?")
+    |> Map.delete(:raw_data)
+    |> Map.delete("raw_data")
   end
 
   # Helper functions for coordinate validation and point creation
@@ -472,6 +478,23 @@ defmodule Aprsme.PacketConsumer do
       [_, name] -> String.trim(name)
       _ -> nil
     end
+  end
+
+  # Convert field names that don't match our schema
+  defp convert_field_names(attrs) do
+    then(attrs, fn a ->
+      # Convert aprs_messaging? to aprs_messaging
+      case Map.get(a, :aprs_messaging?) || Map.get(a, "aprs_messaging?") do
+        nil ->
+          a
+
+        value ->
+          a
+          |> Map.put(:aprs_messaging, value)
+          |> Map.delete(:aprs_messaging?)
+          |> Map.delete("aprs_messaging?")
+      end
+    end)
   end
 
   # Convert latitude/longitude to lat/lon if present at top level
