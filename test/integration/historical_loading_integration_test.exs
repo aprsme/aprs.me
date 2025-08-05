@@ -115,18 +115,19 @@ defmodule AprsmeWeb.HistoricalLoadingIntegrationTest do
       # Try to find markers with a more specific selector
       # Leaflet markers have specific classes
       markers = all(session, css(".leaflet-marker-icon"))
+      marker_count = length(markers)
 
-      if length(markers) == 0 do
+      if marker_count == 0 do
         # Take screenshot for debugging
         take_screenshot(session, name: "no_markers_found")
 
         # Check if there are any error messages
-        page_text = text(session)
+        page_text = Wallaby.Browser.text(session)
         IO.puts("Page text: #{page_text}")
       end
 
       # Check that markers are present on the map
-      assert length(markers) > 0, "Expected to find markers on the map, but found #{length(markers)}"
+      assert marker_count > 0, "Expected to find markers on the map, but found #{marker_count}"
 
       # Verify at least 2 markers are present (our test packets)
       marker_count =

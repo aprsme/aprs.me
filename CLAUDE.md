@@ -132,6 +132,15 @@ Tests use comprehensive mocking to prevent external connections:
 
 **REMEMBER**: Always run `mix format` before every commit - this is non-negotiable and must become automatic habit.
 
+## Git Commit Messages
+
+When creating git commits:
+- Write clear, concise commit messages following conventional commit format (e.g., `feat:`, `fix:`, `refactor:`, `docs:`)
+- Focus on the "why" rather than the "what" in commit messages
+- **DO NOT** add "Generated with Claude Code" or similar attribution to commit messages
+- **DO NOT** add Co-Authored-By lines for Claude
+- Keep commit messages professional and focused solely on the code changes
+
 ## Important Documentation Updates
 
 - **MANDATORY**: Whenever you implement improvements or changes to the system:
