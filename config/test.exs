@@ -100,7 +100,8 @@ config :wallaby,
       "--disable-background-timer-throttling",
       "--disable-backgrounding-occluded-windows",
       "--disable-renderer-backgrounding",
-      "--window-size=1280,720"
+      "--window-size=1280,720",
+      "--disable-features=MacAppCodeSignClone"
     ]
   ],
   screenshot_on_failure: true,
