@@ -404,16 +404,6 @@ let MapAPRSMap = {
     } catch (error) {
       console.error("Error invalidating map size:", error);
     }
-
-    // Track when map is ready
-    self.map!.whenReady(() => {
-      try {
-        self.lastZoom = self.map!.getZoom();
-        self.sendMapReadyEvents();
-      } catch (error) {
-        console.error("Error in map ready callback:", error);
-      }
-    });
     
     // Helper function to send map ready events with retry
     self.sendMapReadyEvents = (retryCount = 0) => {
@@ -436,6 +426,16 @@ let MapAPRSMap = {
         setTimeout(() => self.sendMapReadyEvents(retryCount + 1), 200);
       }
     };
+
+    // Track when map is ready
+    self.map!.whenReady(() => {
+      try {
+        self.lastZoom = self.map!.getZoom();
+        self.sendMapReadyEvents();
+      } catch (error) {
+        console.error("Error in map ready callback:", error);
+      }
+    });
 
     // Start periodic cleanup of old trail positions (every 5 minutes)
     self.cleanupInterval = setInterval(
