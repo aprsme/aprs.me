@@ -136,10 +136,7 @@ let MapAPRSMap = {
             typeof lat === "number" &&
             typeof lng === "number" &&
             typeof zoom === "number" &&
-            lat >= -90 &&
-            lat <= 90 &&
-            lng >= -180 &&
-            lng <= 180 &&
+            self.isValidCoordinate(lat, lng) &&
             zoom >= 1 &&
             zoom <= 20
           ) {
@@ -358,10 +355,10 @@ let MapAPRSMap = {
             className = "marker-cluster-large";
           }
 
-          return L.divIcon({
-            html: "<div><span>" + count + "</span></div>",
+          return createDivIcon("<div><span>" + count + "</span></div>", {
             className: "marker-cluster " + className,
             iconSize: [40, 40],
+            iconAnchor: [20, 20],
           });
         },
       });
@@ -412,59 +409,43 @@ let MapAPRSMap = {
     self.map!.whenReady(() => {
       try {
         self.lastZoom = self.map!.getZoom();
-
-        // Ensure we have a valid pushEvent function before using it
-        if (self.pushEvent && typeof self.pushEvent === "function") {
-          self.pushEvent("map_ready", {});
-          // Send initial bounds to trigger historical loading
-          if (self.map && self.pushEvent && typeof self.pushEvent === "function") {
-            saveMapState(self.map, self.pushEvent.bind(self));
-            // Also send bounds to server to trigger historical loading
-            self.sendBoundsToServer();
-          }
-
-          // Also send update_map_state to ensure URL updates and bounds processing
-          // Increase delay to ensure LiveView is fully connected and ready
+        self.sendMapReadyEvents();
+      } catch (error) {
+        console.error("Error in map ready callback:", error);
+      }
+    });
+    
+    // Helper function to send map ready events with retry
+    self.sendMapReadyEvents = (retryCount = 0) => {
+      if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
+        self.pushEvent("map_ready", {});
+        if (self.map) {
+          saveMapState(self.map, self.pushEvent.bind(self));
+          self.sendBoundsToServer();
+          
+          // Send map state update after a delay
           setTimeout(() => {
             if (self.map && self.pushEvent && !self.isDestroyed) {
               saveMapState(self.map, self.pushEvent.bind(self));
             }
           }, 500);
-        } else {
-          console.warn("pushEvent not available in whenReady callback");
-          // Retry after a short delay
-          setTimeout(() => {
-            if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
-              self.pushEvent("map_ready", {});
-              if (self.map) {
-                saveMapState(self.map, self.pushEvent.bind(self));
-                // Also send bounds to server to trigger historical loading
-                console.log("Calling sendBoundsToServer after map_ready (retry)");
-                self.sendBoundsToServer();
-              }
-              // Also trigger map state update after a delay
-              setTimeout(() => {
-                if (self.map && self.pushEvent && !self.isDestroyed) {
-                  saveMapState(self.map, self.pushEvent.bind(self));
-                }
-              }, 500);
-            }
-          }, 200);
         }
-
-        // Start periodic cleanup of old trail positions (every 5 minutes)
-        self.cleanupInterval = setInterval(
-          () => {
-            if (!self.isDestroyed && self.trailManager) {
-              self.trailManager.cleanupOldPositions();
-            }
-          },
-          5 * 60 * 1000,
-        );
-      } catch (error) {
-        console.error("Error in map ready callback:", error);
+      } else if (retryCount < 3) {
+        // Retry up to 3 times
+        console.warn(`pushEvent not available, retrying... (attempt ${retryCount + 1})`);
+        setTimeout(() => self.sendMapReadyEvents(retryCount + 1), 200);
       }
-    });
+    };
+
+    // Start periodic cleanup of old trail positions (every 5 minutes)
+    self.cleanupInterval = setInterval(
+      () => {
+        if (!self.isDestroyed && self.trailManager) {
+          self.trailManager.cleanupOldPositions();
+        }
+      },
+      5 * 60 * 1000,
+    );
 
     // Track map event handlers for cleanup
     self.mapEventHandlers = new Map();
@@ -781,7 +762,7 @@ let MapAPRSMap = {
         const zoom = parseInt(data.zoom?.toString() || "12");
 
         // Validate coordinates
-        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        if (!isValidCoordinate(lat, lng)) {
           console.error("Invalid coordinates for zoom:", lat, lng);
           return;
         }
@@ -1378,7 +1359,7 @@ let MapAPRSMap = {
     const lng = parseFloat(data.lng.toString());
 
     // Validate coordinates
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    if (!isValidCoordinate(lat, lng)) {
       console.warn("Invalid coordinates:", lat, lng);
       return;
     }
@@ -1611,7 +1592,7 @@ let MapAPRSMap = {
       if (data.lat && data.lng) {
         const lat = parseFloat(data.lat.toString());
         const lng = parseFloat(data.lng.toString());
-        if (!isNaN(lat) && !isNaN(lng)) {
+        if (self.isValidCoordinate(lat, lng)) {
           const currentPos = existingMarker.getLatLng();
           const positionChanged =
             Math.abs(currentPos.lat - lat) > 0.0001 || Math.abs(currentPos.lng - lng) > 0.0001;
@@ -1793,9 +1774,7 @@ let MapAPRSMap = {
       }
       // Use server-generated symbol HTML if available
       if (data.symbol_html) {
-        return L.divIcon({
-          html: data.symbol_html,
-          className: "",
+        return createDivIcon(data.symbol_html, {
           iconSize: [120, 32], // Increased width to accommodate callsign label
           iconAnchor: [16, 16],
         });
@@ -1816,8 +1795,7 @@ let MapAPRSMap = {
         box-shadow: 0 0 2px rgba(0,0,0,0.3);
       " title="Historical position for ${data.callsign}"></div>`;
 
-      return L.divIcon({
-        html: iconHtml,
+      return createDivIcon(iconHtml, {
         className: "historical-dot-marker",
         iconSize: [12, 12],
         iconAnchor: [6, 6],
@@ -1826,12 +1804,7 @@ let MapAPRSMap = {
 
     // Fallback: Use server-generated symbol HTML if available
     if (data.symbol_html) {
-      return L.divIcon({
-        html: data.symbol_html,
-        className: "",
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
+      return createDivIcon(data.symbol_html);
     }
 
     // Final fallback: Simple dot
@@ -1845,9 +1818,7 @@ let MapAPRSMap = {
       box-shadow: 0 0 2px rgba(0,0,0,0.3);
     " title="APRS Station: ${data.callsign}"></div>`;
 
-    return L.divIcon({
-      html: iconHtml,
-      className: "",
+    return createDivIcon(iconHtml, {
       iconSize: [12, 12],
       iconAnchor: [6, 6],
     });
@@ -2016,6 +1987,25 @@ let MapAPRSMap = {
     self.pushEvent = originalPushEvent;
   },
 };
+
+// Helper to validate coordinates
+function isValidCoordinate(lat: number, lng: number): boolean {
+  return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
+
+// Helper to create divIcon with common defaults
+function createDivIcon(html: string, options: Partial<{
+  className: string;
+  iconSize: [number, number];
+  iconAnchor: [number, number];
+}> = {}) {
+  return L.divIcon({
+    html,
+    className: options.className || "",
+    iconSize: options.iconSize || [32, 32],
+    iconAnchor: options.iconAnchor || [16, 16],
+  });
+}
 
 // Helper to validate and fallback symbol code per aprs.fi logic
 function getValidSymbolCode(
