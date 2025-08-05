@@ -1,3 +1,6 @@
 [submodule "vendor/aprs"]
 	path = vendor/aprs
 	url = https://github.com/aprsme/aprs.git
+[submodule "vendor/aprs-gleam"]
+	path = vendor/aprs-gleam
+	url = https://github.com/aprsme/aprs-gleam.git
