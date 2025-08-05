@@ -13,6 +13,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  MIX_ENV: prod
+
 jobs:
   build:
     runs-on: ubuntu-latest
