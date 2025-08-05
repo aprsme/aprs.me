@@ -1214,14 +1214,7 @@ let MapAPRSMap = {
 
     // Handle clearing RF path lines
     self.handleEvent("clear_rf_path", () => {
-      if (self.rfPathLines) {
-        self.rfPathLines.forEach((line) => {
-          if (self.map && self.map.hasLayer(line)) {
-            self.map.removeLayer(line);
-          }
-        });
-        self.rfPathLines = [];
-      }
+      self.clearRfPathLines();
     });
 
     // Handle bounds-based marker filtering
@@ -1651,6 +1644,9 @@ let MapAPRSMap = {
 
   clearAllMarkers() {
     const self = this as unknown as LiveViewHookContext;
+    
+    // Clear any RF path lines first
+    self.clearRfPathLines();
 
     // Instead of clearing all markers, only remove non-historical and non-current markers
     const markersToPreserve = new Map();
@@ -1741,6 +1737,22 @@ let MapAPRSMap = {
 
     // Remove out-of-bounds markers without affecting trails
     markersToRemove.forEach((id) => self.removeMarkerWithoutTrail(String(id)));
+  },
+
+  clearRfPathLines() {
+    const self = this as unknown as LiveViewHookContext;
+    if (self.rfPathLines && self.rfPathLines.length > 0) {
+      self.rfPathLines.forEach((line) => {
+        try {
+          if (self.map && self.map.hasLayer(line)) {
+            self.map.removeLayer(line);
+          }
+        } catch (e) {
+          console.debug("Error removing RF path line:", e);
+        }
+      });
+      self.rfPathLines = [];
+    }
   },
 
   removeMarkerWithoutTrail(id: string) {
@@ -1934,6 +1946,9 @@ let MapAPRSMap = {
       });
       self.mapEventHandlers.clear();
     }
+
+    // Clear any RF path lines
+    self.clearRfPathLines();
 
     // Remove all event listeners from markers before clearing layers
     if (self.markers !== undefined) {
