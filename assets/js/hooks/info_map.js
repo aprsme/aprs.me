@@ -18,7 +18,8 @@ export const InfoMap = {
     }
 
     // If map doesn't exist yet, initialize it
-    if (!this.map) {
+    if (!this.map || !this.map._container || !this.map._container.parentNode) {
+      // Map was destroyed or removed from DOM, reinitialize
       this.initializeMap();
       return;
     }
@@ -48,11 +49,18 @@ export const InfoMap = {
   },
 
   initializeMap() {
+    // Prevent multiple simultaneous initializations
+    if (this.initializing) {
+      return;
+    }
+    
     // Check if Leaflet is available
     if (typeof L === "undefined") {
       console.error("Leaflet not loaded for InfoMap");
       return;
     }
+    
+    this.initializing = true;
 
     // Get data from element attributes
     const lat = parseFloat(this.el.dataset.lat);
@@ -105,8 +113,12 @@ export const InfoMap = {
         }
       }, 250);
 
+      // Mark initialization as complete
+      this.initializing = false;
+
     } catch (error) {
       console.error("Error initializing InfoMap:", error);
+      this.initializing = false;
     }
   },
 
@@ -138,9 +150,13 @@ export const InfoMap = {
   },
 
   destroyed() {
+    // Clean up map and reset state
     if (this.map) {
       this.map.remove();
       this.map = null;
     }
+    this.marker = null;
+    this.lastSymbolHtml = null;
+    this.initializing = false;
   }
 };
