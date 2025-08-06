@@ -2,9 +2,16 @@
   "output": "stdio",
   "version": "1.0",
   "project": {
-    "name": "aprs.me",
+    "name": "aprsme",
     "type": "beam",
-    "apps": [],
-    "paths": []
+    "apps": [
+      {
+        "name": "aprsme",
+        "additional_includes": []
+      }
+    ],
+    "paths": [
+      "_build/prod/lib"
+    ]
   }
 }
