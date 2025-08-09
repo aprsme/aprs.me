@@ -14,12 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `dao` field to store DAO (Datum As Offset) extension data for extra position precision
 - Automatic detection of items/objects during packet processing
 - Database indexes for efficient item/object queries
+- Packet data sanitization to prevent database field overflow errors
+  - Created `Aprsme.PacketSanitizer` module to truncate overly long strings
+  - Implemented UTF-8 safe string truncation
 
 ### Fixed
 - Fixed packet storage failure in production due to non-schema fields from updated APRS parser
   - Remove `type`, `digipeaters`, `daodatumbyte`, `mbits`, `message`, `phg`, `wx`, `resultcode`, `resultmsg` fields before database insertion
   - Enhanced error logging to capture sample packet data when batch inserts fail
   - Created helper function `remove_non_schema_fields/1` to centralize field removal logic
+- Fixed VARCHAR(255) database errors by migrating string fields to TEXT type
+  - Migration increases field sizes for: comment, message_text, raw_packet, body, origpacket, header, radiorange, item_name, object_name, telemetry_bits, device_identifier, format
+  - Added sanitization in PacketConsumer to truncate strings before insertion as safety measure
 
 ### Added
 - Database query optimization with 10 new performance indexes

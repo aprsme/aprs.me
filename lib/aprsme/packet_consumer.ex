@@ -306,6 +306,9 @@ defmodule Aprsme.PacketConsumer do
     # Detect and set item/object fields
     attrs = detect_item_or_object(attrs)
 
+    # Sanitize packet data to prevent database field overflow
+    attrs = Aprsme.PacketSanitizer.sanitize_packet(attrs)
+
     # Normalize data_type to string if it's an atom
     attrs = normalize_data_type(attrs)
 
