@@ -64,10 +64,7 @@
             chartScript.src = this.chartBundleUrl;
             chartScript.onload = () => {
               window.chartBundleLoaded = true;
-              // Load date adapter after Chart.js is loaded
-              const adapterScript = document.createElement('script');
-              adapterScript.src = this.dateAdapterUrl;
-              document.head.appendChild(adapterScript);
+              // Date adapter is now included in the chart bundle
             };
             document.head.appendChild(chartScript);
           }

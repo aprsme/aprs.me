@@ -110,7 +110,7 @@ config :esbuild,
   # Chart bundle - conditional loading  
   chart_js: [
     args:
-      ~w(vendor/js/chart-minimal.js --outfile=../priv/static/assets/vendor/js/chart-bundle.js --minify --target=es2017),
+      ~w(vendor/js/chart-bundle-src.js --outfile=../priv/static/assets/vendor/js/chart-bundle.js --minify --target=es2017),
     cd: Path.expand("../assets", __DIR__)
   ],
   # Date adapter - separate file

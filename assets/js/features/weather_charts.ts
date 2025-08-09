@@ -244,7 +244,16 @@ function createChartHook(configKey: string): Hook {
                 if (self.chart) self.chart.destroy();
                 
                 const data: WeatherHistoryDatum[] = parseWeatherHistory(self.el.dataset.weatherHistory);
-                if (data.length === 0) return;
+                if (data.length === 0) {
+                    console.log('No weather data available for chart');
+                    return;
+                }
+                
+                // Skip rendering if we have less than 2 data points (can't create a meaningful time series)
+                if (data.length < 2) {
+                    console.log('Insufficient weather data for chart (need at least 2 data points)');
+                    return;
+                }
                 
                 const canvas = self.el.querySelector('canvas') as HTMLCanvasElement | null;
                 if (!canvas) {
