@@ -30,8 +30,7 @@ defmodule AprsmeWeb.Plugs.SetLocale do
     accept_language
     |> String.split(",")
     |> Enum.map(&parse_language_tag/1)
-    |> Enum.filter(&supported_locale?/1)
-    |> List.first()
+    |> Enum.find(&supported_locale?/1)
   end
 
   defp parse_language_tag(tag) do
