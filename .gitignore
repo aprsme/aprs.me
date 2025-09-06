@@ -52,3 +52,5 @@ gleam@@compile.erl
 
 # Test screenshots
 /test/screenshots/
+
+.claudecheckpoints/
