@@ -656,7 +656,9 @@ defmodule Aprsme.PacketConsumer do
       :rain_since_midnight,
       :snow,
       :speed,
-      :altitude
+      :altitude,
+      :posresolution,
+      :rain_midnight
     ]
 
     Enum.reduce(float_fields, attrs, fn field, acc ->
