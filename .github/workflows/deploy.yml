@@ -71,6 +71,8 @@ jobs:
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.TAILSCALE_KUBECONFIG }}" | base64 -d > ~/.kube/config
+          # Skip TLS verification for Tailscale IP connection
+          kubectl config set-cluster default --insecure-skip-tls-verify=true
 
       - name: Deploy to K3s
         run: |
