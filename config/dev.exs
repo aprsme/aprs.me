@@ -110,11 +110,4 @@ config :phoenix, :plug_init_mode, :runtime
 # configured to run both http and https servers on
 config :phoenix, :stacktrace_depth, 20
 
-# Configure Sentry for development (disabled by default)
-config :sentry,
-  environment_name: :dev,
-  enable_source_code_context: true,
-  root_source_code_paths: [File.cwd!()],
-  before_send: {Aprsme.SentryFilter, :before_send}
-
 config :swoosh, :api_client, false

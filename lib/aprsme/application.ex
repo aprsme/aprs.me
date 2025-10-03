@@ -15,10 +15,6 @@ defmodule Aprsme.Application do
     # Run migrations on startup
     migrate()
 
-    :logger.add_handler(:my_sentry_handler, Sentry.LoggerHandler, %{
-      config: %{metadata: [:file, :line]}
-    })
-
     children = [
       # Start the Telemetry supervisor
       AprsmeWeb.Telemetry,

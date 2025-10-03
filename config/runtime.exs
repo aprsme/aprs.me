@@ -175,8 +175,6 @@ if config_env() == :prod do
       "http://10.0.19.222:33897",
       "https://aprs.me",
       "https://www.aprs.me",
-      "https://js.sentry-cdn.com",
-      "https://sentry.io",
       "https://www.openstreetmap.org",
       "https://tile.openstreetmap.org",
       "https://static.cloudflareinsights.com"

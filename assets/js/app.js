@@ -25,25 +25,6 @@ import { LiveSocket } from "phoenix_live_view";
 // topbar is loaded globally from vendor bundle
 const topbar = window.topbar;
 
-// Sentry initialization happens via the loader script in the HTML
-// Configure additional Sentry settings if needed
-if (typeof window.Sentry !== "undefined" && window.Sentry.onLoad) {
-  window.Sentry.onLoad(function () {
-    window.Sentry.init({
-      environment: "production",
-      integrations: [new window.Sentry.BrowserTracing()],
-      tracesSampleRate: 1.0, // Capture 100% of transactions for performance monitoring
-      sampleRate: 1.0, // Capture 100% of errors
-      beforeSend(event, hint) {
-        // Filter out known non-critical errors
-        if (hint.originalException?.message?.includes("ResizeObserver loop limit exceeded")) {
-          return null;
-        }
-        return event;
-      },
-    });
-  });
-}
 
 let csrfToken = document.querySelector("meta[name='csrf-token']")?.getAttribute("content") || "";
 if (!csrfToken) {
