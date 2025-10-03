@@ -61,7 +61,7 @@ defmodule Aprsme.MixProject do
       {:certifi, "~> 2.9"},
       {:ecto_psql_extras, "~> 0.8.8"},
       {:ecto_sql, "~> 3.11"},
-      {:geo, "~> 4.0.1"},
+      {:geo, "~> 4.1"},
       {:geo_postgis, "~> 3.4"},
       {:geocalc, "~> 0.8"},
       {:gen_stage, "~> 1.2"},
