@@ -12,7 +12,6 @@ defmodule Aprsme.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      listeners: [Phoenix.CodeReloader],
       dialyzer: [
         ignore_warnings: ".dialyzer_ignore.exs",
         plt_file:
@@ -72,20 +71,20 @@ defmodule Aprsme.MixProject do
       {:exq, "~> 0.20"},
       {:phoenix, "~> 1.8.0-rc.3", override: true},
       {:phoenix_ecto, "~> 4.4"},
-      {:phoenix_html, "~> 4.0"},
+      {:phoenix_html, "~> 4.3.0"},
       {:phoenix_live_dashboard, "~> 0.8"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
-      {:phoenix_live_view, "~> 1.1.1"},
+      {:phoenix_live_view, "~> 1.1.13"},
       {:phoenix_pubsub_redis, "~> 3.0"},
       {:postgrex, ">= 0.0.0"},
-      {:swoosh, "~> 1.16"},
+      {:swoosh, "~> 1.19.8"},
       {:resend, "~> 0.4.1"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:telemetry_metrics_prometheus, "~> 1.1"},
       aprs_dep(),
       {:esbuild, "~> 0.9", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.4.0", runtime: Mix.env() == :dev},
       {:heroicons,
        github: "tailwindlabs/heroicons", tag: "v2.1.1", sparse: "optimized", app: false, compile: false, depth: 1},
       {:bandit, "~> 1.5"},
@@ -99,16 +98,16 @@ defmodule Aprsme.MixProject do
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
       {:sobelow, "~> 0.8", only: :dev},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
-      {:igniter, "~> 0.6", only: [:dev, :test]},
+      {:igniter, "~> 0.6.30", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
-      {:styler, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:styler, "~> 1.9.1", only: [:dev, :test], runtime: false},
       # {:httpoison, "~> 1.8"},
       {:hammer, "~> 7.0"},
       {:cachex, "~> 4.1"},
       {:gettext_pseudolocalize, "~> 0.1"},
-      {:sentry, "~> 11.0"},
+      {:sentry, "~> 11.0.4"},
       {:wallaby, "~> 0.30.10", only: :test},
-      {:lazy_html, ">= 0.1.0", only: :test}
+      {:lazy_html, "~> 0.1.8", only: :test}
       # Gleam dependencies
     ]
   end
