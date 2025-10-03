@@ -137,7 +137,37 @@ defmodule AprsmeWeb.InfoLive.Show do
   defp get_latest_packet(callsign) do
     # Get the most recent packet for this callsign, regardless of type
     # This ensures we show the most recent activity, not just position packets
-    Packets.get_latest_packet_for_callsign(callsign)
+    packet = Packets.get_latest_packet_for_callsign(callsign)
+
+    # If this packet doesn't have position data, try to get the latest position packet
+    if packet && (is_nil(packet.lat) || is_nil(packet.lon)) do
+      position_packet = get_latest_position_packet(callsign)
+
+      if position_packet do
+        # Merge position data from position packet into the latest packet
+        %{packet | lat: position_packet.lat, lon: position_packet.lon, location: position_packet.location}
+      else
+        packet
+      end
+    else
+      packet
+    end
+  end
+
+  defp get_latest_position_packet(callsign) do
+    import Ecto.Query
+    # Get the most recent packet with valid position data
+    alias Aprsme.Repo
+
+    Repo.one(
+      from(p in Aprsme.Packet,
+        where: fragment("upper(?)", p.sender) == ^String.upcase(String.trim(callsign)),
+        where: not is_nil(p.lat) and not is_nil(p.lon),
+        order_by: [desc: p.received_at],
+        limit: 1,
+        select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
+      )
+    )
   end
 
   defp get_neighbors(nil, _callsign, _locale), do: []
