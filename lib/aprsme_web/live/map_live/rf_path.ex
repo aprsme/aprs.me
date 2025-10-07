@@ -8,15 +8,28 @@ defmodule AprsmeWeb.MapLive.RfPath do
 
   @doc """
   Parse RF path string to extract digipeater/igate stations.
+  Excludes APRS-IS (Internet) paths that contain TCPIP.
+  
+  APRS-IS path indicators:
+  - TCPIP: Packet came via Internet connection
+  - NOGATE: Should not be gated to RF
+  - qA*: Various APRS-IS q-constructs (qAC, qAS, qAR, etc.)
+  
+  These are not actual RF digipeaters, so we don't show path lines for them.
   """
   @spec parse_rf_path(binary()) :: list(binary())
   def parse_rf_path(path) when is_binary(path) do
-    path
-    |> String.split(",")
-    |> Enum.map(&String.trim/1)
-    |> Enum.map(&extract_callsign_from_path_element/1)
-    |> Enum.filter(&(&1 != ""))
-    |> Enum.uniq()
+    # Skip APRS-IS paths - these are Internet-only, not RF
+    if String.contains?(path, "TCPIP") or String.contains?(path, "NOGATE") or String.contains?(path, "qA") do
+      []
+    else
+      path
+      |> String.split(",")
+      |> Enum.map(&String.trim/1)
+      |> Enum.map(&extract_callsign_from_path_element/1)
+      |> Enum.filter(&(&1 != ""))
+      |> Enum.uniq()
+    end
   end
 
   def parse_rf_path(_), do: []
