@@ -297,8 +297,8 @@ let MapAPRSMap = {
         keepBuffer: 2,
         updateWhenZooming: false,
         updateInterval: 200,
-        errorTileUrl:
-          "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+        // Remove errorTileUrl to let Leaflet handle tile errors gracefully
+        // errorTileUrl causes issues with some browsers when using data URLs
       });
 
       // Add event handler for tile errors with retry logic
