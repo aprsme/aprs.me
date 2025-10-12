@@ -1007,7 +1007,11 @@ defmodule AprsmeWeb.MapLive.Index do
     ~H"""
     <.map_styles />
 
-    <.map_container slideover_open={@slideover_open} />
+    <.map_container 
+      slideover_open={@slideover_open} 
+      map_center={@map_center}
+      map_zoom={@map_zoom}
+    />
 
     <.locate_button />
 

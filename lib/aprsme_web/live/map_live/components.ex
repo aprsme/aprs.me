@@ -7,6 +7,8 @@ defmodule AprsmeWeb.MapLive.Components do
 
   attr :flash, :map, default: %{}
   attr :slideover_open, :boolean, default: false
+  attr :map_center, :map, required: true
+  attr :map_zoom, :integer, required: true
   attr :rest, :global
 
   def map_container(assigns) do
@@ -15,6 +17,8 @@ defmodule AprsmeWeb.MapLive.Components do
       id="aprs-map"
       phx-update="ignore"
       phx-hook="APRSMap"
+      data-center={Jason.encode!(@map_center)}
+      data-zoom={@map_zoom}
       class={[
         @slideover_open && "slideover-open",
         !@slideover_open && "slideover-closed"
