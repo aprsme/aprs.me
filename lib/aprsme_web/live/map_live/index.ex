@@ -222,7 +222,11 @@ defmodule AprsmeWeb.MapLive.Index do
       # Loading state management
       historical_loading: false,
       loading_generation: 0,
-      pending_batch_tasks: []
+      pending_batch_tasks: [],
+      # Add missing assigns for components
+      loading: false,
+      connection_status: "connected",
+      show_all_packets: true
     )
   end
 
@@ -260,7 +264,11 @@ defmodule AprsmeWeb.MapLive.Index do
       slideover_open: true,
       # Track when last update occurred for real-time display in map sidebar
       # Updated when packets are processed or map bounds change
-      last_update_at: DateTime.utc_now()
+      last_update_at: DateTime.utc_now(),
+      # Add missing assigns for components
+      loading: false,
+      connection_status: "connected",
+      show_all_packets: true
     )
   end
 
