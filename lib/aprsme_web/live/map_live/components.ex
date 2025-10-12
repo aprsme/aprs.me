@@ -199,16 +199,12 @@ defmodule AprsmeWeb.MapLive.Components do
 
   defp packet_list(assigns) do
     ~H"""
-    <div id="packets" class="flex-1 overflow-y-auto p-4 space-y-3" phx-update="stream">
-      <%= if @packets == [] do %>
-        <div class="text-center text-gray-500 py-8">
-          No packets received yet...
-        </div>
-      <% else %>
+    <div class="flex-1 overflow-y-auto p-4">
+      <div id="packets" class="space-y-3" phx-update="stream">
         <div :for={{id, packet} <- @packets} id={id}>
           <.packet_card packet={packet} />
         </div>
-      <% end %>
+      </div>
     </div>
     """
   end

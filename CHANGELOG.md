@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed "no available server" deployment issue caused by incorrect HEEx class attribute syntax
+  - Corrected tuple-style class attributes to proper conditional syntax
+  - Fixed missing assigns (loading, connection_status, show_all_packets) in LiveView
+  - Changed @streams.packets reference to @packets in template
+
 ### Added
 - Database fields for APRS items and objects support:
   - `item_name`, `object_name` fields to identify items/objects
