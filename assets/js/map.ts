@@ -432,6 +432,19 @@ let MapAPRSMap = {
       try {
         self.lastZoom = self.map!.getZoom();
         self.sendMapReadyEvents();
+        
+        // Process any pending markers that were queued before map was ready
+        if (self.pendingMarkers && self.pendingMarkers.length > 0) {
+          console.log(`Processing ${self.pendingMarkers.length} pending markers`);
+          self.pendingMarkers.forEach((markerData: MarkerData) => {
+            try {
+              self.addMarker(markerData);
+            } catch (error) {
+              console.error("Error adding pending marker:", error, markerData);
+            }
+          });
+          self.pendingMarkers = [];
+        }
       } catch (error) {
         console.error("Error in map ready callback:", error);
       }
@@ -548,8 +561,22 @@ let MapAPRSMap = {
       }
     }, 1000);
 
+    // Queue to hold markers that arrive before map is ready
+    self.pendingMarkers = [];
+    
     // LiveView event handlers
     self.setupLiveViewHandlers();
+    
+    // Process any pending markers once the map is ready
+    self.map.whenReady(() => {
+      if (self.pendingMarkers && self.pendingMarkers.length > 0) {
+        console.log(`Processing ${self.pendingMarkers.length} pending markers`);
+        self.pendingMarkers.forEach(markerData => {
+          self.addMarker(markerData);
+        });
+        self.pendingMarkers = [];
+      }
+    });
 
     // Set up event delegation for popup navigation links
     self.setupPopupNavigation();
@@ -724,12 +751,32 @@ let MapAPRSMap = {
     const self = this as unknown as LiveViewHookContext;
     // Add single marker
     self.handleEvent("add_marker", (data: MarkerData) => {
+      // Check if map is ready before adding markers
+      if (!self.map || !self.markerLayer) {
+        console.warn("Map not ready, queueing marker for later:", data.id);
+        // Queue the marker to be added when map is ready
+        if (!self.pendingMarkers) {
+          self.pendingMarkers = [];
+        }
+        self.pendingMarkers.push(data);
+        return;
+      }
       self.addMarker(data);
     });
 
     // Add multiple markers at once
     self.handleEvent("add_markers", (data: { markers: MarkerData[] }) => {
       if (data.markers && Array.isArray(data.markers)) {
+        // Check if map is ready before adding markers
+        if (!self.map || !self.markerLayer) {
+          console.warn("Map not ready, queueing markers for later");
+          // Queue the markers to be added when map is ready
+          if (!self.pendingMarkers) {
+            self.pendingMarkers = [];
+          }
+          self.pendingMarkers.push(...data.markers);
+          return;
+        }
         data.markers.forEach((marker) => self.addMarker(marker));
       }
     });
@@ -1352,6 +1399,16 @@ let MapAPRSMap = {
     // Ensure maps are initialized
     if (!self.markers || !self.markerStates || !self.markerLayer) {
       console.warn("Map data structures not initialized, skipping marker add");
+      return;
+    }
+    
+    // Additional check to ensure map is fully ready
+    if (!self.map || !self.map._container || typeof self.map.getZoom !== 'function') {
+      console.warn("Map not fully initialized, queueing marker:", data.id);
+      if (!self.pendingMarkers) {
+        self.pendingMarkers = [];
+      }
+      self.pendingMarkers.push(data);
       return;
     }
 
