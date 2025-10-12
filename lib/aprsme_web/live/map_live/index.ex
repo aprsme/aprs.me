@@ -1015,7 +1015,7 @@ defmodule AprsmeWeb.MapLive.Index do
       slideover_open={@slideover_open}
       loading={@loading}
       connection_status={@connection_status}
-      packets={@streams.packets}
+      packets={@packets}
       show_all_packets={@show_all_packets}
       tracked_callsign={@tracked_callsign}
       tracked_callsign_latest_packet={@tracked_callsign_latest_packet}
