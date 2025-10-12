@@ -1186,6 +1186,12 @@ let MapAPRSMap = {
       }) => {
         if (!self.map || !data.path_stations || data.path_stations.length === 0) return;
 
+        // Validate initial station coordinates
+        if (!isFinite(data.station_lat) || !isFinite(data.station_lng)) {
+          console.warn("Invalid initial station coordinates for RF path:", { lat: data.station_lat, lng: data.station_lng });
+          return;
+        }
+
         // Clear any existing path lines
         if (self.rfPathLines) {
           self.rfPathLines.forEach((line) => self.map!.removeLayer(line));
@@ -1197,6 +1203,12 @@ let MapAPRSMap = {
         let prevLng = data.station_lng;
 
         data.path_stations.forEach((station, index) => {
+          // Validate coordinates before drawing
+          if (!isFinite(prevLat) || !isFinite(prevLng) || !isFinite(station.lat) || !isFinite(station.lng)) {
+            console.warn("Invalid coordinates for RF path:", { prevLat, prevLng, station });
+            return;
+          }
+
           // Draw line from previous position to this station
           const line = L.polyline(
             [
