@@ -26,44 +26,66 @@ defmodule Aprsme.Packets do
   def store_packet(packet_data) do
     require Logger
 
-    try do
-      # First sanitize the input data
-      sanitized_packet_data = Aprsme.EncodingUtils.sanitize_packet(packet_data)
+    with {:ok, sanitized_data} <- sanitize_packet_data(packet_data),
+         {:ok, packet_attrs} <- build_packet_attrs(sanitized_data),
+         {:ok, packet} <- insert_packet(packet_attrs, packet_data) do
+      {:ok, packet}
+    else
+      {:error, reason} = error ->
+        Logger.error("Failed to store packet for #{inspect(packet_data[:sender])}: #{inspect(reason)}")
+        store_bad_packet(packet_data, reason)
+        error
+    end
+  end
 
-      packet_attrs =
-        sanitized_packet_data
-        |> Packet.extract_additional_data(
-          sanitized_packet_data[:raw_packet] || sanitized_packet_data["raw_packet"] || ""
-        )
-        |> normalize_packet_attrs()
-        |> set_received_at()
-        |> patch_lat_lon_from_data_extended()
-        |> then(fn attrs ->
-          {lat, lon} = extract_position(attrs)
-          set_lat_lon(attrs, lat, lon)
-        end)
-        |> normalize_ssid()
-        |> then(fn attrs ->
-          device_identifier = Aprsme.DeviceParser.extract_device_identifier(packet_data)
-          canonical_identifier = get_canonical_device_identifier(device_identifier)
-          Map.put(attrs, :device_identifier, canonical_identifier)
-        end)
+  # Pattern matching for sanitization
+  defp sanitize_packet_data(packet_data) do
+    {:ok, Aprsme.EncodingUtils.sanitize_packet(packet_data)}
+  rescue
+    error -> {:error, {:sanitization_failed, error}}
+  end
 
-      # require Logger
-      # Logger.debug("Sanitized packet_attrs before insert: #{inspect(packet_attrs)}")
-      # Set device_identifier to parsed value, fallback to destination if nil
-      parsed_device_id = Aprsme.DeviceParser.extract_device_identifier(packet_data)
-      device_id = parsed_device_id || Map.get(packet_attrs, :destination)
-      packet_attrs = Map.put(packet_attrs, :device_identifier, device_id)
+  # Build packet attributes with pipeline
+  defp build_packet_attrs(sanitized_data) do
+    raw_packet = get_raw_packet(sanitized_data)
 
-      # Logger.debug("Inserting packet with device_identifier=#{inspect(device_id)}, destination=#{inspect(Map.get(packet_attrs, :destination))}")
-      insert_packet(packet_attrs, packet_data)
-    rescue
-      error ->
-        Logger.error("Exception in store_packet for #{inspect(packet_data[:sender])}: #{inspect(error)}")
+    attrs =
+      sanitized_data
+      |> Packet.extract_additional_data(raw_packet)
+      |> normalize_packet_attrs()
+      |> set_received_at()
+      |> patch_lat_lon_from_data_extended()
+      |> apply_position_data()
+      |> normalize_ssid()
+      |> apply_device_identifier(sanitized_data)
 
-        store_bad_packet(packet_data, error)
-        {:error, :storage_exception}
+    {:ok, attrs}
+  rescue
+    error -> {:error, {:build_attrs_failed, error}}
+  end
+
+  # Pattern matching for raw packet extraction
+  defp get_raw_packet(%{raw_packet: raw}) when is_binary(raw), do: raw
+  defp get_raw_packet(%{"raw_packet" => raw}) when is_binary(raw), do: raw
+  defp get_raw_packet(_), do: ""
+
+  # Apply position data using pattern matching
+  defp apply_position_data(attrs) do
+    case extract_position(attrs) do
+      {nil, nil} -> attrs
+      {lat, lon} -> set_lat_lon(attrs, lat, lon)
+    end
+  end
+
+  # Apply device identifier with pattern matching
+  defp apply_device_identifier(attrs, original_data) do
+    case Aprsme.DeviceParser.extract_device_identifier(original_data) do
+      nil ->
+        # Fallback to destination
+        Map.put(attrs, :device_identifier, Map.get(attrs, :destination))
+
+      device_id ->
+        Map.put(attrs, :device_identifier, get_canonical_device_identifier(device_id))
     end
   end
 
@@ -93,47 +115,73 @@ defmodule Aprsme.Packets do
     Map.put(attrs, :received_at, current_time)
   end
 
-  defp patch_lat_lon_from_data_extended(attrs) do
-    case attrs[:data_extended] do
-      %{} = ext ->
-        ext_map = if Map.has_key?(ext, :__struct__), do: Map.from_struct(ext), else: ext
-        lat = extract_lat_from_ext_map(ext_map)
-        lon = extract_lon_from_ext_map(ext_map)
-        latd = to_decimal(lat)
-        lond = to_decimal(lon)
+  # Pattern matching with guards for cleaner code
+  defp patch_lat_lon_from_data_extended(%{data_extended: %{} = ext} = attrs) do
+    ext_map = normalize_to_map(ext)
 
-        if not is_nil(latd) and not is_nil(lond) do
-          attrs
-          |> Map.put(:lat, latd)
-          |> Map.put(:lon, lond)
-        else
-          attrs
-        end
-
-      _ ->
-        attrs
+    with lat when not is_nil(lat) <- extract_lat_from_ext_map(ext_map),
+         lon when not is_nil(lon) <- extract_lon_from_ext_map(ext_map),
+         {:ok, lat_decimal} <- to_decimal_safe(lat),
+         {:ok, lon_decimal} <- to_decimal_safe(lon) do
+      attrs
+      |> Map.put(:lat, lat_decimal)
+      |> Map.put(:lon, lon_decimal)
+    else
+      _ -> attrs
     end
   end
 
-  defp extract_lat_from_ext_map(ext_map) when is_map(ext_map) and not is_struct(ext_map) do
-    ext_map[:latitude] || ext_map["latitude"] ||
-      (Map.has_key?(ext_map, :position) &&
-         (ext_map[:position][:latitude] || ext_map[:position]["latitude"])) ||
-      (Map.has_key?(ext_map, "position") &&
-         (ext_map["position"][:latitude] || ext_map["position"]["latitude"]))
+  defp patch_lat_lon_from_data_extended(attrs), do: attrs
+
+  # Helper to normalize struct or map
+  defp normalize_to_map(%{__struct__: _} = struct), do: Map.from_struct(struct)
+  defp normalize_to_map(map) when is_map(map), do: map
+
+  # Safe decimal conversion with pattern matching
+  defp to_decimal_safe(nil), do: {:error, :nil_value}
+
+  defp to_decimal_safe(value) do
+    case to_decimal(value) do
+      nil -> {:error, :conversion_failed}
+      decimal -> {:ok, decimal}
+    end
   end
 
-  defp extract_lat_from_ext_map(_), do: nil
-
-  defp extract_lon_from_ext_map(ext_map) when is_map(ext_map) and not is_struct(ext_map) do
-    ext_map[:longitude] || ext_map["longitude"] ||
-      (Map.has_key?(ext_map, :position) &&
-         (ext_map[:position][:longitude] || ext_map[:position]["longitude"])) ||
-      (Map.has_key?(ext_map, "position") &&
-         (ext_map["position"][:longitude] || ext_map["position"]["longitude"]))
+  # Pattern matching for coordinate extraction
+  defp extract_lat_from_ext_map(ext_map) do
+    extract_coordinate(ext_map, :latitude)
   end
 
-  defp extract_lon_from_ext_map(_), do: nil
+  defp extract_lon_from_ext_map(ext_map) do
+    extract_coordinate(ext_map, :longitude)
+  end
+
+  # Unified coordinate extraction with pattern matching
+  defp extract_coordinate(%{} = map, coord_type) when coord_type in [:latitude, :longitude] do
+    coord_string = Atom.to_string(coord_type)
+
+    find_coordinate_value(map, coord_type) || find_coordinate_value(map, coord_string)
+  end
+
+  defp extract_coordinate(_, _), do: nil
+
+  # Pattern matching for direct coordinate access
+  defp find_coordinate_value(%{latitude: lat}, :latitude) when not is_nil(lat), do: lat
+  defp find_coordinate_value(%{longitude: lon}, :longitude) when not is_nil(lon), do: lon
+  defp find_coordinate_value(%{"latitude" => lat}, "latitude") when not is_nil(lat), do: lat
+  defp find_coordinate_value(%{"longitude" => lon}, "longitude") when not is_nil(lon), do: lon
+
+  # Pattern matching for nested position access
+  defp find_coordinate_value(%{position: %{latitude: lat}}, :latitude) when not is_nil(lat), do: lat
+  defp find_coordinate_value(%{position: %{longitude: lon}}, :longitude) when not is_nil(lon), do: lon
+  defp find_coordinate_value(%{position: %{"latitude" => lat}}, :latitude) when not is_nil(lat), do: lat
+  defp find_coordinate_value(%{position: %{"longitude" => lon}}, :longitude) when not is_nil(lon), do: lon
+  defp find_coordinate_value(%{"position" => %{latitude: lat}}, "latitude") when not is_nil(lat), do: lat
+  defp find_coordinate_value(%{"position" => %{longitude: lon}}, "longitude") when not is_nil(lon), do: lon
+  defp find_coordinate_value(%{"position" => %{"latitude" => lat}}, "latitude") when not is_nil(lat), do: lat
+  defp find_coordinate_value(%{"position" => %{"longitude" => lon}}, "longitude") when not is_nil(lon), do: lon
+
+  defp find_coordinate_value(_, _), do: nil
 
   defp set_lat_lon(attrs, lat, lon) do
     # Optimize: avoid creating anonymous function on each call
@@ -157,12 +205,11 @@ defmodule Aprsme.Packets do
 
   defp round_coordinate(_), do: nil
 
-  defp normalize_ssid(attrs) do
-    case Map.get(attrs, :ssid) do
-      nil -> attrs
-      ssid -> Map.put(attrs, :ssid, to_string(ssid))
-    end
-  end
+  # Pattern matching for SSID normalization
+  defp normalize_ssid(%{ssid: nil} = attrs), do: attrs
+  defp normalize_ssid(%{ssid: ssid} = attrs) when is_binary(ssid), do: attrs
+  defp normalize_ssid(%{ssid: ssid} = attrs), do: Map.put(attrs, :ssid, to_string(ssid))
+  defp normalize_ssid(attrs), do: attrs
 
   defp insert_packet(attrs, packet_data) do
     # Ensure data_extended is properly sanitized before insertion
@@ -349,12 +396,16 @@ defmodule Aprsme.Packets do
   defp apply_direction(value, direction, negative_direction) when direction == negative_direction, do: -value
   defp apply_direction(value, _direction, _negative_direction), do: value
 
-  defp get_canonical_device_identifier(device_identifier) do
+  # Pattern matching for canonical device identifier lookup
+  defp get_canonical_device_identifier(device_identifier) when is_binary(device_identifier) do
     case Aprsme.DeviceIdentification.lookup_device_by_identifier(device_identifier) do
-      %{identifier: canonical_id} -> canonical_id
-      nil -> device_identifier
+      %{identifier: canonical_id} when is_binary(canonical_id) -> canonical_id
+      _ -> device_identifier
     end
   end
+
+  defp get_canonical_device_identifier(nil), do: nil
+  defp get_canonical_device_identifier(device_identifier), do: to_string(device_identifier)
 
   @doc """
   Gets packets for replay.

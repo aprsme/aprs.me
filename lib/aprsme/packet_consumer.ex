@@ -46,75 +46,128 @@ defmodule Aprsme.PacketConsumer do
   end
 
   @impl true
-  def handle_events(
-        events,
-        _from,
-        %{batch: batch, batch_size: batch_size, max_batch_size: max_batch_size, timer: timer} = state
-      ) do
-    # More efficient: prepend events to batch (O(n) where n = length of events)
-    new_batch = events ++ batch
-    new_batch_length = length(new_batch)
+  def handle_events(events, _from, state) do
+    handle_batch_update(events, state)
+  end
 
-    cond do
-      new_batch_length >= max_batch_size ->
-        # If batch exceeds maximum size, process immediately and drop excess
-        {process_batch, drop_batch} = Enum.split(new_batch, max_batch_size)
-        process_batch(process_batch)
+  # Pattern matching for batch handling with optimized list operations
+  defp handle_batch_update(events, %{batch: batch} = state) do
+    # Optimize: Keep batch in reverse order for O(1) prepending
+    # Only reverse when processing
+    new_batch = Enum.reverse(events, batch)
+    new_batch_length = batch_length(batch) + length(events)
 
-        # Log warning about dropping packets (sanitized)
-        if length(drop_batch) > 0 do
-          Logger.warning("Dropped #{length(drop_batch)} packets due to batch size limit",
-            batch_info:
-              LogSanitizer.log_data(
-                dropped_count: length(drop_batch),
-                processed_count: length(process_batch),
-                reason: "batch_size_limit_exceeded"
-              )
-          )
-        end
+    handle_batch_by_size(new_batch, new_batch_length, state)
+  end
 
-        # Cancel and restart timer
-        if timer, do: Process.cancel_timer(timer)
-        new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
-        {:noreply, [], %{state | batch: [], timer: new_timer}}
+  # Pattern matching for different batch size scenarios
+  defp handle_batch_by_size(batch, length, %{max_batch_size: max} = state) when length >= max do
+    handle_oversized_batch(batch, max, state)
+  end
 
-      new_batch_length >= batch_size ->
-        # Process the batch immediately
-        process_batch(new_batch)
+  defp handle_batch_by_size(batch, length, %{batch_size: size} = state) when length >= size do
+    handle_full_batch(batch, state)
+  end
 
-        # Cancel and restart timer
-        if timer, do: Process.cancel_timer(timer)
-        new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
-        {:noreply, [], %{state | batch: [], timer: new_timer}}
+  defp handle_batch_by_size(batch, _length, state) do
+    handle_partial_batch(batch, state)
+  end
 
-      true ->
-        # Add to batch and wait for more
-        {:noreply, [], %{state | batch: new_batch}}
-    end
+  # Handle oversized batch with pattern matching
+  defp handle_oversized_batch(batch, max_size, state) do
+    # Reverse once for processing
+    reversed_batch = Enum.reverse(batch)
+    {process_batch, drop_batch} = Enum.split(reversed_batch, max_size)
+
+    process_batch(process_batch)
+    log_dropped_packets(drop_batch, process_batch)
+
+    new_state = reset_batch_timer(state)
+    {:noreply, [], new_state}
+  end
+
+  # Handle full batch
+  defp handle_full_batch(batch, state) do
+    # Reverse once for processing
+    process_batch(Enum.reverse(batch))
+
+    new_state = reset_batch_timer(state)
+    {:noreply, [], new_state}
+  end
+
+  # Handle partial batch
+  defp handle_partial_batch(batch, state) do
+    # Keep batch in reverse order
+    {:noreply, [], %{state | batch: batch}}
+  end
+
+  # Helper functions with pattern matching
+  defp reset_batch_timer(%{timer: nil} = state) do
+    new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
+    %{state | batch: [], timer: new_timer}
+  end
+
+  defp reset_batch_timer(%{timer: timer} = state) do
+    Process.cancel_timer(timer)
+    new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
+    %{state | batch: [], timer: new_timer}
+  end
+
+  # Efficient batch length calculation (cached if possible)
+  defp batch_length([]), do: 0
+  defp batch_length(batch), do: length(batch)
+
+  # Pattern matching for logging
+  defp log_dropped_packets([], _), do: :ok
+
+  defp log_dropped_packets(dropped, processed) do
+    Logger.warning("Dropped #{length(dropped)} packets due to batch size limit",
+      batch_info:
+        LogSanitizer.log_data(
+          dropped_count: length(dropped),
+          processed_count: length(processed),
+          reason: "batch_size_limit_exceeded"
+        )
+    )
   end
 
   @impl true
-  def handle_info(:process_batch, %{batch: batch, batch_timeout: timeout, max_batch_size: max_batch_size} = state) do
-    if length(batch) > 0 do
-      # Check if batch size is concerning
-      if length(batch) > max_batch_size * 0.8 do
-        Logger.warning("Batch size approaching limit",
-          batch_status:
-            LogSanitizer.log_data(
-              current_size: length(batch),
-              max_size: max_batch_size,
-              utilization_percent: trunc(length(batch) / max_batch_size * 100)
-            )
-        )
-      end
-
-      process_batch(batch)
-    end
-
-    # Start a new timer
-    timer = Process.send_after(self(), :process_batch, timeout)
-    {:noreply, [], %{state | batch: [], timer: timer}}
+  # Pattern matching for empty batch
+  def handle_info(:process_batch, %{batch: []} = state) do
+    # Just restart the timer for empty batch
+    new_state = start_batch_timer(state)
+    {:noreply, [], new_state}
   end
+
+  # Pattern matching for non-empty batch
+  def handle_info(:process_batch, %{batch: batch} = state) when is_list(batch) do
+    check_batch_utilization(batch, state.max_batch_size)
+    # Remember to reverse the batch since we keep it in reverse order
+    process_batch(Enum.reverse(batch))
+
+    new_state = start_batch_timer(%{state | batch: []})
+    {:noreply, [], new_state}
+  end
+
+  # Helper to start batch timer
+  defp start_batch_timer(%{batch_timeout: timeout} = state) do
+    timer = Process.send_after(self(), :process_batch, timeout)
+    %{state | timer: timer}
+  end
+
+  # Pattern matching for batch utilization check
+  defp check_batch_utilization(batch, max_size) when length(batch) > max_size * 0.8 do
+    Logger.warning("Batch size approaching limit",
+      batch_status:
+        LogSanitizer.log_data(
+          current_size: length(batch),
+          max_size: max_size,
+          utilization_percent: trunc(length(batch) / max_size * 100)
+        )
+    )
+  end
+
+  defp check_batch_utilization(_, _), do: :ok
 
   defp process_batch(packets) do
     require Logger

@@ -54,3 +54,6 @@ gleam@@compile.erl
 /test/screenshots/
 
 .claudecheckpoints/
+
+# Expert language server directory
+/.expert

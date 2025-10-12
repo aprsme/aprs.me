@@ -1,6 +1,6 @@
 defmodule Aprsme.DeviceParser do
   @moduledoc """
-  Extracts device identifiers from APRS packet data.
+  Extracts device identifiers from APRS packet data using pattern matching.
   """
 
   @doc """
@@ -8,35 +8,48 @@ defmodule Aprsme.DeviceParser do
   Returns the device identifier string or nil if not found.
   """
   @spec extract_device_identifier(map()) :: String.t() | nil
-  def extract_device_identifier(packet_data) do
-    extract_from_destination(packet_data) ||
-      extract_from_device_identifier(packet_data) ||
-      extract_from_data_extended(packet_data)
+  def extract_device_identifier(packet_data) when is_map(packet_data) do
+    find_device_identifier(packet_data)
   end
 
-  defp extract_from_destination(packet_data) do
-    get_field_value(packet_data, :destination) || get_field_value(packet_data, "destination")
+  def extract_device_identifier(_), do: nil
+
+  # Pattern matching for different data structures
+  defp find_device_identifier(%{device_identifier: id}) when is_binary(id) and id != "", do: id
+  defp find_device_identifier(%{"device_identifier" => id}) when is_binary(id) and id != "", do: id
+  defp find_device_identifier(%{destination: dest}) when is_binary(dest) and dest != "", do: dest
+  defp find_device_identifier(%{"destination" => dest}) when is_binary(dest) and dest != "", do: dest
+
+  defp find_device_identifier(%{data_extended: data_ext} = packet) when is_map(data_ext) do
+    extract_from_symbol_data(data_ext) || find_device_identifier(Map.delete(packet, :data_extended))
   end
 
-  defp extract_from_device_identifier(packet_data) do
-    get_field_value(packet_data, :device_identifier) || get_field_value(packet_data, "device_identifier")
+  defp find_device_identifier(%{"data_extended" => data_ext} = packet) when is_map(data_ext) do
+    extract_from_symbol_data(data_ext) || find_device_identifier(Map.delete(packet, "data_extended"))
   end
 
-  defp get_field_value(packet_data, key) do
-    if Map.has_key?(packet_data, key) do
-      Map.get(packet_data, key)
-    end
+  defp find_device_identifier(_), do: nil
+
+  # Pattern matching for symbol data extraction
+  defp extract_from_symbol_data(%{symbol_table_id: table, symbol_code: code})
+       when is_binary(table) and is_binary(code) do
+    "#{table}#{code}"
   end
 
-  defp extract_from_data_extended(packet_data) do
-    data_extended = Map.get(packet_data, :data_extended) || %{}
-
-    # Try to extract from symbol information
-    symbol_table_id = Map.get(data_extended, :symbol_table_id) || Map.get(data_extended, "symbol_table_id")
-    symbol_code = Map.get(data_extended, :symbol_code) || Map.get(data_extended, "symbol_code")
-
-    if symbol_table_id && symbol_code do
-      "#{symbol_table_id}#{symbol_code}"
-    end
+  defp extract_from_symbol_data(%{"symbol_table_id" => table, "symbol_code" => code})
+       when is_binary(table) and is_binary(code) do
+    "#{table}#{code}"
   end
+
+  defp extract_from_symbol_data(_), do: nil
+
+  @doc """
+  Normalizes a device identifier to a canonical form.
+  Handles both string and atom inputs with pattern matching.
+  """
+  @spec normalize_device_identifier(String.t() | atom() | nil) :: String.t() | nil
+  def normalize_device_identifier(nil), do: nil
+  def normalize_device_identifier(id) when is_atom(id), do: Atom.to_string(id)
+  def normalize_device_identifier(id) when is_binary(id), do: String.trim(id)
+  def normalize_device_identifier(_), do: nil
 end

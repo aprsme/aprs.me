@@ -5,9 +5,11 @@ defmodule AprsmeWeb.MapLive.Index do
   use AprsmeWeb, :live_view
 
   import AprsmeWeb.Live.Shared.PacketUtils, only: [get_callsign_key: 1]
+  import AprsmeWeb.MapLive.Components
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
   import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_patch: 2, put_flash: 3]
 
+  # Import the new components module
   alias Aprsme.Packets
   alias Aprsme.Packets.Clustering
   alias AprsmeWeb.Endpoint
@@ -995,8 +997,61 @@ defmodule AprsmeWeb.MapLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <%!-- All vendor libraries are now loaded from vendor.js bundle --%>
+    <.map_styles />
 
+    <.map_container slideover_open={@slideover_open} />
+
+    <.locate_button />
+
+    <.slideover_panel
+      slideover_open={@slideover_open}
+      loading={@loading}
+      connection_status={@connection_status}
+      packets={@streams.packets}
+      show_all_packets={@show_all_packets}
+      tracked_callsign={@tracked_callsign}
+      tracked_callsign_latest_packet={@tracked_callsign_latest_packet}
+    />
+
+    <.toggle_button slideover_open={@slideover_open} />
+
+    <.bottom_controls {assigns} />
+    """
+  end
+
+  # Additional component functions that weren't extracted yet
+  defp locate_button(assigns) do
+    ~H"""
+    <button class="locate-button" phx-click="locate_me" title="Locate me">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fill-rule="evenodd"
+          d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+          clip-rule="evenodd"
+        />
+      </svg>
+    </button>
+    """
+  end
+
+  defp toggle_button(assigns) do
+    ~H"""
+    <button
+      phx-click="toggle_slideover"
+      class={[
+        "fixed right-4 top-4 z-40 bg-white rounded-lg shadow-lg p-3",
+        "hover:bg-gray-50 transition-colors lg:hidden",
+        hidden: @slideover_open
+      ]}
+    >
+      <.icon name="hero-bars-3" class="w-6 h-6 text-gray-700" />
+    </button>
+    """
+  end
+
+  defp bottom_controls(assigns) do
+    ~H"""
+    <%!-- Existing bottom controls code will go here --%>
     <style>
       #aprs-map {
         position: absolute;
