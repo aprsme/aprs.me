@@ -1968,6 +1968,12 @@ let MapAPRSMap = {
       self.programmaticMoveTimeout = undefined;
     }
 
+    // Clear initialization timeout
+    if (self.initializationTimeout !== undefined) {
+      clearTimeout(self.initializationTimeout);
+      self.initializationTimeout = undefined;
+    }
+
     // Clear any dimension check timeouts
     if (self.cleanupTimeouts !== undefined) {
       self.cleanupTimeouts.forEach((timeout: number) => {

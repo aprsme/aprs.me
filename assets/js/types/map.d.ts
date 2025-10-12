@@ -36,6 +36,7 @@ export interface LiveViewHookContext {
   markerClusterGroup?: MarkerClusterGroup;
   cleanupTimeouts?: ReturnType<typeof setTimeout>[];
   pendingMarkers?: MarkerData[];
+  initializationTimeout?: ReturnType<typeof setTimeout>;
 }
 
 export interface MarkerData {

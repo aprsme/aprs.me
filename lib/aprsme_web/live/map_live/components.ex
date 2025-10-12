@@ -5,6 +5,8 @@ defmodule AprsmeWeb.MapLive.Components do
   """
   use AprsmeWeb, :html
 
+  import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
+
   attr :flash, :map, default: %{}
   attr :slideover_open, :boolean, default: false
   attr :map_center, :map, required: true
@@ -194,7 +196,7 @@ defmodule AprsmeWeb.MapLive.Components do
       </form>
       <%= if @tracked_callsign_latest_packet do %>
         <div class="mt-2 text-xs text-gray-600">
-          Last seen: {format_time_ago(@tracked_callsign_latest_packet.received_at)}
+          Last seen: {time_ago_in_words(@tracked_callsign_latest_packet.received_at)}
         </div>
       <% end %>
     </div>
@@ -235,7 +237,7 @@ defmodule AprsmeWeb.MapLive.Components do
             </div>
           <% end %>
           <div class="text-xs text-gray-500 mt-2">
-            via {@packet.path || "direct"} • {format_time_ago(@packet.received_at)}
+            via {@packet.path || "direct"} • {time_ago_in_words(@packet.received_at)}
           </div>
         </div>
         <%= if @packet.has_position do %>
@@ -256,18 +258,8 @@ defmodule AprsmeWeb.MapLive.Components do
   end
 
   # Helper functions
-  defp format_time_ago(datetime) do
-    # Implement time ago formatting
-    case DateTime.diff(DateTime.utc_now(), datetime, :second) do
-      seconds when seconds < 60 -> "#{seconds}s ago"
-      seconds when seconds < 3600 -> "#{div(seconds, 60)}m ago"
-      seconds when seconds < 86_400 -> "#{div(seconds, 3600)}h ago"
-      seconds -> "#{div(seconds, 86_400)}d ago"
-    end
-  end
-
   defp format_coordinates(lat, lon) when is_number(lat) and is_number(lon) do
-    "#{Float.round(lat * 1.0, 4)}, #{Float.round(lon * 1.0, 4)}"
+    "#{Float.round(lat, 4)}, #{Float.round(lon, 4)}"
   end
 
   defp format_coordinates(_, _), do: "Unknown location"
