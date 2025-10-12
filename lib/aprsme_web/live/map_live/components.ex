@@ -112,10 +112,10 @@ defmodule AprsmeWeb.MapLive.Components do
     <div class="flex items-center space-x-2">
       <div class={[
         "h-3 w-3 rounded-full",
-        "bg-green-500": @connection_status == "connected",
-        "bg-yellow-500": @connection_status == "connecting",
-        "bg-red-500": @connection_status == "disconnected",
-        "bg-gray-400": @connection_status == "pending"
+        @connection_status == "connected" && "bg-green-500",
+        @connection_status == "connecting" && "bg-yellow-500",
+        @connection_status == "disconnected" && "bg-red-500",
+        @connection_status == "pending" && "bg-gray-400"
       ]}>
       </div>
       <span class="text-sm text-gray-700">
