@@ -14,7 +14,7 @@ defmodule AprsmeWeb.MapLive.Components do
     <div
       id="aprs-map"
       phx-update="ignore"
-      phx-hook="LeafletMap"
+      phx-hook="APRSMap"
       class={[
         @slideover_open && "slideover-open",
         !@slideover_open && "slideover-closed"
