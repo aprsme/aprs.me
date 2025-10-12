@@ -1619,9 +1619,27 @@ let MapAPRSMap = {
     const markerState = self.markerStates!.get(markerId);
 
     if (marker) {
-      self.markerLayer!.removeLayer(marker);
-      self.markers!.delete(markerId);
-      self.markerStates!.delete(markerId);
+      try {
+        // Remove marker from appropriate layer with safety checks
+        if (self.markerClusterGroup && self.markerClusterGroup.hasLayer(marker)) {
+          // Check if cluster group is ready before removing
+          if (self.markerClusterGroup._map && self.markerClusterGroup._topClusterLevel) {
+            self.markerClusterGroup.removeLayer(marker);
+          } else {
+            console.warn("Cluster group not ready, skipping marker removal:", markerId);
+          }
+        } else if (self.markerLayer && self.markerLayer.hasLayer(marker)) {
+          self.markerLayer.removeLayer(marker);
+        }
+        
+        self.markers!.delete(markerId);
+        self.markerStates!.delete(markerId);
+      } catch (error) {
+        console.error("Error removing marker:", markerId, error);
+        // Still clean up tracking maps even if layer removal failed
+        self.markers!.delete(markerId);
+        self.markerStates!.delete(markerId);
+      }
     }
 
     // Remove trail - use callsign_group for proper trail identification
@@ -1801,11 +1819,29 @@ let MapAPRSMap = {
     const marker = self.markers!.get(markerId);
 
     if (marker) {
-      // Remove marker from map but don't touch trails
-      self.markerLayer!.removeLayer(marker);
-      self.markers!.delete(markerId);
-      self.markerStates!.delete(markerId);
-      // Note: We intentionally don't remove trails here
+      try {
+        // Remove marker from appropriate layer with safety checks
+        if (self.markerClusterGroup && self.markerClusterGroup.hasLayer(marker)) {
+          // Check if cluster group is ready before removing
+          if (self.markerClusterGroup._map && self.markerClusterGroup._topClusterLevel) {
+            self.markerClusterGroup.removeLayer(marker);
+          } else {
+            console.warn("Cluster group not ready, skipping marker removal:", markerId);
+          }
+        } else if (self.markerLayer && self.markerLayer.hasLayer(marker)) {
+          self.markerLayer.removeLayer(marker);
+        }
+        
+        // Always clean up the tracking maps
+        self.markers!.delete(markerId);
+        self.markerStates!.delete(markerId);
+        // Note: We intentionally don't remove trails here
+      } catch (error) {
+        console.error("Error removing marker:", markerId, error);
+        // Still clean up tracking maps even if layer removal failed
+        self.markers!.delete(markerId);
+        self.markerStates!.delete(markerId);
+      }
     }
   },
 
