@@ -1049,7 +1049,7 @@ defmodule AprsmeWeb.MapLive.Index do
       class={[
         "fixed right-4 top-4 z-40 bg-white rounded-lg shadow-lg p-3",
         "hover:bg-gray-50 transition-colors lg:hidden",
-        hidden: @slideover_open
+        @slideover_open && "hidden"
       ]}
     >
       <.icon name="hero-bars-3" class="w-6 h-6 text-gray-700" />
