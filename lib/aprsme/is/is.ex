@@ -121,8 +121,8 @@ defmodule Aprsme.Is do
     case Process.whereis(__MODULE__) do
       nil ->
         # GenServer is not running (disconnected)
-        server = Application.get_env(:aprsme, :aprsme_is_server, nil)
-        port = Application.get_env(:aprsme, :aprsme_is_port, 14_580)
+        server = Application.get_env(:aprsme, :aprs_is_server, nil)
+        port = Application.get_env(:aprsme, :aprs_is_port, 14_580)
 
         %{
           connected: false,
@@ -130,8 +130,8 @@ defmodule Aprsme.Is do
           port: port,
           connected_at: nil,
           uptime_seconds: 0,
-          login_id: Application.get_env(:aprsme, :aprsme_is_login_id, "W5ISP"),
-          filter: Application.get_env(:aprsme, :aprsme_is_default_filter, "r/33/-96/100"),
+          login_id: Application.get_env(:aprsme, :aprs_is_login_id, "W5ISP"),
+          filter: Application.get_env(:aprsme, :aprs_is_default_filter, "r/33/-96/100"),
           packet_stats: default_packet_stats(),
           stored_packet_count: Aprsme.Packets.get_total_packet_count(),
           oldest_packet_timestamp: Aprsme.Packets.get_oldest_packet_timestamp()
@@ -143,8 +143,8 @@ defmodule Aprsme.Is do
         catch
           :exit, _ ->
             # GenServer exists but not responding
-            server = Application.get_env(:aprsme, :aprsme_is_server, ~c"rotate.aprs2.net")
-            port = Application.get_env(:aprsme, :aprsme_is_port, 14_580)
+            server = Application.get_env(:aprsme, :aprs_is_server, ~c"rotate.aprs2.net")
+            port = Application.get_env(:aprsme, :aprs_is_port, 14_580)
 
             %{
               connected: false,
@@ -152,8 +152,8 @@ defmodule Aprsme.Is do
               port: port,
               connected_at: nil,
               uptime_seconds: 0,
-              login_id: Application.get_env(:aprsme, :aprsme_is_login_id, "W5ISP"),
-              filter: Application.get_env(:aprsme, :aprsme_is_default_filter, "r/33/-96/100"),
+              login_id: Application.get_env(:aprsme, :aprs_is_login_id, "W5ISP"),
+              filter: Application.get_env(:aprsme, :aprs_is_default_filter, "r/33/-96/100"),
               packet_stats: default_packet_stats(),
               stored_packet_count: Aprsme.Packets.get_total_packet_count(),
               oldest_packet_timestamp: Aprsme.Packets.get_oldest_packet_timestamp()

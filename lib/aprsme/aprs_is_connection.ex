@@ -157,11 +157,11 @@ defmodule Aprsme.AprsIsConnection do
   end
 
   defp connect_aprs_is do
-    host = Application.get_env(:aprsme, :aprsme_is_host, ~c"rotate.aprs2.net")
-    port = Application.get_env(:aprsme, :aprsme_is_port, 14_580)
-    callsign = Application.get_env(:aprsme, :aprsme_is_callsign, "N0CALL")
-    passcode = Application.get_env(:aprsme, :aprsme_is_passcode, "00000")
-    filter = Application.get_env(:aprsme, :aprsme_is_filter, "")
+    host = Application.get_env(:aprsme, :aprs_is_server, ~c"rotate.aprs2.net")
+    port = Application.get_env(:aprsme, :aprs_is_port, 14_580)
+    callsign = Application.get_env(:aprsme, :aprs_is_login_id, "N0CALL")
+    passcode = Application.get_env(:aprsme, :aprs_is_password, "00000")
+    filter = Application.get_env(:aprsme, :aprs_is_default_filter, "")
 
     # Add timeout to prevent indefinite hanging
     opts = [:binary, active: true, packet: :line, keepalive: true, send_timeout: 5000]

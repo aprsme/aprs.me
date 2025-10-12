@@ -9,12 +9,12 @@ defmodule AprsmeWeb.MapLive.RfPath do
   @doc """
   Parse RF path string to extract digipeater/igate stations.
   Excludes APRS-IS (Internet) paths that contain TCPIP.
-  
+
   APRS-IS path indicators:
   - TCPIP: Packet came via Internet connection
   - NOGATE: Should not be gated to RF
   - qA*: Various APRS-IS q-constructs (qAC, qAS, qAR, etc.)
-  
+
   These are not actual RF digipeaters, so we don't show path lines for them.
   """
   @spec parse_rf_path(binary()) :: list(binary())
