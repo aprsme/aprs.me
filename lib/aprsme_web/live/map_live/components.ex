@@ -16,8 +16,8 @@ defmodule AprsmeWeb.MapLive.Components do
       phx-update="ignore"
       phx-hook="LeafletMap"
       class={[
-        "slideover-open": @slideover_open,
-        "slideover-closed": !@slideover_open
+        @slideover_open && "slideover-open",
+        !@slideover_open && "slideover-closed"
       ]}
     >
     </div>
@@ -37,8 +37,8 @@ defmodule AprsmeWeb.MapLive.Components do
     ~H"""
     <div class={[
       "slideover-panel",
-      "slideover-open": @slideover_open,
-      "slideover-closed": !@slideover_open
+      @slideover_open && "slideover-open",
+      !@slideover_open && "slideover-closed"
     ]}>
       <.slideover_header {assigns} />
       <.slideover_content {assigns} />
