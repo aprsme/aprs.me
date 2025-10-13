@@ -35,6 +35,11 @@ defmodule AprsmeWeb.ConnCase do
       # Import conveniences for testing with connections
 
       # The default import for Repo
+
+      # Helper for LiveView tests that may have duplicate IDs
+      def live_with_warn(conn, path) do
+        Phoenix.LiveViewTest.live(conn, path, on_error: :warn)
+      end
     end
   end
 

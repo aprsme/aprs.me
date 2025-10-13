@@ -156,7 +156,7 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
       # Verify various endpoints don't crash when APRS.Is is not available
 
       # Home page
-      assert {:ok, _view, html} = live(conn, "/")
+      assert {:ok, _view, html} = live_with_warn(conn, "/")
       assert html =~ "APRS"
 
       # API status
@@ -178,7 +178,7 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
       assert SQL.query!(Aprsme.Repo, "SELECT 1", [])
 
       # Web interface should load
-      {:ok, _view, html} = live(conn, "/")
+      {:ok, _view, html} = live_with_warn(conn, "/")
       assert html =~ "APRS"
 
       # This confirms the app can function without external APRS data

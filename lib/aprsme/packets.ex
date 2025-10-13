@@ -31,6 +31,16 @@ defmodule Aprsme.Packets do
          {:ok, packet} <- insert_packet(packet_attrs, packet_data) do
       {:ok, packet}
     else
+      {:error, {:validation_error, message}} ->
+        Logger.error("Failed to store packet for #{inspect(packet_data[:sender])}: #{message}")
+        store_bad_packet(packet_data, %{message: message, type: "ValidationError"})
+        {:error, :validation_error}
+
+      {:error, {:storage_exception, exception}} ->
+        Logger.error("Storage exception for #{inspect(packet_data[:sender])}: #{inspect(exception)}")
+        store_bad_packet(packet_data, %{message: inspect(exception), type: "StorageException"})
+        {:error, :storage_exception}
+
       {:error, reason} = error ->
         Logger.error("Failed to store packet for #{inspect(packet_data[:sender])}: #{inspect(reason)}")
         store_bad_packet(packet_data, reason)
@@ -211,7 +221,7 @@ defmodule Aprsme.Packets do
   defp normalize_ssid(%{ssid: ssid} = attrs), do: Map.put(attrs, :ssid, to_string(ssid))
   defp normalize_ssid(attrs), do: attrs
 
-  defp insert_packet(attrs, packet_data) do
+  defp insert_packet(attrs, _packet_data) do
     # Ensure data_extended is properly sanitized before insertion
     attrs =
       if attrs[:data_extended] do
@@ -253,9 +263,11 @@ defmodule Aprsme.Packets do
         error_message =
           Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field}: #{msg}" end)
 
-        store_bad_packet(packet_data, %{message: error_message, type: "ValidationError"})
-        {:error, :validation_error}
+        {:error, {:validation_error, error_message}}
     end
+  rescue
+    exception ->
+      {:error, {:storage_exception, exception}}
   end
 
   @doc """
