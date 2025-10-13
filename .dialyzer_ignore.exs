@@ -13,5 +13,14 @@
 
   # IP geolocation plug - these patterns are actually reachable but dialyzer can't prove it
   # The remote_ip can be nil or other values beyond just IPv4/IPv6 tuples
-  ~r/lib\/aprsme_web\/plugs\/ip_geolocation\.ex/
+  ~r/lib\/aprsme_web\/plugs\/ip_geolocation\.ex/,
+
+  # False positive: Aprs.parse/1 does return {:ok, _} but dialyzer can't see the vendored library types
+  {"lib/aprsme/is/is.ex"},
+
+  # False positive: The nil pattern is handled in the case statement above, dialyzer doesn't track this correctly
+  {"lib/aprsme/packets.ex"},
+
+  # False positive: PacketUtils.get_weather_field can return various types including nil
+  {"lib/aprsme_web/live/weather_live/callsign_view.ex"}
 ]

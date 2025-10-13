@@ -11,6 +11,15 @@ defmodule Aprsme.PacketConsumer do
 
   require Logger
 
+  @type state :: %{
+          batch: list(map()),
+          batch_size: integer(),
+          batch_timeout: integer(),
+          max_batch_size: integer(),
+          timer: reference() | nil
+        }
+
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     # Allow unnamed consumers for pool usage
     name = opts[:name]
@@ -102,6 +111,7 @@ defmodule Aprsme.PacketConsumer do
   end
 
   # Helper functions with pattern matching
+  @spec reset_batch_timer(state()) :: state()
   defp reset_batch_timer(%{timer: nil} = state) do
     new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
     %{state | batch: [], timer: new_timer}
@@ -114,10 +124,12 @@ defmodule Aprsme.PacketConsumer do
   end
 
   # Efficient batch length calculation (cached if possible)
+  @spec batch_length(list()) :: non_neg_integer()
   defp batch_length([]), do: 0
   defp batch_length(batch), do: length(batch)
 
   # Pattern matching for logging
+  @spec log_dropped_packets(list(), list()) :: :ok
   defp log_dropped_packets([], _), do: :ok
 
   defp log_dropped_packets(dropped, processed) do
@@ -150,12 +162,14 @@ defmodule Aprsme.PacketConsumer do
   end
 
   # Helper to start batch timer
+  @spec start_batch_timer(state()) :: state()
   defp start_batch_timer(%{batch_timeout: timeout} = state) do
     timer = Process.send_after(self(), :process_batch, timeout)
     %{state | timer: timer}
   end
 
   # Pattern matching for batch utilization check
+  @spec check_batch_utilization(list(), integer()) :: :ok
   defp check_batch_utilization(batch, max_size) when length(batch) > max_size * 0.8 do
     Logger.warning("Batch size approaching limit",
       batch_status:
@@ -169,6 +183,7 @@ defmodule Aprsme.PacketConsumer do
 
   defp check_batch_utilization(_, _), do: :ok
 
+  @spec process_batch(list(map())) :: :ok
   defp process_batch(packets) do
     require Logger
 
@@ -253,6 +268,7 @@ defmodule Aprsme.PacketConsumer do
     # )
   end
 
+  @spec process_chunk(list(map())) :: {non_neg_integer(), non_neg_integer()}
   defp process_chunk(packets) do
     # Use Stream for memory-efficient packet preparation
     packet_stream =

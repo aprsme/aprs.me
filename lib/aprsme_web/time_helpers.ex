@@ -23,6 +23,7 @@ defmodule AprsmeWeb.TimeHelpers do
     format_time_diff(diff_seconds) <> " " <> gettext("ago")
   end
 
+  @spec format_time_diff(integer()) :: String.t()
   defp format_time_diff(seconds) when seconds < 60, do: gettext("less than a minute")
   defp format_time_diff(seconds) when seconds < 120, do: gettext("1 minute")
   defp format_time_diff(seconds) when seconds < 3600, do: gettext("%{count} minutes", count: div(seconds, 60))

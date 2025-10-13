@@ -232,9 +232,9 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
     value = PacketUtils.get_weather_field(packet, field)
 
     case value do
-      nil -> false
       "N/A" -> false
       "" -> false
+      nil -> false
       _ -> true
     end
   end
@@ -246,13 +246,13 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
     value = PacketUtils.get_weather_field(packet, key)
 
     case value do
-      nil ->
-        nil
-
       "N/A" ->
         nil
 
-      value when is_number(value) ->
+      nil ->
+        nil
+
+      value when is_binary(value) ->
         case @weather_formatters[key] do
           {formatter, separator} ->
             {converted_value, unit} = formatter.(value, locale)
@@ -262,7 +262,6 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
             "#{value}"
         end
 
-      value when is_binary(value) ->
         case @weather_formatters[key] do
           {formatter, separator} ->
             case Float.parse(value) do
@@ -278,8 +277,15 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
             "#{value}"
         end
 
-      _ ->
-        nil
+      value when is_number(value) ->
+        case @weather_formatters[key] do
+          {formatter, separator} ->
+            {converted_value, unit} = formatter.(value, locale)
+            "#{converted_value}#{separator}#{unit}"
+
+          nil ->
+            "#{value}"
+        end
     end
   end
 end

@@ -40,6 +40,7 @@ defmodule AprsmeWeb.UserAuth do
     |> redirect(to: user_return_to || signed_in_path(conn))
   end
 
+  @spec maybe_write_remember_me_cookie(Plug.Conn.t(), String.t(), map()) :: Plug.Conn.t()
   defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do
     put_resp_cookie(conn, @remember_me_cookie, token, @remember_me_options)
   end
@@ -61,6 +62,7 @@ defmodule AprsmeWeb.UserAuth do
   #       |> put_session(:preferred_locale, preferred_locale)
   #     end
   #
+  @spec renew_session(Plug.Conn.t()) :: Plug.Conn.t()
   defp renew_session(conn) do
     conn
     |> configure_session(renew: true)
@@ -98,6 +100,7 @@ defmodule AprsmeWeb.UserAuth do
     assign(conn, :current_user, user)
   end
 
+  @spec ensure_user_token(Plug.Conn.t()) :: {String.t() | nil, Plug.Conn.t()}
   defp ensure_user_token(conn) do
     case get_session(conn, :user_token) do
       nil -> ensure_user_token_from_cookie(conn)
@@ -105,6 +108,7 @@ defmodule AprsmeWeb.UserAuth do
     end
   end
 
+  @spec ensure_user_token_from_cookie(Plug.Conn.t()) :: {String.t() | nil, Plug.Conn.t()}
   defp ensure_user_token_from_cookie(conn) do
     conn = fetch_cookies(conn, signed: [@remember_me_cookie])
 
@@ -180,6 +184,7 @@ defmodule AprsmeWeb.UserAuth do
     end
   end
 
+  @spec mount_current_user(map(), Socket.t()) :: Socket.t()
   defp mount_current_user(session, socket) do
     case session do
       %{"user_token" => user_token} ->
@@ -229,17 +234,20 @@ defmodule AprsmeWeb.UserAuth do
     end
   end
 
+  @spec put_token_in_session(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
   defp put_token_in_session(conn, token) do
     conn
     |> put_session(:user_token, token)
     |> put_session(:live_socket_id, "users_sessions:#{Base.url_encode64(token)}")
   end
 
+  @spec maybe_store_return_to(Plug.Conn.t()) :: Plug.Conn.t()
   defp maybe_store_return_to(%{method: "GET"} = conn) do
     put_session(conn, :user_return_to, current_path(conn))
   end
 
   defp maybe_store_return_to(conn), do: conn
 
+  @spec signed_in_path(Plug.Conn.t() | Socket.t()) :: String.t()
   defp signed_in_path(_conn), do: ~p"/"
 end

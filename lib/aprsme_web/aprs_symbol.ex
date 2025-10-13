@@ -25,6 +25,11 @@ defmodule AprsmeWeb.AprsSymbol do
         background_size: "512px 192px"
       }
   """
+  @spec get_sprite_info(String.t() | nil, String.t() | nil) :: %{
+          sprite_file: String.t(),
+          background_position: String.t(),
+          background_size: String.t()
+        }
   def get_sprite_info(symbol_table, symbol_code) do
     # For overlay symbols (A-Z, 0-9), display the base symbol with overlay
     if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/) do
@@ -68,6 +73,11 @@ defmodule AprsmeWeb.AprsSymbol do
   Gets sprite information for overlay symbols (A-Z, 0-9).
   These symbols display the base symbol from the overlay table.
   """
+  @spec get_overlay_base_symbol_info(String.t()) :: %{
+          sprite_file: String.t(),
+          background_position: String.t(),
+          background_size: String.t()
+        }
   def get_overlay_base_symbol_info(base_symbol_code) do
     # Some overlay base symbols are in the alternate table (1), others in overlay table (2)
     # Check which table to use based on the symbol code
@@ -101,6 +111,7 @@ defmodule AprsmeWeb.AprsSymbol do
   Determines which sprite table to use for overlay base symbols.
   Some symbols are in the alternate table (1), others in overlay table (2).
   """
+  @spec get_overlay_base_table_id(String.t()) :: String.t()
   def get_overlay_base_table_id(base_symbol_code) do
     # Map symbols to the correct sprite table based on APRS specification
     # Most overlay symbols are in the alternate table (1)
@@ -130,6 +141,11 @@ defmodule AprsmeWeb.AprsSymbol do
   Gets sprite information for overlay characters (A-Z, 0-9).
   These are rendered from the overlay table.
   """
+  @spec get_overlay_character_sprite_info(String.t()) :: %{
+          sprite_file: String.t(),
+          background_position: String.t(),
+          background_size: String.t()
+        }
   def get_overlay_character_sprite_info(overlay_char) do
     # Use overlay table (table 2) for the overlay character
     sprite_file = "/aprs-symbols/aprs-symbols-128-2@2x.png"
@@ -171,6 +187,7 @@ defmodule AprsmeWeb.AprsSymbol do
       iex> AprsmeWeb.AprsSymbol.normalize_symbol_table("invalid")
       "/"
   """
+  @spec normalize_symbol_table(String.t() | nil) :: String.t()
   def normalize_symbol_table(symbol_table) do
     cond do
       symbol_table in ["/", "\\", "]"] -> symbol_table
@@ -193,6 +210,7 @@ defmodule AprsmeWeb.AprsSymbol do
       iex> AprsmeWeb.AprsSymbol.normalize_symbol_code("")
       ">"
   """
+  @spec normalize_symbol_code(String.t() | nil) :: String.t()
   def normalize_symbol_code(symbol_code) do
     if symbol_code && symbol_code != "", do: symbol_code, else: ">"
   end
@@ -211,6 +229,7 @@ defmodule AprsmeWeb.AprsSymbol do
       iex> AprsmeWeb.AprsSymbol.get_table_id("]")
       "2"
   """
+  @spec get_table_id(String.t()) :: String.t()
   def get_table_id(symbol_table) do
     case symbol_table do
       # Primary table
@@ -233,6 +252,7 @@ defmodule AprsmeWeb.AprsSymbol do
       iex> AprsmeWeb.AprsSymbol.render_marker_html("/", "_", "W1AW")
       "<div style=\"position: relative; width: 32px; height: 32px; display: flex; align-items: center;\">..."
   """
+  @spec render_marker_html(String.t() | nil, String.t() | nil, String.t() | nil, integer()) :: String.t()
   def render_marker_html(symbol_table, symbol_code, callsign \\ nil, size \\ 32) do
     # For symbols without callsigns, use Cachex for better caching
     if is_nil(callsign) do
@@ -254,6 +274,7 @@ defmodule AprsmeWeb.AprsSymbol do
     end
   end
 
+  @spec generate_marker_html(String.t() | nil, String.t() | nil, String.t() | nil, integer()) :: String.t()
   defp generate_marker_html(symbol_table, symbol_code, callsign, size) do
     sprite_info = get_sprite_info(symbol_table, symbol_code)
 
@@ -330,6 +351,7 @@ defmodule AprsmeWeb.AprsSymbol do
       iex> AprsmeWeb.AprsSymbol.render_style("/", "_", 32)
       "width: 32px; height: 32px; background-image: url(/aprs-symbols/aprs-symbols-128-0@2x.png); ..."
   """
+  @spec render_style(String.t() | nil, String.t() | nil, integer()) :: String.t()
   def render_style(symbol_table, symbol_code, size \\ 32) do
     sprite_info = get_sprite_info(symbol_table, symbol_code)
 
@@ -347,6 +369,7 @@ defmodule AprsmeWeb.AprsSymbol do
       iex> AprsmeWeb.AprsSymbol.extract_from_packet(%{})
       {"/", ">"}
   """
+  @spec extract_from_packet(map()) :: {String.t(), String.t()}
   def extract_from_packet(packet) do
     symbol_table_id = get_packet_field(packet, :symbol_table_id, "/")
     symbol_code = get_packet_field(packet, :symbol_code, ">")
@@ -355,6 +378,7 @@ defmodule AprsmeWeb.AprsSymbol do
   end
 
   # Helper function to safely extract a value from a packet or data_extended map
+  @spec get_packet_field(map(), atom(), any()) :: any()
   defp get_packet_field(packet, field, default) do
     data_extended = Map.get(packet, :data_extended, Map.get(packet, "data_extended", %{})) || %{}
 

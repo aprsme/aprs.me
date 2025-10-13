@@ -512,7 +512,7 @@ defmodule Aprsme.Is do
           attrs = Aprsme.Packet.extract_additional_data(attrs, message)
 
           # Normalize data_type to string if it's an atom
-          attrs = normalize_data_type(attrs)
+          attrs = Aprsme.EncodingUtils.normalize_data_type(attrs)
 
           # Submit to GenStage pipeline for batch processing
           Aprsme.PacketProducer.submit_packet(attrs)
@@ -541,10 +541,6 @@ defmodule Aprsme.Is do
         Aprsme.Packets.store_bad_packet(message, %{message: error, type: "ParseError"})
     end
   end
-
-  # Normalize data_type to ensure proper storage
-  @spec normalize_data_type(map()) :: map()
-  defp normalize_data_type(attrs), do: Aprsme.EncodingUtils.normalize_data_type(attrs)
 
   @spec update_packet_stats(map(), integer()) :: map()
   defp update_packet_stats(stats, current_time) do

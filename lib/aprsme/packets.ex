@@ -416,7 +416,6 @@ defmodule Aprsme.Packets do
     end
   end
 
-  defp get_canonical_device_identifier(nil), do: nil
   defp get_canonical_device_identifier(device_identifier), do: to_string(device_identifier)
 
   @doc """

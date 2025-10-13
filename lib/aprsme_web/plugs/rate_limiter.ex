@@ -5,6 +5,15 @@ defmodule AprsmeWeb.Plugs.RateLimiter do
   import Phoenix.Controller
   import Plug.Conn
 
+  @type key_type :: :ip | :user_agent | (Plug.Conn.t() -> String.t()) | String.t()
+  @type init_opts :: [
+          scale: integer(),
+          limit: integer(),
+          key: key_type(),
+          error_message: String.t()
+        ]
+
+  @spec init(Keyword.t()) :: init_opts()
   def init(opts) do
     # Default options
     Keyword.merge(
@@ -21,6 +30,7 @@ defmodule AprsmeWeb.Plugs.RateLimiter do
     )
   end
 
+  @spec call(Plug.Conn.t(), init_opts()) :: Plug.Conn.t()
   def call(conn, opts) do
     key = get_key(conn, opts[:key])
     scale = opts[:scale]
@@ -39,6 +49,7 @@ defmodule AprsmeWeb.Plugs.RateLimiter do
     end
   end
 
+  @spec get_key(Plug.Conn.t(), key_type()) :: String.t()
   defp get_key(conn, :ip) do
     # Check headers in order of preference
     case {get_req_header(conn, "cf-connecting-ip"), get_req_header(conn, "x-forwarded-for"),
