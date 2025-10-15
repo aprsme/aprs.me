@@ -45,28 +45,20 @@ defmodule AprsmeWeb.Plugs.ApiCSRF do
   end
 
   defp validate_csrf_token(conn, token) do
-    # Get session token for comparison
-    session_token = get_session(conn, "_csrf_token")
+    case get_session(conn, "_csrf_token") do
+      nil ->
+        reject_request(conn)
 
-    # Use Phoenix.Controller CSRF token validation
-    if session_token && valid_csrf_token?(conn, token) do
-      conn
-    else
-      reject_request(conn)
-    end
-  end
-
-  defp valid_csrf_token?(conn, token) do
-    session_token = get_session(conn, "_csrf_token")
-
-    if session_token do
-      # Use a simple comparison for now
-      Phoenix.Token.verify(conn, "_csrf_token", token, max_age: 86_400) == {:ok, session_token}
-    else
-      false
+      session_token ->
+        if Plug.CSRFProtection.verify_csrf_token(token, session_token) do
+          conn
+        else
+          reject_request(conn)
+        end
     end
   rescue
-    _ -> false
+    _ ->
+      reject_request(conn)
   end
 
   defp reject_request(conn) do

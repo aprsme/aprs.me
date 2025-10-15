@@ -20,7 +20,7 @@ defmodule Aprsme.Cache do
   """
   def put(cache_name, key, value, opts \\ []) do
     if using_redis?() do
-      # Convert TTL from milliseconds to seconds for Redis
+      # Convert TTL from milliseconds to seconds for Redis, preserving sub-second values
       opts = convert_ttl_to_seconds(opts)
       Aprsme.RedisCache.put(cache_name, key, value, opts)
     else
@@ -68,7 +68,10 @@ defmodule Aprsme.Cache do
     if using_redis?() do
       Aprsme.RedisCache.exists?(cache_name, key)
     else
-      Cachex.exists?(cache_name, key)
+      case Cachex.exists?(cache_name, key) do
+        {:ok, exists?} -> exists?
+        {:error, _reason} -> false
+      end
     end
   end
 
@@ -94,9 +97,12 @@ defmodule Aprsme.Cache do
       nil ->
         opts
 
+      ttl_ms when is_integer(ttl_ms) and ttl_ms > 0 ->
+        ttl_seconds = Integer.ceil_div(ttl_ms, 1000) |> max(1)
+        Keyword.put(opts, :ttl, ttl_seconds)
+
       ttl_ms when is_integer(ttl_ms) ->
-        # Convert milliseconds to seconds
-        Keyword.put(opts, :ttl, div(ttl_ms, 1000))
+        Keyword.put(opts, :ttl, ttl_ms)
 
       _ ->
         opts
