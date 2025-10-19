@@ -216,7 +216,23 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
         # Process this batch and send to frontend
         packet_data_list =
           try do
-            DataBuilder.build_packet_data_list(historical_packets)
+            # Filter out packets with invalid coordinates before processing
+            valid_packets =
+              Enum.filter(historical_packets, fn packet ->
+                {lat, lon, _} = AprsmeWeb.Live.Shared.CoordinateUtils.get_coordinates(packet)
+
+                is_number(lat) and is_number(lon) and
+                  lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 and
+                  :math.is_finite(lat) and :math.is_finite(lon)
+              end)
+
+            if length(valid_packets) < length(historical_packets) do
+              Logger.debug(
+                "Filtered out #{length(historical_packets) - length(valid_packets)} packets with invalid coordinates"
+              )
+            end
+
+            DataBuilder.build_packet_data_list(valid_packets)
           rescue
             e ->
               require Logger

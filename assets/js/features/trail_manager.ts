@@ -105,6 +105,21 @@ export class TrailManager {
   ) {
     if (!this.showTrails) return;
 
+    // Validate coordinates before processing
+    if (
+      typeof lat !== 'number' ||
+      typeof lng !== 'number' ||
+      !isFinite(lat) ||
+      !isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
+      console.warn("Invalid coordinates provided to addPosition:", { markerId, lat, lng, timestamp });
+      return;
+    }
+
     // Extract base callsign from markerId to group positions by callsign
     const baseCallsign = this.extractBaseCallsign(markerId);
 
@@ -253,28 +268,52 @@ export class TrailManager {
       trailState.dots = [];
     }
 
-    // Create new trail if we have at least 2 positions
+    // Create new trail if we have at least 2 positions with valid coordinates
     if (trailState.positions.length >= 2) {
-      const latLngs: [number, number][] = trailState.positions.map((pos) => [pos.lat, pos.lng]);
+      // Filter out positions with invalid coordinates and create coordinate pairs
+      const latLngs: [number, number][] = trailState.positions
+        .filter((pos) => {
+          // Validate coordinates are finite numbers within valid ranges
+          return (
+            pos &&
+            typeof pos.lat === 'number' &&
+            typeof pos.lng === 'number' &&
+            isFinite(pos.lat) &&
+            isFinite(pos.lng) &&
+            pos.lat >= -90 &&
+            pos.lat <= 90 &&
+            pos.lng >= -180 &&
+            pos.lng <= 180
+          );
+        })
+        .map((pos) => [pos.lat, pos.lng]);
 
-      // Assign color if not already assigned
-      if (!trailState.color) {
-        trailState.color = this.assignTrailColor(baseCallsign, trailState.positions);
+      // Only create trail if we still have at least 2 valid positions after filtering
+      if (latLngs.length >= 2) {
+        // Assign color if not already assigned
+        if (!trailState.color) {
+          trailState.color = this.assignTrailColor(baseCallsign, trailState.positions);
+        }
+
+        // Create polyline with assigned color
+        // For historical positions (immediate=true), use higher opacity for better visibility
+        const polylineOptions: PolylineOptions = {
+          color: trailState.color,
+          weight: 3,
+          opacity: immediate ? 0.9 : 0.8,
+          smoothFactor: 1,
+          lineCap: "round",
+          lineJoin: "round",
+          className: "historical-trail-line",
+        };
+        
+        try {
+          trailState.trail = L.polyline(latLngs, polylineOptions).addTo(this.trailLayer);
+        } catch (error) {
+          console.error("Error creating trail polyline for", baseCallsign, ":", error);
+          console.error("Invalid coordinates:", latLngs);
+        }
       }
-
-      // Create polyline with assigned color
-      // For historical positions (immediate=true), use higher opacity for better visibility
-      const polylineOptions: PolylineOptions = {
-        color: trailState.color,
-        weight: 3,
-        opacity: immediate ? 0.9 : 0.8,
-        smoothFactor: 1,
-        lineCap: "round",
-        lineJoin: "round",
-        className: "historical-trail-line",
-      };
-      
-      trailState.trail = L.polyline(latLngs, polylineOptions).addTo(this.trailLayer);
 
       // Don't create additional dots here since historical positions are now shown as markers
       trailState.dots = [];

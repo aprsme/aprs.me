@@ -50,9 +50,19 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
     {lat, lon, data_extended} = MapHelpers.get_coordinates(packet)
     callsign = generate_callsign(packet)
 
-    if lat && lon && callsign != "" && callsign != nil do
-      packet_data = build_packet_map(packet, lat, lon, data_extended, locale)
+    # Validate coordinates and callsign before building packet data
+    if valid_coordinates?(lat, lon) && callsign != "" && callsign != nil do
+      packet_data = build_packet_map(packet, to_float(lat), to_float(lon), data_extended, locale)
       Map.put(packet_data, "is_most_recent_for_callsign", is_most_recent_for_callsign)
+    else
+      # Log invalid data for debugging
+      if not valid_coordinates?(lat, lon) do
+        require Logger
+
+        Logger.debug("Invalid coordinates in packet #{get_packet_id(packet)}: lat=#{inspect(lat)}, lon=#{inspect(lon)}")
+      end
+
+      nil
     end
   end
 
@@ -81,7 +91,8 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
     # Build minimal packet data without calling expensive build_packet_data
     {lat, lon, _} = get_coordinates(packet)
 
-    if lat && lon do
+    # Validate coordinates are numeric and within valid ranges
+    if valid_coordinates?(lat, lon) do
       # Use get_packet_field to get symbol information properly (includes data_extended fallback)
       symbol_table_id = get_packet_field(packet, :symbol_table_id, "/")
       symbol_code = get_packet_field(packet, :symbol_code, ">")
@@ -97,8 +108,8 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
 
       %{
         "id" => if(is_most_recent, do: "current_#{get_packet_id(packet)}", else: "hist_#{get_packet_id(packet)}"),
-        "lat" => lat,
-        "lng" => lon,
+        "lat" => to_float(lat),
+        "lng" => to_float(lon),
         "callsign" => get_packet_field(packet, :sender, ""),
         "symbol_table_id" => symbol_table_id,
         "symbol_code" => symbol_code,
@@ -110,8 +121,23 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
         "path" => get_packet_field(packet, :path, ""),
         "popup" => build_simple_popup(packet, has_weather)
       }
+    else
+      # Log invalid coordinates for debugging
+      require Logger
+
+      Logger.debug("Invalid coordinates in packet #{get_packet_id(packet)}: lat=#{inspect(lat)}, lon=#{inspect(lon)}")
+      nil
     end
   end
+
+  # Validate coordinates are numeric and within valid ranges
+  @spec valid_coordinates?(any(), any()) :: boolean()
+  defp valid_coordinates?(lat, lon) when is_number(lat) and is_number(lon) do
+    lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 and
+      :math.is_finite(lat) and :math.is_finite(lon)
+  end
+
+  defp valid_coordinates?(_, _), do: false
 
   @doc """
   Build packet data list for historical display.

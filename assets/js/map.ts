@@ -1075,11 +1075,15 @@ let MapAPRSMap = {
 
           // Add markers in chronological order
           sortedPackets.forEach((packet) => {
-            self.addMarker({
-              ...packet,
-              historical: true,
-              popup: packet.popup || self.buildPopupContent(packet),
-            });
+            try {
+              self.addMarker({
+                ...packet,
+                historical: true,
+                popup: packet.popup || self.buildPopupContent(packet),
+              });
+            } catch (error) {
+              console.error("Error adding historical packet:", error, packet);
+            }
           });
         });
       }
@@ -1118,11 +1122,15 @@ let MapAPRSMap = {
 
               // Add markers in chronological order
               sortedPackets.forEach((packet) => {
-                self.addMarker({
-                  ...packet,
-                  historical: true,
-                  popup: packet.popup || self.buildPopupContent(packet),
-                });
+                try {
+                  self.addMarker({
+                    ...packet,
+                    historical: true,
+                    popup: packet.popup || self.buildPopupContent(packet),
+                  });
+                } catch (error) {
+                  console.error("Error adding historical packet:", error, packet);
+                }
               });
             });
           }
@@ -1429,7 +1437,7 @@ let MapAPRSMap = {
 
     // Validate coordinates
     if (!isValidCoordinate(lat, lng)) {
-      console.warn("Invalid coordinates:", lat, lng);
+      console.warn("Invalid coordinates for marker:", { id: data.id, lat, lng, callsign: data.callsign });
       return;
     }
 

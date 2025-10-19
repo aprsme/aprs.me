@@ -98,7 +98,7 @@ defmodule Aprsme.Cache do
         opts
 
       ttl_ms when is_integer(ttl_ms) and ttl_ms > 0 ->
-        ttl_seconds = Integer.ceil_div(ttl_ms, 1000) |> max(1)
+        ttl_seconds = ttl_ms |> Integer.ceil_div(1000) |> max(1)
         Keyword.put(opts, :ttl, ttl_seconds)
 
       ttl_ms when is_integer(ttl_ms) ->
