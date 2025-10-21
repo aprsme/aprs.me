@@ -31,3 +31,5 @@ config :logger, level: :info
 
 # Configures Swoosh API Client
 config :swoosh, :api_client, Swoosh.ApiClient.Req
+
+config :appsignal, :config, active: true

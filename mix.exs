@@ -56,6 +56,7 @@ defmodule Aprsme.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:appsignal_phoenix, "~> 2.0"},
       {:error_tracker, "~> 0.6"},
       {:bcrypt_elixir, "~> 3.0"},
       {:certifi, "~> 2.9"},

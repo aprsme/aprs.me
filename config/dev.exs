@@ -111,3 +111,5 @@ config :phoenix, :plug_init_mode, :runtime
 config :phoenix, :stacktrace_depth, 20
 
 config :swoosh, :api_client, false
+
+config :appsignal, :config, active: true
