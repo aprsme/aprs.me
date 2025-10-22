@@ -69,8 +69,7 @@ defmodule AprsmeWeb.Plugs.HealthCheck do
 
   defp full_health_checks do
     # Comprehensive checks for readiness
-    with :ok <- check_database_connection(),
-         :ok <- check_redis_connection() do
+    with :ok <- check_database_connection() do
       check_pubsub()
     end
   end
@@ -82,21 +81,6 @@ defmodule AprsmeWeb.Plugs.HealthCheck do
     end
   rescue
     _ -> {:error, "Database check failed"}
-  end
-
-  defp check_redis_connection do
-    if System.get_env("REDIS_URL") do
-      try do
-        case Redix.command(:query_cache_redis, ["PING"]) do
-          {:ok, "PONG"} -> :ok
-          _ -> {:error, "Redis connection failed"}
-        end
-      rescue
-        _ -> {:error, "Redis check failed"}
-      end
-    else
-      :ok
-    end
   end
 
   defp check_pubsub do
