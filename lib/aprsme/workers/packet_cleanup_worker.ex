@@ -1,6 +1,6 @@
 defmodule Aprsme.Workers.PacketCleanupWorker do
   @moduledoc """
-  Exq worker for cleaning up old APRS packet data.
+  Worker for cleaning up old APRS packet data.
 
   This worker is responsible for:
   1. Removing packets older than the retention period (1 year by default)
@@ -8,7 +8,7 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
   3. Logging statistics about cleanup operations
   4. Supporting batch processing for large datasets
 
-  This worker is scheduled to run every 6 hours via Exq cron feature for more frequent,
+  This worker is scheduled to run every 6 hours for more frequent,
   smaller cleanup operations to prevent large deletion spikes.
 
   ## Functions

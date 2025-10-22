@@ -120,20 +120,6 @@ config :esbuild,
     cd: Path.expand("../assets", __DIR__)
   ]
 
-# Configure Exq for background jobs
-# Redis connection settings are configured in runtime.exs
-config :exq,
-  name: Exq,
-  concurrency: :infinite,
-  queues: [
-    {"default", 10},
-    {"maintenance", 2}
-  ],
-  scheduler_enable: true,
-  scheduler_poll_timeout: 200,
-  poll_timeout: 50,
-  redis_timeout: 5000
-
 config :gettext, :plural_forms, GettextPseudolocalize.Plural
 
 # Configures Elixir's Logger

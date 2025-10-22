@@ -1,9 +1,9 @@
 defmodule Aprsme.CleanupScheduler do
   @moduledoc """
-  GenServer that schedules periodic packet cleanup jobs using Exq.
+  GenServer that schedules periodic packet cleanup tasks.
 
-  This scheduler replaces the Oban cron functionality for packet cleanup.
-  It runs every 6 hours by default and enqueues a cleanup job.
+  This scheduler runs cleanup tasks directly every 6 hours by default
+  without requiring external job queues.
   """
 
   use GenServer
@@ -33,16 +33,17 @@ defmodule Aprsme.CleanupScheduler do
 
   @impl true
   def handle_info(:schedule_cleanup, %{interval: interval} = state) when is_integer(interval) do
-    Logger.info("Scheduling packet cleanup job")
+    Logger.info("Running packet cleanup task")
 
-    # Enqueue cleanup job with Exq
-    case Exq.enqueue(Exq, "maintenance", Aprsme.Workers.PacketCleanupWorker, []) do
-      {:ok, _job_id} ->
-        Logger.info("Packet cleanup job scheduled successfully")
-
-      {:error, reason} ->
-        Logger.error("Failed to schedule packet cleanup job: #{inspect(reason)}")
-    end
+    # Run cleanup directly in a supervised task
+    Task.start(fn ->
+      try do
+        Aprsme.Workers.PacketCleanupWorker.perform(%{})
+      rescue
+        error ->
+          Logger.error("Packet cleanup task failed: #{inspect(error)}")
+      end
+    end)
 
     schedule_next_cleanup(interval)
     {:noreply, state}

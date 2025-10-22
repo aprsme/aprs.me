@@ -59,11 +59,6 @@ config :bcrypt_elixir, :log_rounds, 1
 # Disable ErrorTracker in test environment to avoid database ownership issues
 config :error_tracker, enabled: false
 
-# Disable Exq during tests to prevent background job execution
-config :exq,
-  start_on_application: false,
-  mode: :inline
-
 # Configure ExVCR
 config :exvcr,
   vcr_cassette_library_dir: "test/fixtures/vcr_cassettes",

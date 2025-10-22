@@ -43,7 +43,7 @@ defmodule Aprsme.MixProject do
   def application do
     [
       mod: {Aprsme.Application, []},
-      extra_applications: [:hackney, :logger, :runtime_tools, :os_mon, :exq]
+      extra_applications: [:hackney, :logger, :runtime_tools, :os_mon]
     ]
   end
 
@@ -69,7 +69,6 @@ defmodule Aprsme.MixProject do
       {:gettext, "~> 0.26.2"},
       {:jason, "~> 1.4"},
       {:libcluster, "~> 3.3"},
-      {:exq, "~> 0.20"},
       {:phoenix, "~> 1.8.0-rc.3", override: true},
       {:phoenix_ecto, "~> 4.4"},
       {:phoenix_html, "~> 4.3.0"},

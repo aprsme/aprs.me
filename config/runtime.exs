@@ -49,55 +49,6 @@ if config_env() == :prod do
   # Configure clustering based on environment
   cluster_enabled = System.get_env("CLUSTER_ENABLED", "false") == "true"
 
-  # Configure Exq with Redis connection from environment
-  redis_url = System.get_env("REDIS_URL", "redis://localhost:6379")
-  redis_uri = URI.parse(redis_url)
-  redis_host = redis_uri.host || "localhost"
-  redis_port = redis_uri.port || 6379
-
-  redis_password =
-    case redis_uri.userinfo do
-      nil ->
-        ""
-
-      userinfo ->
-        case String.split(userinfo, ":") do
-          [_, password] -> password
-          _ -> ""
-        end
-    end
-
-  # Extract database from path if present
-  redis_database =
-    try do
-      case redis_uri.path do
-        nil ->
-          0
-
-        "/" ->
-          0
-
-        path ->
-          path |> String.trim_leading("/") |> String.to_integer()
-      end
-    rescue
-      _ -> 0
-    end
-
-  exq_config = [
-    host: redis_host,
-    port: redis_port,
-    database: redis_database
-  ]
-
-  # Only add password if it's not empty
-  exq_config =
-    if redis_password != "" and redis_password != nil do
-      Keyword.put(exq_config, :password, redis_password)
-    else
-      exq_config
-    end
-
   # Parse SSL configuration from environment
   ssl_enabled = System.get_env("DATABASE_SSL", "false") == "true"
   ssl_verify = System.get_env("DATABASE_SSL_VERIFY", "true") == "true"
@@ -195,8 +146,6 @@ if config_env() == :prod do
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
     aprs_is_password: System.get_env("APRS_PASSCODE"),
     env: :prod
-
-  config :exq, exq_config
 
   # Configure Hammer for production environment
   config :hammer,
