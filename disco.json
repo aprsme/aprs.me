@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "services": {
+    "web": {
+      "port": 4000,
+      "command": "mix phx.server"
+    },
+    "worker": {
+      "command": "mix run --no-halt"
+    }
+  },
+  "build": {
+    "command": "mix assets.deploy && mix release",
+    "env": {
+      "MIX_ENV": "prod",
+      "PHX_SERVER": "true"
+    }
+  }
+}
