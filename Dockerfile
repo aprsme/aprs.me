@@ -24,7 +24,6 @@ ENV MIX_ENV=prod
 
 # Install mix dependencies
 COPY mix.exs mix.lock ./
-COPY vendor vendor
 RUN mix deps.get --only $MIX_ENV && \
     mix deps.compile
 
@@ -36,10 +35,7 @@ COPY priv priv
 COPY rel rel
 
 # Build application
-RUN cd vendor/aprs && mix compile && cd ../.. && \
-    mkdir -p _build/prod/lib/aprs/ebin && \
-    cp -r vendor/aprs/_build/prod/lib/aprs/ebin/* _build/prod/lib/aprs/ebin/ && \
-    mix compile && \
+RUN mix compile && \
     mix assets.deploy && \
     mix release
 
