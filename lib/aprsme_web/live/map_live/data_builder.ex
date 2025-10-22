@@ -134,10 +134,13 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   @spec valid_coordinates?(any(), any()) :: boolean()
   defp valid_coordinates?(lat, lon) when is_number(lat) and is_number(lon) do
     lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 and
-      :math.is_finite(lat) and :math.is_finite(lon)
+      is_finite(lat) and is_finite(lon)
   end
 
   defp valid_coordinates?(_, _), do: false
+
+  defp is_finite(n) when is_float(n), do: n != :infinity and n != :neg_infinity and n == n
+  defp is_finite(n) when is_integer(n), do: true
 
   @doc """
   Build packet data list for historical display.

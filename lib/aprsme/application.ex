@@ -240,14 +240,7 @@ defmodule Aprsme.Application do
 
       Logger.info("Starting Redis-based caching and rate limiting")
 
-      [
-        # Redis-based rate limiter
-        Aprsme.RedisRateLimiter,
-        # Redis-based caches
-        {Aprsme.RedisCache, name: :query_cache},
-        {Aprsme.RedisCache, name: :device_cache},
-        {Aprsme.RedisCache, name: :symbol_cache}
-      ]
+      []
     else
       require Logger
 

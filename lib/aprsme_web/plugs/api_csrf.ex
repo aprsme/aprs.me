@@ -50,7 +50,7 @@ defmodule AprsmeWeb.Plugs.ApiCSRF do
         reject_request(conn)
 
       session_token ->
-        if Plug.CSRFProtection.verify_csrf_token(token, session_token) do
+        if Plug.CSRFProtection.valid_state_and_csrf_token?(session_token, token) do
           conn
         else
           reject_request(conn)

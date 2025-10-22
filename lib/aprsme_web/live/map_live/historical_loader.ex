@@ -223,7 +223,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
 
                 is_number(lat) and is_number(lon) and
                   lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 and
-                  :math.is_finite(lat) and :math.is_finite(lon)
+                  is_finite(lat) and is_finite(lon)
               end)
 
             if length(valid_packets) < length(historical_packets) do
@@ -430,4 +430,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
 
     socket
   end
+
+  defp is_finite(n) when is_float(n), do: n != :infinity and n != :neg_infinity and n == n
+  defp is_finite(n) when is_integer(n), do: true
 end

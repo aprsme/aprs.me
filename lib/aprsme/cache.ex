@@ -8,70 +8,44 @@ defmodule Aprsme.Cache do
   Get a value from cache
   """
   def get(cache_name, key) do
-    if using_redis?() do
-      Aprsme.RedisCache.get(cache_name, key)
-    else
-      Cachex.get(cache_name, key)
-    end
+    Cachex.get(cache_name, key)
   end
 
   @doc """
   Put a value in cache with optional TTL
   """
   def put(cache_name, key, value, opts \\ []) do
-    if using_redis?() do
-      # Convert TTL from milliseconds to seconds for Redis, preserving sub-second values
-      opts = convert_ttl_to_seconds(opts)
-      Aprsme.RedisCache.put(cache_name, key, value, opts)
-    else
-      Cachex.put(cache_name, key, value, opts)
-    end
+    Cachex.put(cache_name, key, value, opts)
   end
 
   @doc """
   Delete a key from cache
   """
   def del(cache_name, key) do
-    if using_redis?() do
-      Aprsme.RedisCache.del(cache_name, key)
-    else
-      Cachex.del(cache_name, key)
-    end
+    Cachex.del(cache_name, key)
   end
 
   @doc """
   Clear all keys from cache
   """
   def clear(cache_name) do
-    if using_redis?() do
-      Aprsme.RedisCache.clear(cache_name)
-    else
-      Cachex.clear(cache_name)
-    end
+    Cachex.clear(cache_name)
   end
 
   @doc """
   Get cache statistics
   """
   def stats(cache_name) do
-    if using_redis?() do
-      Aprsme.RedisCache.stats(cache_name)
-    else
-      Cachex.stats(cache_name)
-    end
+    Cachex.stats(cache_name)
   end
 
   @doc """
   Check if key exists
   """
   def exists?(cache_name, key) do
-    if using_redis?() do
-      Aprsme.RedisCache.exists?(cache_name, key)
-    else
-      case Cachex.exists?(cache_name, key) do
-        {:ok, exists?} -> exists?
-        {:error, _reason} -> false
-      end
+    case Cachex.exists?(cache_name, key) do
+      {:ok, exists?} -> exists?
+      {:error, _reason} -> false
     end
   end
 
@@ -79,35 +53,10 @@ defmodule Aprsme.Cache do
   Get TTL for a key
   """
   def ttl(cache_name, key) do
-    if using_redis?() do
-      Aprsme.RedisCache.ttl(cache_name, key)
-    else
-      Cachex.ttl(cache_name, key)
-    end
+    Cachex.ttl(cache_name, key)
   end
 
-  # Helper functions
-
-  defp using_redis? do
-    System.get_env("REDIS_URL") != nil
-  end
-
-  defp convert_ttl_to_seconds(opts) do
-    case Keyword.get(opts, :ttl) do
-      nil ->
-        opts
-
-      ttl_ms when is_integer(ttl_ms) and ttl_ms > 0 ->
-        ttl_seconds = ttl_ms |> Integer.ceil_div(1000) |> max(1)
-        Keyword.put(opts, :ttl, ttl_seconds)
-
-      ttl_ms when is_integer(ttl_ms) ->
-        Keyword.put(opts, :ttl, ttl_ms)
-
-      _ ->
-        opts
-    end
-  end
+  # Helper functions - no longer needed as we only use Cachex
 
   @doc """
   Convert timeout keyword list to milliseconds
