@@ -183,21 +183,18 @@ defmodule Aprsme.Application do
 
   defp pubsub_config do
     cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
-    redis_url = System.get_env("REDIS_URL")
 
-    if cluster_enabled and redis_url do
+    if cluster_enabled do
       require Logger
 
-      Logger.info("Starting Redis PubSub adapter with URL: #{redis_url}")
+      Logger.info("Starting distributed PubSub for clustering")
 
-      {Phoenix.PubSub,
-       name: Aprsme.PubSub, adapter: Phoenix.PubSub.Redis, redis_pool_size: 10, node_name: node(), url: redis_url}
+      # Phoenix PubSub automatically uses distributed Erlang clustering when nodes are connected
+      {Phoenix.PubSub, name: Aprsme.PubSub}
     else
       require Logger
 
-      Logger.info(
-        "Starting default PubSub adapter (cluster_enabled: #{cluster_enabled}, redis_url: #{inspect(redis_url)})"
-      )
+      Logger.info("Starting local PubSub adapter")
 
       {Phoenix.PubSub, name: Aprsme.PubSub}
     end

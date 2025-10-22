@@ -1,5 +1,7 @@
 import Config
 
+config :appsignal, :config, active: true
+
 # For production, don't forget to configure the url host
 # to something meaningful, Phoenix uses this information
 # when generating URLs.
@@ -10,11 +12,10 @@ import Config
 # which you should run after static files are built and
 # before starting your production server.
 config :aprsme, AprsmeWeb.Endpoint,
+  # Runtime production configuration, including reading
   cache_static_manifest: "priv/static/cache_manifest.json",
   adapter: Bandit.PhoenixAdapter,
   http: [ip: {0, 0, 0, 0}, port: 4000]
-
-# Runtime production configuration, including reading
 
 config :esbuild,
   version: "0.24.2",
@@ -31,5 +32,3 @@ config :logger, level: :info
 
 # Configures Swoosh API Client
 config :swoosh, :api_client, Swoosh.ApiClient.Req
-
-config :appsignal, :config, active: true
