@@ -9,6 +9,8 @@ defmodule Aprsme.Cluster.LeaderElection do
 
   @election_key {:aprs_is_leader, __MODULE__}
   @check_interval 5_000
+  # Maximum time to wait for cluster formation before proceeding with election (30 seconds)
+  @max_cluster_wait 30_000
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -45,8 +47,10 @@ defmodule Aprsme.Cluster.LeaderElection do
 
     if cluster_enabled do
       Logger.info("Clustering enabled - waiting for cluster formation before leader election")
-      # Wait longer for cluster to form, then check periodically
+      # Wait for cluster to form, then check periodically
       Process.send_after(self(), :check_cluster_and_elect, 2_000)
+      # Set a timeout to force election if cluster doesn't form
+      Process.send_after(self(), :force_election_timeout, @max_cluster_wait)
     else
       Logger.info("Clustering disabled - proceeding with immediate leader election")
       # Non-clustered mode - elect immediately
@@ -56,22 +60,51 @@ defmodule Aprsme.Cluster.LeaderElection do
     # Schedule periodic checks
     Process.send_after(self(), :check_leadership, @check_interval)
 
-    {:ok, %{is_leader: false, leader_node: nil, cluster_enabled: cluster_enabled}}
+    {:ok, %{is_leader: false, leader_node: nil, cluster_enabled: cluster_enabled, election_forced: false}}
   end
 
   @impl true
   def handle_info(:check_cluster_and_elect, state) do
-    connected_nodes = Node.list()
-
-    if length(connected_nodes) > 0 do
-      Logger.info("Cluster formed with #{length(connected_nodes)} other nodes: #{inspect(connected_nodes)}")
-      Logger.info("Proceeding with leader election")
-      Process.send_after(self(), :attempt_election, 100)
+    # Don't keep checking if election was already forced
+    if state.election_forced do
       {:noreply, state}
     else
-      Logger.info("Cluster not yet formed - waiting...")
-      # Check again in 2 seconds
-      Process.send_after(self(), :check_cluster_and_elect, 2_000)
+      connected_nodes = Node.list()
+
+      if length(connected_nodes) > 0 do
+        Logger.info("Cluster formed with #{length(connected_nodes)} other nodes: #{inspect(connected_nodes)}")
+        Logger.info("Proceeding with leader election")
+        Process.send_after(self(), :attempt_election, 100)
+        {:noreply, %{state | election_forced: true}}
+      else
+        Logger.debug("Cluster not yet formed - waiting...")
+        # Check again in 2 seconds
+        Process.send_after(self(), :check_cluster_and_elect, 2_000)
+        {:noreply, state}
+      end
+    end
+  end
+
+  @impl true
+  def handle_info(:force_election_timeout, state) do
+    # Only force election if we haven't already started one
+    if not state.election_forced and not state.is_leader do
+      connected_nodes = Node.list()
+
+      if length(connected_nodes) == 0 do
+        Logger.warning(
+          "Cluster formation timeout reached after #{@max_cluster_wait}ms with no connected nodes. " <>
+            "Proceeding with leader election in single-node mode to ensure APRS-IS connection."
+        )
+      else
+        Logger.info(
+          "Forcing leader election after #{@max_cluster_wait}ms wait with #{length(connected_nodes)} connected nodes"
+        )
+      end
+
+      Process.send_after(self(), :attempt_election, 100)
+      {:noreply, %{state | election_forced: true}}
+    else
       {:noreply, state}
     end
   end
