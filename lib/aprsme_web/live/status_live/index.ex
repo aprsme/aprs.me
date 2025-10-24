@@ -395,14 +395,14 @@ defmodule AprsmeWeb.StatusLive.Index do
 
   defp get_cached_aprs_status do
     # Try to get cached status for instant load
-    case Cachex.get(:query_cache, "aprs_status") do
+    case Aprsme.Cache.get(:query_cache, "aprs_status") do
       {:ok, status} when not is_nil(status) ->
         status
 
       _ ->
         # Fallback to direct query if cache miss
         status = get_aprs_status()
-        Cachex.put(:query_cache, "aprs_status", status, ttl: to_timeout(second: 5))
+        Aprsme.Cache.put(:query_cache, "aprs_status", status)
         status
     end
   end

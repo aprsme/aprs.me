@@ -235,24 +235,18 @@ defmodule Aprsme.Application do
   # end
 
   defp redis_children do
-    if System.get_env("REDIS_URL") do
-      require Logger
+    require Logger
 
-      Logger.info("Starting Redis-based caching and rate limiting")
+    Logger.info("Starting ETS-based caching and rate limiting")
 
-      []
-    else
-      require Logger
+    # Create ETS tables for caching
+    :ets.new(:query_cache, [:set, :public, :named_table, read_concurrency: true])
+    :ets.new(:device_cache, [:set, :public, :named_table, read_concurrency: true])
+    :ets.new(:symbol_cache, [:set, :public, :named_table, read_concurrency: true])
 
-      Logger.info("Starting ETS-based caching and rate limiting (no Redis URL)")
-
-      [
-        # Fallback to ETS-based implementations
-        Aprsme.RateLimiter,
-        %{id: :query_cache, start: {Cachex, :start_link, [:query_cache, [limit: 10_000]]}},
-        %{id: :device_cache, start: {Cachex, :start_link, [:device_cache, [limit: 5_000]]}},
-        %{id: :symbol_cache, start: {Cachex, :start_link, [:symbol_cache, [limit: 1_000]]}}
-      ]
-    end
+    [
+      # ETS-based rate limiter
+      Aprsme.RateLimiter
+    ]
   end
 end

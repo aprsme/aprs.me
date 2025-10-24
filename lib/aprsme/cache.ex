@@ -1,59 +1,85 @@
 defmodule Aprsme.Cache do
   @moduledoc """
-  Cache abstraction layer that works with both Cachex and RedisCache.
-  Provides a unified API regardless of the underlying implementation.
+  Cache abstraction layer using ETS (Erlang Term Storage).
+  Provides a unified API for in-memory caching.
   """
 
   @doc """
   Get a value from cache
   """
   def get(cache_name, key) do
-    Cachex.get(cache_name, key)
+    case :ets.lookup(cache_name, key) do
+      [{^key, value}] -> {:ok, value}
+      [] -> {:ok, nil}
+    end
+  rescue
+    ArgumentError -> {:error, :no_cache}
   end
 
   @doc """
-  Put a value in cache with optional TTL
+  Put a value in cache with optional TTL (TTL not implemented for ETS)
   """
-  def put(cache_name, key, value, opts \\ []) do
-    Cachex.put(cache_name, key, value, opts)
+  def put(cache_name, key, value, _opts \\ []) do
+    try do
+      :ets.insert(cache_name, {key, value})
+      {:ok, true}
+    rescue
+      ArgumentError -> {:error, :no_cache}
+    end
   end
 
   @doc """
   Delete a key from cache
   """
   def del(cache_name, key) do
-    Cachex.del(cache_name, key)
+    try do
+      :ets.delete(cache_name, key)
+      {:ok, true}
+    rescue
+      ArgumentError -> {:error, :no_cache}
+    end
   end
 
   @doc """
   Clear all keys from cache
   """
   def clear(cache_name) do
-    Cachex.clear(cache_name)
+    try do
+      :ets.delete_all_objects(cache_name)
+      {:ok, true}
+    rescue
+      ArgumentError -> {:error, :no_cache}
+    end
   end
 
   @doc """
-  Get cache statistics
+  Get cache statistics (simplified for ETS)
   """
   def stats(cache_name) do
-    Cachex.stats(cache_name)
+    try do
+      info = :ets.info(cache_name)
+      {:ok, %{size: Keyword.get(info, :size, 0)}}
+    rescue
+      ArgumentError -> {:error, :no_cache}
+    end
   end
 
   @doc """
   Check if key exists
   """
   def exists?(cache_name, key) do
-    case Cachex.exists?(cache_name, key) do
-      {:ok, exists?} -> exists?
-      {:error, _reason} -> false
+    try do
+      :ets.member(cache_name, key)
+    rescue
+      ArgumentError -> false
     end
   end
 
   @doc """
-  Get TTL for a key
+  Get TTL for a key (not supported in ETS, always returns nil)
   """
-  def ttl(cache_name, key) do
-    Cachex.ttl(cache_name, key)
+  def ttl(_cache_name, _key) do
+    {:ok, nil}
   end
 
   # Helper functions - no longer needed as we only use Cachex
