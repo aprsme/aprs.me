@@ -61,4 +61,8 @@ This is a web application written using the Phoenix web framework.
 - Use `Task.async_stream(collection, callback, options)` for concurrent enumeration with back-pressure. The majority of times you will want to pass `timeout: :infinity` as option
 - **Always run mix format after changing any Elixir files**
 
-[... rest of the file remains unchanged ...]
+## Git Commit Guidelines
+
+- **Never** add "Co-Authored-By: Claude" or similar AI co-authorship tags to commits
+- Commits should appear as authored solely by the user (Graham)
+- Keep commit messages clear and concise, describing what changed and why
