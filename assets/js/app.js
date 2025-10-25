@@ -304,6 +304,7 @@ let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken },
   hooks: Hooks,
+  timeout: 60000, // 60 second timeout for slow initial loads
 });
 
 // Show progress bar on live navigation and form submits
