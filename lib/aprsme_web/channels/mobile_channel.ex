@@ -117,7 +117,7 @@ defmodule AprsmeWeb.MobileChannel do
         :ok ->
           # Unsubscribe from old bounds
           if socket.assigns[:bounds] do
-            Aprsme.StreamingPacketsPubSub.unsubscribe_from_bounds(self(), socket.assigns.bounds)
+            Aprsme.StreamingPacketsPubSub.unsubscribe(self())
           end
 
           # Subscribe to new bounds
@@ -140,7 +140,7 @@ defmodule AprsmeWeb.MobileChannel do
   @impl true
   def handle_in("unsubscribe", _payload, socket) do
     if socket.assigns[:subscribed] && socket.assigns[:bounds] do
-      Aprsme.StreamingPacketsPubSub.unsubscribe_from_bounds(self(), socket.assigns.bounds)
+      Aprsme.StreamingPacketsPubSub.unsubscribe(self())
 
       socket =
         socket
@@ -228,7 +228,7 @@ defmodule AprsmeWeb.MobileChannel do
   @impl true
   def terminate(_reason, socket) do
     if socket.assigns[:subscribed] && socket.assigns[:bounds] do
-      Aprsme.StreamingPacketsPubSub.unsubscribe_from_bounds(self(), socket.assigns.bounds)
+      Aprsme.StreamingPacketsPubSub.unsubscribe(self())
     end
 
     :ok
@@ -392,7 +392,7 @@ defmodule AprsmeWeb.MobileChannel do
               base_callsign: p.base_callsign,
               last_seen: p.received_at,
               lat: p.lat,
-              lng: p.lng
+              lon: p.lon
             },
             order_by: [desc: p.received_at],
             limit: ^limit

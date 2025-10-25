@@ -20,59 +20,49 @@ defmodule Aprsme.Cache do
   Put a value in cache with optional TTL (TTL not implemented for ETS)
   """
   def put(cache_name, key, value, _opts \\ []) do
-    try do
-      :ets.insert(cache_name, {key, value})
-      {:ok, true}
-    rescue
-      ArgumentError -> {:error, :no_cache}
-    end
+    :ets.insert(cache_name, {key, value})
+    {:ok, true}
+  rescue
+    ArgumentError -> {:error, :no_cache}
   end
 
   @doc """
   Delete a key from cache
   """
   def del(cache_name, key) do
-    try do
-      :ets.delete(cache_name, key)
-      {:ok, true}
-    rescue
-      ArgumentError -> {:error, :no_cache}
-    end
+    :ets.delete(cache_name, key)
+    {:ok, true}
+  rescue
+    ArgumentError -> {:error, :no_cache}
   end
 
   @doc """
   Clear all keys from cache
   """
   def clear(cache_name) do
-    try do
-      :ets.delete_all_objects(cache_name)
-      {:ok, true}
-    rescue
-      ArgumentError -> {:error, :no_cache}
-    end
+    :ets.delete_all_objects(cache_name)
+    {:ok, true}
+  rescue
+    ArgumentError -> {:error, :no_cache}
   end
 
   @doc """
   Get cache statistics (simplified for ETS)
   """
   def stats(cache_name) do
-    try do
-      info = :ets.info(cache_name)
-      {:ok, %{size: Keyword.get(info, :size, 0)}}
-    rescue
-      ArgumentError -> {:error, :no_cache}
-    end
+    info = :ets.info(cache_name)
+    {:ok, %{size: Keyword.get(info, :size, 0)}}
+  rescue
+    ArgumentError -> {:error, :no_cache}
   end
 
   @doc """
   Check if key exists
   """
   def exists?(cache_name, key) do
-    try do
-      :ets.member(cache_name, key)
-    rescue
-      ArgumentError -> false
-    end
+    :ets.member(cache_name, key)
+  rescue
+    ArgumentError -> false
   end
 
   @doc """
