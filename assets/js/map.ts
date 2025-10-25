@@ -1411,7 +1411,7 @@ let MapAPRSMap = {
   addMarker(data: MarkerData & { openPopup?: boolean }) {
     const self = this as unknown as LiveViewHookContext;
     const L = window.L;
-    if (!data.id || !data.lat || !data.lng) {
+    if (!data || !data.id || !data.lat || !data.lng || typeof data.lat !== 'number' || typeof data.lng !== 'number') {
       console.warn("Invalid marker data:", data);
       return;
     }
