@@ -17,6 +17,8 @@ defmodule Aprsme.Repo.Migrations.AddCallsignSearchIndexes do
     )
 
     # Add composite index for sender + received_at for efficient sorting
-    create_if_not_exists index(:packets, [:sender, :received_at], name: :packets_sender_received_at_idx)
+    create_if_not_exists index(:packets, [:sender, :received_at],
+                           name: :packets_sender_received_at_idx
+                         )
   end
 end
