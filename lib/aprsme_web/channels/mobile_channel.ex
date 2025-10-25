@@ -385,6 +385,8 @@ defmodule AprsmeWeb.MobileChannel do
     # Normalize query to uppercase
     query = String.upcase(query)
 
+    Logger.info("Searching for callsign: #{query}")
+
     # Build search pattern - support wildcard with *
     pattern =
       if String.contains?(query, "*") do
@@ -394,6 +396,8 @@ defmodule AprsmeWeb.MobileChannel do
         # If no wildcard, search for exact match or with SSID
         "#{query}%"
       end
+
+    Logger.info("Search pattern: #{pattern}")
 
     # Query for matching callsigns - optimized version
     # Use a subquery to get only the most recent packet per sender
@@ -415,7 +419,9 @@ defmodule AprsmeWeb.MobileChannel do
             order_by: [desc: max(p.received_at)],
             limit: ^limit
 
-        Aprsme.Repo.all(subquery)
+        results = Aprsme.Repo.all(subquery)
+        Logger.info("Search returned #{length(results)} results: #{inspect(results)}")
+        results
       rescue
         error ->
           Logger.error("Error searching callsigns: #{inspect(error)}")

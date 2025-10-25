@@ -25,6 +25,7 @@ defmodule AprsmeWeb.ConnCase do
       import Aprsme.MockHelpers
       import AprsmeWeb.ConnCase
       import Phoenix.ConnTest
+      import Phoenix.LiveViewTest
       import Plug.Conn
 
       alias Aprsme.Repo
@@ -38,7 +39,7 @@ defmodule AprsmeWeb.ConnCase do
 
       # Helper for LiveView tests that may have duplicate IDs
       def live_with_warn(conn, path) do
-        Phoenix.LiveViewTest.live(conn, path, on_error: :warn)
+        live(conn, path, on_error: :warn)
       end
     end
   end

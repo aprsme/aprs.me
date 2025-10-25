@@ -41,14 +41,15 @@ config :aprsme, :initialize_replay_delay, 0
 # Configure the packets module to use the mock in tests
 config :aprsme, :packets_module, Aprsme.PacketsMock
 
-# Disable APRS-IS external connections in test environment
+# Disable APRS-IS external connections and clustering in test environment
 config :aprsme,
   aprs_is_server: "mock.aprs.test",
   aprs_is_port: 14_580,
   aprs_is_default_filter: "r/33/-96/100",
   aprs_is_login_id: "TEST",
   aprs_is_password: "-1",
-  disable_aprs_connection: true
+  disable_aprs_connection: true,
+  cluster_enabled: false
 
 # Disable automatic migrations during tests
 config :aprsme, auto_migrate: false

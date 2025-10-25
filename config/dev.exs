@@ -1,7 +1,5 @@
 import Config
 
-config :appsignal, :config, active: true
-
 # Configure your database
 config :aprsme, Aprsme.Repo,
   # For development, we disable any cache and enable
