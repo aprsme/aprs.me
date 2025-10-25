@@ -355,9 +355,14 @@ defmodule AprsmeWeb.MapLive.Components do
     """
   end
 
-  # Helper function to get received_at from packet with either atom or string keys
+  # Helper function to get received_at from packet (handles both structs and maps)
+  defp get_received_at(%Aprsme.Packet{} = packet) do
+    packet.received_at
+  end
+
   defp get_received_at(packet) when is_map(packet) do
-    packet[:received_at] || packet["received_at"]
+    # For regular maps, try both atom and string keys
+    Map.get(packet, :received_at) || Map.get(packet, "received_at")
   end
 
   defp get_received_at(_), do: nil
