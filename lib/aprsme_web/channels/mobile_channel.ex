@@ -102,28 +102,30 @@ defmodule AprsmeWeb.MobileChannel do
       west: ensure_float(west)
     }
 
-    # Validate bounds
-    with :ok <- validate_bounds(bounds),
-         true <- socket.assigns[:subscribed] do
-      # Unsubscribe from old bounds
-      if socket.assigns[:bounds] do
-        Aprsme.StreamingPacketsPubSub.unsubscribe_from_bounds(self(), socket.assigns.bounds)
+    # Check if subscribed
+    if Map.get(socket.assigns, :subscribed, false) do
+      # Validate bounds
+      case validate_bounds(bounds) do
+        :ok ->
+          # Unsubscribe from old bounds
+          if socket.assigns[:bounds] do
+            Aprsme.StreamingPacketsPubSub.unsubscribe_from_bounds(self(), socket.assigns.bounds)
+          end
+
+          # Subscribe to new bounds
+          Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), bounds)
+
+          socket = assign(socket, :bounds, bounds)
+
+          Logger.debug("Mobile client #{socket.assigns.client_id} updated bounds: #{inspect(bounds)}")
+
+          {:reply, {:ok, %{bounds: bounds, message: "Bounds updated"}}, socket}
+
+        {:error, reason} ->
+          {:reply, {:error, %{message: reason}}, socket}
       end
-
-      # Subscribe to new bounds
-      Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), bounds)
-
-      socket = assign(socket, :bounds, bounds)
-
-      Logger.debug("Mobile client #{socket.assigns.client_id} updated bounds: #{inspect(bounds)}")
-
-      {:reply, {:ok, %{bounds: bounds, message: "Bounds updated"}}, socket}
     else
-      {:error, reason} ->
-        {:reply, {:error, %{message: reason}}, socket}
-
-      false ->
-        {:reply, {:error, %{message: "Not subscribed. Call subscribe_bounds first."}}, socket}
+      {:reply, {:error, %{message: "Not subscribed. Call subscribe_bounds first."}}, socket}
     end
   end
 
