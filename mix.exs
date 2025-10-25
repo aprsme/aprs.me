@@ -12,6 +12,7 @@ defmodule Aprsme.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      listeners: [Phoenix.CodeReloader],
       dialyzer: [
         ignore_warnings: ".dialyzer_ignore.exs",
         plt_file:
