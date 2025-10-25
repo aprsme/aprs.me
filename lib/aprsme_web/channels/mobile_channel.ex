@@ -169,6 +169,9 @@ defmodule AprsmeWeb.MobileChannel do
   def handle_in("search_callsign", %{"query" => query} = payload, socket) do
     Logger.info("Mobile websocket received search_callsign: #{inspect(payload)}")
 
+    # Trim whitespace and control characters from query
+    query = String.trim(query)
+
     limit = Map.get(payload, "limit", 50)
     limit = min(limit, 500)
 
@@ -185,8 +188,8 @@ defmodule AprsmeWeb.MobileChannel do
     # Max 1 week
     hours_back = min(hours_back, 168)
 
-    # Normalize callsign to uppercase
-    callsign = String.upcase(callsign)
+    # Normalize callsign - trim whitespace and convert to uppercase
+    callsign = callsign |> String.trim() |> String.upcase()
 
     # Load historical packets for this callsign
     socket = load_callsign_history(socket, callsign, hours_back)
