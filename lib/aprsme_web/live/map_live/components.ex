@@ -196,7 +196,7 @@ defmodule AprsmeWeb.MapLive.Components do
       </form>
       <%= if @tracked_callsign_latest_packet do %>
         <div class="mt-2 text-xs text-gray-600">
-          Last seen: {time_ago_in_words(@tracked_callsign_latest_packet.received_at)}
+          Last seen: {time_ago_in_words(get_received_at(@tracked_callsign_latest_packet))}
         </div>
       <% end %>
     </div>
@@ -354,4 +354,11 @@ defmodule AprsmeWeb.MapLive.Components do
     </style>
     """
   end
+
+  # Helper function to get received_at from packet with either atom or string keys
+  defp get_received_at(packet) when is_map(packet) do
+    packet[:received_at] || packet["received_at"]
+  end
+
+  defp get_received_at(_), do: nil
 end
