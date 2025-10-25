@@ -1432,12 +1432,13 @@ let MapAPRSMap = {
       return;
     }
 
-    const lat = parseFloat(data.lat.toString());
-    const lng = parseFloat(data.lng.toString());
+    // Extract coordinates - handle both direct values and nested arrays
+    const lat = extractCoordinate(data.lat);
+    const lng = extractCoordinate(data.lng);
 
     // Validate coordinates
     if (!isValidCoordinate(lat, lng)) {
-      console.warn("Invalid coordinates for marker:", { id: data.id, lat, lng, callsign: data.callsign });
+      console.warn("Invalid coordinates for marker:", { id: data.id, lat, lng, callsign: data.callsign, rawLat: data.lat, rawLng: data.lng });
       return;
     }
 
@@ -2106,6 +2107,32 @@ let MapAPRSMap = {
     self.pushEvent = originalPushEvent;
   },
 };
+
+// Helper to extract coordinate from various formats (number, string, or nested array)
+function extractCoordinate(value: any): number {
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return NaN;
+  }
+
+  // Handle arrays (sometimes coordinates come as nested arrays)
+  if (Array.isArray(value)) {
+    // Recursively extract from first element if it's an array
+    return extractCoordinate(value[0]);
+  }
+
+  // Handle numbers
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  // Handle strings
+  if (typeof value === 'string') {
+    return parseFloat(value);
+  }
+
+  return NaN;
+}
 
 // Helper to validate coordinates
 function isValidCoordinate(lat: number, lng: number): boolean {
