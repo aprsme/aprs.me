@@ -225,9 +225,15 @@ defmodule AprsmeWeb.MapLive.Index do
       pending_batch_tasks: [],
       # Add missing assigns for components
       loading: false,
-      connection_status: "connected",
+      connection_status: get_initial_connection_status(),
       show_all_packets: true
     )
+  end
+
+  defp get_initial_connection_status do
+    # Check if APRS connection is disabled
+    connection_disabled = Application.get_env(:aprsme, :disable_aprs_connection, false)
+    if connection_disabled, do: "disconnected", else: "connected"
   end
 
   @spec assign_defaults(Socket.t(), DateTime.t()) :: Socket.t()
@@ -267,7 +273,7 @@ defmodule AprsmeWeb.MapLive.Index do
       last_update_at: DateTime.utc_now(),
       # Add missing assigns for components
       loading: false,
-      connection_status: "connected",
+      connection_status: get_initial_connection_status(),
       show_all_packets: true
     )
   end
