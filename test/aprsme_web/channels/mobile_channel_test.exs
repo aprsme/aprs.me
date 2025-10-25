@@ -358,13 +358,14 @@ defmodule AprsmeWeb.MobileChannelTest do
       # Clear historical packets from the mailbox
       Process.sleep(100)
       # Consume all pending messages in a loop
-      Stream.repeatedly(fn ->
+      fn ->
         receive do
           _ -> true
         after
           0 -> false
         end
-      end)
+      end
+      |> Stream.repeatedly()
       |> Enum.take_while(& &1)
 
       # Simulate matching packet
