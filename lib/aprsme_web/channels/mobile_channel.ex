@@ -53,7 +53,11 @@ defmodule AprsmeWeb.MobileChannel do
   end
 
   @impl true
-  def handle_in("subscribe_bounds", %{"north" => north, "south" => south, "east" => east, "west" => west}, socket) do
+  def handle_in(
+        "subscribe_bounds",
+        %{"north" => north, "south" => south, "east" => east, "west" => west} = payload,
+        socket
+      ) do
     bounds = %{
       north: ensure_float(north),
       south: ensure_float(south),
@@ -62,24 +66,28 @@ defmodule AprsmeWeb.MobileChannel do
     }
 
     # Validate bounds
-    with :ok <- validate_bounds(bounds) do
-      # Generate unique client ID
-      client_id = "mobile_#{:erlang.phash2(self())}"
+    case validate_bounds(bounds) do
+      :ok ->
+        # Generate unique client ID
+        client_id = "mobile_#{:erlang.phash2(self())}"
 
-      # Subscribe to StreamingPacketsPubSub with bounds
-      Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), bounds)
+        # Subscribe to StreamingPacketsPubSub with bounds
+        Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), bounds)
 
-      # Store client info in socket
-      socket =
-        socket
-        |> assign(:client_id, client_id)
-        |> assign(:bounds, bounds)
-        |> assign(:subscribed, true)
+        # Store client info in socket
+        socket =
+          socket
+          |> assign(:client_id, client_id)
+          |> assign(:bounds, bounds)
+          |> assign(:subscribed, true)
 
-      Logger.info("Mobile client #{client_id} subscribed to bounds: #{inspect(bounds)}")
+        Logger.info("Mobile client #{client_id} subscribed to bounds: #{inspect(bounds)}")
 
-      {:reply, {:ok, %{bounds: bounds, message: "Subscribed to packet stream"}}, socket}
-    else
+        # Load and send historical packets
+        socket = load_historical_packets(socket, bounds, payload)
+
+        {:reply, {:ok, %{bounds: bounds, message: "Subscribed to packet stream"}}, socket}
+
       {:error, reason} ->
         {:reply, {:error, %{message: reason}}, socket}
     end
@@ -194,7 +202,7 @@ defmodule AprsmeWeb.MobileChannel do
       callsign: get_field(packet, :sender) || get_field(packet, :base_callsign),
       lat: to_float(lat),
       lng: to_float(lon),
-      timestamp: get_field(packet, :received_at) |> format_timestamp(),
+      timestamp: packet |> get_field(:received_at) |> format_timestamp(),
       symbol_table_id: get_field(packet, :symbol_table_id, "/"),
       symbol_code: get_field(packet, :symbol_code, ">"),
       comment: get_field(packet, :comment),
@@ -238,4 +246,53 @@ defmodule AprsmeWeb.MobileChannel do
   end
 
   defp format_timestamp(_), do: nil
+
+  defp load_historical_packets(socket, bounds, payload) do
+    # Get optional parameters from payload
+    limit = Map.get(payload, "limit", 1000)
+    hours_back = Map.get(payload, "hours_back", 1)
+
+    # Ensure reasonable limits
+    limit = min(limit, 5000)
+    hours_back = min(hours_back, 24)
+
+    # Query historical packets within bounds
+    bounds_list = [
+      bounds.west,
+      bounds.south,
+      bounds.east,
+      bounds.north
+    ]
+
+    params = %{
+      bounds: bounds_list,
+      limit: limit,
+      offset: 0,
+      hours_back: hours_back
+    }
+
+    Logger.debug("Mobile client loading historical packets with params: #{inspect(params)}")
+
+    packets =
+      try do
+        Aprsme.Packets.get_recent_packets(params)
+      rescue
+        error ->
+          Logger.error("Error loading historical packets for mobile client: #{inspect(error)}")
+          []
+      end
+
+    Logger.info("Loaded #{length(packets)} historical packets for mobile client")
+
+    # Send historical packets to client
+    if length(packets) > 0 do
+      # Convert packets to mobile format and send them
+      Enum.each(packets, fn packet ->
+        packet_data = build_mobile_packet(packet)
+        push(socket, "packet", packet_data)
+      end)
+    end
+
+    socket
+  end
 end

@@ -44,7 +44,7 @@ Currently, connections are anonymous. Future versions will support token-based a
 
 ### Subscribing to Geographic Bounds
 
-Subscribe to receive packets within specific geographic bounds.
+Subscribe to receive packets within specific geographic bounds. Upon subscription, the server will immediately send historical packets within the bounds, followed by real-time streaming packets.
 
 **Event:** `subscribe_bounds`
 
@@ -54,9 +54,22 @@ Subscribe to receive packets within specific geographic bounds.
   "north": 33.2,
   "south": 33.0,
   "east": -96.0,
-  "west": -96.2
+  "west": -96.2,
+  "limit": 1000,
+  "hours_back": 1
 }
 ```
+
+**Payload Fields:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `north` | float | Yes | - | Northern boundary latitude |
+| `south` | float | Yes | - | Southern boundary latitude |
+| `east` | float | Yes | - | Eastern boundary longitude |
+| `west` | float | Yes | - | Western boundary longitude |
+| `limit` | integer | No | 1000 | Maximum historical packets to load (max: 5000) |
+| `hours_back` | integer | No | 1 | How many hours of historical data to load (max: 24) |
 
 **Example:**
 ```json
@@ -67,7 +80,9 @@ Subscribe to receive packets within specific geographic bounds.
     "north": 33.2,
     "south": 33.0,
     "east": -96.0,
-    "west": -96.2
+    "west": -96.2,
+    "limit": 2000,
+    "hours_back": 2
   },
   "ref": "2"
 }
@@ -133,7 +148,7 @@ Update the geographic bounds (e.g., when user pans/zooms the map).
 
 ### Receiving Packets
 
-Once subscribed, you'll receive real-time packets within your bounds.
+Once subscribed, you'll receive packets within your bounds. Historical packets are sent immediately after subscription, followed by real-time streaming packets as they arrive.
 
 **Event:** `packet`
 
