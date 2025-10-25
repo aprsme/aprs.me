@@ -66,6 +66,8 @@ defmodule AprsmeWeb.MobileChannel do
         %{"north" => north, "south" => south, "east" => east, "west" => west} = payload,
         socket
       ) do
+    Logger.info("Mobile websocket received subscribe_bounds: #{inspect(payload)}")
+
     bounds = %{
       north: ensure_float(north),
       south: ensure_float(south),
@@ -102,7 +104,13 @@ defmodule AprsmeWeb.MobileChannel do
   end
 
   @impl true
-  def handle_in("update_bounds", %{"north" => north, "south" => south, "east" => east, "west" => west}, socket) do
+  def handle_in(
+        "update_bounds",
+        %{"north" => north, "south" => south, "east" => east, "west" => west} = payload,
+        socket
+      ) do
+    Logger.info("Mobile websocket received update_bounds: #{inspect(payload)}")
+
     bounds = %{
       north: ensure_float(north),
       south: ensure_float(south),
@@ -138,7 +146,9 @@ defmodule AprsmeWeb.MobileChannel do
   end
 
   @impl true
-  def handle_in("unsubscribe", _payload, socket) do
+  def handle_in("unsubscribe", payload, socket) do
+    Logger.info("Mobile websocket received unsubscribe: #{inspect(payload)}")
+
     if socket.assigns[:subscribed] && socket.assigns[:bounds] do
       Aprsme.StreamingPacketsPubSub.unsubscribe(self())
 
@@ -157,10 +167,10 @@ defmodule AprsmeWeb.MobileChannel do
 
   @impl true
   def handle_in("search_callsign", %{"query" => query} = payload, socket) do
+    Logger.info("Mobile websocket received search_callsign: #{inspect(payload)}")
+
     limit = Map.get(payload, "limit", 50)
     limit = min(limit, 500)
-
-    Logger.debug("Mobile client searching for callsign: #{query}")
 
     results = search_callsign(query, limit)
 
@@ -169,14 +179,14 @@ defmodule AprsmeWeb.MobileChannel do
 
   @impl true
   def handle_in("subscribe_callsign", %{"callsign" => callsign} = payload, socket) do
+    Logger.info("Mobile websocket received subscribe_callsign: #{inspect(payload)}")
+
     hours_back = Map.get(payload, "hours_back", 24)
     # Max 1 week
     hours_back = min(hours_back, 168)
 
     # Normalize callsign to uppercase
     callsign = String.upcase(callsign)
-
-    Logger.info("Mobile client #{socket.assigns[:client_id]} subscribing to callsign: #{callsign}")
 
     # Load historical packets for this callsign
     socket = load_callsign_history(socket, callsign, hours_back)
@@ -188,7 +198,9 @@ defmodule AprsmeWeb.MobileChannel do
   end
 
   @impl true
-  def handle_in("unsubscribe_callsign", _payload, socket) do
+  def handle_in("unsubscribe_callsign", payload, socket) do
+    Logger.info("Mobile websocket received unsubscribe_callsign: #{inspect(payload)}")
+
     if socket.assigns[:tracked_callsign] do
       callsign = socket.assigns.tracked_callsign
       socket = assign(socket, :tracked_callsign, nil)
