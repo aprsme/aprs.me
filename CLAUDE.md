@@ -1,5 +1,20 @@
 This is a web application written using the Phoenix web framework.
 
+## Mobile API
+
+The application provides a real-time WebSocket API for mobile clients (iOS/Android):
+
+- **Endpoint**: `wss://aprs.me/mobile/websocket`
+- **Channel**: `mobile:packets`
+- **Documentation**: See `docs/mobile-api.md` for complete API reference
+- **Implementation**: `lib/aprsme_web/channels/mobile_channel.ex`
+
+**Key Features:**
+- Real-time streaming of APRS packets
+- Geographic bounds filtering (only receive packets in viewport)
+- Dynamic bounds updates (follow user as they pan/zoom)
+- Efficient - leverages existing StreamingPacketsPubSub infrastructure
+
 ## Elixir guidelines
 
 - Elixir lists **do not support index based access via the access syntax**

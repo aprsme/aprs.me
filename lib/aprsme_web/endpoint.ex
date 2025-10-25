@@ -16,6 +16,11 @@ defmodule AprsmeWeb.Endpoint do
     websocket: [connect_info: [session: @session_options], timeout: 60_000],
     longpoll: [connect_info: [session: @session_options]]
 
+  # Mobile API socket for iOS/Android apps
+  socket "/mobile", AprsmeWeb.MobileUserSocket,
+    websocket: [timeout: 60_000],
+    longpoll: false
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest
