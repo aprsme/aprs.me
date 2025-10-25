@@ -380,23 +380,27 @@ defmodule AprsmeWeb.MobileChannel do
         "#{query}%"
       end
 
-    # Query for matching callsigns
+    # Query for matching callsigns - optimized version
+    # Use a subquery to get only the most recent packet per sender
     results =
       try do
-        Aprsme.Repo.all(
+        subquery =
           from p in Aprsme.Packet,
-            where: ilike(p.sender, ^pattern) or ilike(p.base_callsign, ^pattern),
-            distinct: true,
+            where: ilike(p.sender, ^pattern),
+            distinct: p.sender,
             select: %{
               callsign: p.sender,
               base_callsign: p.base_callsign,
-              last_seen: p.received_at,
-              lat: p.lat,
-              lon: p.lon
+              last_seen: max(p.received_at),
+              # Use first_value for lat/lon from most recent packet
+              lat: fragment("(array_agg(? ORDER BY ? DESC))[1]", p.lat, p.received_at),
+              lon: fragment("(array_agg(? ORDER BY ? DESC))[1]", p.lon, p.received_at)
             },
-            order_by: [desc: p.received_at],
+            group_by: [p.sender, p.base_callsign],
+            order_by: [desc: max(p.received_at)],
             limit: ^limit
-        )
+
+        Aprsme.Repo.all(subquery)
       rescue
         error ->
           Logger.error("Error searching callsigns: #{inspect(error)}")

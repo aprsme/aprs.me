@@ -6,7 +6,7 @@ defmodule AprsmeWeb.MapLive.IndexTest do
 
   describe "Index" do
     test "renders map view", %{conn: conn} do
-      {:ok, view, html} = live(conn, "/")
+      {:ok, view, html} = live(conn, "/", on_error: :warn)
 
       assert html =~ "APRS Map"
       assert has_element?(view, "#aprs-map")

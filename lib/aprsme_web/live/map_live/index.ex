@@ -1337,24 +1337,6 @@ defmodule AprsmeWeb.MapLive.Index do
       }
     </style>
 
-    <div
-      id="aprs-map"
-      class={if @slideover_open, do: "slideover-open", else: "slideover-closed"}
-      phx-hook="APRSMap"
-      phx-update="ignore"
-      data-center={Jason.encode!(@map_center)}
-      data-zoom={@map_zoom}
-      role="application"
-      aria-label={gettext("APRS packet map showing real-time amateur radio stations")}
-    >
-    </div>
-
-    <button class="locate-button" phx-click="locate_me" title={Gettext.gettext(AprsmeWeb.Gettext, "Find my location")}>
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#374151" stroke="none">
-        <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
-      </svg>
-    </button>
-
     <!-- Slideover Toggle Button -->
     <button
       class={["slideover-toggle", if(@slideover_open, do: "slideover-open", else: "slideover-closed")]}

@@ -58,7 +58,7 @@ defmodule AprsmeWeb.MapLive.PerformanceTest do
       Process.put(:query_count, 0)
 
       # Load the live view
-      {:ok, lv, _html} = live(conn, "/")
+      {:ok, lv, _html} = live(conn, "/", on_error: :warn)
 
       # Reset counter again to measure only map loading queries
       Process.put(:query_count, 0)

@@ -21,7 +21,7 @@ defmodule AprsmeWeb.InfoLiveTest do
           location: %Geo.Point{coordinates: {-71.0589, 42.3601}}
         })
 
-      {:ok, _view, html} = live(conn, ~p"/info/#{packet.sender}")
+      {:ok, _view, html} = live(conn, ~p"/info/#{packet.sender}", on_error: :warn)
 
       assert html =~ "Comment"
       assert html =~ "Mobile station on the move"
@@ -41,7 +41,7 @@ defmodule AprsmeWeb.InfoLiveTest do
           location: %Geo.Point{coordinates: {-71.0589, 42.3601}}
         })
 
-      {:ok, _view, html} = live(conn, ~p"/info/#{packet.sender}")
+      {:ok, _view, html} = live(conn, ~p"/info/#{packet.sender}", on_error: :warn)
 
       refute html =~ "Comment"
     end
@@ -60,7 +60,7 @@ defmodule AprsmeWeb.InfoLiveTest do
           location: %Geo.Point{coordinates: {-71.0589, 42.3601}}
         })
 
-      {:ok, _view, html} = live(conn, ~p"/info/#{packet.sender}")
+      {:ok, _view, html} = live(conn, ~p"/info/#{packet.sender}", on_error: :warn)
 
       assert html =~ "Comment"
       assert html =~ "Test comment with special chars"

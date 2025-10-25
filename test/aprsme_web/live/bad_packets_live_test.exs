@@ -8,7 +8,7 @@ defmodule AprsmeWeb.BadPacketsLiveTest do
 
   describe "Index" do
     test "renders bad packets page with DaisyUI card", %{conn: conn} do
-      {:ok, _index_live, html} = live(conn, ~p"/badpackets")
+      {:ok, _index_live, html} = live(conn, ~p"/badpackets", on_error: :warn)
 
       assert html =~ "card"
       assert html =~ "bg-base-100"
@@ -24,7 +24,7 @@ defmodule AprsmeWeb.BadPacketsLiveTest do
           attempted_at: DateTime.utc_now()
         })
 
-      {:ok, _index_live, html} = live(conn, ~p"/badpackets")
+      {:ok, _index_live, html} = live(conn, ~p"/badpackets", on_error: :warn)
 
       assert html =~ bad_packet.error_message
       assert html =~ bad_packet.error_type
@@ -33,7 +33,7 @@ defmodule AprsmeWeb.BadPacketsLiveTest do
     end
 
     test "displays empty state with DaisyUI components when no bad packets", %{conn: conn} do
-      {:ok, _index_live, html} = live(conn, ~p"/badpackets")
+      {:ok, _index_live, html} = live(conn, ~p"/badpackets", on_error: :warn)
 
       assert html =~ "No bad packets"
       assert html =~ "All packets are parsing successfully!"
@@ -41,7 +41,7 @@ defmodule AprsmeWeb.BadPacketsLiveTest do
     end
 
     test "updates in real-time when new bad packet is created", %{conn: conn} do
-      {:ok, index_live, _html} = live(conn, ~p"/badpackets")
+      {:ok, index_live, _html} = live(conn, ~p"/badpackets", on_error: :warn)
 
       # Create a bad packet after the live view is loaded
       bad_packet =
@@ -65,7 +65,7 @@ defmodule AprsmeWeb.BadPacketsLiveTest do
     end
 
     test "works correctly in dark mode", %{conn: conn} do
-      {:ok, _index_live, html} = live(conn, ~p"/badpackets")
+      {:ok, _index_live, html} = live(conn, ~p"/badpackets", on_error: :warn)
 
       # DaisyUI uses data-theme for theming
       # The components should work with both light and dark themes

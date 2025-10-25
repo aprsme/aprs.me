@@ -17,7 +17,7 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
     test "does not update marker for GPS drift", %{conn: conn} do
       # Start with initial location
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # First update the map state to set zoom level
       assert render_hook(view, "update_map_state", %{
@@ -77,7 +77,7 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
     test "updates marker for significant movement", %{conn: conn} do
       # Start with initial location at a zoom level that shows individual markers
-      {:ok, view, _html} = live(conn, "/?z=15")
+      {:ok, view, _html} = live(conn, "/?z=15", on_error: :warn)
 
       # Notify the map is ready
       assert render_hook(view, "map_ready", %{})

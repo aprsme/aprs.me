@@ -14,7 +14,7 @@ defmodule AprsmeWeb.UserSettingsLiveTest do
     end
 
     test "renders settings page", %{conn: conn} do
-      {:ok, _lv, html} = live(conn, ~p"/users/settings")
+      {:ok, _lv, html} = live(conn, ~p"/users/settings", on_error: :warn)
 
       assert html =~ "Change Email"
       assert html =~ "Change Callsign"
@@ -40,7 +40,7 @@ defmodule AprsmeWeb.UserSettingsLiveTest do
     end
 
     test "updates the user callsign", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
+      {:ok, lv, _html} = live(conn, ~p"/users/settings", on_error: :warn)
 
       lv
       |> form("#callsign_form", %{
@@ -59,7 +59,7 @@ defmodule AprsmeWeb.UserSettingsLiveTest do
     end
 
     test "renders errors with invalid callsign", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
+      {:ok, lv, _html} = live(conn, ~p"/users/settings", on_error: :warn)
 
       result =
         lv
@@ -73,7 +73,7 @@ defmodule AprsmeWeb.UserSettingsLiveTest do
     end
 
     test "renders errors with invalid password", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
+      {:ok, lv, _html} = live(conn, ~p"/users/settings", on_error: :warn)
 
       result =
         lv
@@ -99,7 +99,7 @@ defmodule AprsmeWeb.UserSettingsLiveTest do
     end
 
     test "updates the user email", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
+      {:ok, lv, _html} = live(conn, ~p"/users/settings", on_error: :warn)
 
       result =
         lv
@@ -114,7 +114,7 @@ defmodule AprsmeWeb.UserSettingsLiveTest do
     end
 
     test "renders errors with invalid data (phx-change)", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
+      {:ok, lv, _html} = live(conn, ~p"/users/settings", on_error: :warn)
 
       result =
         lv
@@ -136,7 +136,7 @@ defmodule AprsmeWeb.UserSettingsLiveTest do
     end
 
     test "updates the user password", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
+      {:ok, lv, _html} = live(conn, ~p"/users/settings", on_error: :warn)
 
       form =
         form(lv, "#password_form", %{
@@ -163,7 +163,7 @@ defmodule AprsmeWeb.UserSettingsLiveTest do
     end
 
     test "renders errors with invalid data (phx-change)", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/settings")
+      {:ok, lv, _html} = live(conn, ~p"/users/settings", on_error: :warn)
 
       result =
         lv

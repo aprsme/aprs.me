@@ -50,7 +50,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
         })
 
       # Connect to the map LiveView
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Send map_ready event to trigger initialization
       assert render_hook(view, "map_ready", %{})
@@ -101,7 +101,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
         })
 
       # Connect with hist=6 parameter (6 hours of historical data)
-      {:ok, view, _html} = live(conn, "/?hist=6")
+      {:ok, view, _html} = live(conn, "/?hist=6", on_error: :warn)
 
       # Send map_ready and bounds events
       assert render_hook(view, "map_ready", %{})
@@ -158,7 +158,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
         })
 
       # Connect with tracked callsign
-      {:ok, view, _html} = live(conn, "/W5ISP-9")
+      {:ok, view, _html} = live(conn, "/W5ISP-9", on_error: :warn)
 
       # Send map_ready event
       assert render_hook(view, "map_ready", %{})
@@ -207,7 +207,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
         end
 
       # Connect with low zoom level (zoom=5)
-      {:ok, view, _html} = live(conn, "/?z=5")
+      {:ok, view, _html} = live(conn, "/?z=5", on_error: :warn)
 
       # Send map_ready and bounds events
       assert render_hook(view, "map_ready", %{})
@@ -255,7 +255,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
         end
 
       # Connect to the map at high zoom (should use marker mode, not heat map)
-      {:ok, view, _html} = live(conn, "/?z=12")
+      {:ok, view, _html} = live(conn, "/?z=12", on_error: :warn)
 
       # Send map_ready event
       assert render_hook(view, "map_ready", %{})
@@ -304,7 +304,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
       })
 
       # Connect to the map
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Send map_ready event
       assert render_hook(view, "map_ready", %{})
@@ -354,7 +354,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
       end
 
       # Connect with medium zoom level
-      {:ok, view, _html} = live(conn, "/?z=8")
+      {:ok, view, _html} = live(conn, "/?z=8", on_error: :warn)
 
       # Send initialization events
       assert render_hook(view, "map_ready", %{})

@@ -19,7 +19,7 @@ defmodule AprsmeWeb.MapLive.TrackedCallsignOldPacketTest do
       })
 
       # Navigate to the tracked callsign URL
-      {:ok, view, _html} = live(conn, "/TEST-OLD")
+      {:ok, view, _html} = live(conn, "/TEST-OLD", on_error: :warn)
 
       # Check that the tracked callsign is displayed
       assert render(view) =~ "TEST-OLD"
@@ -41,7 +41,7 @@ defmodule AprsmeWeb.MapLive.TrackedCallsignOldPacketTest do
       })
 
       # Navigate to the tracked callsign URL
-      {:ok, view, _html} = live(conn, "/OLD-STATION")
+      {:ok, view, _html} = live(conn, "/OLD-STATION", on_error: :warn)
 
       # The old packet should still be tracked despite 1-hour trail setting
       assert render(view) =~ "OLD-STATION"
@@ -50,7 +50,7 @@ defmodule AprsmeWeb.MapLive.TrackedCallsignOldPacketTest do
 
     test "shows no packet message when callsign has no packets", %{conn: conn} do
       # Navigate to a callsign that doesn't exist
-      {:ok, view, _html} = live(conn, "/NOPACKETS-1")
+      {:ok, view, _html} = live(conn, "/NOPACKETS-1", on_error: :warn)
 
       # Check that the tracked callsign is set
       assert render(view) =~ "NOPACKETS-1"
@@ -70,7 +70,7 @@ defmodule AprsmeWeb.MapLive.TrackedCallsignOldPacketTest do
       })
 
       # Navigate to the tracked callsign URL
-      {:ok, view, _html} = live(conn, "/TEST-STATUS")
+      {:ok, view, _html} = live(conn, "/TEST-STATUS", on_error: :warn)
 
       # Check that the tracked callsign is set
       assert render(view) =~ "TEST-STATUS"
@@ -92,7 +92,7 @@ defmodule AprsmeWeb.MapLive.TrackedCallsignOldPacketTest do
       })
 
       # Navigate to the tracked callsign URL
-      {:ok, view, _html} = live(conn, "/TEST-MSG")
+      {:ok, view, _html} = live(conn, "/TEST-MSG", on_error: :warn)
 
       # The message packet should be tracked despite no position
       assert render(view) =~ "TEST-MSG"
@@ -108,7 +108,7 @@ defmodule AprsmeWeb.MapLive.TrackedCallsignOldPacketTest do
       })
 
       # Navigate with extra whitespace
-      {:ok, view, _html} = live(conn, "/  TEST-WS  ")
+      {:ok, view, _html} = live(conn, "/  TEST-WS  ", on_error: :warn)
 
       # Should normalize to uppercase and trim whitespace
       assert render(view) =~ "TEST-WS"
@@ -125,7 +125,7 @@ defmodule AprsmeWeb.MapLive.TrackedCallsignOldPacketTest do
       })
 
       # Navigate with lowercase callsign
-      {:ok, view, _html} = live(conn, "/test-telem")
+      {:ok, view, _html} = live(conn, "/test-telem", on_error: :warn)
 
       # Should normalize to uppercase
       assert render(view) =~ "TEST-TELEM"

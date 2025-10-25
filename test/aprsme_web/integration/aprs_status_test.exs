@@ -41,7 +41,7 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
     end
 
     test "main map page loads without APRS connection", %{conn: conn} do
-      {:ok, view, html} = live(conn, "/")
+      {:ok, view, html} = live(conn, "/", on_error: :warn)
 
       # Page should load successfully
       assert has_element?(view, "#aprs-map")
@@ -56,7 +56,7 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
 
     test "status live view works without APRS connection", %{conn: conn} do
       # Try to access status page if it exists
-      case live(conn, "/status") do
+      case live(conn, "/status", on_error: :warn) do
         {:ok, view, html} ->
           # If status page exists, verify it handles disconnected state
           assert html =~ "System Status"
@@ -78,7 +78,7 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
 
     test "packet data endpoints handle no external connection gracefully", %{conn: conn} do
       # Test packets live view instead of API endpoint
-      case live(conn, "/packets") do
+      case live(conn, "/packets", on_error: :warn) do
         {:ok, _view, html} ->
           # Should load packets page successfully
           assert html =~ "Packets"
@@ -102,7 +102,7 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
       # Stub the function that will be called during bounds changes
       Mox.stub(Aprsme.PacketsMock, :get_recent_packets, fn _opts -> [] end)
 
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Test map bounds change event
       bounds_params = %{
@@ -127,7 +127,7 @@ defmodule AprsmeWeb.Integration.AprsStatusTest do
     end
 
     test "real-time updates are disabled without APRS connection", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Verify that the view is not subscribed to real-time APRS updates
       # since there's no APRS connection

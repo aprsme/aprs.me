@@ -22,7 +22,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
           symbol_code: "r"
         })
 
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Send a marker_hover_start event
       render_hook(view, "marker_hover_start", %{
@@ -57,7 +57,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
           lon: Decimal.new("-96.7000")
         })
 
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Test path with multiple digipeaters
       render_hook(view, "marker_hover_start", %{
@@ -81,7 +81,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
           lon: Decimal.new("-96.5500")
         })
 
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Test path with asterisks (used digipeaters)
       render_hook(view, "marker_hover_start", %{
@@ -96,7 +96,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
     end
 
     test "filters out TCPIP from paths", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Send a hover event with TCPIP in path
       render_hook(view, "marker_hover_start", %{
@@ -121,7 +121,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
           lon: Decimal.new("-96.6500")
         })
 
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Send a hover event with various beacon patterns that should be filtered
       render_hook(view, "marker_hover_start", %{
@@ -136,7 +136,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
     end
 
     test "handles empty paths gracefully", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Send hover event with empty path
       render_hook(view, "marker_hover_start", %{"id" => "test-3", "path" => "", "lat" => 33.2837, "lng" => -96.5728})
@@ -146,7 +146,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
     end
 
     test "marker hover end event works", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Send hover end event
       render_hook(view, "marker_hover_end", %{"id" => "test-1"})
@@ -181,7 +181,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
     end
 
     test "finds positions for digipeaters in path", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Send hover event with known digipeaters
       render_hook(view, "marker_hover_start", %{
@@ -227,7 +227,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
     end
 
     test "includes path stations outside map bounds", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Set map bounds to a small area around Texas that excludes the outside station
       bounds = texas_bounds()
@@ -249,7 +249,7 @@ defmodule AprsmeWeb.MapLive.RfPathTest do
     end
 
     test "finds stations regardless of bounds constraints", %{conn: conn} do
-      {:ok, view, _html} = live(conn, "/")
+      {:ok, view, _html} = live(conn, "/", on_error: :warn)
 
       # Set very restrictive bounds that exclude both stations
       bounds = restrictive_bounds()
