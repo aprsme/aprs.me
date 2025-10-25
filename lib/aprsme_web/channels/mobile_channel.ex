@@ -22,9 +22,17 @@ defmodule AprsmeWeb.MobileChannel do
 
   - "unsubscribe" - Stop receiving packets
 
+  - "search_callsign" - Search for callsigns matching a pattern
+    Payload: %{query: string, limit: integer (optional)}
+
+  - "subscribe_callsign" - Subscribe to live updates for a callsign pattern
+    Payload: %{callsign: string, hours_back: integer (optional)}
+
+  - "unsubscribe_callsign" - Stop receiving updates for tracked callsign
+
   ### Server -> Client
 
-  - "packet" - New APRS packet within subscribed bounds
+  - "packet" - New APRS packet within subscribed bounds or matching tracked callsign
     Payload: %{
       id: string,
       callsign: string,
@@ -148,12 +156,70 @@ defmodule AprsmeWeb.MobileChannel do
   end
 
   @impl true
-  def handle_info({:streaming_packet, packet}, socket) do
-    # Convert packet to mobile-friendly format
-    packet_data = build_mobile_packet(packet)
+  def handle_in("search_callsign", %{"query" => query} = payload, socket) do
+    limit = Map.get(payload, "limit", 50)
+    limit = min(limit, 500)
 
-    # Push packet to mobile client
-    push(socket, "packet", packet_data)
+    Logger.debug("Mobile client searching for callsign: #{query}")
+
+    results = search_callsign(query, limit)
+
+    {:reply, {:ok, %{results: results, count: length(results)}}, socket}
+  end
+
+  @impl true
+  def handle_in("subscribe_callsign", %{"callsign" => callsign} = payload, socket) do
+    hours_back = Map.get(payload, "hours_back", 24)
+    # Max 1 week
+    hours_back = min(hours_back, 168)
+
+    # Normalize callsign to uppercase
+    callsign = String.upcase(callsign)
+
+    Logger.info("Mobile client #{socket.assigns[:client_id]} subscribing to callsign: #{callsign}")
+
+    # Load historical packets for this callsign
+    socket = load_callsign_history(socket, callsign, hours_back)
+
+    # Store tracked callsign in socket
+    socket = assign(socket, :tracked_callsign, callsign)
+
+    {:reply, {:ok, %{callsign: callsign, message: "Subscribed to callsign updates"}}, socket}
+  end
+
+  @impl true
+  def handle_in("unsubscribe_callsign", _payload, socket) do
+    if socket.assigns[:tracked_callsign] do
+      callsign = socket.assigns.tracked_callsign
+      socket = assign(socket, :tracked_callsign, nil)
+
+      Logger.info("Mobile client #{socket.assigns[:client_id]} unsubscribed from callsign: #{callsign}")
+
+      {:reply, {:ok, %{message: "Unsubscribed from callsign updates"}}, socket}
+    else
+      {:reply, {:ok, %{message: "Not tracking any callsign"}}, socket}
+    end
+  end
+
+  @impl true
+  def handle_info({:streaming_packet, packet}, socket) do
+    # Check if packet matches tracked callsign (if any)
+    should_send =
+      if tracked_callsign = socket.assigns[:tracked_callsign] do
+        packet_callsign = get_field(packet, :sender) || get_field(packet, :base_callsign) || ""
+        callsign_matches?(packet_callsign, tracked_callsign)
+      else
+        # If not tracking a callsign, send all packets (geographic filtering already applied)
+        true
+      end
+
+    if should_send do
+      # Convert packet to mobile-friendly format
+      packet_data = build_mobile_packet(packet)
+
+      # Push packet to mobile client
+      push(socket, "packet", packet_data)
+    end
 
     {:noreply, socket}
   end
@@ -296,5 +362,116 @@ defmodule AprsmeWeb.MobileChannel do
     end
 
     socket
+  end
+
+  defp search_callsign(query, limit) do
+    import Ecto.Query
+
+    # Normalize query to uppercase
+    query = String.upcase(query)
+
+    # Build search pattern - support wildcard with *
+    pattern =
+      if String.contains?(query, "*") do
+        # Convert * to SQL % wildcard
+        String.replace(query, "*", "%")
+      else
+        # If no wildcard, search for exact match or with SSID
+        "#{query}%"
+      end
+
+    # Query for matching callsigns
+    results =
+      try do
+        Aprsme.Repo.all(
+          from p in Aprsme.Packet,
+            where: ilike(p.sender, ^pattern) or ilike(p.base_callsign, ^pattern),
+            distinct: true,
+            select: %{
+              callsign: p.sender,
+              base_callsign: p.base_callsign,
+              last_seen: p.received_at,
+              lat: p.lat,
+              lng: p.lng
+            },
+            order_by: [desc: p.received_at],
+            limit: ^limit
+        )
+      rescue
+        error ->
+          Logger.error("Error searching callsigns: #{inspect(error)}")
+          []
+      end
+
+    results
+  end
+
+  defp load_callsign_history(socket, callsign, hours_back) do
+    import Ecto.Query
+
+    # Build pattern for callsign matching (supports wildcards)
+    pattern =
+      if String.contains?(callsign, "*") do
+        String.replace(callsign, "*", "%")
+      else
+        # Exact callsign match
+        callsign
+      end
+
+    # Calculate time window
+    since = DateTime.add(DateTime.utc_now(), -hours_back * 3600, :second)
+
+    # Query historical packets
+    packets =
+      try do
+        Aprsme.Repo.all(
+          from p in Aprsme.Packet,
+            where: p.received_at >= ^since,
+            where: ilike(p.sender, ^pattern) or ilike(p.base_callsign, ^pattern),
+            order_by: [asc: p.received_at],
+            limit: 1000
+        )
+      rescue
+        error ->
+          Logger.error("Error loading callsign history: #{inspect(error)}")
+          []
+      end
+
+    Logger.info("Loaded #{length(packets)} historical packets for callsign #{callsign}")
+
+    # Send historical packets to client
+    if length(packets) > 0 do
+      Enum.each(packets, fn packet ->
+        packet_data = build_mobile_packet(packet)
+        push(socket, "packet", packet_data)
+      end)
+    end
+
+    socket
+  end
+
+  defp callsign_matches?(packet_callsign, tracked_callsign) do
+    # Normalize both to uppercase
+    packet_callsign = String.upcase(packet_callsign)
+    tracked_callsign = String.upcase(tracked_callsign)
+
+    cond do
+      # Exact match
+      packet_callsign == tracked_callsign ->
+        true
+
+      # Wildcard match (e.g., "W5ISP*" matches "W5ISP-9")
+      String.contains?(tracked_callsign, "*") ->
+        pattern = String.replace(tracked_callsign, "*", "")
+        String.starts_with?(packet_callsign, pattern)
+
+      # Base callsign match (e.g., "W5ISP" matches "W5ISP-9")
+      String.starts_with?(packet_callsign, tracked_callsign <> "-") ->
+        true
+
+      # No match
+      true ->
+        false
+    end
   end
 end

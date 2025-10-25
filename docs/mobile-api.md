@@ -210,6 +210,118 @@ Stop receiving packets.
 }
 ```
 
+### Searching for Callsigns
+
+Search for callsigns matching a pattern.
+
+**Event:** `search_callsign`
+
+**Payload:**
+```json
+{
+  "query": "W5ISP",
+  "limit": 50
+}
+```
+
+**Payload Fields:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `query` | string | Yes | - | Callsign to search (supports * wildcard) |
+| `limit` | integer | No | 50 | Maximum results to return (max: 500) |
+
+**Response:**
+```json
+{
+  "topic": "mobile:packets",
+  "event": "phx_reply",
+  "payload": {
+    "status": "ok",
+    "response": {
+      "results": [
+        {
+          "callsign": "W5ISP-9",
+          "base_callsign": "W5ISP",
+          "last_seen": "2025-10-25T17:30:00Z",
+          "lat": 33.1225,
+          "lng": -96.124
+        }
+      ],
+      "count": 1
+    }
+  },
+  "ref": "5"
+}
+```
+
+**Examples:**
+- `"W5ISP"` - Finds W5ISP and all SSIDs (W5ISP-1, W5ISP-9, etc.)
+- `"W5ISP-9"` - Finds only W5ISP-9
+- `"W5ISP*"` - Finds all callsigns starting with W5ISP
+
+### Subscribing to Callsign Updates
+
+Subscribe to live updates for a specific callsign or pattern. When subscribed, you'll receive historical packets for that callsign, followed by real-time updates.
+
+**Event:** `subscribe_callsign`
+
+**Payload:**
+```json
+{
+  "callsign": "W5ISP-9",
+  "hours_back": 24
+}
+```
+
+**Payload Fields:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `callsign` | string | Yes | - | Callsign to track (supports * wildcard) |
+| `hours_back` | integer | No | 24 | Hours of historical data to load (max: 168) |
+
+**Response:**
+```json
+{
+  "topic": "mobile:packets",
+  "event": "phx_reply",
+  "payload": {
+    "status": "ok",
+    "response": {
+      "callsign": "W5ISP-9",
+      "message": "Subscribed to callsign updates"
+    }
+  },
+  "ref": "6"
+}
+```
+
+**Note:** When tracking a callsign, you'll receive packets matching that callsign even if they're outside your geographic bounds. To receive only callsign packets within bounds, use both `subscribe_bounds` and `subscribe_callsign` together.
+
+### Unsubscribing from Callsign Updates
+
+Stop receiving updates for the tracked callsign.
+
+**Event:** `unsubscribe_callsign`
+
+**Payload:** `{}`
+
+**Response:**
+```json
+{
+  "topic": "mobile:packets",
+  "event": "phx_reply",
+  "payload": {
+    "status": "ok",
+    "response": {
+      "message": "Unsubscribed from callsign updates"
+    }
+  },
+  "ref": "7"
+}
+```
+
 ## Error Responses
 
 **Invalid Bounds:**
