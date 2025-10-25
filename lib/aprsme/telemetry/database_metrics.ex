@@ -134,6 +134,18 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
   end
 
   defp do_collect_postgres_metrics do
+    # Check if Repo is started before collecting metrics
+    case Process.whereis(Aprsme.Repo) do
+      nil ->
+        # Repo not started yet, skip metrics collection silently
+        :ok
+
+      _pid ->
+        collect_database_metrics()
+    end
+  end
+
+  defp collect_database_metrics do
     # Database size
     case Aprsme.Repo.query("SELECT pg_database_size(current_database()) as size") do
       {:ok, %{rows: [[size]]}} ->
