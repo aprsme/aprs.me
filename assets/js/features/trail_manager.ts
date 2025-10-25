@@ -109,6 +109,8 @@ export class TrailManager {
     if (
       typeof lat !== 'number' ||
       typeof lng !== 'number' ||
+      isNaN(lat) ||
+      isNaN(lng) ||
       !isFinite(lat) ||
       !isFinite(lng) ||
       lat < -90 ||
@@ -278,6 +280,8 @@ export class TrailManager {
             pos &&
             typeof pos.lat === 'number' &&
             typeof pos.lng === 'number' &&
+            !isNaN(pos.lat) &&
+            !isNaN(pos.lng) &&
             isFinite(pos.lat) &&
             isFinite(pos.lng) &&
             pos.lat >= -90 &&
