@@ -163,6 +163,9 @@ defmodule Aprsme.AprsIsConnection do
     passcode = Application.get_env(:aprsme, :aprs_is_password, "00000")
     filter = Application.get_env(:aprsme, :aprs_is_default_filter, "")
 
+    # Convert host to charlist if it's a binary string
+    host = if is_binary(host), do: String.to_charlist(host), else: host
+
     # Add timeout to prevent indefinite hanging
     opts = [:binary, active: true, packet: :line, keepalive: true, send_timeout: 5000]
     # 10 seconds
