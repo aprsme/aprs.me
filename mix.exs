@@ -57,7 +57,6 @@ defmodule Aprsme.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:appsignal_phoenix, "~> 2.0"},
       {:error_tracker, "~> 0.6"},
       {:bcrypt_elixir, "~> 3.0"},
       {:certifi, "~> 2.9"},
@@ -77,7 +76,7 @@ defmodule Aprsme.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1.13"},
       {:postgrex, ">= 0.0.0"},
-      {:swoosh, "~> 1.19.8"},
+      {:swoosh, "~> 1.20.0"},
       {:resend, "~> 0.4.1"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
@@ -98,9 +97,9 @@ defmodule Aprsme.MixProject do
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
       {:sobelow, "~> 0.8", only: :dev},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
-      {:igniter, "~> 0.6.30", only: [:dev, :test]},
+      {:igniter, "~> 0.7.0", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
-      {:styler, "~> 1.9.1", only: [:dev, :test], runtime: false},
+      {:styler, "~> 1.10.0", only: [:dev, :test], runtime: false},
       # {:httpoison, "~> 1.8"},
       {:hammer, "~> 7.0"},
       {:cachex, "~> 4.1"},

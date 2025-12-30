@@ -1,0 +1,42 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - elixir-deps:/workspace/deps
+      - elixir-build:/workspace/_build
+    environment:
+      - DATABASE_URL=ecto://postgres:postgres@db/aprsme_dev
+      - MIX_TEST_PARTITION=${MIX_TEST_PARTITION:-1}
+      - PGUSER=postgres
+      - PGPASSWORD=postgres
+      - PGDATABASE=aprsme_dev
+      - PGHOST=db
+    depends_on:
+      - db
+    network_mode: service:db
+    command: mix phx.server
+
+  db:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: aprsme_dev
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  elixir-deps:
+  elixir-build:
