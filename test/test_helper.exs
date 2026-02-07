@@ -26,6 +26,3 @@ Application.put_env(:aprsme, :aprsme_is_default_filter, "r/0/0/1")
 Application.put_env(:aprsme, :packets_module, Aprsme.PacketsMock)
 
 # AprsIsMock is automatically loaded from test/support via elixirc_paths
-
-# Configure Wallaby for integration tests
-{:ok, _} = Application.ensure_all_started(:wallaby)

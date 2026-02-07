@@ -115,29 +115,6 @@ jobs:
       - name: Check Formatting
         run: mix format --check-formatted
 
-      # Step: Install ChromeDriver for integration tests
-      - name: Setup ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-        # Note: Using latest stable version instead of pinned version for better compatibility
-
-      # Step: Start ChromeDriver in the background
-      - name: Start ChromeDriver
-        run: |
-          chromedriver --port=4444 --url-base=/wd/hub &
-          sleep 2
-
       # Step: Execute the tests.
       - name: Run tests
         run: mix test
-
-      # Step: Run integration tests separately with Wallaby
-      # TEMPORARILY DISABLED: Integration tests need further debugging
-      # TODO: Re-enable once Wallaby tests are fixed
-      # - name: Run integration tests
-      #   run: mix test --only integration
-      #   timeout-minutes: 10
-      #   env:
-      #     # Increase timeouts for browser tests in CI environment
-      #     WALLABY_SCREENSHOT_ON_FAILURE: true
-      #     WALLABY_MAX_WAIT_TIME: 30000
-      #     CHROMEDRIVER_URL: http://localhost:4444/wd/hub

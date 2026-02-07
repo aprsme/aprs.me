@@ -94,6 +94,7 @@ defmodule Aprsme.MixProject do
       {:exvcr, "~> 0.15", only: :test},
       {:faker, "~> 0.18", only: [:dev, :test]},
       {:floki, ">= 0.30.0", only: :test},
+      {:lazy_html, ">= 0.1.0", only: :test},
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
       {:sobelow, "~> 0.8", only: :dev},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
@@ -103,9 +104,7 @@ defmodule Aprsme.MixProject do
       # {:httpoison, "~> 1.8"},
       {:hammer, "~> 7.0"},
       {:cachex, "~> 4.1"},
-      {:gettext_pseudolocalize, "~> 0.1"},
-      {:wallaby, "~> 0.30.10", only: :test},
-      {:lazy_html, "~> 0.1.8", only: :test}
+      {:gettext_pseudolocalize, "~> 0.1"}
     ]
   end
 
