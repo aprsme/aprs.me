@@ -348,7 +348,12 @@ defmodule Aprsme.Packet do
           %{}
       end
 
-    # Also process telemetry fields from top-level attrs if not already processed
+    # Merge all extracted data
+    merge_extracted_data(base_attrs, additional_data, attrs)
+  end
+
+  defp merge_extracted_data(base_attrs, additional_data, attrs) do
+    # Process telemetry fields from top-level attrs if not already processed
     telemetry_data =
       if Map.has_key?(additional_data, :telemetry_vals) do
         # Already processed from data_extended

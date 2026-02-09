@@ -186,19 +186,7 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
            WHERE s.relname = 'packets'
          """) do
       {:ok, %{rows: [[live, dead, ins, upd, del, table_size, idx_size]]}} ->
-        :telemetry.execute(
-          [:aprsme, :postgres, :packets_table],
-          %{
-            live_tuples: live || 0,
-            dead_tuples: dead || 0,
-            total_inserts: ins || 0,
-            total_updates: upd || 0,
-            total_deletes: del || 0,
-            table_size_bytes: table_size || 0,
-            indexes_size_bytes: idx_size || 0
-          },
-          %{}
-        )
+        emit_packets_table_telemetry(live, dead, ins, upd, del, table_size, idx_size)
 
       _ ->
         :ok
@@ -250,5 +238,21 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
     # PgBouncer metrics would require a separate connection to PgBouncer's admin interface
     # For now, we'll skip these as they require additional setup
     :ok
+  end
+
+  defp emit_packets_table_telemetry(live, dead, ins, upd, del, table_size, idx_size) do
+    :telemetry.execute(
+      [:aprsme, :postgres, :packets_table],
+      %{
+        live_tuples: live || 0,
+        dead_tuples: dead || 0,
+        total_inserts: ins || 0,
+        total_updates: upd || 0,
+        total_deletes: del || 0,
+        table_size_bytes: table_size || 0,
+        indexes_size_bytes: idx_size || 0
+      },
+      %{}
+    )
   end
 end

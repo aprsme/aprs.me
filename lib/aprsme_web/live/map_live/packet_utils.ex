@@ -62,20 +62,7 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   @spec has_weather_packets?(String.t()) :: boolean()
   # Get recent packets for this callsign and check if any are weather packets
   def has_weather_packets?(callsign) when is_binary(callsign) do
-    # Direct query without caching
-    import Ecto.Query
-
-    query =
-      from p in Aprsme.Packet,
-        where: p.sender == ^callsign,
-        where:
-          not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
-            not is_nil(p.wind_direction) or not is_nil(p.wind_speed) or not is_nil(p.wind_gust) or
-            not is_nil(p.rain_1h) or not is_nil(p.rain_24h) or not is_nil(p.rain_midnight) or
-            not is_nil(p.luminosity) or not is_nil(p.snow_24h),
-        select: fragment("1"),
-        limit: 1
-
+    query = build_weather_check_query(callsign)
     Aprsme.Repo.exists?(query)
   rescue
     _ -> false
@@ -124,4 +111,18 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   defdelegate build_packet_data(packet), to: DataBuilder
 
   # All packet data building functions have been moved to AprsmeWeb.MapLive.DataBuilder
+
+  defp build_weather_check_query(callsign) do
+    import Ecto.Query
+
+    from p in Aprsme.Packet,
+      where: p.sender == ^callsign,
+      where:
+        not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
+          not is_nil(p.wind_direction) or not is_nil(p.wind_speed) or not is_nil(p.wind_gust) or
+          not is_nil(p.rain_1h) or not is_nil(p.rain_24h) or not is_nil(p.rain_midnight) or
+          not is_nil(p.luminosity) or not is_nil(p.snow_24h),
+      select: fragment("1"),
+      limit: 1
+  end
 end
