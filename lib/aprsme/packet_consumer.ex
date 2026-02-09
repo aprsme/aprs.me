@@ -308,7 +308,7 @@ defmodule Aprsme.PacketConsumer do
         Logger.error("Batch insert failed: #{inspect(error)}")
 
         # Log sample packet to help debug field issues
-        if length(valid_packets) > 0 do
+        if valid_packets != [] do
           sample_packet = List.first(valid_packets)
           Logger.error("Sample packet fields: #{inspect(Map.keys(sample_packet))}")
           Logger.error("Sample packet data: #{inspect(sample_packet)}")

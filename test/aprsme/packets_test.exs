@@ -339,7 +339,7 @@ defmodule Aprsme.PacketsTest do
     test "returns stations ordered by distance", %{stations: _stations} do
       results = Packets.get_nearby_stations(39.0, -98.0)
 
-      assert length(results) > 0
+      assert results != []
       # Results should be ordered by distance
       [first | _] = results
       assert first.sender in ["NEAR1", "NEAR2"]

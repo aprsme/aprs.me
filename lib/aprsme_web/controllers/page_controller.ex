@@ -2,6 +2,8 @@ defmodule AprsmeWeb.PageController do
   @moduledoc false
   use AprsmeWeb, :controller
 
+  alias Aprsme.Cluster.LeaderElection
+
   def home(conn, _params) do
     render(conn, :home)
   end
@@ -80,7 +82,7 @@ defmodule AprsmeWeb.PageController do
 
   def status_json(conn, _params) do
     # Get cluster-wide APRS-IS connection status
-    aprs_status = Aprsme.Cluster.LeaderElection.get_cluster_aprs_status()
+    aprs_status = LeaderElection.get_cluster_aprs_status()
 
     # Get application version
     version = :aprsme |> Application.spec(:vsn) |> List.to_string()

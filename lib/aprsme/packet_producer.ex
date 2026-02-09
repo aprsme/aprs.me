@@ -45,7 +45,7 @@ defmodule Aprsme.PacketProducer do
     end
   end
 
-  defp dispatch_events(buffer, demand) when demand > 0 and length(buffer) > 0 do
+  defp dispatch_events(buffer, demand) when demand > 0 and buffer != [] do
     {events, remaining} = Enum.split(buffer, demand)
     {events, remaining, demand - length(events)}
   end

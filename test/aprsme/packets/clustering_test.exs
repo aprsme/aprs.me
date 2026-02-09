@@ -24,7 +24,7 @@ defmodule Aprsme.Packets.ClusteringTest do
       result = Clustering.cluster_packets(packets, 7, %{})
       assert {:heat_map, clusters} = result
       assert is_list(clusters)
-      assert length(clusters) > 0
+      assert clusters != []
     end
 
     test "returns clustered data when zoom level is 8 or less" do
@@ -37,7 +37,7 @@ defmodule Aprsme.Packets.ClusteringTest do
       result = Clustering.cluster_packets(packets, 7, %{})
       assert {:heat_map, clusters} = result
       assert is_list(clusters)
-      assert length(clusters) > 0
+      assert clusters != []
 
       # Check cluster structure
       [first_cluster | _] = clusters

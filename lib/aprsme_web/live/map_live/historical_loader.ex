@@ -6,8 +6,10 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
   import Phoenix.Component, only: [assign: 3]
 
   alias Aprsme.Packets
+  alias AprsmeWeb.Live.Shared.CoordinateUtils
   alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
   alias AprsmeWeb.MapLive.DataBuilder
+  alias AprsmeWeb.MapLive.RfPath
   alias Phoenix.LiveView
   alias Phoenix.LiveView.Socket
 
@@ -219,7 +221,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
             # Filter out packets with invalid coordinates before processing
             valid_packets =
               Enum.filter(historical_packets, fn packet ->
-                {lat, lon, _} = AprsmeWeb.Live.Shared.CoordinateUtils.get_coordinates(packet)
+                {lat, lon, _} = CoordinateUtils.get_coordinates(packet)
 
                 is_number(lat) and is_number(lon) and
                   lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 and
@@ -416,7 +418,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
       packets
       |> Enum.flat_map(fn packet ->
         path = Map.get(packet, :path, "")
-        AprsmeWeb.MapLive.RfPath.parse_rf_path(path)
+        RfPath.parse_rf_path(path)
       end)
       |> Enum.uniq()
       |> Enum.reject(&(&1 == ""))
@@ -431,6 +433,6 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
     socket
   end
 
-  defp is_finite(n) when is_float(n), do: n != :infinity and n != :neg_infinity and n == n
+  defp is_finite(n) when is_float(n), do: n != :infinity and n != :neg_infinity
   defp is_finite(n) when is_integer(n), do: true
 end

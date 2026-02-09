@@ -139,7 +139,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
 
   defp valid_coordinates?(_, _), do: false
 
-  defp is_finite(n) when is_float(n), do: n != :infinity and n != :neg_infinity and n == n
+  defp is_finite(n) when is_float(n), do: n != :infinity and n != :neg_infinity
   defp is_finite(n) when is_integer(n), do: true
 
   @doc """

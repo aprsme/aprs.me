@@ -71,16 +71,16 @@ defmodule Aprsme.Cluster.LeaderElection do
     else
       connected_nodes = Node.list()
 
-      if length(connected_nodes) > 0 do
-        Logger.info("Cluster formed with #{length(connected_nodes)} other nodes: #{inspect(connected_nodes)}")
-        Logger.info("Proceeding with leader election")
-        Process.send_after(self(), :attempt_election, 100)
-        {:noreply, %{state | election_forced: true}}
-      else
+      if connected_nodes == [] do
         Logger.debug("Cluster not yet formed - waiting...")
         # Check again in 2 seconds
         Process.send_after(self(), :check_cluster_and_elect, 2_000)
         {:noreply, state}
+      else
+        Logger.info("Cluster formed with #{length(connected_nodes)} other nodes: #{inspect(connected_nodes)}")
+        Logger.info("Proceeding with leader election")
+        Process.send_after(self(), :attempt_election, 100)
+        {:noreply, %{state | election_forced: true}}
       end
     end
   end
@@ -91,7 +91,7 @@ defmodule Aprsme.Cluster.LeaderElection do
     if not state.election_forced and not state.is_leader do
       connected_nodes = Node.list()
 
-      if length(connected_nodes) == 0 do
+      if connected_nodes == [] do
         Logger.warning(
           "Cluster formation timeout reached after #{@max_cluster_wait}ms with no connected nodes. " <>
             "Proceeding with leader election in single-node mode to ensure APRS-IS connection."

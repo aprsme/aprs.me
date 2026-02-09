@@ -428,14 +428,14 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Send event to draw the RF path lines
     socket =
-      if length(path_station_positions) > 0 do
+      if path_station_positions == [] do
+        socket
+      else
         push_event(socket, "draw_rf_path", %{
           station_lat: lat_float,
           station_lng: lng_float,
           path_stations: path_station_positions
         })
-      else
-        socket
       end
 
     {:noreply, socket}

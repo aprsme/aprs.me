@@ -52,6 +52,8 @@ defmodule AprsmeWeb.MobileChannel do
   """
   use AprsmeWeb, :channel
 
+  alias AprsmeWeb.MapLive.MapHelpers
+
   require Logger
 
   @impl true
@@ -277,7 +279,7 @@ defmodule AprsmeWeb.MobileChannel do
 
   defp build_mobile_packet(packet) do
     # Extract coordinates
-    {lat, lon, _data_extended} = AprsmeWeb.MapLive.MapHelpers.get_coordinates(packet)
+    {lat, lon, _data_extended} = MapHelpers.get_coordinates(packet)
 
     # Build minimal packet data for mobile
     %{
@@ -465,7 +467,7 @@ defmodule AprsmeWeb.MobileChannel do
     Logger.info("Loaded #{length(packets)} historical packets for callsign #{callsign}")
 
     # Send historical packets to client
-    if length(packets) > 0 do
+    if packets != [] do
       Enum.each(packets, fn packet ->
         packet_data = build_mobile_packet(packet)
         push(socket, "packet", packet_data)
