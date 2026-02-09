@@ -16,3 +16,8 @@ SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:576,6A503E9
 XSS.Raw: XSS,lib/aprsme_web/components/core_components.ex:52,6B2C0EC
 SQL.Query: SQL injection,lib/aprsme/db_optimizer.ex:129,711E151
 SQL.Query: SQL injection,lib/aprsme/release.ex:163,7079EA4
+XSS.Raw: XSS,lib/aprsme_web/live/info_live/show.ex:675,2E9B38C
+SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:390,46E033F
+SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:505,515E82C
+SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:619,53BB748
+XSS.Raw: XSS,lib/aprsme_web/live/info_live/show.ex:693,EEA0E3

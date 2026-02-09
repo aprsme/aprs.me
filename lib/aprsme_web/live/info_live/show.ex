@@ -16,6 +16,49 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   @neighbor_limit 10
 
+  # APRS Q-construct descriptions (APRS-IS codes)
+  @q_constructs %{
+    "qAC" => "qAC (APRS-IS connection)",
+    "qAO" => "qAO (APRS-IS origin)",
+    "qAR" => "qAR (APRS-IS relay)",
+    "qAS" => "qAS (APRS-IS server)",
+    "qAX" => "qAX (APRS-IS client)",
+    "qAY" => "qAY (APRS-IS gateway)",
+    "qAZ" => "qAZ (APRS-IS zone)",
+    "qBU" => "qBU (APRS-IS user)",
+    "qBV" => "qBV (APRS-IS vendor)",
+    "qBW" => "qBW (APRS-IS web)",
+    "qBX" => "qBX (APRS-IS experimental)",
+    "qBY" => "qBY (APRS-IS Y2K)",
+    "qBZ" => "qBZ (APRS-IS Zulu)",
+    "qCA" => "qCA (APRS-IS client application)",
+    "qCB" => "qCB (APRS-IS client browser)",
+    "qCC" => "qCC (APRS-IS client console)",
+    "qCD" => "qCD (APRS-IS client daemon)",
+    "qCE" => "qCE (APRS-IS client editor)",
+    "qCF" => "qCF (APRS-IS client filter)",
+    "qCG" => "qCG (APRS-IS client gateway)",
+    "qCH" => "qCH (APRS-IS client host)",
+    "qCI" => "qCI (APRS-IS client interface)",
+    "qCJ" => "qCJ (APRS-IS client java)",
+    "qCK" => "qCK (APRS-IS client kernel)",
+    "qCL" => "qCL (APRS-IS client library)",
+    "qCM" => "qCM (APRS-IS client module)",
+    "qCN" => "qCN (APRS-IS client network)",
+    "qCO" => "qCO (APRS-IS client object)",
+    "qCP" => "qCP (APRS-IS client protocol)",
+    "qCQ" => "qCQ (APRS-IS client query)",
+    "qCR" => "qCR (APRS-IS client router)",
+    "qCS" => "qCS (APRS-IS client server)",
+    "qCT" => "qCT (APRS-IS client terminal)",
+    "qCU" => "qCU (APRS-IS client user)",
+    "qCV" => "qCV (APRS-IS client vendor)",
+    "qCW" => "qCW (APRS-IS client web)",
+    "qCX" => "qCX (APRS-IS client experimental)",
+    "qCY" => "qCY (APRS-IS client Y2K)",
+    "qCZ" => "qCZ (APRS-IS client Zulu)"
+  }
+
   @impl true
   def mount(%{"callsign" => callsign}, _session, socket) do
     normalized_callsign = Callsign.normalize(callsign)
@@ -706,206 +749,25 @@ defmodule AprsmeWeb.InfoLive.Show do
     element = String.trim(element)
 
     cond do
+      # Check Q-constructs map first (most common)
+      Map.has_key?(@q_constructs, element) ->
+        @q_constructs[element]
+
       # WIDE digipeaters
       String.starts_with?(element, "WIDE") ->
-        case element do
-          "WIDE1-1" -> gettext("WIDE1-1 (Wide area digipeater, 1 hop)")
-          "WIDE2-1" -> gettext("WIDE2-1 (Wide area digipeater, 2 hops)")
-          "WIDE3-1" -> gettext("WIDE3-1 (Wide area digipeater, 3 hops)")
-          "WIDE4-1" -> gettext("WIDE4-1 (Wide area digipeater, 4 hops)")
-          "WIDE5-1" -> gettext("WIDE5-1 (Wide area digipeater, 5 hops)")
-          "WIDE6-1" -> gettext("WIDE6-1 (Wide area digipeater, 6 hops)")
-          "WIDE7-1" -> gettext("WIDE7-1 (WIDE area digipeater, 7 hops)")
-          "WIDE1-2" -> gettext("WIDE1-2 (Wide area digipeater, 1 hop, 2nd attempt)")
-          "WIDE2-2" -> gettext("WIDE2-2 (Wide area digipeater, 2 hops, 2nd attempt)")
-          _ -> gettext("WIDE digipeater (%{element})", element: element)
-        end
+        decode_wide_element(element)
 
       # TRACE digipeaters
       String.starts_with?(element, "TRACE") ->
-        case element do
-          "TRACE1-1" -> gettext("TRACE1-1 (Trace digipeater, 1 hop)")
-          "TRACE2-1" -> gettext("TRACE2-1 (Trace digipeater, 2 hops)")
-          "TRACE3-1" -> gettext("TRACE3-1 (Trace digipeater, 3 hops)")
-          "TRACE4-1" -> gettext("TRACE4-1 (Trace digipeater, 4 hops)")
-          "TRACE5-1" -> gettext("TRACE5-1 (Trace digipeater, 5 hops)")
-          "TRACE6-1" -> gettext("TRACE6-1 (Trace digipeater, 6 hops)")
-          "TRACE7-1" -> gettext("TRACE7-1 (Trace digipeater, 7 hops)")
-          _ -> gettext("TRACE digipeater (%{element})", element: element)
-        end
+        decode_trace_element(element)
 
       # RELAY digipeaters
       String.starts_with?(element, "RELAY") ->
-        case element do
-          "RELAY" -> gettext("RELAY (Relay digipeater)")
-          "RELAY-1" -> gettext("RELAY-1 (Relay digipeater, 1 hop)")
-          "RELAY-2" -> gettext("RELAY-2 (Relay digipeater, 2 hops)")
-          _ -> gettext("RELAY digipeater (%{element})", element: element)
-        end
-
-      # qAC (APRS-IS connection)
-      element == "qAC" ->
-        "qAC (APRS-IS connection)"
-
-      # qAO (APRS-IS origin)
-      element == "qAO" ->
-        "qAO (APRS-IS origin)"
-
-      # qAR (APRS-IS relay)
-      element == "qAR" ->
-        "qAR (APRS-IS relay)"
-
-      # qAS (APRS-IS server)
-      element == "qAS" ->
-        "qAS (APRS-IS server)"
-
-      # qAX (APRS-IS client)
-      element == "qAX" ->
-        "qAX (APRS-IS client)"
-
-      # qAY (APRS-IS gateway)
-      element == "qAY" ->
-        "qAY (APRS-IS gateway)"
-
-      # qAZ (APRS-IS zone)
-      element == "qAZ" ->
-        "qAZ (APRS-IS zone)"
-
-      # qBU (APRS-IS user)
-      element == "qBU" ->
-        "qBU (APRS-IS user)"
-
-      # qBV (APRS-IS vendor)
-      element == "qBV" ->
-        "qBV (APRS-IS vendor)"
-
-      # qBW (APRS-IS web)
-      element == "qBW" ->
-        "qBW (APRS-IS web)"
-
-      # qBX (APRS-IS experimental)
-      element == "qBX" ->
-        "qBX (APRS-IS experimental)"
-
-      # qBY (APRS-IS Y2K)
-      element == "qBY" ->
-        "qBY (APRS-IS Y2K)"
-
-      # qBZ (APRS-IS Zulu)
-      element == "qBZ" ->
-        "qBZ (APRS-IS Zulu)"
-
-      # qCA (APRS-IS client application)
-      element == "qCA" ->
-        "qCA (APRS-IS client application)"
-
-      # qCB (APRS-IS client browser)
-      element == "qCB" ->
-        "qCB (APRS-IS client browser)"
-
-      # qCC (APRS-IS client console)
-      element == "qCC" ->
-        "qCC (APRS-IS client console)"
-
-      # qCD (APRS-IS client daemon)
-      element == "qCD" ->
-        "qCD (APRS-IS client daemon)"
-
-      # qCE (APRS-IS client editor)
-      element == "qCE" ->
-        "qCE (APRS-IS client editor)"
-
-      # qCF (APRS-IS client filter)
-      element == "qCF" ->
-        "qCF (APRS-IS client filter)"
-
-      # qCG (APRS-IS client gateway)
-      element == "qCG" ->
-        "qCG (APRS-IS client gateway)"
-
-      # qCH (APRS-IS client host)
-      element == "qCH" ->
-        "qCH (APRS-IS client host)"
-
-      # qCI (APRS-IS client interface)
-      element == "qCI" ->
-        "qCI (APRS-IS client interface)"
-
-      # qCJ (APRS-IS client java)
-      element == "qCJ" ->
-        "qCJ (APRS-IS client java)"
-
-      # qCK (APRS-IS client kernel)
-      element == "qCK" ->
-        "qCK (APRS-IS client kernel)"
-
-      # qCL (APRS-IS client library)
-      element == "qCL" ->
-        "qCL (APRS-IS client library)"
-
-      # qCM (APRS-IS client module)
-      element == "qCM" ->
-        "qCM (APRS-IS client module)"
-
-      # qCN (APRS-IS client network)
-      element == "qCN" ->
-        "qCN (APRS-IS client network)"
-
-      # qCO (APRS-IS client object)
-      element == "qCO" ->
-        "qCO (APRS-IS client object)"
-
-      # qCP (APRS-IS client protocol)
-      element == "qCP" ->
-        "qCP (APRS-IS client protocol)"
-
-      # qCQ (APRS-IS client query)
-      element == "qCQ" ->
-        "qCQ (APRS-IS client query)"
-
-      # qCR (APRS-IS client router)
-      element == "qCR" ->
-        "qCR (APRS-IS client router)"
-
-      # qCS (APRS-IS client server)
-      element == "qCS" ->
-        "qCS (APRS-IS client server)"
-
-      # qCT (APRS-IS client terminal)
-      element == "qCT" ->
-        "qCT (APRS-IS client terminal)"
-
-      # qCU (APRS-IS client user)
-      element == "qCU" ->
-        "qCU (APRS-IS client user)"
-
-      # qCV (APRS-IS client vendor)
-      element == "qCV" ->
-        "qCV (APRS-IS client vendor)"
-
-      # qCW (APRS-IS client web)
-      element == "qCW" ->
-        "qCW (APRS-IS client web)"
-
-      # qCX (APRS-IS client experimental)
-      element == "qCX" ->
-        "qCX (APRS-IS client experimental)"
-
-      # qCY (APRS-IS client Y2K)
-      element == "qCY" ->
-        "qCY (APRS-IS client Y2K)"
-
-      # qCZ (APRS-IS client Zulu)
-      element == "qCZ" ->
-        "qCZ (APRS-IS client Zulu)"
+        decode_relay_element(element)
 
       # TCPIP digipeaters
       String.starts_with?(element, "TCPIP") ->
-        case element do
-          "TCPIP" -> gettext("TCPIP (Internet gateway)")
-          "TCPIP*" -> gettext("TCPIP* (Internet gateway, no forward)")
-          _ -> gettext("TCPIP gateway (%{element})", element: element)
-        end
+        decode_tcpip_element(element)
 
       # Generic callsign with SSID (likely a digipeater)
       Regex.match?(~r/^[A-Z0-9]+-\d+$/, element) ->
@@ -920,4 +782,33 @@ defmodule AprsmeWeb.InfoLive.Show do
         gettext("%{element} (Unknown)", element: element)
     end
   end
+
+  defp decode_wide_element("WIDE1-1"), do: gettext("WIDE1-1 (Wide area digipeater, 1 hop)")
+  defp decode_wide_element("WIDE2-1"), do: gettext("WIDE2-1 (Wide area digipeater, 2 hops)")
+  defp decode_wide_element("WIDE3-1"), do: gettext("WIDE3-1 (Wide area digipeater, 3 hops)")
+  defp decode_wide_element("WIDE4-1"), do: gettext("WIDE4-1 (Wide area digipeater, 4 hops)")
+  defp decode_wide_element("WIDE5-1"), do: gettext("WIDE5-1 (Wide area digipeater, 5 hops)")
+  defp decode_wide_element("WIDE6-1"), do: gettext("WIDE6-1 (Wide area digipeater, 6 hops)")
+  defp decode_wide_element("WIDE7-1"), do: gettext("WIDE7-1 (WIDE area digipeater, 7 hops)")
+  defp decode_wide_element("WIDE1-2"), do: gettext("WIDE1-2 (Wide area digipeater, 1 hop, 2nd attempt)")
+  defp decode_wide_element("WIDE2-2"), do: gettext("WIDE2-2 (Wide area digipeater, 2 hops, 2nd attempt)")
+  defp decode_wide_element(element), do: gettext("WIDE digipeater (%{element})", element: element)
+
+  defp decode_trace_element("TRACE1-1"), do: gettext("TRACE1-1 (Trace digipeater, 1 hop)")
+  defp decode_trace_element("TRACE2-1"), do: gettext("TRACE2-1 (Trace digipeater, 2 hops)")
+  defp decode_trace_element("TRACE3-1"), do: gettext("TRACE3-1 (Trace digipeater, 3 hops)")
+  defp decode_trace_element("TRACE4-1"), do: gettext("TRACE4-1 (Trace digipeater, 4 hops)")
+  defp decode_trace_element("TRACE5-1"), do: gettext("TRACE5-1 (Trace digipeater, 5 hops)")
+  defp decode_trace_element("TRACE6-1"), do: gettext("TRACE6-1 (Trace digipeater, 6 hops)")
+  defp decode_trace_element("TRACE7-1"), do: gettext("TRACE7-1 (Trace digipeater, 7 hops)")
+  defp decode_trace_element(element), do: gettext("TRACE digipeater (%{element})", element: element)
+
+  defp decode_relay_element("RELAY"), do: gettext("RELAY (Relay digipeater)")
+  defp decode_relay_element("RELAY-1"), do: gettext("RELAY-1 (Relay digipeater, 1 hop)")
+  defp decode_relay_element("RELAY-2"), do: gettext("RELAY-2 (Relay digipeater, 2 hops)")
+  defp decode_relay_element(element), do: gettext("RELAY digipeater (%{element})", element: element)
+
+  defp decode_tcpip_element("TCPIP"), do: gettext("TCPIP (Internet gateway)")
+  defp decode_tcpip_element("TCPIP*"), do: gettext("TCPIP* (Internet gateway, no forward)")
+  defp decode_tcpip_element(element), do: gettext("TCPIP gateway (%{element})", element: element)
 end
