@@ -8,6 +8,8 @@ defmodule Aprsme.CleanupScheduler do
 
   use GenServer
 
+  alias Aprsme.Workers.PacketCleanupWorker
+
   require Logger
 
   def start_link(opts) do
@@ -38,7 +40,7 @@ defmodule Aprsme.CleanupScheduler do
     # Run cleanup directly in a supervised task
     Task.start(fn ->
       try do
-        Aprsme.Workers.PacketCleanupWorker.perform(%{})
+        PacketCleanupWorker.perform(%{})
       rescue
         error ->
           Logger.error("Packet cleanup task failed: #{inspect(error)}")

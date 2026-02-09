@@ -6,6 +6,7 @@ defmodule Aprsme.Cluster.PacketReceiver do
   """
   use GenServer
 
+  alias Aprsme.Cluster.LeaderElection
   alias Aprsme.Cluster.PacketDistributor
 
   require Logger
@@ -27,7 +28,7 @@ defmodule Aprsme.Cluster.PacketReceiver do
   @impl true
   def handle_info({:distributed_packet, packet}, state) do
     # Only process if we're not the leader (leader already processed locally)
-    if !Aprsme.Cluster.LeaderElection.leader?() do
+    if !LeaderElection.leader?() do
       PacketDistributor.handle_distributed_packet({:distributed_packet, packet})
     end
 

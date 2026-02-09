@@ -6,6 +6,8 @@ defmodule AprsmeWeb.Plugs.HealthCheck do
 
   import Plug.Conn
 
+  alias Ecto.Adapters.SQL
+
   require Logger
 
   def init(opts), do: opts
@@ -75,7 +77,7 @@ defmodule AprsmeWeb.Plugs.HealthCheck do
   end
 
   defp check_database_connection do
-    case Ecto.Adapters.SQL.query(Aprsme.Repo, "SELECT 1", [], timeout: 1000) do
+    case SQL.query(Aprsme.Repo, "SELECT 1", [], timeout: 1000) do
       {:ok, _} -> :ok
       _ -> {:error, "Database connection failed"}
     end

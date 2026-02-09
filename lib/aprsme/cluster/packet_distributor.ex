@@ -4,6 +4,9 @@ defmodule Aprsme.Cluster.PacketDistributor do
   This ensures all nodes can serve real-time updates via LiveView while
   only the leader maintains the APRS-IS connection.
   """
+  alias Aprsme.Cluster.LeaderElection
+  alias AprsmeWeb.MapLive.PacketStore
+
   require Logger
 
   @pubsub_topic "cluster:packets"
@@ -12,7 +15,7 @@ defmodule Aprsme.Cluster.PacketDistributor do
     # Only distribute if clustering is enabled and we're the leader
     cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
 
-    if cluster_enabled and Aprsme.Cluster.LeaderElection.leader?() do
+    if cluster_enabled and LeaderElection.leader?() do
       # Broadcast to all nodes including self
       Phoenix.PubSub.broadcast(
         Aprsme.PubSub,
@@ -33,7 +36,7 @@ defmodule Aprsme.Cluster.PacketDistributor do
     Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
 
     # Update packet store for LiveView
-    AprsmeWeb.MapLive.PacketStore.store_packet(packet)
+    PacketStore.store_packet(packet)
 
     Logger.debug("Received distributed packet on node #{node()}")
   end

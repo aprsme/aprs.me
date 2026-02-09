@@ -6,6 +6,7 @@ defmodule Aprsme.PacketConsumer do
   use GenStage
 
   alias Aprs.Types.ParseError
+  alias Aprsme.Cluster.PacketDistributor
   alias Aprsme.LogSanitizer
   alias Aprsme.Repo
 
@@ -346,7 +347,7 @@ defmodule Aprsme.PacketConsumer do
 
           if cluster_enabled do
             # Use cluster distributor to broadcast to all nodes
-            Aprsme.Cluster.PacketDistributor.distribute_packet(packet)
+            PacketDistributor.distribute_packet(packet)
           else
             # Normal single-node broadcasting
             Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)

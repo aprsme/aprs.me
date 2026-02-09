@@ -4,6 +4,8 @@ defmodule AprsmeWeb.StatusLive.Index do
   """
   use AprsmeWeb, :live_view
 
+  alias Aprsme.Cluster.LeaderElection
+
   require Logger
 
   # 5 seconds - reduced from 1 second to improve performance
@@ -383,7 +385,7 @@ defmodule AprsmeWeb.StatusLive.Index do
   # Private functions
 
   defp get_aprs_status do
-    Aprsme.Cluster.LeaderElection.get_cluster_aprs_status()
+    LeaderElection.get_cluster_aprs_status()
   rescue
     error ->
       require Logger

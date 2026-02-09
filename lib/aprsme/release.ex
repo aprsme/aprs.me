@@ -3,6 +3,8 @@ defmodule Aprsme.Release do
   Used for executing DB release tasks when run in production without Mix
   installed.
   """
+  alias Ecto.Adapters.SQL
+
   @app :aprsme
 
   def migrate do
@@ -156,7 +158,9 @@ defmodule Aprsme.Release do
         Aprsme.Repo,
         fn repo ->
           # Set session-level timeout for this connection
-          Ecto.Adapters.SQL.query!(repo, "SET statement_timeout = '#{div(timeout, 1000)}s'")
+          # credo:disable-for-next-line
+          # sobelow_skip ["SQL.Query"]
+          SQL.query!(repo, "SET statement_timeout = '#{div(timeout, 1000)}s'")
           Ecto.Migrator.run(repo, :up, all: true)
         end,
         timeout: timeout
