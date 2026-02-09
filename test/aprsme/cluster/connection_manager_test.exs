@@ -79,7 +79,7 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
       # Start a minimal LeaderElection to prevent crashes
       Application.put_env(:aprsme, :cluster_enabled, false)
       {:ok, _} = LeaderElection.start_link([])
-      Process.sleep(200)
+      Process.sleep(150)
       :ok
     end
 
@@ -94,7 +94,7 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
       )
 
       # Give time for message processing
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Process should still be alive after receiving message
       assert Process.whereis(ConnectionManager)
@@ -103,8 +103,8 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
     test "schedules initial state check" do
       {:ok, pid} = ConnectionManager.start_link([])
 
-      # Should receive :check_initial_state message after init
-      Process.sleep(1100)
+      # With delay set to 0 in test config, the check fires immediately
+      Process.sleep(50)
 
       # Process should still be alive
       assert Process.alive?(pid)
@@ -116,8 +116,8 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
       # Start LeaderElection in non-clustered mode so it becomes leader
       Application.put_env(:aprsme, :cluster_enabled, false)
       {:ok, _} = LeaderElection.start_link([])
-      # Wait for election
-      Process.sleep(200)
+      # Wait for election (100ms timer + processing)
+      Process.sleep(150)
 
       # Start ConnectionManager
       {:ok, pid} = ConnectionManager.start_link([])
@@ -127,20 +127,16 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
     test "handles initial state check when leader", %{pid: pid} do
       # Send initial state check
       send(pid, :check_initial_state)
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Should handle without crashing
       assert Process.alive?(pid)
     end
 
     test "handles initial state check when not leader", %{pid: pid} do
-      # ConnectionManager will check with LeaderElection
-      # In test environment, it will get that it's the leader
-      # This is OK - we're just testing that it handles the check without crashing
-
       # Send initial state check
       send(pid, :check_initial_state)
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Should handle without crashing
       assert Process.alive?(pid)
@@ -152,18 +148,18 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
       # Ensure LeaderElection is started
       Application.put_env(:aprsme, :cluster_enabled, false)
       {:ok, _} = LeaderElection.start_link([])
-      Process.sleep(200)
+      Process.sleep(150)
 
       {:ok, pid} = ConnectionManager.start_link([])
-      # Wait for initial check
-      Process.sleep(1100)
+      # With delay=0, initial check fires immediately; just wait for processing
+      Process.sleep(50)
       {:ok, pid: pid}
     end
 
     test "starts connection when becoming leader", %{pid: pid} do
       # Send leadership change - this node became leader
       send(pid, {:leadership_change, node(), true})
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Should handle the message without crashing
       assert Process.alive?(pid)
@@ -172,11 +168,11 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
     test "stops connection when losing leadership", %{pid: pid} do
       # First become leader and start connection
       send(pid, {:leadership_change, node(), true})
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Then lose leadership
       send(pid, {:leadership_change, node(), false})
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Should handle the message without crashing
       assert Process.alive?(pid)
@@ -187,7 +183,7 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
 
       # Send leadership change for another node
       send(pid, {:leadership_change, other_node, true})
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Should not affect this node
       assert Process.alive?(pid)
@@ -196,10 +192,10 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
     test "does not start connection twice", %{pid: pid} do
       # Become leader twice
       send(pid, {:leadership_change, node(), true})
-      Process.sleep(100)
+      Process.sleep(50)
 
       send(pid, {:leadership_change, node(), true})
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Should handle duplicate leadership without issues
       assert Process.alive?(pid)
@@ -211,20 +207,18 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
       # Ensure LeaderElection is started
       Application.put_env(:aprsme, :cluster_enabled, false)
       {:ok, _} = LeaderElection.start_link([])
-      Process.sleep(200)
+      Process.sleep(150)
 
       {:ok, pid} = ConnectionManager.start_link([])
-      Process.sleep(1100)
+      # With delay=0, initial check fires immediately; just wait for processing
+      Process.sleep(50)
       {:ok, pid: pid}
     end
 
     test "handles IsSupervisor already started error", %{pid: pid} do
-      # The APRS-IS connection is disabled in test environment,
-      # but we can still test that the ConnectionManager handles errors gracefully
-
       # Try to become leader
       send(pid, {:leadership_change, node(), true})
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Should handle gracefully even if IsSupervisor fails to start
       assert Process.alive?(pid)
@@ -239,12 +233,9 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
         end
       end
 
-      # Temporarily replace the module reference
-      # This test is more conceptual as we can't easily mock module references
-
       # Send leadership change
       send(pid, {:leadership_change, node(), true})
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Should handle failure gracefully
       assert Process.alive?(pid)
@@ -256,26 +247,26 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
       # Ensure LeaderElection is started
       Application.put_env(:aprsme, :cluster_enabled, false)
       {:ok, _} = LeaderElection.start_link([])
-      Process.sleep(200)
+      Process.sleep(150)
 
       {:ok, pid} = ConnectionManager.start_link([])
       {:ok, pid: pid}
     end
 
     test "full lifecycle - become leader, lose leadership", %{pid: pid} do
-      # Wait for initial check
-      Process.sleep(1100)
+      # With delay=0, initial check fires immediately; just wait for processing
+      Process.sleep(50)
 
       # Become leader
       send(pid, {:leadership_change, node(), true})
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Verify connection started (check state indirectly)
       assert Process.alive?(pid)
 
       # Lose leadership
       send(pid, {:leadership_change, node(), false})
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Verify still alive after stopping connection
       assert Process.alive?(pid)

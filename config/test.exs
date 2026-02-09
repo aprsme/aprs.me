@@ -43,6 +43,9 @@ config :aprsme, AprsmeWeb.Telemetry, enabled: false
 # Disable cleanup scheduler in test environment
 config :aprsme, :cleanup_scheduler, enabled: false
 
+# Speed up ConnectionManager init in test environment
+config :aprsme, :connection_manager_init_delay, 0
+
 # Disable initialize replay delay in test environment
 config :aprsme, :initialize_replay_delay, 0
 

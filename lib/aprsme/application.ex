@@ -53,6 +53,14 @@ defmodule Aprsme.Application do
       Aprsme.PacketPipelineSupervisor
     ]
 
+    # Skip packet pipeline in test to avoid Sandbox ownership errors
+    children =
+      if Application.get_env(:aprsme, :env) == :test do
+        List.delete(children, Aprsme.PacketPipelineSupervisor)
+      else
+        children
+      end
+
     children = children ++ redis_children()
 
     # Add shutdown handlers at the end, after everything else is started

@@ -65,6 +65,16 @@ defmodule Aprsme.LogSanitizer do
   @doc """
   Sanitize any data structure recursively
   """
+  def sanitize(%{__struct__: _} = data) when is_exception(data) do
+    sanitize_string(Exception.message(data))
+  end
+
+  def sanitize(%{__struct__: _} = data) do
+    data
+    |> Map.from_struct()
+    |> sanitize()
+  end
+
   def sanitize(data) when is_map(data) do
     data
     |> sanitize_map()

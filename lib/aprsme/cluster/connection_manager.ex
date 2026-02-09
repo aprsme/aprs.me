@@ -20,14 +20,15 @@ defmodule Aprsme.Cluster.ConnectionManager do
     Phoenix.PubSub.subscribe(Aprsme.PubSub, "cluster:leadership")
 
     # Check initial leadership state
-    Process.send_after(self(), :check_initial_state, 1000)
+    delay = Application.get_env(:aprsme, :connection_manager_init_delay, 1000)
+    Process.send_after(self(), :check_initial_state, delay)
 
     {:ok, %{connection_started: false}}
   end
 
   @impl true
   def handle_info(:check_initial_state, state) do
-    if LeaderElection.leader?() do
+    if leader_check() do
       Logger.info("This node is the leader, starting APRS-IS connection")
       start_aprs_connection()
       {:noreply, %{state | connection_started: true}}
@@ -53,6 +54,12 @@ defmodule Aprsme.Cluster.ConnectionManager do
       true ->
         {:noreply, state}
     end
+  end
+
+  defp leader_check do
+    LeaderElection.leader?()
+  catch
+    :exit, _ -> false
   end
 
   defp start_aprs_connection do

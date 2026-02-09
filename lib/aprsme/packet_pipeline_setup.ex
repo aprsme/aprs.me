@@ -21,14 +21,27 @@ defmodule Aprsme.PacketPipelineSetup do
     config = Application.get_env(:aprsme, :packet_pipeline, [])
     max_demand = config[:max_demand] || 50
 
-    case GenStage.sync_subscribe(Aprsme.PacketConsumer, to: Aprsme.PacketProducer, max_demand: max_demand) do
-      {:ok, _subscription} ->
-        require Logger
+    try do
+      case GenStage.sync_subscribe(Aprsme.PacketConsumer,
+             to: Aprsme.PacketProducer,
+             max_demand: max_demand
+           ) do
+        {:ok, _subscription} ->
+          require Logger
 
-        Logger.info("GenStage packet pipeline subscription established")
-        {:noreply, state}
+          Logger.info("GenStage packet pipeline subscription established")
+          {:noreply, state}
 
-      {:error, reason} ->
+        {:error, reason} ->
+          require Logger
+
+          Logger.error("Failed to establish GenStage subscription: #{inspect(reason)}")
+          # Retry after a delay
+          Process.send_after(self(), :setup_subscription, 1000)
+          {:noreply, state}
+      end
+    catch
+      :exit, reason ->
         require Logger
 
         Logger.error("Failed to establish GenStage subscription: #{inspect(reason)}")
