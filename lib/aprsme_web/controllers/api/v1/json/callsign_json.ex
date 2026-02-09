@@ -111,10 +111,7 @@ defmodule AprsmeWeb.Api.V1.CallsignJSON do
       |> maybe_add(:device_identifier, packet.device_identifier)
       |> maybe_add(:manufacturer, packet.manufacturer)
       |> maybe_add(:equipment_type, packet.equipment_type)
-      |> maybe_add(:device_model, device && device.model)
-      |> maybe_add(:device_vendor, device && device.vendor)
-      |> maybe_add(:device_contact, device && device.contact)
-      |> maybe_add(:device_class, device && device.class)
+      |> add_device_attributes(device)
 
     case equipment_data do
       empty when empty == %{} -> nil
@@ -144,4 +141,12 @@ defmodule AprsmeWeb.Api.V1.CallsignJSON do
   end
 
   defp sanitize_raw_packet(raw_packet), do: raw_packet
+
+  defp add_device_attributes(equipment_data, device) do
+    equipment_data
+    |> maybe_add(:device_model, device && device.model)
+    |> maybe_add(:device_vendor, device && device.vendor)
+    |> maybe_add(:device_contact, device && device.contact)
+    |> maybe_add(:device_class, device && device.class)
+  end
 end
