@@ -92,38 +92,35 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
   defp should_update_weather?(nil, _new_packet), do: true
 
   defp should_update_weather?(current_packet, new_packet) do
-    # Only update if the new packet is actually newer
-    # Handle both atom and string keys
     new_received_at = Map.get(new_packet, :received_at) || Map.get(new_packet, "received_at")
     current_received_at = Map.get(current_packet, :received_at) || Map.get(current_packet, "received_at")
 
-    case {new_received_at, current_received_at} do
-      {nil, _} ->
-        false
+    compare_timestamps(new_received_at, current_received_at)
+  end
 
-      {_, nil} ->
-        true
+  defp compare_timestamps(nil, _), do: false
+  defp compare_timestamps(_, nil), do: true
 
-      {new_time, current_time} when is_binary(new_time) and is_binary(current_time) ->
-        new_time > current_time
+  defp compare_timestamps(new_time, current_time) when is_binary(new_time) and is_binary(current_time) do
+    new_time > current_time
+  end
 
-      {new_time, current_time} when is_binary(new_time) ->
-        # Parse string timestamp and compare
-        case DateTime.from_iso8601(new_time <> "Z") do
-          {:ok, new_dt, _} -> DateTime.after?(new_dt, current_time)
-          _ -> false
-        end
-
-      {new_time, current_time} when is_binary(current_time) ->
-        # Parse string timestamp and compare
-        case DateTime.from_iso8601(current_time <> "Z") do
-          {:ok, current_dt, _} -> DateTime.after?(new_time, current_dt)
-          _ -> true
-        end
-
-      {new_time, current_time} ->
-        DateTime.after?(new_time, current_time)
+  defp compare_timestamps(new_time, current_time) when is_binary(new_time) do
+    case DateTime.from_iso8601(new_time <> "Z") do
+      {:ok, new_dt, _} -> DateTime.after?(new_dt, current_time)
+      _ -> false
     end
+  end
+
+  defp compare_timestamps(new_time, current_time) when is_binary(current_time) do
+    case DateTime.from_iso8601(current_time <> "Z") do
+      {:ok, current_dt, _} -> DateTime.after?(new_time, current_dt)
+      _ -> true
+    end
+  end
+
+  defp compare_timestamps(new_time, current_time) do
+    DateTime.after?(new_time, current_time)
   end
 
   defp update_weather_data(socket) do
@@ -246,46 +243,42 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
     value = PacketUtils.get_weather_field(packet, key)
 
     case value do
-      "N/A" ->
-        nil
-
-      nil ->
+      v when v == "N/A" or is_nil(v) ->
         nil
 
       value when is_binary(value) ->
-        case @weather_formatters[key] do
-          {formatter, separator} ->
-            {converted_value, unit} = formatter.(value, locale)
-            "#{converted_value}#{separator}#{unit}"
-
-          nil ->
-            "#{value}"
-        end
-
-        case @weather_formatters[key] do
-          {formatter, separator} ->
-            case Float.parse(value) do
-              {num_value, _} ->
-                {converted_value, unit} = formatter.(num_value, locale)
-                "#{converted_value}#{separator}#{unit}"
-
-              :error ->
-                nil
-            end
-
-          nil ->
-            "#{value}"
-        end
+        format_string_value(value, key, locale)
 
       value when is_number(value) ->
-        case @weather_formatters[key] do
-          {formatter, separator} ->
-            {converted_value, unit} = formatter.(value, locale)
+        format_numeric_value(value, key, locale)
+    end
+  end
+
+  defp format_string_value(value, key, locale) do
+    case @weather_formatters[key] do
+      {formatter, separator} ->
+        case Float.parse(value) do
+          {num_value, _} ->
+            {converted_value, unit} = formatter.(num_value, locale)
             "#{converted_value}#{separator}#{unit}"
 
-          nil ->
-            "#{value}"
+          :error ->
+            nil
         end
+
+      nil ->
+        "#{value}"
+    end
+  end
+
+  defp format_numeric_value(value, key, locale) do
+    case @weather_formatters[key] do
+      {formatter, separator} ->
+        {converted_value, unit} = formatter.(value, locale)
+        "#{converted_value}#{separator}#{unit}"
+
+      nil ->
+        "#{value}"
     end
   end
 end
