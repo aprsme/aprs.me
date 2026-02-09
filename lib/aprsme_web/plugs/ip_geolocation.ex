@@ -128,30 +128,35 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
   end
 
   defp valid_ip_for_geolocation?(ip) when is_binary(ip) do
-    # Skip local/private IPs
-    not (String.starts_with?(ip, "127.") or
-           String.starts_with?(ip, "::1") or
-           String.starts_with?(ip, "10.") or
-           String.starts_with?(ip, "172.16.") or
-           String.starts_with?(ip, "172.17.") or
-           String.starts_with?(ip, "172.18.") or
-           String.starts_with?(ip, "172.19.") or
-           String.starts_with?(ip, "172.20.") or
-           String.starts_with?(ip, "172.21.") or
-           String.starts_with?(ip, "172.22.") or
-           String.starts_with?(ip, "172.23.") or
-           String.starts_with?(ip, "172.24.") or
-           String.starts_with?(ip, "172.25.") or
-           String.starts_with?(ip, "172.26.") or
-           String.starts_with?(ip, "172.27.") or
-           String.starts_with?(ip, "172.28.") or
-           String.starts_with?(ip, "172.29.") or
-           String.starts_with?(ip, "172.30.") or
-           String.starts_with?(ip, "172.31.") or
-           String.starts_with?(ip, "192.168."))
+    not is_private_ip?(ip)
   end
 
   defp valid_ip_for_geolocation?(_), do: false
+
+  defp is_private_ip?(ip) do
+    cond do
+      String.starts_with?(ip, "127.") -> true
+      String.starts_with?(ip, "::1") -> true
+      String.starts_with?(ip, "10.") -> true
+      String.starts_with?(ip, "192.168.") -> true
+      String.starts_with?(ip, "172.") -> is_172_private_range?(ip)
+      true -> false
+    end
+  end
+
+  # Check if IP is in 172.16.0.0/12 range (172.16.0.0 - 172.31.255.255)
+  defp is_172_private_range?(ip) do
+    case String.split(ip, ".") do
+      ["172", second_octet | _] ->
+        case Integer.parse(second_octet) do
+          {num, _} when num >= 16 and num <= 31 -> true
+          _ -> false
+        end
+
+      _ ->
+        false
+    end
+  end
 
   defp fetch_ip_location(ip) do
     url = "http://ip-api.com/json/#{ip}"
