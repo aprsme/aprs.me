@@ -118,10 +118,20 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
     from p in Aprsme.Packet,
       where: p.sender == ^callsign,
       where:
-        not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
-          not is_nil(p.wind_direction) or not is_nil(p.wind_speed) or not is_nil(p.wind_gust) or
-          not is_nil(p.rain_1h) or not is_nil(p.rain_24h) or not is_nil(p.rain_midnight) or
-          not is_nil(p.luminosity) or not is_nil(p.snow_24h),
+        fragment(
+          "? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL",
+          p.temperature,
+          p.humidity,
+          p.pressure,
+          p.wind_direction,
+          p.wind_speed,
+          p.wind_gust,
+          p.rain_1h,
+          p.rain_24h,
+          p.rain_midnight,
+          p.luminosity,
+          p.snow_24h
+        ),
       select: fragment("1"),
       limit: 1
   end

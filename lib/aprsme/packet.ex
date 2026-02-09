@@ -455,13 +455,13 @@ defmodule Aprsme.Packet do
   defp put_equipment_fields(map, data_extended) do
     # Extract altitude from comment if not already in data_extended
     altitude =
-      data_extended[:altitude] || data_extended["altitude"] ||
-        extract_altitude_from_comment(data_extended[:comment] || data_extended["comment"])
+      get_field_value(data_extended, :altitude) ||
+        extract_altitude_from_comment(get_field_value(data_extended, :comment))
 
     # Extract PHG from comment if not already in data_extended
     phg =
-      data_extended[:phg] || data_extended["phg"] ||
-        extract_phg_from_comment(data_extended[:comment] || data_extended["comment"])
+      get_field_value(data_extended, :phg) ||
+        extract_phg_from_comment(get_field_value(data_extended, :comment))
 
     # Update data_extended with extracted values
     data_extended =
@@ -470,28 +470,25 @@ defmodule Aprsme.Packet do
       |> Map.put(:phg, phg)
 
     map
-    |> maybe_put(:manufacturer, data_extended[:manufacturer] || data_extended["manufacturer"])
-    |> maybe_put(
-      :equipment_type,
-      data_extended[:equipment_type] || data_extended["equipment_type"]
-    )
-    |> maybe_put(:course, data_extended[:course] || data_extended["course"])
-    |> maybe_put(:speed, data_extended[:speed] || data_extended["speed"])
+    |> maybe_put(:manufacturer, get_field_value(data_extended, :manufacturer))
+    |> maybe_put(:equipment_type, get_field_value(data_extended, :equipment_type))
+    |> maybe_put(:course, get_field_value(data_extended, :course))
+    |> maybe_put(:speed, get_field_value(data_extended, :speed))
     |> maybe_put(:altitude, altitude)
     # Don't add :phg to the map - it will be split into individual fields by put_phg_fields
     |> put_phg_fields(data_extended)
   end
 
   defp put_phg_fields(map, data_extended) do
-    phg = data_extended[:phg] || data_extended["phg"]
+    phg = get_field_value(data_extended, :phg)
 
     cond do
       phg && is_map(phg) ->
         map
-        |> maybe_put(:phg_power, phg[:power] || phg["power"])
-        |> maybe_put(:phg_height, phg[:height] || phg["height"])
-        |> maybe_put(:phg_gain, phg[:gain] || phg["gain"])
-        |> maybe_put(:phg_directivity, phg[:directivity] || phg["directivity"])
+        |> maybe_put(:phg_power, get_field_value(phg, :power))
+        |> maybe_put(:phg_height, get_field_value(phg, :height))
+        |> maybe_put(:phg_gain, get_field_value(phg, :gain))
+        |> maybe_put(:phg_directivity, get_field_value(phg, :directivity))
 
       phg && is_binary(phg) && String.length(phg) == 4 ->
         # Handle new string format from improved parser (e.g., "1060")
@@ -867,20 +864,27 @@ defmodule Aprsme.Packet do
   # Extract standard parser compatibility fields
   defp put_standard_parser_fields(map, data) do
     map
-    |> maybe_put(:srccallsign, data[:srccallsign] || data["srccallsign"])
-    |> maybe_put(:dstcallsign, data[:dstcallsign] || data["dstcallsign"])
-    |> maybe_put(:body, data[:body] || data["body"])
-    |> maybe_put(:origpacket, data[:origpacket] || data["origpacket"])
-    |> maybe_put(:header, data[:header] || data["header"])
-    |> maybe_put(:alive, data[:alive] || data["alive"])
-    |> maybe_put(:posambiguity, data[:posambiguity] || data["posambiguity"])
-    |> maybe_put(:symboltable, data[:symboltable] || data["symboltable"])
-    |> maybe_put(:symbolcode, data[:symbolcode] || data["symbolcode"])
-    |> maybe_put(:messaging, data[:messaging] || data["messaging"])
+    |> maybe_put(:srccallsign, get_field_value(data, :srccallsign))
+    |> maybe_put(:dstcallsign, get_field_value(data, :dstcallsign))
+    |> maybe_put(:body, get_field_value(data, :body))
+    |> maybe_put(:origpacket, get_field_value(data, :origpacket))
+    |> maybe_put(:header, get_field_value(data, :header))
+    |> maybe_put(:alive, get_field_value(data, :alive))
+    |> maybe_put(:posambiguity, get_field_value(data, :posambiguity))
+    |> maybe_put(:symboltable, get_field_value(data, :symboltable))
+    |> maybe_put(:symbolcode, get_field_value(data, :symbolcode))
+    |> maybe_put(:messaging, get_field_value(data, :messaging))
   end
 
   # Extract radio range field
   defp put_radio_range_field(map, data) do
-    maybe_put(map, :radiorange, data[:radiorange] || data["radiorange"])
+    maybe_put(map, :radiorange, get_field_value(data, :radiorange))
   end
+
+  # Helper to get field value from either atom or string key
+  defp get_field_value(data, field) when is_map(data) do
+    data[field] || data[to_string(field)]
+  end
+
+  defp get_field_value(_, _), do: nil
 end
