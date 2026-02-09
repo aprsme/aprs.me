@@ -98,17 +98,18 @@ defmodule Aprsme.PacketsTest do
       assert bad_packet.error_type == "ValidationError"
     end
 
-    test "handles storage exceptions" do
-      # Create invalid data that will cause an exception
+    test "handles invalid data types gracefully" do
+      # Create invalid data with wrong type for data_extended
       packet_data = %{
         sender: "TEST4",
         destination: "APRS",
         raw_packet: "TEST4>APRS:Invalid",
-        # This will cause an exception when trying to extract position
+        # Invalid: data_extended should be a map, not a string
         data_extended: "invalid_data_extended"
       }
 
-      assert {:error, :storage_exception} = Packets.store_packet(packet_data)
+      # Should return validation error due to missing required fields
+      assert {:error, :validation_error} = Packets.store_packet(packet_data)
     end
 
     test "normalizes SSID to string" do

@@ -134,26 +134,30 @@ defmodule Aprsme.DeviceCache do
 
   defp find_matching_device(devices, identifier) do
     Enum.find(devices, fn device ->
-      pattern = device.identifier
-
-      cond do
-        String.contains?(pattern, "?") ->
-          # Use cached regex compilation
-          regex_pattern = wildcard_pattern_to_regex_string(pattern)
-
-          case Aprsme.RegexCache.get_or_compile(regex_pattern) do
-            {:ok, regex} -> Regex.match?(regex, identifier)
-            {:error, _} -> false
-          end
-
-        String.contains?(pattern, "*") ->
-          # Compare literally if pattern contains * but not ?
-          pattern == identifier
-
-        true ->
-          pattern == identifier
-      end
+      pattern_matches?(device.identifier, identifier)
     end)
+  end
+
+  defp pattern_matches?(pattern, identifier) do
+    cond do
+      String.contains?(pattern, "?") ->
+        matches_wildcard_pattern?(pattern, identifier)
+
+      String.contains?(pattern, "*") ->
+        pattern == identifier
+
+      true ->
+        pattern == identifier
+    end
+  end
+
+  defp matches_wildcard_pattern?(pattern, identifier) do
+    regex_pattern = wildcard_pattern_to_regex_string(pattern)
+
+    case Aprsme.RegexCache.get_or_compile(regex_pattern) do
+      {:ok, regex} -> Regex.match?(regex, identifier)
+      {:error, _} -> false
+    end
   end
 
   # Converts a pattern with ? wildcards to a regex string (for caching)

@@ -258,21 +258,27 @@ defmodule Aprsme.SpatialPubSub do
     grid_cells = get_intersecting_grid_cells(bounds)
 
     Enum.reduce(grid_cells, state, fn grid_key, acc_state ->
-      case Map.get(acc_state.spatial_index, grid_key) do
-        nil ->
-          acc_state
-
-        set ->
-          new_set = MapSet.delete(set, client_id)
-
-          if MapSet.size(new_set) == 0 do
-            # Remove the key entirely instead of storing nil
-            update_in(acc_state, [:spatial_index], &Map.delete(&1, grid_key))
-          else
-            put_in(acc_state, [:spatial_index, grid_key], new_set)
-          end
-      end
+      remove_client_from_grid_cell(acc_state, grid_key, client_id)
     end)
+  end
+
+  defp remove_client_from_grid_cell(state, grid_key, client_id) do
+    case Map.get(state.spatial_index, grid_key) do
+      nil ->
+        state
+
+      set ->
+        new_set = MapSet.delete(set, client_id)
+        update_grid_cell_after_removal(state, grid_key, new_set)
+    end
+  end
+
+  defp update_grid_cell_after_removal(state, grid_key, new_set) do
+    if MapSet.size(new_set) == 0 do
+      update_in(state, [:spatial_index], &Map.delete(&1, grid_key))
+    else
+      put_in(state, [:spatial_index, grid_key], new_set)
+    end
   end
 
   defp get_intersecting_grid_cells(%{north: n, south: s, east: e, west: w}) do
@@ -289,22 +295,27 @@ defmodule Aprsme.SpatialPubSub do
   end
 
   defp find_clients_for_location(state, lat, lon) do
-    # Get the grid cell for this location
     grid_key = {floor(lat / @grid_size), floor(lon / @grid_size)}
 
-    # Get all clients in this grid cell
     case Map.get(state.spatial_index, grid_key) do
       nil ->
         []
 
       client_set ->
-        # Filter to only clients whose bounds actually contain the point
-        Enum.filter(client_set, fn client_id ->
-          case Map.get(state.clients, client_id) do
-            %{bounds: bounds} -> point_in_bounds?(lat, lon, bounds)
-            _ -> false
-          end
-        end)
+        filter_clients_by_bounds(state, client_set, lat, lon)
+    end
+  end
+
+  defp filter_clients_by_bounds(state, client_set, lat, lon) do
+    Enum.filter(client_set, fn client_id ->
+      client_contains_point?(state, client_id, lat, lon)
+    end)
+  end
+
+  defp client_contains_point?(state, client_id, lat, lon) do
+    case Map.get(state.clients, client_id) do
+      %{bounds: bounds} -> point_in_bounds?(lat, lon, bounds)
+      _ -> false
     end
   end
 

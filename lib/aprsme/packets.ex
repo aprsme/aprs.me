@@ -223,25 +223,7 @@ defmodule Aprsme.Packets do
 
   defp insert_packet(attrs, _packet_data) do
     # Ensure data_extended is properly sanitized before insertion
-    attrs =
-      if attrs[:data_extended] do
-        sanitized_extended = Aprsme.EncodingUtils.sanitize_data_extended(attrs[:data_extended])
-        # Double-check all values are sanitized
-        # Only do additional sanitization for plain maps, not structs
-        sanitized_extended =
-          if is_struct(sanitized_extended) do
-            sanitized_extended
-          else
-            Enum.reduce(sanitized_extended, %{}, fn {k, v}, acc ->
-              sanitized_value = if is_binary(v), do: Aprsme.EncodingUtils.sanitize_string(v), else: v
-              Map.put(acc, k, sanitized_value)
-            end)
-          end
-
-        Map.put(attrs, :data_extended, sanitized_extended)
-      else
-        attrs
-      end
+    attrs = sanitize_data_extended_attr(attrs)
 
     # Debug log to see what we're trying to insert
     if attrs[:data_extended] do
@@ -269,6 +251,27 @@ defmodule Aprsme.Packets do
     exception ->
       {:error, {:storage_exception, exception}}
   end
+
+  defp sanitize_data_extended_attr(attrs) do
+    if attrs[:data_extended] do
+      sanitized_extended = Aprsme.EncodingUtils.sanitize_data_extended(attrs[:data_extended])
+      sanitized_extended = deep_sanitize_map(sanitized_extended)
+      Map.put(attrs, :data_extended, sanitized_extended)
+    else
+      attrs
+    end
+  end
+
+  defp deep_sanitize_map(data) when is_struct(data), do: data
+
+  defp deep_sanitize_map(data) when is_map(data) do
+    Enum.reduce(data, %{}, fn {k, v}, acc ->
+      sanitized_value = if is_binary(v), do: Aprsme.EncodingUtils.sanitize_string(v), else: v
+      Map.put(acc, k, sanitized_value)
+    end)
+  end
+
+  defp deep_sanitize_map(data), do: data
 
   @doc """
   Stores a bad packet in the database.
