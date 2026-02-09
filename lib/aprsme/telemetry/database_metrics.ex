@@ -5,123 +5,99 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
   require Logger
 
   def collect_db_pool_metrics do
-    # Get pool configuration
     pool_size = Application.get_env(:aprsme, Aprsme.Repo)[:pool_size] || 10
 
-    # Try to get pool metrics using Ecto's telemetry
-    # First, let's check if the repo is started
     case Process.whereis(Aprsme.Repo) do
-      nil ->
-        # Repo not started, report zeros
-        :telemetry.execute(
-          [:aprsme, :repo, :pool],
-          %{
-            size: pool_size,
-            idle: 0,
-            busy: 0,
-            available: 0,
-            queue_length: 0,
-            total: 0
-          },
-          %{}
-        )
-
-      repo_pid when is_pid(repo_pid) ->
-        # Get the pool metrics from DBConnection
-        # The pool supervisor is typically a child of the repo
-        case Supervisor.which_children(repo_pid) do
-          children when is_list(children) ->
-            # Find the DBConnection child
-            pool_info =
-              Enum.find(children, fn
-                {DBConnection.ConnectionPool, _, _, _} -> true
-                # In test mode
-                {DBConnection.Ownership, _, _, _} -> true
-                _ -> false
-              end)
-
-            case pool_info do
-              {_, pool_pid, _, _} when is_pid(pool_pid) ->
-                # Try to get pool telemetry
-                pool_telemetry =
-                  try do
-                    # DBConnection exposes pool metrics via telemetry
-                    {:ok,
-                     %{
-                       pool_size: pool_size,
-                       idle_time: 0,
-                       queue_time: 0
-                     }}
-                  catch
-                    _, _ -> {:error, :not_available}
-                  end
-
-                case pool_telemetry do
-                  {:ok, _metrics} ->
-                    :telemetry.execute(
-                      [:aprsme, :repo, :pool],
-                      %{
-                        size: pool_size,
-                        # Estimate
-                        idle: max(0, pool_size - 2),
-                        # Estimate
-                        busy: 2,
-                        available: max(0, pool_size - 2),
-                        queue_length: 0,
-                        total: pool_size
-                      },
-                      %{}
-                    )
-
-                  _ ->
-                    # Use defaults
-                    :telemetry.execute(
-                      [:aprsme, :repo, :pool],
-                      %{
-                        size: pool_size,
-                        idle: pool_size,
-                        busy: 0,
-                        available: pool_size,
-                        queue_length: 0,
-                        total: pool_size
-                      },
-                      %{}
-                    )
-                end
-
-              _ ->
-                # Pool not found, use defaults
-                :telemetry.execute(
-                  [:aprsme, :repo, :pool],
-                  %{
-                    size: pool_size,
-                    idle: pool_size,
-                    busy: 0,
-                    available: pool_size,
-                    queue_length: 0,
-                    total: pool_size
-                  },
-                  %{}
-                )
-            end
-        end
+      nil -> report_pool_metrics_unavailable(pool_size)
+      repo_pid when is_pid(repo_pid) -> collect_from_repo(repo_pid, pool_size)
     end
   rescue
     e ->
       Logger.debug("Error collecting pool metrics: #{inspect(e)}")
-      # Emit zero metrics on error
-      :telemetry.execute(
-        [:aprsme, :repo, :pool],
-        %{
-          size: 0,
-          idle: 0,
-          busy: 0,
-          available: 0,
-          queue_length: 0,
-          total: 0
-        },
-        %{}
-      )
+      report_pool_metrics_error()
+  end
+
+  defp collect_from_repo(repo_pid, pool_size) do
+    case Supervisor.which_children(repo_pid) do
+      children when is_list(children) ->
+        pool_info = find_pool_child(children)
+        collect_from_pool(pool_info, pool_size)
+
+      _ ->
+        report_pool_metrics_idle(pool_size)
+    end
+  end
+
+  defp find_pool_child(children) do
+    Enum.find(children, fn
+      {DBConnection.ConnectionPool, _, _, _} -> true
+      {DBConnection.Ownership, _, _, _} -> true
+      _ -> false
+    end)
+  end
+
+  defp collect_from_pool({_, pool_pid, _, _}, pool_size) when is_pid(pool_pid) do
+    # Try to get pool telemetry
+    case try_get_pool_telemetry(pool_size) do
+      {:ok, _metrics} -> report_pool_metrics_estimated(pool_size)
+      _ -> report_pool_metrics_idle(pool_size)
+    end
+  end
+
+  defp collect_from_pool(_, pool_size), do: report_pool_metrics_idle(pool_size)
+
+  defp try_get_pool_telemetry(pool_size) do
+    {:ok, %{pool_size: pool_size, idle_time: 0, queue_time: 0}}
+  catch
+    _, _ -> {:error, :not_available}
+  end
+
+  defp report_pool_metrics_unavailable(pool_size) do
+    emit_pool_metrics(%{
+      size: pool_size,
+      idle: 0,
+      busy: 0,
+      available: 0,
+      queue_length: 0,
+      total: 0
+    })
+  end
+
+  defp report_pool_metrics_idle(pool_size) do
+    emit_pool_metrics(%{
+      size: pool_size,
+      idle: pool_size,
+      busy: 0,
+      available: pool_size,
+      queue_length: 0,
+      total: pool_size
+    })
+  end
+
+  defp report_pool_metrics_estimated(pool_size) do
+    emit_pool_metrics(%{
+      size: pool_size,
+      idle: max(0, pool_size - 2),
+      busy: 2,
+      available: max(0, pool_size - 2),
+      queue_length: 0,
+      total: pool_size
+    })
+  end
+
+  defp report_pool_metrics_error do
+    emit_pool_metrics(%{
+      size: 0,
+      idle: 0,
+      busy: 0,
+      available: 0,
+      queue_length: 0,
+      total: 0
+    })
+  end
+
+  defp emit_pool_metrics(metrics) do
+    :telemetry.execute([:aprsme, :repo, :pool], metrics, %{})
   end
 
   def collect_postgres_metrics do

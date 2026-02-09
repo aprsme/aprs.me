@@ -112,29 +112,10 @@ defmodule AprsmeWeb.AprsSymbol do
   Some symbols are in the alternate table (1), others in overlay table (2).
   """
   @spec get_overlay_base_table_id(String.t()) :: String.t()
-  def get_overlay_base_table_id(base_symbol_code) do
-    # Map symbols to the correct sprite table based on APRS specification
-    # Most overlay symbols are in the alternate table (1)
-    case base_symbol_code do
-      # Digipeater symbols are often in the alternate table (1) and have colored backgrounds
-      # Digipeater - green star background
-      "#" -> "1"
-      # Diamond shape - APRS overlay symbol (alternate table)
-      "a" -> "1"
-      # Square shape - APRS overlay symbol (alternate table)
-      "A" -> "1"
-      # Diamond shape - alternate table
-      "&" -> "1"
-      # Arrow symbols
-      ">" -> "1"
-      "<" -> "1"
-      "^" -> "1"
-      "v" -> "1"
-      # Black square background - alternate table
-      "i" -> "1"
-      # Most other symbols that can be overlaid are in the alternate table
-      _ -> "1"
-    end
+  def get_overlay_base_table_id(_base_symbol_code) do
+    # All overlay symbols are in the alternate table (1) per APRS specification
+    # This includes digipeaters, diamonds, squares, arrows, etc.
+    "1"
   end
 
   @doc """
