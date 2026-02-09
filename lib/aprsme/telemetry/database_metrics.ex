@@ -122,22 +122,29 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
   end
 
   defp collect_database_metrics do
-    # Database size
+    collect_database_size()
+    collect_connection_stats()
+    collect_packets_table_stats()
+    collect_query_performance_stats()
+    collect_replication_lag()
+  rescue
+    e ->
+      Logger.debug("Error collecting PostgreSQL metrics: #{inspect(e)}")
+  end
+
+  defp collect_database_size do
     case Aprsme.Repo.query("SELECT pg_database_size(current_database()) as size") do
       {:ok, %{rows: [[size]]}} ->
-        :telemetry.execute(
-          [:aprsme, :postgres, :database],
-          %{size_bytes: size},
-          %{}
-        )
+        :telemetry.execute([:aprsme, :postgres, :database], %{size_bytes: size}, %{})
 
       _ ->
         :ok
     end
+  end
 
-    # Connection stats
+  defp collect_connection_stats do
     case Aprsme.Repo.query("""
-           SELECT 
+           SELECT
              count(*) as total,
              count(*) FILTER (WHERE state = 'active') as active,
              count(*) FILTER (WHERE state = 'idle') as idle,
@@ -162,10 +169,11 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
       _ ->
         :ok
     end
+  end
 
-    # Table stats for packets table
+  defp collect_packets_table_stats do
     case Aprsme.Repo.query("""
-           SELECT 
+           SELECT
              n_live_tup as live_tuples,
              n_dead_tup as dead_tuples,
              n_tup_ins as inserts,
@@ -195,10 +203,11 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
       _ ->
         :ok
     end
+  end
 
-    # Query performance stats
+  defp collect_query_performance_stats do
     case Aprsme.Repo.query("""
-           SELECT 
+           SELECT
              sum(calls) as total_calls,
              sum(total_exec_time) as total_time,
              avg(mean_exec_time) as avg_time,
@@ -221,26 +230,20 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
       _ ->
         :ok
     end
+  end
 
-    # Replication lag (if applicable)
+  defp collect_replication_lag do
     case Aprsme.Repo.query("""
-           SELECT 
+           SELECT
              extract(epoch from (now() - pg_last_xact_replay_timestamp()))::int as lag_seconds
            WHERE pg_is_in_recovery()
          """) do
       {:ok, %{rows: [[lag]]}} when not is_nil(lag) ->
-        :telemetry.execute(
-          [:aprsme, :postgres, :replication],
-          %{lag_seconds: lag},
-          %{}
-        )
+        :telemetry.execute([:aprsme, :postgres, :replication], %{lag_seconds: lag}, %{})
 
       _ ->
         :ok
     end
-  rescue
-    e ->
-      Logger.debug("Error collecting PostgreSQL metrics: #{inspect(e)}")
   end
 
   def collect_pgbouncer_metrics do
