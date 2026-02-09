@@ -243,13 +243,13 @@ defmodule AprsmeWeb.MobileChannel do
 
   defp validate_bounds(%{north: north, south: south, east: east, west: west}) do
     cond do
-      not is_number(north) or not is_number(south) or not is_number(east) or not is_number(west) ->
+      not all_numeric?(north, south, east, west) ->
         {:error, "All bounds must be numeric"}
 
-      north < -90 or north > 90 or south < -90 or south > 90 ->
+      not valid_latitudes?(north, south) ->
         {:error, "Latitude must be between -90 and 90"}
 
-      east < -180 or east > 180 or west < -180 or west > 180 ->
+      not valid_longitudes?(east, west) ->
         {:error, "Longitude must be between -180 and 180"}
 
       north <= south ->
@@ -258,6 +258,18 @@ defmodule AprsmeWeb.MobileChannel do
       true ->
         :ok
     end
+  end
+
+  defp all_numeric?(north, south, east, west) do
+    is_number(north) and is_number(south) and is_number(east) and is_number(west)
+  end
+
+  defp valid_latitudes?(north, south) do
+    north >= -90 and north <= 90 and south >= -90 and south <= 90
+  end
+
+  defp valid_longitudes?(east, west) do
+    east >= -180 and east <= 180 and west >= -180 and west <= 180
   end
 
   defp ensure_float(value) when is_integer(value), do: value * 1.0

@@ -323,10 +323,7 @@ defmodule Aprsme.Packet do
 
     # Check if symbol data exists at the top level of attrs (from APRS parser)
     # and preserve it if not already in base_attrs
-    base_attrs =
-      base_attrs
-      |> maybe_put(:symbol_code, attrs[:symbol_code] || attrs["symbol_code"])
-      |> maybe_put(:symbol_table_id, attrs[:symbol_table_id] || attrs["symbol_table_id"])
+    base_attrs = add_symbol_data(base_attrs, attrs)
 
     # Extract data based on the type of data_extended
     additional_data =
@@ -350,6 +347,12 @@ defmodule Aprsme.Packet do
 
     # Merge all extracted data
     merge_extracted_data(base_attrs, additional_data, attrs)
+  end
+
+  defp add_symbol_data(base_attrs, attrs) do
+    base_attrs
+    |> maybe_put(:symbol_code, attrs[:symbol_code] || attrs["symbol_code"])
+    |> maybe_put(:symbol_table_id, attrs[:symbol_table_id] || attrs["symbol_table_id"])
   end
 
   defp merge_extracted_data(base_attrs, additional_data, attrs) do

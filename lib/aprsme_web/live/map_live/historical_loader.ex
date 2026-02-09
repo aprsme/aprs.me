@@ -172,14 +172,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
         packet_data_list =
           try do
             # Filter out packets with invalid coordinates before processing
-            valid_packets =
-              Enum.filter(historical_packets, fn packet ->
-                {lat, lon, _} = CoordinateUtils.get_coordinates(packet)
-
-                is_number(lat) and is_number(lon) and
-                  lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 and
-                  is_finite(lat) and is_finite(lon)
-              end)
+            valid_packets = Enum.filter(historical_packets, &packet_has_valid_coordinates?/1)
 
             if length(valid_packets) < length(historical_packets) do
               Logger.debug(
@@ -450,4 +443,12 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
 
   defp is_finite(n) when is_float(n), do: n != :infinity and n != :neg_infinity
   defp is_finite(n) when is_integer(n), do: true
+
+  defp packet_has_valid_coordinates?(packet) do
+    {lat, lon, _} = CoordinateUtils.get_coordinates(packet)
+
+    is_number(lat) and is_number(lon) and
+      lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 and
+      is_finite(lat) and is_finite(lon)
+  end
 end
