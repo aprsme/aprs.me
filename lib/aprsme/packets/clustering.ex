@@ -46,21 +46,24 @@ defmodule Aprsme.Packets.Clustering do
   Calculates the clustering radius in degrees based on zoom level.
   Lower zoom levels get larger radii for more aggressive clustering.
   """
+  # Clustering radius lookup table by zoom level
+  # More aggressive scaling for better separation at higher zooms
+  # Zoom 1: ~5 degrees, Zoom 5: ~0.3 degrees, Zoom 8: ~0.04 degrees
+  @cluster_radii %{
+    1 => 5.0,
+    2 => 2.5,
+    3 => 1.25,
+    4 => 0.625,
+    5 => 0.3125,
+    6 => 0.15625,
+    7 => 0.078125,
+    8 => 0.0390625
+  }
+  @default_radius 0.0390625
+
   @spec calculate_cluster_radius(integer()) :: float()
   def calculate_cluster_radius(zoom) do
-    # More aggressive scaling for better separation at higher zooms
-    # Zoom 1: ~5 degrees, Zoom 5: ~0.3 degrees, Zoom 8: ~0.04 degrees
-    case zoom do
-      1 -> 5.0
-      2 -> 2.5
-      3 -> 1.25
-      4 -> 0.625
-      5 -> 0.3125
-      6 -> 0.15625
-      7 -> 0.078125
-      8 -> 0.0390625
-      _ -> 0.0390625
-    end
+    Map.get(@cluster_radii, zoom, @default_radius)
   end
 
   # Filter packets with valid lat/lon coordinates

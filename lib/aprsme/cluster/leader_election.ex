@@ -186,51 +186,51 @@ defmodule Aprsme.Cluster.LeaderElection do
   defp cleanup_stale_registrations do
     case :global.whereis_name(@election_key) do
       :undefined ->
-        # No registration exists
         :ok
 
       pid when is_pid(pid) ->
-        pid_node = node(pid)
-        connected_nodes = [node() | Node.list()]
-
-        # Check if the PID's node is still connected
-        if pid_node in connected_nodes do
-          # Node is connected, try to check if process is alive
-          try do
-            if pid_node == node() do
-              # Local PID - use Process.alive?
-              if Process.alive?(pid) do
-                :ok
-              else
-                Logger.info("Cleaning up stale leader registration for dead local process #{inspect(pid)}")
-                :global.unregister_name(@election_key)
-              end
-            else
-              # Remote PID - use RPC to check if alive
-              case :rpc.call(pid_node, Process, :alive?, [pid]) do
-                true ->
-                  :ok
-
-                false ->
-                  Logger.info("Cleaning up stale leader registration for dead remote process #{inspect(pid)}")
-                  :global.unregister_name(@election_key)
-
-                {:badrpc, _reason} ->
-                  Logger.info("Cleaning up stale leader registration for unreachable process #{inspect(pid)}")
-                  :global.unregister_name(@election_key)
-              end
-            end
-          rescue
-            _error ->
-              Logger.info("Cleaning up stale leader registration for problematic process #{inspect(pid)}")
-              :global.unregister_name(@election_key)
-          end
-        else
-          # Node is disconnected - clean up the registration
-          Logger.info("Cleaning up stale leader registration for disconnected node #{pid_node}")
-          :global.unregister_name(@election_key)
-        end
+        check_and_cleanup_registration(pid)
     end
+  end
+
+  defp check_and_cleanup_registration(pid) do
+    pid_node = node(pid)
+    connected_nodes = [node() | Node.list()]
+
+    if pid_node in connected_nodes do
+      check_pid_liveness(pid, pid_node)
+    else
+      cleanup_registration("disconnected node #{pid_node}")
+    end
+  end
+
+  defp check_pid_liveness(pid, pid_node) do
+    if is_pid_alive?(pid, pid_node) do
+      :ok
+    else
+      reason = if pid_node == node(), do: "dead local process", else: "dead remote process"
+      cleanup_registration("#{reason} #{inspect(pid)}")
+    end
+  rescue
+    _error ->
+      cleanup_registration("problematic process #{inspect(pid)}")
+  end
+
+  defp is_pid_alive?(pid, pid_node) when pid_node == node() do
+    Process.alive?(pid)
+  end
+
+  defp is_pid_alive?(pid, pid_node) do
+    if :rpc.call(pid_node, Process, :alive?, [pid]) do
+      true
+    else
+      false
+    end
+  end
+
+  defp cleanup_registration(reason) do
+    Logger.info("Cleaning up stale leader registration for #{reason}")
+    :global.unregister_name(@election_key)
   end
 
   defp get_cluster_wide_status do

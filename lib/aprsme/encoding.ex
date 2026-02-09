@@ -155,24 +155,20 @@ defmodule Aprsme.Encoding do
   @spec valid_grapheme?(String.grapheme()) :: boolean()
   defp valid_grapheme?(grapheme) do
     case String.to_charlist(grapheme) do
-      [cp] ->
-        # Allow tab (0x09), newline (0x0A), carriage return (0x0D)
-        # Remove other control characters
-        case cp do
-          9 -> true
-          10 -> true
-          13 -> true
-          c when c >= 0 and c <= 31 -> false
-          127 -> false
-          c when c >= 128 and c <= 159 -> false
-          _ -> true
-        end
-
-      _ ->
-        # Multi-codepoint grapheme, keep it
-        true
+      [cp] -> valid_codepoint?(cp)
+      _ -> true
     end
   end
+
+  # Allow tab (0x09), newline (0x0A), carriage return (0x0D)
+  # Remove other control characters
+  defp valid_codepoint?(9), do: true
+  defp valid_codepoint?(10), do: true
+  defp valid_codepoint?(13), do: true
+  defp valid_codepoint?(127), do: false
+  defp valid_codepoint?(c) when c >= 0 and c <= 31, do: false
+  defp valid_codepoint?(c) when c >= 128 and c <= 159, do: false
+  defp valid_codepoint?(_), do: true
 
   @spec find_invalid_byte_position(binary()) :: non_neg_integer() | nil
   defp find_invalid_byte_position(input) do
