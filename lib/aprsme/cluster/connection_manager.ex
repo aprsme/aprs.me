@@ -5,6 +5,7 @@ defmodule Aprsme.Cluster.ConnectionManager do
   """
   use GenServer
 
+  alias Aprsme.Cluster.LeaderElection
   alias Aprsme.Is.IsSupervisor
 
   require Logger
@@ -26,7 +27,7 @@ defmodule Aprsme.Cluster.ConnectionManager do
 
   @impl true
   def handle_info(:check_initial_state, state) do
-    if Aprsme.Cluster.LeaderElection.leader?() do
+    if LeaderElection.leader?() do
       Logger.info("This node is the leader, starting APRS-IS connection")
       start_aprs_connection()
       {:noreply, %{state | connection_started: true}}

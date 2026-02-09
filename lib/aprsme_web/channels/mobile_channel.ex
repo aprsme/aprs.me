@@ -370,7 +370,7 @@ defmodule AprsmeWeb.MobileChannel do
     Logger.info("Loaded #{length(packets)} historical packets for mobile client")
 
     # Send historical packets to client
-    if length(packets) > 0 do
+    if packets != [] do
       # Convert packets to mobile format and send them
       Enum.each(packets, fn packet ->
         packet_data = build_mobile_packet(packet)
