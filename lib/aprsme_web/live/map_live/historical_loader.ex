@@ -156,63 +156,16 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
       # Adjust batch size if it would exceed the limit
       adjusted_batch_size = min(batch_size, max_packets_for_zoom - offset)
 
-      packets_module = Application.get_env(:aprsme, :packets_module, Packets)
+      query_params = %{
+        bounds: bounds_list,
+        limit: adjusted_batch_size,
+        offset: offset,
+        zoom: zoom,
+        callsign: socket.assigns.tracked_callsign,
+        hours_back: socket.assigns.historical_hours || "1"
+      }
 
-      historical_packets =
-        try do
-          if packets_module == Packets do
-            # Use cached queries for better performance
-            # Include zoom level in cache key for better cache efficiency
-            params = %{
-              bounds: bounds_list,
-              limit: adjusted_batch_size,
-              offset: offset,
-              zoom: zoom
-            }
-
-            # Add callsign filter if tracking
-            params = add_callsign_filter(params, socket.assigns.tracked_callsign)
-
-            # Use the historical_hours setting from the UI dropdown with validation
-            historical_hours = SharedPacketUtils.parse_historical_hours(socket.assigns.historical_hours || "1")
-            params = Map.put(params, :hours_back, historical_hours)
-
-            # Get recent packets within time filter
-            Logger.debug("HistoricalLoader: Querying packets with params: #{inspect(params)}")
-            recent_packets = Packets.get_recent_packets(params)
-            Logger.debug("HistoricalLoader: Got #{length(recent_packets)} packets")
-
-            # If tracking a callsign and this is the first batch, ensure we always include
-            # the most recent packet for that callsign, even if it's older than the time filter
-            if socket.assigns.tracked_callsign != "" and batch_offset == 0 do
-              latest_packet = Packets.get_latest_packet_for_callsign(socket.assigns.tracked_callsign)
-
-              if latest_packet && not Enum.any?(recent_packets, &(&1.id == latest_packet.id)) do
-                # Add the latest packet to the beginning of the list so it's prioritized
-                [latest_packet | recent_packets]
-              else
-                recent_packets
-              end
-            else
-              recent_packets
-            end
-          else
-            # Fallback for testing
-            packets_module.get_recent_packets(%{
-              bounds: bounds,
-              limit: batch_size,
-              offset: offset
-            })
-          end
-        rescue
-          error ->
-            require Logger
-
-            Logger.error("Error loading historical packets: #{inspect(error)}")
-            # Return empty list and notify user
-            send(self(), {:show_error, "Failed to load historical data. Please try again."})
-            []
-        end
+      historical_packets = query_historical_packets(query_params, batch_offset)
 
       if Enum.any?(historical_packets) do
         # Process this batch and send to frontend
@@ -275,8 +228,67 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
     end
   end
 
-  defp add_callsign_filter(params, ""), do: params
-  defp add_callsign_filter(params, callsign), do: Map.put(params, :callsign, callsign)
+  defp query_historical_packets(query_params, batch_offset) do
+    require Logger
+
+    packets_module = Application.get_env(:aprsme, :packets_module, Packets)
+
+    try do
+      if packets_module == Packets do
+        params = build_query_params(query_params)
+        Logger.debug("HistoricalLoader: Querying packets with params: #{inspect(params)}")
+
+        recent_packets = Packets.get_recent_packets(params)
+        Logger.debug("HistoricalLoader: Got #{length(recent_packets)} packets")
+
+        maybe_include_latest_packet(recent_packets, query_params.callsign, batch_offset)
+      else
+        # Fallback for testing
+        packets_module.get_recent_packets(%{
+          bounds: query_params.bounds,
+          limit: query_params.limit,
+          offset: query_params.offset
+        })
+      end
+    rescue
+      error ->
+        Logger.error("Error loading historical packets: #{inspect(error)}")
+        send(self(), {:show_error, "Failed to load historical data. Please try again."})
+        []
+    end
+  end
+
+  defp build_query_params(query_params) do
+    historical_hours = SharedPacketUtils.parse_historical_hours(query_params.hours_back)
+
+    params = %{
+      bounds: query_params.bounds,
+      limit: query_params.limit,
+      offset: query_params.offset,
+      zoom: query_params.zoom,
+      hours_back: historical_hours
+    }
+
+    if query_params.callsign == "" do
+      params
+    else
+      Map.put(params, :callsign, query_params.callsign)
+    end
+  end
+
+  defp maybe_include_latest_packet(recent_packets, "", _batch_offset), do: recent_packets
+
+  defp maybe_include_latest_packet(recent_packets, callsign, 0) do
+    latest_packet = Packets.get_latest_packet_for_callsign(callsign)
+
+    if latest_packet && not Enum.any?(recent_packets, &(&1.id == latest_packet.id)) do
+      [latest_packet | recent_packets]
+    else
+      recent_packets
+    end
+  end
+
+  defp maybe_include_latest_packet(recent_packets, _callsign, _batch_offset), do: recent_packets
 
   defp process_loaded_packets(socket, _historical_packets, [], _batch_offset), do: socket
 
