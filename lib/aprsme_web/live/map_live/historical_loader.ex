@@ -197,12 +197,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
           end
 
         # If tracking a callsign and this is the first batch, also load RF path stations
-        socket =
-          if socket.assigns.tracked_callsign != "" and batch_offset == 0 do
-            load_rf_path_stations(socket, historical_packets)
-          else
-            socket
-          end
+        socket = maybe_load_rf_path_stations(socket, batch_offset, historical_packets)
 
         process_loaded_packets(socket, historical_packets, packet_data_list, batch_offset)
       else
@@ -422,6 +417,14 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
   defp send_heat_map_for_current_bounds(socket) do
     # This function should be moved to DisplayManager module
     socket
+  end
+
+  defp maybe_load_rf_path_stations(socket, batch_offset, historical_packets) do
+    if socket.assigns.tracked_callsign != "" and batch_offset == 0 do
+      load_rf_path_stations(socket, historical_packets)
+    else
+      socket
+    end
   end
 
   defp load_rf_path_stations(socket, packets) do

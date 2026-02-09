@@ -184,10 +184,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
             filter_historical_by_distance(historical, most_recent_lat, most_recent_lon)
 
           # Build data for remaining historical packets
-          historical_data =
-            filtered_historical
-            |> Enum.map(fn packet -> build_minimal_packet_data(packet, false, has_weather) end)
-            |> Enum.filter(& &1)
+          historical_data = build_historical_packet_data(filtered_historical, has_weather)
 
           # Combine most recent and filtered historical
           Enum.filter([most_recent_data | historical_data], & &1)
@@ -627,5 +624,11 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
       # Skip packets without coordinates
       false
     end
+  end
+
+  defp build_historical_packet_data(filtered_historical, has_weather) do
+    filtered_historical
+    |> Enum.map(fn packet -> build_minimal_packet_data(packet, false, has_weather) end)
+    |> Enum.filter(& &1)
   end
 end

@@ -109,13 +109,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
       marker_data = PacketUtils.build_packet_data(packet, true, get_locale(socket))
 
       if marker_data do
-        # Only show new packet popup if no station popup is currently open
-        if socket.assigns.station_popup_open do
-          # Send without opening popup to avoid interrupting user
-          LiveView.push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
-        else
-          LiveView.push_event(socket, "new_packet", marker_data)
-        end
+        send_marker_with_popup_check(socket, marker_data)
       else
         socket
       end
@@ -166,5 +160,14 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   defp send_heat_map_for_current_bounds(socket) do
     # This function should be moved to DisplayManager module
     socket
+  end
+
+  defp send_marker_with_popup_check(socket, marker_data) do
+    if socket.assigns.station_popup_open do
+      # Send without opening popup to avoid interrupting user
+      LiveView.push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
+    else
+      LiveView.push_event(socket, "new_packet", marker_data)
+    end
   end
 end

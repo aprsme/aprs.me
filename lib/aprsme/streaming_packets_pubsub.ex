@@ -119,17 +119,7 @@ defmodule Aprsme.StreamingPacketsPubSub do
       server_pid = self()
 
       Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
-        dead_pids =
-          subscribers
-          |> Stream.filter(fn {_pid, bounds} -> packet_in_bounds?(lat, lon, bounds) end)
-          |> Enum.reduce([], fn {pid, _bounds}, acc ->
-            send_to_subscriber_if_alive(pid, packet, acc)
-          end)
-
-        # Send dead pids back to GenServer for cleanup
-        if dead_pids != [] do
-          send(server_pid, {:cleanup_dead_subscribers, dead_pids})
-        end
+        send_to_matching_subscribers(subscribers, lat, lon, packet, server_pid)
       end)
     end
 
@@ -180,6 +170,18 @@ defmodule Aprsme.StreamingPacketsPubSub do
       end
 
     lat_in_bounds and lon_in_bounds
+  end
+
+  defp send_to_matching_subscribers(subscribers, lat, lon, packet, server_pid) do
+    dead_pids =
+      subscribers
+      |> Stream.filter(fn {_pid, bounds} -> packet_in_bounds?(lat, lon, bounds) end)
+      |> Enum.reduce([], fn {pid, _bounds}, acc ->
+        send_to_subscriber_if_alive(pid, packet, acc)
+      end)
+
+    # Send dead pids back to GenServer for cleanup
+    send(server_pid, {:cleanup_dead_subscribers, dead_pids})
   end
 
   defp send_to_subscriber_if_alive(pid, packet, acc) do
