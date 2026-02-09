@@ -43,17 +43,20 @@ defmodule Aprsme.LogSanitizer do
 
   def sanitize_map(data), do: data
 
+  # Helper to redact a matched sensitive pattern
+  defp redact_match(match) do
+    case String.split(match, ["=", ":"]) do
+      [key, _value] -> "#{key}=[REDACTED]"
+      _ -> "[REDACTED]"
+    end
+  end
+
   @doc """
   Sanitize a string by replacing sensitive patterns
   """
   def sanitize_string(data) when is_binary(data) do
     Enum.reduce(@sensitive_patterns, data, fn pattern, acc ->
-      Regex.replace(pattern, acc, fn match ->
-        case String.split(match, ["=", ":"]) do
-          [key, _value] -> "#{key}=[REDACTED]"
-          _ -> "[REDACTED]"
-        end
-      end)
+      Regex.replace(pattern, acc, &redact_match/1)
     end)
   end
 

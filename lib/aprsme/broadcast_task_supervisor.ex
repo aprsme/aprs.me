@@ -51,9 +51,7 @@ defmodule Aprsme.BroadcastTaskSupervisor do
         # Process in chunks to balance load
         |> Stream.chunk_every(10)
         |> Enum.each(fn topic_chunk ->
-          Enum.each(topic_chunk, fn topic ->
-            Phoenix.PubSub.broadcast(pubsub, topic, message)
-          end)
+          broadcast_to_topics(topic_chunk, message, pubsub)
         end)
       end)
 
@@ -101,5 +99,12 @@ defmodule Aprsme.BroadcastTaskSupervisor do
     |> Float.round(2)
   rescue
     _ -> 0.0
+  end
+
+  # Private helper to broadcast to multiple topics
+  defp broadcast_to_topics(topics, message, pubsub) do
+    Enum.each(topics, fn topic ->
+      Phoenix.PubSub.broadcast(pubsub, topic, message)
+    end)
   end
 end
