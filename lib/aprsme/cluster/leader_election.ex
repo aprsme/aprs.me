@@ -205,7 +205,7 @@ defmodule Aprsme.Cluster.LeaderElection do
   end
 
   defp check_pid_liveness(pid, pid_node) do
-    if is_pid_alive?(pid, pid_node) do
+    if pid_alive?(pid, pid_node) do
       :ok
     else
       reason = if pid_node == node(), do: "dead local process", else: "dead remote process"
@@ -216,11 +216,11 @@ defmodule Aprsme.Cluster.LeaderElection do
       cleanup_registration("problematic process #{inspect(pid)}")
   end
 
-  defp is_pid_alive?(pid, pid_node) when pid_node == node() do
+  defp pid_alive?(pid, pid_node) when pid_node == node() do
     Process.alive?(pid)
   end
 
-  defp is_pid_alive?(pid, pid_node) do
+  defp pid_alive?(pid, pid_node) do
     if :rpc.call(pid_node, Process, :alive?, [pid]) do
       true
     else
