@@ -521,61 +521,49 @@ defmodule Aprsme.Packet do
   end
 
   defp put_telemetry_fields(map, data_extended) do
-    # Check for telemetry data in various locations
     telemetry = data_extended[:telemetry] || data_extended["telemetry"] || data_extended
 
-    # Convert telemetry_seq to integer if it's a string
-    telemetry_seq =
-      case telemetry[:seq] || telemetry["seq"] do
-        nil ->
-          nil
-
-        seq when is_binary(seq) ->
-          case Integer.parse(seq) do
-            {num, _} -> num
-            _ -> nil
-          end
-
-        seq when is_integer(seq) ->
-          seq
-
-        _ ->
-          nil
-      end
-
-    # Convert telemetry_vals from strings to integers
-    telemetry_vals =
-      case telemetry[:vals] || telemetry["vals"] do
-        nil ->
-          nil
-
-        vals when is_list(vals) ->
-          Enum.map(vals, fn
-            val when is_binary(val) ->
-              case Float.parse(val) do
-                {num, _} -> round(num)
-                _ -> 0
-              end
-
-            val when is_integer(val) ->
-              val
-
-            val when is_float(val) ->
-              round(val)
-
-            _ ->
-              0
-          end)
-
-        _ ->
-          nil
-      end
-
     map
-    |> maybe_put(:telemetry_seq, telemetry_seq)
-    |> maybe_put(:telemetry_vals, telemetry_vals)
+    |> maybe_put(:telemetry_seq, parse_telemetry_seq(telemetry))
+    |> maybe_put(:telemetry_vals, parse_telemetry_vals(telemetry))
     |> maybe_put(:telemetry_bits, telemetry[:bits] || telemetry["bits"])
   end
+
+  defp parse_telemetry_seq(telemetry) do
+    case telemetry[:seq] || telemetry["seq"] do
+      nil -> nil
+      seq when is_integer(seq) -> seq
+      seq when is_binary(seq) -> parse_integer_string(seq)
+      _ -> nil
+    end
+  end
+
+  defp parse_telemetry_vals(telemetry) do
+    case telemetry[:vals] || telemetry["vals"] do
+      nil -> nil
+      vals when is_list(vals) -> Enum.map(vals, &normalize_telemetry_value/1)
+      _ -> nil
+    end
+  end
+
+  defp parse_integer_string(str) do
+    case Integer.parse(str) do
+      {num, _} -> num
+      _ -> nil
+    end
+  end
+
+  defp normalize_telemetry_value(val) when is_integer(val), do: val
+  defp normalize_telemetry_value(val) when is_float(val), do: round(val)
+
+  defp normalize_telemetry_value(val) when is_binary(val) do
+    case Float.parse(val) do
+      {num, _} -> round(num)
+      _ -> 0
+    end
+  end
+
+  defp normalize_telemetry_value(_), do: 0
 
   # Extract data from MicE packets
   defp extract_from_mic_e(mic_e) do
