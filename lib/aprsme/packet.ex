@@ -90,7 +90,7 @@ defmodule Aprsme.Packet do
     field(:symbolcode, :string)
     field(:messaging, :integer)
 
-    # Additional weather fields  
+    # Additional weather fields
     field(:rain_midnight, :float)
     field(:has_weather, :boolean, default: false)
 

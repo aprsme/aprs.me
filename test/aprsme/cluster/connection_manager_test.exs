@@ -219,7 +219,7 @@ defmodule Aprsme.Cluster.ConnectionManagerTest do
     end
 
     test "handles IsSupervisor already started error", %{pid: pid} do
-      # The APRS-IS connection is disabled in test environment, 
+      # The APRS-IS connection is disabled in test environment,
       # but we can still test that the ConnectionManager handles errors gracefully
 
       # Try to become leader

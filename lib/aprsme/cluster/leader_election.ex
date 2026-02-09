@@ -16,8 +16,8 @@ defmodule Aprsme.Cluster.LeaderElection do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  def is_leader? do
-    GenServer.call(__MODULE__, :is_leader?)
+  def leader? do
+    GenServer.call(__MODULE__, :leader?)
   end
 
   def current_leader do
@@ -148,7 +148,7 @@ defmodule Aprsme.Cluster.LeaderElection do
   end
 
   @impl true
-  def handle_call(:is_leader?, _from, state) do
+  def handle_call(:leader?, _from, state) do
     {:reply, state.is_leader, state}
   end
 

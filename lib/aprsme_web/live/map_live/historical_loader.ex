@@ -180,7 +180,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
             recent_packets = Packets.get_recent_packets(params)
             Logger.debug("HistoricalLoader: Got #{length(recent_packets)} packets")
 
-            # If tracking a callsign and this is the first batch, ensure we always include 
+            # If tracking a callsign and this is the first batch, ensure we always include
             # the most recent packet for that callsign, even if it's older than the time filter
             if socket.assigns.tracked_callsign != "" and batch_offset == 0 do
               latest_packet = Packets.get_latest_packet_for_callsign(socket.assigns.tracked_callsign)

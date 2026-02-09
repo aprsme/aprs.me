@@ -97,7 +97,7 @@ defmodule Aprsme.EnhancedParserTest do
 
       result = Packet.extract_additional_data(attrs)
 
-      # PHG 5430: power=5^2=25W, height=4->160ft, gain=3dB, dir=0->omni  
+      # PHG 5430: power=5^2=25W, height=4->160ft, gain=3dB, dir=0->omni
       assert result[:phg_power] == 25
       assert result[:phg_height] == 160
       assert result[:phg_gain] == 3

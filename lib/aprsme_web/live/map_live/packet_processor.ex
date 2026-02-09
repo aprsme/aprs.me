@@ -69,7 +69,8 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
           # Significant movement detected (more than 50 meters), update the marker
           handle_valid_postgres_packet(packet, lat, lon, socket)
         else
-          # Just GPS drift (less than 50 meters) or invalid coordinates, update the packet data but don't send visual update
+          # Just GPS drift (less than 50 meters) or invalid coordinates,
+          # update the packet data but don't send visual update
           new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
           assign(socket, :visible_packets, new_visible_packets)
         end

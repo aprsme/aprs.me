@@ -203,7 +203,7 @@ defmodule Aprsme.Application do
   # Removed - Exq configuration is now in runtime.exs
   # defp exq_config do
   #   redis_url = System.get_env("REDIS_URL", "redis://localhost:6379")
-  #   
+  #
   #   {Exq,
   #    name: Exq,
   #    host: parse_redis_host(redis_url),

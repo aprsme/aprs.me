@@ -12,7 +12,7 @@ defmodule Aprsme.Cluster.PacketDistributor do
     # Only distribute if clustering is enabled and we're the leader
     cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
 
-    if cluster_enabled and Aprsme.Cluster.LeaderElection.is_leader?() do
+    if cluster_enabled and Aprsme.Cluster.LeaderElection.leader?() do
       # Broadcast to all nodes including self
       Phoenix.PubSub.broadcast(
         Aprsme.PubSub,

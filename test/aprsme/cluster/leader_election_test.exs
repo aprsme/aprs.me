@@ -58,7 +58,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
     end
 
     test "elects itself as leader when clustering is disabled", %{pid: _pid} do
-      assert LeaderElection.is_leader?() == true
+      assert LeaderElection.leader?() == true
       assert LeaderElection.current_leader() == node()
     end
 
@@ -67,7 +67,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
     end
   end
 
-  describe "is_leader?/0" do
+  describe "leader?/0" do
     setup do
       Application.put_env(:aprsme, :cluster_enabled, false)
       {:ok, _pid} = LeaderElection.start_link([])
@@ -76,7 +76,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
     end
 
     test "returns leadership status" do
-      assert is_boolean(LeaderElection.is_leader?())
+      assert is_boolean(LeaderElection.leader?())
     end
   end
 
@@ -137,7 +137,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
       Process.sleep(200)
 
       # Verify it's the leader
-      assert LeaderElection.is_leader?() == true
+      assert LeaderElection.leader?() == true
 
       # Stop the process
       GenServer.stop(pid)
@@ -151,13 +151,13 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
       {:ok, _pid} = LeaderElection.start_link([])
 
       # Initial state - might not be leader yet
-      _initial_leader = LeaderElection.is_leader?()
+      _initial_leader = LeaderElection.leader?()
 
       # Wait for periodic check
       Process.sleep(6000)
 
       # Should still be able to query leadership
-      current_leader = LeaderElection.is_leader?()
+      current_leader = LeaderElection.leader?()
       assert is_boolean(current_leader)
 
       # In non-clustered mode, should become leader
@@ -210,7 +210,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
       Process.sleep(500)
 
       # Should have taken over leadership
-      assert LeaderElection.is_leader?() == true
+      assert LeaderElection.leader?() == true
     end
   end
 
@@ -232,7 +232,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
       Process.sleep(3000)
 
       # Should eventually attempt election
-      assert is_boolean(LeaderElection.is_leader?())
+      assert is_boolean(LeaderElection.leader?())
     end
   end
 
