@@ -146,15 +146,27 @@ defmodule Aprsme.StreamingPacketsPubSub do
   # Private functions
 
   defp valid_bounds?(%{north: n, south: s, east: e, west: w}) do
-    is_number(n) and is_number(s) and is_number(e) and is_number(w) and
+    all_bounds_numeric?(n, s, e, w) and
       n >= s and
-      n >= -90 and n <= 90 and
-      s >= -90 and s <= 90 and
-      e >= -180 and e <= 180 and
-      w >= -180 and w <= 180
+      valid_latitude_range?(n) and
+      valid_latitude_range?(s) and
+      valid_longitude_range?(e) and
+      valid_longitude_range?(w)
   end
 
   defp valid_bounds?(_), do: false
+
+  defp all_bounds_numeric?(n, s, e, w) do
+    is_number(n) and is_number(s) and is_number(e) and is_number(w)
+  end
+
+  defp valid_latitude_range?(lat) do
+    lat >= -90 and lat <= 90
+  end
+
+  defp valid_longitude_range?(lon) do
+    lon >= -180 and lon <= 180
+  end
 
   defp packet_in_bounds?(lat, lon, %{north: n, south: s, east: e, west: w}) do
     lat_in_bounds = lat >= s and lat <= n
