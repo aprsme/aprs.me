@@ -181,30 +181,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
 
           # Filter historical packets that are too close to most recent position
           filtered_historical =
-            if most_recent_lat && most_recent_lon do
-              Enum.filter(historical, fn packet ->
-                {lat, lon, _} = get_coordinates(packet)
-
-                if lat && lon do
-                  distance_meters =
-                    CoordinateUtils.calculate_distance_meters(
-                      most_recent_lat,
-                      most_recent_lon,
-                      lat,
-                      lon
-                    )
-
-                  # Only show if 10+ meters away
-                  distance_meters >= 10.0
-                else
-                  # Skip packets without coordinates
-                  false
-                end
-              end)
-            else
-              # If most recent has no coordinates, include all historical
-              historical
-            end
+            filter_historical_by_distance(historical, most_recent_lat, most_recent_lon)
 
           # Build data for remaining historical packets
           historical_data =
@@ -620,4 +597,35 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   end
 
   defp convert_rain(value, _locale), do: {value, "in"}
+
+  defp filter_historical_by_distance(historical, most_recent_lat, most_recent_lon) do
+    if most_recent_lat && most_recent_lon do
+      Enum.filter(historical, fn packet ->
+        packet_far_enough_from_most_recent?(packet, most_recent_lat, most_recent_lon)
+      end)
+    else
+      # If most recent has no coordinates, include all historical
+      historical
+    end
+  end
+
+  defp packet_far_enough_from_most_recent?(packet, most_recent_lat, most_recent_lon) do
+    {lat, lon, _} = get_coordinates(packet)
+
+    if lat && lon do
+      distance_meters =
+        CoordinateUtils.calculate_distance_meters(
+          most_recent_lat,
+          most_recent_lon,
+          lat,
+          lon
+        )
+
+      # Only show if 10+ meters away
+      distance_meters >= 10.0
+    else
+      # Skip packets without coordinates
+      false
+    end
+  end
 end

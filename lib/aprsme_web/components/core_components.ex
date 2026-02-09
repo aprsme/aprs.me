@@ -38,11 +38,7 @@ defmodule AprsmeWeb.CoreComponents do
         {:ok, contents} ->
           # Insert class attribute if not present
           Regex.replace(~r/<svg([^>]*?)>/, contents, fn _, attrs ->
-            if String.contains?(attrs, "class=") do
-              "<svg#{attrs}>"
-            else
-              "<svg class=\"#{class}\"#{attrs}>"
-            end
+            add_class_to_svg_tag(attrs, class)
           end)
 
         _ ->
@@ -821,5 +817,13 @@ defmodule AprsmeWeb.CoreComponents do
       <% end %>
     <% end %>
     """
+  end
+
+  defp add_class_to_svg_tag(attrs, class) do
+    if String.contains?(attrs, "class=") do
+      "<svg#{attrs}>"
+    else
+      "<svg class=\"#{class}\"#{attrs}>"
+    end
   end
 end

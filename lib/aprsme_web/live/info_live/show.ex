@@ -505,23 +505,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     case Repo.query(query, [callsign, one_month_ago]) do
       {:ok, result} ->
         result.rows
-        |> Enum.map(fn row ->
-          case row do
-            [digipeater, first_heard, last_heard, packet_count, longest_path_time, longest_distance_km] ->
-              %{
-                digipeater: digipeater || "",
-                first_heard: first_heard,
-                last_heard: last_heard,
-                packet_count: packet_count || 0,
-                longest_distance_km: longest_distance_km,
-                longest_distance: if(longest_distance_km, do: format_distance(longest_distance_km, locale)),
-                longest_path_time: longest_path_time
-              }
-
-            _ ->
-              nil
-          end
-        end)
+        |> Enum.map(fn row -> map_digipeater_row(row, locale) end)
         |> Enum.reject(&is_nil/1)
 
       {:error, error} ->
@@ -619,23 +603,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     case Repo.query(query, [callsign, one_month_ago]) do
       {:ok, result} ->
         result.rows
-        |> Enum.map(fn row ->
-          case row do
-            [station, first_heard, last_heard, packet_count, longest_path_time, longest_distance_km] ->
-              %{
-                station: station || "",
-                first_heard: first_heard,
-                last_heard: last_heard,
-                packet_count: packet_count || 0,
-                longest_distance_km: longest_distance_km,
-                longest_distance: if(longest_distance_km, do: format_distance(longest_distance_km, locale)),
-                longest_path_time: longest_path_time
-              }
-
-            _ ->
-              nil
-          end
-        end)
+        |> Enum.map(fn row -> map_station_heard_row(row, locale) end)
         |> Enum.reject(&is_nil/1)
 
       {:error, error} ->
@@ -811,4 +779,40 @@ defmodule AprsmeWeb.InfoLive.Show do
   defp decode_tcpip_element("TCPIP"), do: gettext("TCPIP (Internet gateway)")
   defp decode_tcpip_element("TCPIP*"), do: gettext("TCPIP* (Internet gateway, no forward)")
   defp decode_tcpip_element(element), do: gettext("TCPIP gateway (%{element})", element: element)
+
+  defp map_digipeater_row(row, locale) do
+    case row do
+      [digipeater, first_heard, last_heard, packet_count, longest_path_time, longest_distance_km] ->
+        %{
+          digipeater: digipeater || "",
+          first_heard: first_heard,
+          last_heard: last_heard,
+          packet_count: packet_count || 0,
+          longest_distance_km: longest_distance_km,
+          longest_distance: if(longest_distance_km, do: format_distance(longest_distance_km, locale)),
+          longest_path_time: longest_path_time
+        }
+
+      _ ->
+        nil
+    end
+  end
+
+  defp map_station_heard_row(row, locale) do
+    case row do
+      [station, first_heard, last_heard, packet_count, longest_path_time, longest_distance_km] ->
+        %{
+          station: station || "",
+          first_heard: first_heard,
+          last_heard: last_heard,
+          packet_count: packet_count || 0,
+          longest_distance_km: longest_distance_km,
+          longest_distance: if(longest_distance_km, do: format_distance(longest_distance_km, locale)),
+          longest_path_time: longest_path_time
+        }
+
+      _ ->
+        nil
+    end
+  end
 end

@@ -46,11 +46,7 @@ defmodule AprsmeWeb.AprsSymbol do
       sprite_file = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png"
 
       # Get symbol position using ASCII-based calculation
-      symbol_code_ord =
-        symbol_code
-        |> String.to_charlist()
-        |> List.first()
-        |> then(fn c -> if is_integer(c), do: c, else: 63 end)
+      symbol_code_ord = get_symbol_code_ord(symbol_code)
 
       index = symbol_code_ord - 33
       safe_index = max(0, min(index, 93))
@@ -368,5 +364,10 @@ defmodule AprsmeWeb.AprsSymbol do
       Map.get(data_extended, field) ||
       Map.get(data_extended, to_string(field)) ||
       default
+  end
+
+  defp get_symbol_code_ord(symbol_code) do
+    c = symbol_code |> String.to_charlist() |> List.first()
+    if is_integer(c), do: c, else: 63
   end
 end

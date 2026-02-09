@@ -123,14 +123,7 @@ defmodule Aprsme.StreamingPacketsPubSub do
           subscribers
           |> Stream.filter(fn {_pid, bounds} -> packet_in_bounds?(lat, lon, bounds) end)
           |> Enum.reduce([], fn {pid, _bounds}, acc ->
-            # Only send if process is alive
-            if Process.alive?(pid) do
-              send(pid, {:streaming_packet, packet})
-              acc
-            else
-              # Collect dead pid for cleanup
-              [pid | acc]
-            end
+            send_to_subscriber_if_alive(pid, packet, acc)
           end)
 
         # Send dead pids back to GenServer for cleanup
@@ -187,5 +180,15 @@ defmodule Aprsme.StreamingPacketsPubSub do
       end
 
     lat_in_bounds and lon_in_bounds
+  end
+
+  defp send_to_subscriber_if_alive(pid, packet, acc) do
+    if Process.alive?(pid) do
+      send(pid, {:streaming_packet, packet})
+      acc
+    else
+      # Collect dead pid for cleanup
+      [pid | acc]
+    end
   end
 end
