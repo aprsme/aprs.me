@@ -31,19 +31,23 @@ defmodule Aprsme.RegexCache do
         {:ok, regex}
 
       [] ->
-        case Regex.compile(pattern_string) do
-          {:ok, regex} ->
-            # Check cache size and clear if needed
-            if :ets.info(@table_name, :size) >= @max_cache_size do
-              clear_oldest_entries()
-            end
+        compile_and_cache(pattern_string)
+    end
+  end
 
-            :ets.insert(@table_name, {pattern_string, regex})
-            {:ok, regex}
-
-          error ->
-            error
+  defp compile_and_cache(pattern_string) do
+    case Regex.compile(pattern_string) do
+      {:ok, regex} ->
+        # Check cache size and clear if needed
+        if :ets.info(@table_name, :size) >= @max_cache_size do
+          clear_oldest_entries()
         end
+
+        :ets.insert(@table_name, {pattern_string, regex})
+        {:ok, regex}
+
+      error ->
+        error
     end
   end
 

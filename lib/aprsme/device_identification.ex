@@ -136,24 +136,22 @@ defmodule Aprsme.DeviceIdentification do
   end
 
   def fetch_and_upsert_devices do
-    case CircuitBreaker.call(
-           :aprs_foundation_api,
-           fn ->
-             case Req.get(@url) do
-               {:ok, %Req.Response{status: 200, body: body}} ->
-                 upsert_devices(body)
-
-               {:ok, %Req.Response{status: status}} ->
-                 {:error, {:http_error, status}}
-
-               {:error, reason} ->
-                 {:error, reason}
-             end
-           end,
-           15_000
-         ) do
+    case CircuitBreaker.call(:aprs_foundation_api, &fetch_devices_from_url/0, 15_000) do
       {:ok, result} -> result
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp fetch_devices_from_url do
+    case Req.get(@url) do
+      {:ok, %Req.Response{status: 200, body: body}} ->
+        upsert_devices(body)
+
+      {:ok, %Req.Response{status: status}} ->
+        {:error, {:http_error, status}}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

@@ -204,14 +204,16 @@ defmodule Aprsme.ConnectionMonitor do
         # Fallback to scheduler wall time
         :scheduler_wall_time_all
         |> :erlang.statistics()
-        |> Enum.map(fn {_, active, total} ->
-          if total > 0, do: active / total, else: 0.0
-        end)
+        |> Enum.map(&calculate_scheduler_utilization/1)
         |> Enum.sum()
         |> Kernel./(System.schedulers_online())
     end
   rescue
     _ -> 0.0
+  end
+
+  defp calculate_scheduler_utilization({_, active, total}) do
+    if total > 0, do: active / total, else: 0.0
   end
 
   defp get_memory_usage do
