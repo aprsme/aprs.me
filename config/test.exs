@@ -1,20 +1,28 @@
 import Config
 
-# In test we don't send emails.
-config :aprsme, Aprsme.Mailer, adapter: Swoosh.Adapters.Test
-
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
+# Reduce pool size when coverage is enabled to prevent file descriptor exhaustion
+pool_size =
+  if System.get_env("MIX_TEST_COVERAGE") do
+    2
+  else
+    System.schedulers_online() * 4
+  end
+
+# In test we don't send emails.
+config :aprsme, Aprsme.Mailer, adapter: Swoosh.Adapters.Test
+
 config :aprsme, Aprsme.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
   database: "aprsme_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: System.schedulers_online() * 4,
+  pool_size: pool_size,
   types: Aprsme.PostgresTypes,
   ownership_timeout: 60_000,
   timeout: 15_000,

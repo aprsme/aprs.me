@@ -1,5 +1,13 @@
+# Reduce parallelism when coverage is enabled to prevent file descriptor exhaustion
+max_cases =
+  if System.get_env("MIX_TEST_COVERAGE") do
+    2
+  else
+    System.schedulers_online() * 4
+  end
+
 ExUnit.start(
-  max_cases: System.schedulers_online() * 4,
+  max_cases: max_cases,
   timeout: 30_000,
   capture_log: true,
   exclude: [:slow, :integration]

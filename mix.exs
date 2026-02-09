@@ -121,6 +121,7 @@ defmodule Aprsme.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      "test.cover": ["cmd MIX_TEST_COVERAGE=1 mix test --cover"],
       "assets.deploy": [
         "tailwind default --minify",
         "esbuild vendor",
