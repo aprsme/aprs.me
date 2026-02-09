@@ -16,7 +16,10 @@ import type {
   LatLngBounds,
   Polyline,
 } from "leaflet";
-import type { LeafletTouchEvent, LeafletPopupEvent } from "./types/leaflet-events";
+import type {
+  LeafletTouchEvent,
+  LeafletPopupEvent,
+} from "./types/leaflet-events";
 import type {
   HeatLayer,
   MarkerClusterGroup,
@@ -43,8 +46,13 @@ declare global {
 
 // Add plugin types to Leaflet
 declare module "leaflet" {
-  export function heatLayer(latlngs: HeatLatLng[], options?: HeatLayerOptions): HeatLayer;
-  export function markerClusterGroup(options?: MarkerClusterGroupOptions): MarkerClusterGroup;
+  export function heatLayer(
+    latlngs: HeatLatLng[],
+    options?: HeatLayerOptions,
+  ): HeatLayer;
+  export function markerClusterGroup(
+    options?: MarkerClusterGroupOptions,
+  ): MarkerClusterGroup;
 }
 
 // Import trail management functionality
@@ -86,11 +94,13 @@ let MapAPRSMap = {
         setTimeout(() => self.attemptInitialization(), 1000);
         return;
       } else {
-        self.handleFatalError("Leaflet library failed to load after multiple attempts");
+        self.handleFatalError(
+          "Leaflet library failed to load after multiple attempts",
+        );
         return;
       }
     }
-    
+
     // Create a local reference to Leaflet for this function
     const L = window.L;
 
@@ -102,7 +112,8 @@ let MapAPRSMap = {
       const centerData = self.el.dataset.center;
       const zoomData = self.el.dataset.zoom;
 
-      if (!centerData || !zoomData) throw new Error("Missing map data attributes");
+      if (!centerData || !zoomData)
+        throw new Error("Missing map data attributes");
       initialCenter = JSON.parse(centerData);
       initialZoom = parseInt(zoomData);
 
@@ -117,7 +128,8 @@ let MapAPRSMap = {
 
       // Check if URL has explicit parameters (not default values)
       const urlParams = new URLSearchParams(window.location.search);
-      useUrlParams = urlParams.has("lat") || urlParams.has("lng") || urlParams.has("z");
+      useUrlParams =
+        urlParams.has("lat") || urlParams.has("lng") || urlParams.has("z");
     } catch (error) {
       console.error("Error parsing map data attributes:", error);
       initialCenter = { lat: 39.8283, lng: -98.5795 };
@@ -154,17 +166,17 @@ let MapAPRSMap = {
 
   initializeMap(initialCenter: CenterData, initialZoom: number) {
     const self = this as unknown as LiveViewHookContext;
-    
+
     // Check if Leaflet is still available
     if (typeof window.L === "undefined") {
       console.error("Leaflet library not loaded!");
       self.handleFatalError("Leaflet library not available");
       return;
     }
-    
+
     // Create a local reference to Leaflet for this function
     const L = window.L;
-    
+
     // Ensure the element and its parent exist
     if (!self.el || !self.el.parentNode) {
       console.warn("Map element or parent not found, retrying...");
@@ -218,9 +230,10 @@ let MapAPRSMap = {
       }
 
       // Detect if mobile device
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent,
-      );
+      const isMobile =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent,
+        );
 
       self.map = L.map(self.el, {
         zoomControl: !isMobile, // Hide default zoom control on mobile, we'll add a better one
@@ -251,14 +264,17 @@ let MapAPRSMap = {
     } catch (error) {
       console.error("Error initializing map:", error);
       self.errors!.push(
-        "Map initialization failed: " + (error instanceof Error ? error.message : error),
+        "Map initialization failed: " +
+          (error instanceof Error ? error.message : error),
       );
 
       if (self.initializationAttempts! < self.maxInitializationAttempts!) {
         setTimeout(() => self.attemptInitialization(), 1000);
         return;
       } else {
-        self.handleFatalError("Map initialization failed after multiple attempts");
+        self.handleFatalError(
+          "Map initialization failed after multiple attempts",
+        );
         return;
       }
     }
@@ -314,7 +330,8 @@ let MapAPRSMap = {
           // Exponential backoff
           setTimeout(
             () => {
-              error.tile.src = src + (src.includes("?") ? "&" : "?") + "_retry=" + Date.now();
+              error.tile.src =
+                src + (src.includes("?") ? "&" : "?") + "_retry=" + Date.now();
             },
             Math.pow(2, count) * 500,
           );
@@ -326,7 +343,10 @@ let MapAPRSMap = {
 
       tileLayer.addTo(self.map);
     } catch (error) {
-      self.errors!.push("Tile layer failed: " + (error instanceof Error ? error.message : error));
+      self.errors!.push(
+        "Tile layer failed: " +
+          (error instanceof Error ? error.message : error),
+      );
     }
 
     // Store markers for management
@@ -404,15 +424,19 @@ let MapAPRSMap = {
     } catch (error) {
       console.error("Error invalidating map size:", error);
     }
-    
+
     // Helper function to send map ready events with retry
     self.sendMapReadyEvents = (retryCount = 0) => {
-      if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
+      if (
+        self.pushEvent &&
+        typeof self.pushEvent === "function" &&
+        !self.isDestroyed
+      ) {
         self.pushEvent("map_ready", {});
         if (self.map) {
           saveMapState(self.map, self.pushEvent.bind(self));
           self.sendBoundsToServer();
-          
+
           // Send map state update after a delay
           setTimeout(() => {
             if (self.map && self.pushEvent && !self.isDestroyed) {
@@ -422,7 +446,9 @@ let MapAPRSMap = {
         }
       } else if (retryCount < 3) {
         // Retry up to 3 times
-        console.warn(`pushEvent not available, retrying... (attempt ${retryCount + 1})`);
+        console.warn(
+          `pushEvent not available, retrying... (attempt ${retryCount + 1})`,
+        );
         setTimeout(() => self.sendMapReadyEvents(retryCount + 1), 200);
       }
     };
@@ -432,10 +458,12 @@ let MapAPRSMap = {
       try {
         self.lastZoom = self.map!.getZoom();
         self.sendMapReadyEvents();
-        
+
         // Process any pending markers that were queued before map was ready
         if (self.pendingMarkers && self.pendingMarkers.length > 0) {
-          console.log(`Processing ${self.pendingMarkers.length} pending markers`);
+          console.log(
+            `Processing ${self.pendingMarkers.length} pending markers`,
+          );
           self.pendingMarkers.forEach((markerData: MarkerData) => {
             try {
               self.addMarker(markerData);
@@ -496,7 +524,9 @@ let MapAPRSMap = {
       if (self.boundsTimer) clearTimeout(self.boundsTimer);
       self.boundsTimer = setTimeout(() => {
         const currentZoom = self.map!.getZoom();
-        const zoomDifference = self.lastZoom ? Math.abs(currentZoom - self.lastZoom) : 0;
+        const zoomDifference = self.lastZoom
+          ? Math.abs(currentZoom - self.lastZoom)
+          : 0;
 
         // Handle OMS markers when crossing zoom threshold
         if (self.oms) {
@@ -506,9 +536,16 @@ let MapAPRSMap = {
             const markerState = self.markerStates.get(String(id));
             // Only add most recent markers (those with icons) to OMS for spidering
             // Fallback: if is_most_recent_for_callsign is undefined, exclude historical markers as before
-            const shouldAddToOms = markerState?.is_most_recent_for_callsign === true || 
-                                   (markerState?.is_most_recent_for_callsign == null && !marker._isHistorical);
-            if (marker && !marker._isClusterMarker && markerState && shouldAddToOms) {
+            const shouldAddToOms =
+              markerState?.is_most_recent_for_callsign === true ||
+              (markerState?.is_most_recent_for_callsign == null &&
+                !marker._isHistorical);
+            if (
+              marker &&
+              !marker._isClusterMarker &&
+              markerState &&
+              shouldAddToOms
+            ) {
               self.oms.addMarker(marker);
             }
           });
@@ -563,15 +600,15 @@ let MapAPRSMap = {
 
     // Queue to hold markers that arrive before map is ready
     self.pendingMarkers = [];
-    
+
     // LiveView event handlers
     self.setupLiveViewHandlers();
-    
+
     // Process any pending markers once the map is ready
     self.map.whenReady(() => {
       if (self.pendingMarkers && self.pendingMarkers.length > 0) {
         console.log(`Processing ${self.pendingMarkers.length} pending markers`);
-        self.pendingMarkers.forEach(markerData => {
+        self.pendingMarkers.forEach((markerData) => {
           self.addMarker(markerData);
         });
         self.pendingMarkers = [];
@@ -589,10 +626,10 @@ let MapAPRSMap = {
         circleSpiralSwitchover: 15,
         legWeight: 2,
         legColors: {
-          usual: '#222',
-          highlighted: '#f00'
+          usual: "#222",
+          highlighted: "#f00",
         },
-        spiderfyDistanceMultiplier: 3.5
+        spiderfyDistanceMultiplier: 3.5,
       });
 
       // Add click handler for spiderfied markers
@@ -656,7 +693,9 @@ let MapAPRSMap = {
       if (e.touches.length !== 1) return; // Only handle single touch
 
       const touch = e.touches[0];
-      const latlng = self.map!.containerPointToLatLng(L.point(touch.clientX, touch.clientY));
+      const latlng = self.map!.containerPointToLatLng(
+        L.point(touch.clientX, touch.clientY),
+      );
 
       // Find the nearest marker
       let nearestMarker: APRSMarker | null = null;
@@ -797,94 +836,97 @@ let MapAPRSMap = {
     });
 
     // Zoom to location
-    self.handleEvent("zoom_to_location", (data: { lat: number; lng: number; zoom?: number }) => {
-      if (!self.map) {
-        console.error("Map not initialized, cannot zoom");
-        return;
-      }
-
-      if (data.lat && data.lng) {
-        const lat = parseFloat(data.lat.toString());
-        const lng = parseFloat(data.lng.toString());
-        const zoom = parseInt(data.zoom?.toString() || "12");
-
-        // Validate coordinates
-        if (!isValidCoordinate(lat, lng)) {
-          console.error("Invalid coordinates for zoom:", lat, lng);
+    self.handleEvent(
+      "zoom_to_location",
+      (data: { lat: number; lng: number; zoom?: number }) => {
+        if (!self.map) {
+          console.error("Map not initialized, cannot zoom");
           return;
         }
 
-        if (isNaN(zoom) || zoom < 1 || zoom > 20) {
-          console.error("Invalid zoom level:", zoom);
-          return;
-        }
+        if (data.lat && data.lng) {
+          const lat = parseFloat(data.lat.toString());
+          const lng = parseFloat(data.lng.toString());
+          const zoom = parseInt(data.zoom?.toString() || "12");
 
-        try {
-          // Check element dimensions before zoom
-          const beforeRect = self.el.getBoundingClientRect();
+          // Validate coordinates
+          if (!isValidCoordinate(lat, lng)) {
+            console.error("Invalid coordinates for zoom:", lat, lng);
+            return;
+          }
 
-          // Force map size recalculation before zoom
-          self.map.invalidateSize();
+          if (isNaN(zoom) || zoom < 1 || zoom > 20) {
+            console.error("Invalid zoom level:", zoom);
+            return;
+          }
 
-          // Use a slight delay to ensure map is ready
-          setTimeout(() => {
-            if (self.map) {
-              // Generate a unique ID for this programmatic move
-              const moveId = `move_${Date.now()}_${Math.random()}`;
-              self.programmaticMoveId = moveId;
+          try {
+            // Check element dimensions before zoom
+            const beforeRect = self.el.getBoundingClientRect();
 
-              // Clear any existing timeout
-              if (self.programmaticMoveTimeout) {
-                clearTimeout(self.programmaticMoveTimeout);
-              }
+            // Force map size recalculation before zoom
+            self.map.invalidateSize();
 
-              // Set a timeout to clear the programmatic move flag
-              // This ensures we don't block user interactions indefinitely
-              self.programmaticMoveTimeout = setTimeout(() => {
-                if (self.programmaticMoveId === moveId) {
-                  self.programmaticMoveId = undefined;
-                }
-              }, 1500);
+            // Use a slight delay to ensure map is ready
+            setTimeout(() => {
+              if (self.map) {
+                // Generate a unique ID for this programmatic move
+                const moveId = `move_${Date.now()}_${Math.random()}`;
+                self.programmaticMoveId = moveId;
 
-              self.map.setView([lat, lng], zoom, {
-                animate: true,
-                duration: 1,
-              });
-
-              // Check element dimensions after zoom
-              const dimensionCheckTimeout = setTimeout(() => {
-                // Check if map still exists and not destroyed
-                if (!self.map || self.isDestroyed) {
-                  return;
+                // Clear any existing timeout
+                if (self.programmaticMoveTimeout) {
+                  clearTimeout(self.programmaticMoveTimeout);
                 }
 
-                const afterRect = self.el.getBoundingClientRect();
-
-                if (afterRect.width === 0 || afterRect.height === 0) {
-                  console.error("Map element lost dimensions after zoom!");
-                  // Try to restore dimensions
-                  self.el.style.width = "100vw";
-                  self.el.style.height = "100vh";
-                  if (self.map) {
-                    self.map.invalidateSize();
+                // Set a timeout to clear the programmatic move flag
+                // This ensures we don't block user interactions indefinitely
+                self.programmaticMoveTimeout = setTimeout(() => {
+                  if (self.programmaticMoveId === moveId) {
+                    self.programmaticMoveId = undefined;
                   }
-                }
-              }, 1000);
+                }, 1500);
 
-              // Store timeout for cleanup
-              if (!self.cleanupTimeouts) {
-                self.cleanupTimeouts = [];
+                self.map.setView([lat, lng], zoom, {
+                  animate: true,
+                  duration: 1,
+                });
+
+                // Check element dimensions after zoom
+                const dimensionCheckTimeout = setTimeout(() => {
+                  // Check if map still exists and not destroyed
+                  if (!self.map || self.isDestroyed) {
+                    return;
+                  }
+
+                  const afterRect = self.el.getBoundingClientRect();
+
+                  if (afterRect.width === 0 || afterRect.height === 0) {
+                    console.error("Map element lost dimensions after zoom!");
+                    // Try to restore dimensions
+                    self.el.style.width = "100vw";
+                    self.el.style.height = "100vh";
+                    if (self.map) {
+                      self.map.invalidateSize();
+                    }
+                  }
+                }, 1000);
+
+                // Store timeout for cleanup
+                if (!self.cleanupTimeouts) {
+                  self.cleanupTimeouts = [];
+                }
+                self.cleanupTimeouts.push(dimensionCheckTimeout);
               }
-              self.cleanupTimeouts.push(dimensionCheckTimeout);
-            }
-          }, 100);
-        } catch (error) {
-          console.error("Error during zoom operation:", error);
+            }, 100);
+          } catch (error) {
+            console.error("Error during zoom operation:", error);
+          }
+        } else {
+          console.warn("Missing lat/lng data for zoom operation:", data);
         }
-      } else {
-        console.warn("Missing lat/lng data for zoom operation:", data);
-      }
-    });
+      },
+    );
 
     // Handle geolocation requests
     self.handleEvent("request_geolocation", () => {
@@ -901,7 +943,9 @@ let MapAPRSMap = {
         );
       } else {
         console.warn("Geolocation not available");
-        self.pushEvent("geolocation_error", { error: "Geolocation not supported" });
+        self.pushEvent("geolocation_error", {
+          error: "Geolocation not supported",
+        });
       }
     });
 
@@ -913,24 +957,31 @@ let MapAPRSMap = {
     });
 
     // Handle trail duration updates from LiveView
-    self.handleEvent("update_trail_duration", (data: { duration_hours: number }) => {
-      if (self.trailManager) {
-        self.trailManager.setTrailDuration(data.duration_hours);
-      }
-    });
+    self.handleEvent(
+      "update_trail_duration",
+      (data: { duration_hours: number }) => {
+        if (self.trailManager) {
+          self.trailManager.setTrailDuration(data.duration_hours);
+        }
+      },
+    );
 
     // Handle new packets from LiveView
     self.handleEvent("new_packet", (data: MarkerData) => {
       try {
         // Skip if context is lost
         if (!self || !self.map || self.isDestroyed) {
-          console.warn("Map context not ready or destroyed, skipping new packet");
+          console.warn(
+            "Map context not ready or destroyed, skipping new packet",
+          );
           return;
         }
 
         // Check if map exists and has the hasLayer method
         if (!self.map.hasLayer) {
-          console.warn("Map hasLayer method not available, skipping new packet");
+          console.warn(
+            "Map hasLayer method not available, skipping new packet",
+          );
           return;
         }
 
@@ -940,7 +991,8 @@ let MapAPRSMap = {
         }
 
         // Check if there's already a marker for this callsign
-        const incomingCallsign = data.callsign_group || data.callsign || data.id;
+        const incomingCallsign =
+          data.callsign_group || data.callsign || data.id;
 
         if (incomingCallsign) {
           // Find existing live markers for this callsign and convert them to historical dots
@@ -967,7 +1019,9 @@ let MapAPRSMap = {
           // Convert existing live markers to historical dots by updating their icon
           markersToConvert.forEach((id) => {
             if (!self.markers || !self.markerStates) {
-              console.warn("markers or markerStates not available during conversion");
+              console.warn(
+                "markers or markerStates not available during conversion",
+              );
               return;
             }
             const existingMarker = self.markers.get(id);
@@ -984,7 +1038,8 @@ let MapAPRSMap = {
                 lat: existingState.lat,
                 lng: existingState.lng,
                 callsign: existingState.callsign || incomingCallsign,
-                callsign_group: existingState.callsign_group || incomingCallsign,
+                callsign_group:
+                  existingState.callsign_group || incomingCallsign,
                 symbol_table_id: existingState.symbol_table,
                 symbol_code: existingState.symbol_code,
                 historical: true,
@@ -1008,7 +1063,8 @@ let MapAPRSMap = {
           ...data,
           historical: false,
           is_most_recent_for_callsign: true,
-          callsign_group: data.callsign_group || data.callsign || incomingCallsign,
+          callsign_group:
+            data.callsign_group || data.callsign || incomingCallsign,
           popup: data.popup || self.buildPopupContent(data),
           openPopup: shouldOpenPopup,
         });
@@ -1023,7 +1079,10 @@ let MapAPRSMap = {
       if (!data.id || !self.markers || !self.markerStates) return;
 
       // Close previous popup if open
-      if (self.currentPopupMarkerId && self.markers.has(self.currentPopupMarkerId)) {
+      if (
+        self.currentPopupMarkerId &&
+        self.markers.has(self.currentPopupMarkerId)
+      ) {
         const prevMarker = self.markers.get(self.currentPopupMarkerId);
         if (prevMarker && prevMarker.closePopup) prevMarker.closePopup();
       }
@@ -1051,43 +1110,47 @@ let MapAPRSMap = {
     });
 
     // Handle bulk loading of historical packets
-    self.handleEvent("add_historical_packets", (data: { packets: MarkerData[] }) => {
-      if (data.packets && Array.isArray(data.packets)) {
-        // Group packets by callsign to process them in chronological order for proper trail drawing
-        const packetsByCallsign = new Map<string, MarkerData[]>();
+    self.handleEvent(
+      "add_historical_packets",
+      (data: { packets: MarkerData[] }) => {
+        if (data.packets && Array.isArray(data.packets)) {
+          // Group packets by callsign to process them in chronological order for proper trail drawing
+          const packetsByCallsign = new Map<string, MarkerData[]>();
 
-        data.packets.forEach((packet) => {
-          const callsign = packet.callsign_group || packet.callsign || packet.id;
-          if (!packetsByCallsign.has(callsign)) {
-            packetsByCallsign.set(callsign, []);
-          }
-          packetsByCallsign.get(callsign)!.push(packet);
-        });
-
-        // Process each callsign group in chronological order (oldest first)
-        packetsByCallsign.forEach((packets, callsign) => {
-          // Sort by timestamp (oldest first) to ensure proper trail line drawing
-          const sortedPackets = packets.sort((a, b) => {
-            const timeA = parseTimestamp(a.timestamp);
-            const timeB = parseTimestamp(b.timestamp);
-            return timeA - timeB;
-          });
-
-          // Add markers in chronological order
-          sortedPackets.forEach((packet) => {
-            try {
-              self.addMarker({
-                ...packet,
-                historical: true,
-                popup: packet.popup || self.buildPopupContent(packet),
-              });
-            } catch (error) {
-              console.error("Error adding historical packet:", error, packet);
+          data.packets.forEach((packet) => {
+            const callsign =
+              packet.callsign_group || packet.callsign || packet.id;
+            if (!packetsByCallsign.has(callsign)) {
+              packetsByCallsign.set(callsign, []);
             }
+            packetsByCallsign.get(callsign)!.push(packet);
           });
-        });
-      }
-    });
+
+          // Process each callsign group in chronological order (oldest first)
+          packetsByCallsign.forEach((packets, callsign) => {
+            // Sort by timestamp (oldest first) to ensure proper trail line drawing
+            const sortedPackets = packets.sort((a, b) => {
+              const timeA = parseTimestamp(a.timestamp);
+              const timeB = parseTimestamp(b.timestamp);
+              return timeA - timeB;
+            });
+
+            // Add markers in chronological order
+            sortedPackets.forEach((packet) => {
+              try {
+                self.addMarker({
+                  ...packet,
+                  historical: true,
+                  popup: packet.popup || self.buildPopupContent(packet),
+                });
+              } catch (error) {
+                console.error("Error adding historical packet:", error, packet);
+              }
+            });
+          });
+        }
+      },
+    );
 
     // Handle progressive loading of historical packets (batch processing)
     self.handleEvent(
@@ -1096,7 +1159,7 @@ let MapAPRSMap = {
         console.log("Received add_historical_packets_batch event:", {
           packetCount: data.packets?.length || 0,
           batch: data.batch,
-          is_final: data.is_final
+          is_final: data.is_final,
         });
         try {
           if (data.packets && Array.isArray(data.packets)) {
@@ -1104,7 +1167,8 @@ let MapAPRSMap = {
             const packetsByCallsign = new Map<string, MarkerData[]>();
 
             data.packets.forEach((packet) => {
-              const callsign = packet.callsign_group || packet.callsign || packet.id;
+              const callsign =
+                packet.callsign_group || packet.callsign || packet.id;
               if (!packetsByCallsign.has(callsign)) {
                 packetsByCallsign.set(callsign, []);
               }
@@ -1129,7 +1193,11 @@ let MapAPRSMap = {
                     popup: packet.popup || self.buildPopupContent(packet),
                   });
                 } catch (error) {
-                  console.error("Error adding historical packet:", error, packet);
+                  console.error(
+                    "Error adding historical packet:",
+                    error,
+                    packet,
+                  );
                 }
               });
             });
@@ -1157,7 +1225,10 @@ let MapAPRSMap = {
       self.markers!.forEach((marker: APRSMarker, id: string) => {
         const markerState = self.markerStates!.get(String(id));
         // Only remove markers that are explicitly historical
-        if ((marker as APRSMarker)._isHistorical || (markerState && markerState.historical)) {
+        if (
+          (marker as APRSMarker)._isHistorical ||
+          (markerState && markerState.historical)
+        ) {
           markersToRemove.push(String(id));
         }
       });
@@ -1192,11 +1263,15 @@ let MapAPRSMap = {
         station_lng: number;
         path_stations: Array<{ callsign: string; lat: number; lng: number }>;
       }) => {
-        if (!self.map || !data.path_stations || data.path_stations.length === 0) return;
+        if (!self.map || !data.path_stations || data.path_stations.length === 0)
+          return;
 
         // Validate initial station coordinates
         if (!isFinite(data.station_lat) || !isFinite(data.station_lng)) {
-          console.warn("Invalid initial station coordinates for RF path:", { lat: data.station_lat, lng: data.station_lng });
+          console.warn("Invalid initial station coordinates for RF path:", {
+            lat: data.station_lat,
+            lng: data.station_lng,
+          });
           return;
         }
 
@@ -1212,8 +1287,17 @@ let MapAPRSMap = {
 
         data.path_stations.forEach((station, index) => {
           // Validate coordinates before drawing
-          if (!isFinite(prevLat) || !isFinite(prevLng) || !isFinite(station.lat) || !isFinite(station.lng)) {
-            console.warn("Invalid coordinates for RF path:", { prevLat, prevLng, station });
+          if (
+            !isFinite(prevLat) ||
+            !isFinite(prevLng) ||
+            !isFinite(station.lat) ||
+            !isFinite(station.lng)
+          ) {
+            console.warn("Invalid coordinates for RF path:", {
+              prevLat,
+              prevLng,
+              station,
+            });
             return;
           }
 
@@ -1227,7 +1311,7 @@ let MapAPRSMap = {
               color: "#FF6B6B",
               weight: 3,
               opacity: 0.8,
-              dashArray: index === 0 ? null : "5, 10", // Solid line for first hop, dashed for subsequent
+              dashArray: index === 0 ? undefined : "5, 10", // Solid line for first hop, dashed for subsequent
             },
           );
 
@@ -1266,16 +1350,19 @@ let MapAPRSMap = {
     });
 
     // Handle bounds-based marker filtering
-    self.handleEvent("filter_markers_by_bounds", (data: { bounds: BoundsData }) => {
-      if (data.bounds) {
-        // Create Leaflet bounds object from server data
-        const bounds = L.latLngBounds(
-          [data.bounds.south, data.bounds.west],
-          [data.bounds.north, data.bounds.east],
-        );
-        self.removeMarkersOutsideBounds(bounds);
-      }
-    });
+    self.handleEvent(
+      "filter_markers_by_bounds",
+      (data: { bounds: BoundsData }) => {
+        if (data.bounds) {
+          // Create Leaflet bounds object from server data
+          const bounds = L.latLngBounds(
+            [data.bounds.south, data.bounds.west],
+            [data.bounds.north, data.bounds.east],
+          );
+          self.removeMarkersOutsideBounds(bounds);
+        }
+      },
+    );
 
     // Handle clearing all markers and reloading visible ones
     self.handleEvent("clear_and_reload_markers", () => {
@@ -1373,7 +1460,12 @@ let MapAPRSMap = {
 
   sendBoundsToServer() {
     const self = this as unknown as LiveViewHookContext;
-    console.log("sendBoundsToServer called, map:", !!self.map, "isDestroyed:", self.isDestroyed);
+    console.log(
+      "sendBoundsToServer called, map:",
+      !!self.map,
+      "isDestroyed:",
+      self.isDestroyed,
+    );
     if (!self.map || self.isDestroyed) return;
 
     try {
@@ -1411,7 +1503,14 @@ let MapAPRSMap = {
   addMarker(data: MarkerData & { openPopup?: boolean }) {
     const self = this as unknown as LiveViewHookContext;
     const L = window.L;
-    if (!data || !data.id || !data.lat || !data.lng || typeof data.lat !== 'number' || typeof data.lng !== 'number') {
+    if (
+      !data ||
+      !data.id ||
+      !data.lat ||
+      !data.lng ||
+      typeof data.lat !== "number" ||
+      typeof data.lng !== "number"
+    ) {
       console.warn("Invalid marker data:", data);
       return;
     }
@@ -1421,9 +1520,13 @@ let MapAPRSMap = {
       console.warn("Map data structures not initialized, skipping marker add");
       return;
     }
-    
+
     // Additional check to ensure map is fully ready
-    if (!self.map || !self.map._container || typeof self.map.getZoom !== 'function') {
+    if (
+      !self.map ||
+      !self.map._container ||
+      typeof self.map.getZoom !== "function"
+    ) {
       console.warn("Map not fully initialized, queueing marker:", data.id);
       if (!self.pendingMarkers) {
         self.pendingMarkers = [];
@@ -1438,7 +1541,14 @@ let MapAPRSMap = {
 
     // Validate coordinates
     if (!isValidCoordinate(lat, lng)) {
-      console.warn("Invalid coordinates for marker:", { id: data.id, lat, lng, callsign: data.callsign, rawLat: data.lat, rawLng: data.lng });
+      console.warn("Invalid coordinates for marker:", {
+        id: data.id,
+        lat,
+        lng,
+        callsign: data.callsign,
+        rawLat: data.lat,
+        rawLng: data.lng,
+      });
       return;
     }
 
@@ -1450,7 +1560,8 @@ let MapAPRSMap = {
       // Check if marker needs updating
       const currentPos = existingMarker.getLatLng();
       const positionChanged =
-        Math.abs(currentPos.lat - lat) > 0.0001 || Math.abs(currentPos.lng - lng) > 0.0001;
+        Math.abs(currentPos.lat - lat) > 0.0001 ||
+        Math.abs(currentPos.lng - lng) > 0.0001;
       const dataChanged =
         existingState.symbol_table !== data.symbol_table_id ||
         existingState.symbol_code !== data.symbol_code ||
@@ -1458,12 +1569,19 @@ let MapAPRSMap = {
 
       if (positionChanged && self.trailManager) {
         // Position changed, update trail
-        const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
+        const isHistoricalDot =
+          data.historical && !data.is_most_recent_for_callsign;
         const timestamp = parseTimestamp(data.timestamp);
         // Use callsign_group for proper trail grouping
         const trailId = getTrailId(data);
 
-        self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
+        self.trailManager.addPosition(
+          trailId,
+          lat,
+          lng,
+          timestamp,
+          isHistoricalDot,
+        );
       }
 
       if (!positionChanged && !dataChanged) {
@@ -1491,7 +1609,11 @@ let MapAPRSMap = {
       // Handle popup close events - check if hook is still connected
       marker.on("popupclose", () => {
         // Only send event if not destroyed and pushEvent is still the original function
-        if (!self.isDestroyed && self.pushEvent && typeof self.pushEvent === "function") {
+        if (
+          !self.isDestroyed &&
+          self.pushEvent &&
+          typeof self.pushEvent === "function"
+        ) {
           try {
             self.pushEvent("popup_closed", {});
           } catch (e) {
@@ -1522,7 +1644,10 @@ let MapAPRSMap = {
           // Find the highest z-index among all markers
           let maxZIndex = 1000;
           document.querySelectorAll(".leaflet-marker-icon").forEach((el) => {
-            const zIndex = parseInt((el as HTMLElement).style.zIndex || "0", 10);
+            const zIndex = parseInt(
+              (el as HTMLElement).style.zIndex || "0",
+              10,
+            );
             if (zIndex > maxZIndex) maxZIndex = zIndex;
           });
 
@@ -1532,7 +1657,11 @@ let MapAPRSMap = {
       }
 
       // Use bound pushEvent function to preserve context
-      if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
+      if (
+        self.pushEvent &&
+        typeof self.pushEvent === "function" &&
+        !self.isDestroyed
+      ) {
         safePushEvent(self.pushEvent.bind(self), "marker_clicked", {
           id: data.id,
           callsign: data.callsign,
@@ -1547,7 +1676,11 @@ let MapAPRSMap = {
     if (data.path && data.path.trim() !== "" && !data.path.includes("TCPIP")) {
       marker.on("mouseover", () => {
         // Check if LiveView is still connected before sending event
-        if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
+        if (
+          self.pushEvent &&
+          typeof self.pushEvent === "function" &&
+          !self.isDestroyed
+        ) {
           try {
             self.pushEvent.call(self, "marker_hover_start", {
               id: data.id,
@@ -1566,7 +1699,11 @@ let MapAPRSMap = {
 
       marker.on("mouseout", () => {
         // Check if LiveView is still connected before sending event
-        if (self.pushEvent && typeof self.pushEvent === "function" && !self.isDestroyed) {
+        if (
+          self.pushEvent &&
+          typeof self.pushEvent === "function" &&
+          !self.isDestroyed
+        ) {
           try {
             self.pushEvent.call(self, "marker_hover_end", {
               id: data.id,
@@ -1609,12 +1746,19 @@ let MapAPRSMap = {
 
     // Initialize trail for new marker - always add to trail for line drawing
     if (self.trailManager) {
-      const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
+      const isHistoricalDot =
+        data.historical && !data.is_most_recent_for_callsign;
       const timestamp = parseTimestamp(data.timestamp);
       // Use callsign_group for proper trail grouping
       const trailId = getTrailId(data);
 
-      self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
+      self.trailManager.addPosition(
+        trailId,
+        lat,
+        lng,
+        timestamp,
+        isHistoricalDot,
+      );
     }
 
     // Open popup if requested
@@ -1624,9 +1768,17 @@ let MapAPRSMap = {
 
     // Add to OMS for overlapping marker handling (only most recent packets with icons)
     // Fallback: if is_most_recent_for_callsign is undefined, exclude historical markers as before
-    const shouldAddToOms = data.is_most_recent_for_callsign === true || 
-                           (data.is_most_recent_for_callsign == null && !(marker as APRSMarker)._isHistorical);
-    if (self.oms && marker && self.map && !marker._isClusterMarker && shouldAddToOms) {
+    const shouldAddToOms =
+      data.is_most_recent_for_callsign === true ||
+      (data.is_most_recent_for_callsign == null &&
+        !(marker as APRSMarker)._isHistorical);
+    if (
+      self.oms &&
+      marker &&
+      self.map &&
+      !marker._isClusterMarker &&
+      shouldAddToOms
+    ) {
       self.oms.addMarker(marker);
     }
   },
@@ -1642,17 +1794,26 @@ let MapAPRSMap = {
     if (marker) {
       try {
         // Remove marker from appropriate layer with safety checks
-        if (self.markerClusterGroup && self.markerClusterGroup.hasLayer(marker)) {
+        if (
+          self.markerClusterGroup &&
+          self.markerClusterGroup.hasLayer(marker)
+        ) {
           // Check if cluster group is ready before removing
-          if (self.markerClusterGroup._map && self.markerClusterGroup._topClusterLevel) {
+          if (
+            self.markerClusterGroup._map &&
+            self.markerClusterGroup._topClusterLevel
+          ) {
             self.markerClusterGroup.removeLayer(marker);
           } else {
-            console.warn("Cluster group not ready, skipping marker removal:", markerId);
+            console.warn(
+              "Cluster group not ready, skipping marker removal:",
+              markerId,
+            );
           }
         } else if (self.markerLayer && self.markerLayer.hasLayer(marker)) {
           self.markerLayer.removeLayer(marker);
         }
-        
+
         self.markers!.delete(markerId);
         self.markerStates!.delete(markerId);
       } catch (error) {
@@ -1665,7 +1826,8 @@ let MapAPRSMap = {
 
     // Remove trail - use callsign_group for proper trail identification
     if (self.trailManager) {
-      const trailId = markerState?.callsign_group || markerState?.callsign || markerId;
+      const trailId =
+        markerState?.callsign_group || markerState?.callsign || markerId;
       self.trailManager.removeTrail(trailId);
     }
 
@@ -1691,16 +1853,24 @@ let MapAPRSMap = {
         if (self.isValidCoordinate(lat, lng)) {
           const currentPos = existingMarker.getLatLng();
           const positionChanged =
-            Math.abs(currentPos.lat - lat) > 0.0001 || Math.abs(currentPos.lng - lng) > 0.0001;
+            Math.abs(currentPos.lat - lat) > 0.0001 ||
+            Math.abs(currentPos.lng - lng) > 0.0001;
 
           if (positionChanged) {
             existingMarker.setLatLng([lat, lng]);
             if (self.trailManager) {
-              const isHistoricalDot = data.historical && !data.is_most_recent_for_callsign;
+              const isHistoricalDot =
+                data.historical && !data.is_most_recent_for_callsign;
               const timestamp = parseTimestamp(data.timestamp);
               // Use callsign_group for proper trail grouping
               const trailId = getTrailId(data);
-              self.trailManager.addPosition(trailId, lat, lng, timestamp, isHistoricalDot);
+              self.trailManager.addPosition(
+                trailId,
+                lat,
+                lng,
+                timestamp,
+                isHistoricalDot,
+              );
             }
           }
         }
@@ -1721,7 +1891,7 @@ let MapAPRSMap = {
 
   clearAllMarkers() {
     const self = this as unknown as LiveViewHookContext;
-    
+
     // Clear any RF path lines first
     self.clearRfPathLines();
 
@@ -1733,8 +1903,10 @@ let MapAPRSMap = {
     self.markers!.forEach((marker, id) => {
       const markerState = self.markerStates!.get(String(id));
       const isHistorical =
-        (marker as APRSMarker)._isHistorical || (markerState && markerState.historical);
-      const isMostRecent = markerState && markerState.is_most_recent_for_callsign;
+        (marker as APRSMarker)._isHistorical ||
+        (markerState && markerState.historical);
+      const isMostRecent =
+        markerState && markerState.is_most_recent_for_callsign;
 
       // Keep historical markers and current position markers
       if (isHistorical || isMostRecent) {
@@ -1781,8 +1953,10 @@ let MapAPRSMap = {
       // Check if this is a historical marker or the most recent marker for a callsign
       const markerState = self.markerStates!.get(String(id));
       const isHistorical =
-        (marker as APRSMarker)._isHistorical || (markerState && markerState.historical);
-      const isMostRecent = markerState && markerState.is_most_recent_for_callsign;
+        (marker as APRSMarker)._isHistorical ||
+        (markerState && markerState.historical);
+      const isMostRecent =
+        markerState && markerState.is_most_recent_for_callsign;
 
       // Always preserve historical markers and the most recent marker for a callsign
       if (isHistorical || isMostRecent) {
@@ -1842,17 +2016,26 @@ let MapAPRSMap = {
     if (marker) {
       try {
         // Remove marker from appropriate layer with safety checks
-        if (self.markerClusterGroup && self.markerClusterGroup.hasLayer(marker)) {
+        if (
+          self.markerClusterGroup &&
+          self.markerClusterGroup.hasLayer(marker)
+        ) {
           // Check if cluster group is ready before removing
-          if (self.markerClusterGroup._map && self.markerClusterGroup._topClusterLevel) {
+          if (
+            self.markerClusterGroup._map &&
+            self.markerClusterGroup._topClusterLevel
+          ) {
             self.markerClusterGroup.removeLayer(marker);
           } else {
-            console.warn("Cluster group not ready, skipping marker removal:", markerId);
+            console.warn(
+              "Cluster group not ready, skipping marker removal:",
+              markerId,
+            );
           }
         } else if (self.markerLayer && self.markerLayer.hasLayer(marker)) {
           self.markerLayer.removeLayer(marker);
         }
-        
+
         // Always clean up the tracking maps
         self.markers!.delete(markerId);
         self.markerStates!.delete(markerId);
@@ -2122,12 +2305,12 @@ function extractCoordinate(value: any): number {
   }
 
   // Handle numbers
-  if (typeof value === 'number') {
+  if (typeof value === "number") {
     return value;
   }
 
   // Handle strings
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     return parseFloat(value);
   }
 
@@ -2136,15 +2319,27 @@ function extractCoordinate(value: any): number {
 
 // Helper to validate coordinates
 function isValidCoordinate(lat: number, lng: number): boolean {
-  return !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  return (
+    !isNaN(lat) &&
+    !isNaN(lng) &&
+    isFinite(lat) &&
+    isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
 }
 
 // Helper to create divIcon with common defaults
-function createDivIcon(html: string, options: Partial<{
-  className: string;
-  iconSize: [number, number];
-  iconAnchor: [number, number];
-}> = {}) {
+function createDivIcon(
+  html: string,
+  options: Partial<{
+    className: string;
+    iconSize: [number, number];
+    iconAnchor: [number, number];
+  }> = {},
+) {
   return L.divIcon({
     html,
     className: options.className || "",

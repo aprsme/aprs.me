@@ -1,0 +1,17 @@
+
+Traversal.FileModule: Directory Traversal in `File.read`,lib/aprsme/devices_seeder.ex:8,1BF74FD
+SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:347,1CB06D3
+SQL.Query: SQL injection,lib/aprsme/db_optimizer.ex:152,1DA970
+Config.HTTPS: HTTPS Not Enabled,config/prod.exs:0,2B5C077
+Config.Headers: Missing Secure Browser Headers,lib/aprsme_web/router.ex:11,32F6644
+SQL.Query: SQL injection,lib/aprsme/db_optimizer.ex:33,339B6E6
+SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:462,3418D79
+XSS.Raw: XSS,lib/aprsme_web/live/info_live/show.ex:632,395070D
+XSS.Raw: XSS,lib/aprsme_web/live/info_live/show.ex:650,44312C
+SQL.Query: SQL injection,lib/aprsme/packets.ex:661,498E4DF
+Traversal.FileModule: Directory Traversal in `File.read`,lib/aprsme_web/components/core_components.ex:37,4DB3CEF
+SQL.Query: SQL injection,lib/aprsme/release.ex:159,5D9BE66
+SQL.Query: SQL injection,lib/aprsme/db_optimizer.ex:107,5ECC490
+SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:576,6A503E9
+XSS.Raw: XSS,lib/aprsme_web/components/core_components.ex:52,6B2C0EC
+SQL.Query: SQL injection,lib/aprsme/db_optimizer.ex:129,711E151

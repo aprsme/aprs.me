@@ -1,9 +1,14 @@
 // Trail management module for APRS position history visualization
 
-import type { LayerGroup, Polyline, CircleMarker, PolylineOptions } from 'leaflet';
+import type {
+  LayerGroup,
+  Polyline,
+  CircleMarker,
+  PolylineOptions,
+} from "leaflet";
 
 // Declare Leaflet as a global
-declare const L: typeof import('leaflet');
+declare const L: typeof import("leaflet");
 
 export interface PositionHistory {
   lat: number;
@@ -26,23 +31,23 @@ export class TrailManager {
   private maxTrails: number = 500; // Maximum number of trails to keep in memory
   private maxPositionsPerTrail: number = 1000; // Maximum positions per trail
   private colorPalette: string[] = [
-    '#1E90FF', // Dodger Blue
-    '#00CED1', // Dark Turquoise
-    '#32CD32', // Lime Green
-    '#8B008B', // Dark Magenta
-    '#9370DB', // Medium Purple
-    '#FF8C00', // Dark Orange
-    '#4682B4', // Steel Blue
-    '#00FA9A', // Medium Spring Green
-    '#DA70D6', // Orchid
-    '#008B8B', // Dark Cyan
-    '#48D1CC', // Medium Turquoise
-    '#228B22', // Forest Green
-    '#6495ED', // Cornflower Blue
-    '#FF1493', // Deep Pink (distinct from highways)
-    '#20B2AA', // Light Sea Green
+    "#1E90FF", // Dodger Blue
+    "#00CED1", // Dark Turquoise
+    "#32CD32", // Lime Green
+    "#8B008B", // Dark Magenta
+    "#9370DB", // Medium Purple
+    "#FF8C00", // Dark Orange
+    "#4682B4", // Steel Blue
+    "#00FA9A", // Medium Spring Green
+    "#DA70D6", // Orchid
+    "#008B8B", // Dark Cyan
+    "#48D1CC", // Medium Turquoise
+    "#228B22", // Forest Green
+    "#6495ED", // Cornflower Blue
+    "#FF1493", // Deep Pink (distinct from highways)
+    "#20B2AA", // Light Sea Green
   ];
-  private proximityThreshold: number = 0.05; // ~5.5km at equator
+  private proximityThreshold: number = 5.5; // kilometers
 
   constructor(trailLayer: LayerGroup, trailDuration: number = 60 * 60 * 1000) {
     this.trailLayer = trailLayer;
@@ -80,17 +85,20 @@ export class TrailManager {
 
   setTrailDuration(durationHours: number) {
     this.trailDuration = durationHours * 60 * 60 * 1000; // Convert hours to milliseconds
-    
+
     // Clean up existing trails based on new duration
     const cutoffTime = Date.now() - this.trailDuration;
-    
+
     this.trails.forEach((trailState, baseCallsign) => {
       // Filter positions based on new duration (skip historical dots)
       trailState.positions = trailState.positions.filter((pos) => {
-        const posTimestamp = typeof pos.timestamp === "string" ? new Date(pos.timestamp).getTime() : pos.timestamp;
+        const posTimestamp =
+          typeof pos.timestamp === "string"
+            ? new Date(pos.timestamp).getTime()
+            : pos.timestamp;
         return posTimestamp >= cutoffTime;
       });
-      
+
       // Update trail visualization
       this.updateTrailVisualization(baseCallsign, trailState, true);
     });
@@ -107,8 +115,8 @@ export class TrailManager {
 
     // Validate coordinates before processing
     if (
-      typeof lat !== 'number' ||
-      typeof lng !== 'number' ||
+      typeof lat !== "number" ||
+      typeof lng !== "number" ||
       isNaN(lat) ||
       isNaN(lng) ||
       !isFinite(lat) ||
@@ -118,7 +126,12 @@ export class TrailManager {
       lng < -180 ||
       lng > 180
     ) {
-      console.warn("Invalid coordinates provided to addPosition:", { markerId, lat, lng, timestamp });
+      console.warn("Invalid coordinates provided to addPosition:", {
+        markerId,
+        lat,
+        lng,
+        timestamp,
+      });
       return;
     }
 
@@ -153,11 +166,13 @@ export class TrailManager {
 
       // Sort positions by timestamp to maintain chronological order
       trailState.positions.sort((a, b) => a.timestamp - b.timestamp);
-      
+
       // Limit the number of positions per trail
       if (trailState.positions.length > this.maxPositionsPerTrail) {
         // Keep the most recent positions
-        trailState.positions = trailState.positions.slice(-this.maxPositionsPerTrail);
+        trailState.positions = trailState.positions.slice(
+          -this.maxPositionsPerTrail,
+        );
       }
     }
 
@@ -167,7 +182,9 @@ export class TrailManager {
       trailState.positions = trailState.positions.filter((pos) => {
         // Ensure timestamp is a number for comparison
         const posTimestamp =
-          typeof pos.timestamp === "string" ? new Date(pos.timestamp).getTime() : pos.timestamp;
+          typeof pos.timestamp === "string"
+            ? new Date(pos.timestamp).getTime()
+            : pos.timestamp;
         return posTimestamp >= cutoffTime;
       });
     }
@@ -194,64 +211,94 @@ export class TrailManager {
   }
 
   // Calculate distance between two points using Haversine formula
-  private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
     const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
 
   // Get the average position of a trail
-  private getTrailCenter(positions: PositionHistory[]): { lat: number, lng: number } {
+  private getTrailCenter(positions: PositionHistory[]): {
+    lat: number;
+    lng: number;
+  } {
     if (positions.length === 0) return { lat: 0, lng: 0 };
-    
-    const sum = positions.reduce((acc, pos) => ({
-      lat: acc.lat + pos.lat,
-      lng: acc.lng + pos.lng
-    }), { lat: 0, lng: 0 });
-    
+
+    const sum = positions.reduce(
+      (acc, pos) => ({
+        lat: acc.lat + pos.lat,
+        lng: acc.lng + pos.lng,
+      }),
+      { lat: 0, lng: 0 },
+    );
+
     return {
       lat: sum.lat / positions.length,
-      lng: sum.lng / positions.length
+      lng: sum.lng / positions.length,
     };
   }
 
   // Find nearby trails and get their colors
-  private getNearbyTrailColors(baseCallsign: string, center: { lat: number, lng: number }): Set<string> {
+  private getNearbyTrailColors(
+    baseCallsign: string,
+    center: { lat: number; lng: number },
+  ): Set<string> {
     const nearbyColors = new Set<string>();
-    
+
     this.trails.forEach((trailState, callsign) => {
-      if (callsign === baseCallsign || !trailState.color || trailState.positions.length === 0) return;
-      
+      if (
+        callsign === baseCallsign ||
+        !trailState.color ||
+        trailState.positions.length === 0
+      )
+        return;
+
       const otherCenter = this.getTrailCenter(trailState.positions);
-      const distance = this.calculateDistance(center.lat, center.lng, otherCenter.lat, otherCenter.lng);
-      
-      if (distance < this.proximityThreshold * 111) { // Convert degrees to km (rough approximation)
+      const distance = this.calculateDistance(
+        center.lat,
+        center.lng,
+        otherCenter.lat,
+        otherCenter.lng,
+      );
+
+      if (distance < this.proximityThreshold) {
         nearbyColors.add(trailState.color);
       }
     });
-    
+
     return nearbyColors;
   }
 
   // Assign a color to a trail based on nearby trails
-  private assignTrailColor(baseCallsign: string, positions: PositionHistory[]): string {
+  private assignTrailColor(
+    baseCallsign: string,
+    positions: PositionHistory[],
+  ): string {
     if (positions.length === 0) return this.colorPalette[0];
-    
+
     const center = this.getTrailCenter(positions);
     const nearbyColors = this.getNearbyTrailColors(baseCallsign, center);
-    
+
     // Find the first available color not used by nearby trails
     for (const color of this.colorPalette) {
       if (!nearbyColors.has(color)) {
         return color;
       }
     }
-    
+
     // If all colors are used, return the first color
     return this.colorPalette[0];
   }
@@ -278,8 +325,8 @@ export class TrailManager {
           // Validate coordinates are finite numbers within valid ranges
           return (
             pos &&
-            typeof pos.lat === 'number' &&
-            typeof pos.lng === 'number' &&
+            typeof pos.lat === "number" &&
+            typeof pos.lng === "number" &&
             !isNaN(pos.lat) &&
             !isNaN(pos.lng) &&
             isFinite(pos.lat) &&
@@ -296,7 +343,10 @@ export class TrailManager {
       if (latLngs.length >= 2) {
         // Assign color if not already assigned
         if (!trailState.color) {
-          trailState.color = this.assignTrailColor(baseCallsign, trailState.positions);
+          trailState.color = this.assignTrailColor(
+            baseCallsign,
+            trailState.positions,
+          );
         }
 
         // Create polyline with assigned color
@@ -310,11 +360,18 @@ export class TrailManager {
           lineJoin: "round",
           className: "historical-trail-line",
         };
-        
+
         try {
-          trailState.trail = L.polyline(latLngs, polylineOptions).addTo(this.trailLayer);
+          trailState.trail = L.polyline(latLngs, polylineOptions).addTo(
+            this.trailLayer,
+          );
         } catch (error) {
-          console.error("Error creating trail polyline for", baseCallsign, ":", error);
+          console.error(
+            "Error creating trail polyline for",
+            baseCallsign,
+            ":",
+            error,
+          );
           console.error("Invalid coordinates:", latLngs);
         }
       }
@@ -352,7 +409,9 @@ export class TrailManager {
       trailState.positions = trailState.positions.filter((pos) => {
         // Ensure timestamp is a number for comparison
         const posTimestamp =
-          typeof pos.timestamp === "string" ? new Date(pos.timestamp).getTime() : pos.timestamp;
+          typeof pos.timestamp === "string"
+            ? new Date(pos.timestamp).getTime()
+            : pos.timestamp;
         // Keep all positions newer than 24 hours (includes all historical data we care about)
         return posTimestamp >= veryOldCutoff;
       });
