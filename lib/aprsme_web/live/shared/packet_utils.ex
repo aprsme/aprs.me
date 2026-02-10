@@ -10,11 +10,8 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
   Get unique callsign key from packet.
   """
   @spec get_callsign_key(map()) :: binary()
-  def get_callsign_key(packet) do
-    if Map.has_key?(packet, "id"),
-      do: to_string(packet["id"]),
-      else: [:positive] |> System.unique_integer() |> to_string()
-  end
+  def get_callsign_key(%{"id" => id}), do: to_string(id)
+  def get_callsign_key(_packet), do: [:positive] |> System.unique_integer() |> to_string()
 
   @doc """
   Prune oldest packets from a map to enforce memory limits.
@@ -155,17 +152,12 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
   Check if a packet is within the time threshold (not too old).
   """
   @spec packet_within_time_threshold?(struct(), any()) :: boolean()
-  def packet_within_time_threshold?(packet, threshold) do
-    case packet do
-      %{received_at: received_at} when not is_nil(received_at) ->
-        threshold_dt = convert_threshold_to_datetime(threshold)
-        DateTime.compare(received_at, threshold_dt) in [:gt, :eq]
-
-      _ ->
-        # If no timestamp, treat as current
-        true
-    end
+  def packet_within_time_threshold?(%{received_at: received_at}, threshold) when not is_nil(received_at) do
+    threshold_dt = convert_threshold_to_datetime(threshold)
+    DateTime.compare(received_at, threshold_dt) in [:gt, :eq]
   end
+
+  def packet_within_time_threshold?(_packet, _threshold), do: true
 
   defp convert_threshold_to_datetime(threshold) when is_integer(threshold) do
     # Assume seconds since epoch
@@ -228,11 +220,10 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
   def generate_callsign(packet) do
     base_callsign = get_packet_field(packet, :base_callsign, "")
     ssid = get_packet_field(packet, :ssid, nil)
-
-    if ssid != nil and ssid != "" do
-      "#{base_callsign}-#{ssid}"
-    else
-      base_callsign
-    end
+    format_callsign_with_ssid(base_callsign, ssid)
   end
+
+  defp format_callsign_with_ssid(base_callsign, nil), do: base_callsign
+  defp format_callsign_with_ssid(base_callsign, ""), do: base_callsign
+  defp format_callsign_with_ssid(base_callsign, ssid), do: "#{base_callsign}-#{ssid}"
 end

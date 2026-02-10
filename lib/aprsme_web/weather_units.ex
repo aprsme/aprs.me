@@ -11,21 +11,11 @@ defmodule AprsmeWeb.WeatherUnits do
   Returns :imperial for US, :metric for most other countries.
   """
   @spec unit_system(String.t() | nil | any()) :: :imperial | :metric
-  def unit_system(locale) when is_binary(locale) do
-    case locale do
-      # Default to imperial for English
-      "en" -> :imperial
-      # Spanish-speaking countries mostly use metric
-      "es" -> :metric
-      # Germany uses metric
-      "de" -> :metric
-      # France uses metric
-      "fr" -> :metric
-      # Default to metric for unknown locales
-      _ -> :metric
-    end
-  end
-
+  def unit_system("en"), do: :imperial
+  def unit_system("es"), do: :metric
+  def unit_system("de"), do: :metric
+  def unit_system("fr"), do: :metric
+  def unit_system(locale) when is_binary(locale), do: :metric
   def unit_system(nil), do: :imperial
   def unit_system(_), do: :imperial
 
@@ -34,12 +24,8 @@ defmodule AprsmeWeb.WeatherUnits do
   Returns the temperature in the appropriate unit for the locale.
   """
   @spec format_temperature(number() | any(), String.t()) :: {number() | any(), String.t()}
-  def format_temperature(temp, locale) when is_number(temp) do
-    case unit_system(locale) do
-      :imperial -> {temp, "°F"}
-      :metric -> {Convert.f_to_c(temp), "°C"}
-    end
-  end
+  def format_temperature(temp, locale) when is_number(temp),
+    do: format_by_unit(temp, locale, &Convert.f_to_c/1, "°F", "°C")
 
   def format_temperature(temp, _locale), do: {temp, "°F"}
 
@@ -48,12 +34,8 @@ defmodule AprsmeWeb.WeatherUnits do
   Returns the wind speed in the appropriate unit for the locale.
   """
   @spec format_wind_speed(number() | any(), String.t()) :: {number() | any(), String.t()}
-  def format_wind_speed(speed, locale) when is_number(speed) do
-    case unit_system(locale) do
-      :imperial -> {speed, "mph"}
-      :metric -> {Convert.mph_to_kph(speed), "km/h"}
-    end
-  end
+  def format_wind_speed(speed, locale) when is_number(speed),
+    do: format_by_unit(speed, locale, &Convert.mph_to_kph/1, "mph", "km/h")
 
   def format_wind_speed(speed, _locale), do: {speed, "mph"}
 
@@ -62,12 +44,8 @@ defmodule AprsmeWeb.WeatherUnits do
   Returns the rain amount in the appropriate unit for the locale.
   """
   @spec format_rain(number() | any(), String.t()) :: {number() | any(), String.t()}
-  def format_rain(rain, locale) when is_number(rain) do
-    case unit_system(locale) do
-      :imperial -> {rain, "in"}
-      :metric -> {Convert.inches_to_mm(rain), "mm"}
-    end
-  end
+  def format_rain(rain, locale) when is_number(rain),
+    do: format_by_unit(rain, locale, &Convert.inches_to_mm/1, "in", "mm")
 
   def format_rain(rain, _locale), do: {rain, "in"}
 
@@ -75,10 +53,7 @@ defmodule AprsmeWeb.WeatherUnits do
   Formats pressure (keeps hPa for all locales as it's standard).
   """
   @spec format_pressure(number() | any(), any()) :: {number() | any(), String.t()}
-  def format_pressure(pressure, _locale) when is_number(pressure) do
-    {pressure, "hPa"}
-  end
-
+  def format_pressure(pressure, _locale) when is_number(pressure), do: {pressure, "hPa"}
   def format_pressure(pressure, _locale), do: {pressure, "hPa"}
 
   @doc """
@@ -90,23 +65,30 @@ defmodule AprsmeWeb.WeatherUnits do
           rain: String.t(),
           pressure: String.t()
         }
-  def unit_labels(locale) do
-    case unit_system(locale) do
-      :imperial ->
-        %{
-          temperature: "°F",
-          wind_speed: "mph",
-          rain: "in",
-          pressure: "hPa"
-        }
+  def unit_labels(locale), do: do_unit_labels(unit_system(locale))
 
-      :metric ->
-        %{
-          temperature: "°C",
-          wind_speed: "km/h",
-          rain: "mm",
-          pressure: "hPa"
-        }
+  defp do_unit_labels(:imperial) do
+    %{
+      temperature: "°F",
+      wind_speed: "mph",
+      rain: "in",
+      pressure: "hPa"
+    }
+  end
+
+  defp do_unit_labels(:metric) do
+    %{
+      temperature: "°C",
+      wind_speed: "km/h",
+      rain: "mm",
+      pressure: "hPa"
+    }
+  end
+
+  defp format_by_unit(value, locale, converter, imperial_unit, metric_unit) do
+    case unit_system(locale) do
+      :imperial -> {value, imperial_unit}
+      :metric -> {converter.(value), metric_unit}
     end
   end
 end

@@ -478,27 +478,19 @@ defmodule AprsmeWeb.MobileChannel do
   end
 
   defp callsign_matches?(packet_callsign, tracked_callsign) do
-    # Normalize both to uppercase
-    packet_callsign = String.upcase(packet_callsign)
-    tracked_callsign = String.upcase(tracked_callsign)
+    normalized_packet = String.upcase(packet_callsign)
+    normalized_tracked = String.upcase(tracked_callsign)
+    do_callsign_match(normalized_packet, normalized_tracked)
+  end
 
-    cond do
-      # Exact match
-      packet_callsign == tracked_callsign ->
-        true
+  defp do_callsign_match(callsign, callsign), do: true
 
-      # Wildcard match (e.g., "W5ISP*" matches "W5ISP-9")
-      String.contains?(tracked_callsign, "*") ->
-        pattern = String.replace(tracked_callsign, "*", "")
-        String.starts_with?(packet_callsign, pattern)
-
-      # Base callsign match (e.g., "W5ISP" matches "W5ISP-9")
-      String.starts_with?(packet_callsign, tracked_callsign <> "-") ->
-        true
-
-      # No match
-      true ->
-        false
+  defp do_callsign_match(packet_callsign, tracked_callsign) do
+    if String.contains?(tracked_callsign, "*") do
+      pattern = String.replace(tracked_callsign, "*", "")
+      String.starts_with?(packet_callsign, pattern)
+    else
+      String.starts_with?(packet_callsign, tracked_callsign <> "-")
     end
   end
 

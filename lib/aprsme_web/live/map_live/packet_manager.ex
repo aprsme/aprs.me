@@ -35,55 +35,43 @@ defmodule AprsmeWeb.MapLive.PacketManager do
   Add packets to visible storage with memory management.
   Returns updated state and packet IDs for broadcasting.
   """
-  def add_visible_packets(packet_state, packets) when is_list(packets) do
-    # Store packets and get IDs
+  def add_visible_packets(%{visible_packet_ids: visible_ids, packet_count: packet_count} = packet_state, packets)
+      when is_list(packets) do
     packet_ids = PacketStore.store_packets(packets)
+    new_visible_ids = packet_ids ++ visible_ids
 
-    # Update visible packet tracking
-    new_visible_ids = packet_ids ++ packet_state.visible_packet_ids
-
-    # Apply memory management
     {managed_ids, cleanup_needed} = apply_memory_limits(new_visible_ids, @max_visible_packets)
 
     updated_state = %{
       packet_state
       | visible_packet_ids: managed_ids,
-        packet_count: Map.put(packet_state.packet_count, :visible, length(managed_ids))
+        packet_count: Map.put(packet_count, :visible, length(managed_ids))
     }
 
-    # Clean up if needed
-    final_state =
-      if cleanup_needed do
-        perform_cleanup(updated_state, :visible)
-      else
-        updated_state
-      end
-
+    final_state = maybe_cleanup(updated_state, cleanup_needed, :visible)
     {final_state, packet_ids}
   end
 
   @doc """
   Add packets to historical storage with sliding window management.
   """
-  def add_historical_packets(packet_state, packets) when is_list(packets) do
+  def add_historical_packets(
+        %{historical_packet_ids: historical_ids, packet_count: packet_count} = packet_state,
+        packets
+      )
+      when is_list(packets) do
     packet_ids = PacketStore.store_packets(packets)
+    new_historical_ids = packet_ids ++ historical_ids
 
-    new_historical_ids = packet_ids ++ packet_state.historical_packet_ids
     {managed_ids, cleanup_needed} = apply_memory_limits(new_historical_ids, @max_historical_packets)
 
     updated_state = %{
       packet_state
       | historical_packet_ids: managed_ids,
-        packet_count: Map.put(packet_state.packet_count, :historical, length(managed_ids))
+        packet_count: Map.put(packet_count, :historical, length(managed_ids))
     }
 
-    final_state =
-      if cleanup_needed do
-        perform_cleanup(updated_state, :historical)
-      else
-        updated_state
-      end
-
+    final_state = maybe_cleanup(updated_state, cleanup_needed, :historical)
     {final_state, packet_ids}
   end
 
@@ -165,15 +153,15 @@ defmodule AprsmeWeb.MapLive.PacketManager do
     end
   end
 
-  defp perform_cleanup(packet_state, _type) do
+  defp maybe_cleanup(state, false, _type), do: state
+
+  defp maybe_cleanup(%{last_cleanup: last_cleanup} = state, true, _type) do
     current_time = System.monotonic_time(:millisecond)
 
-    # Only cleanup if enough time has passed to avoid excessive cleanup
-    # 30 seconds
-    if current_time - packet_state.last_cleanup > 30_000 do
-      %{packet_state | last_cleanup: current_time}
+    if current_time - last_cleanup > 30_000 do
+      %{state | last_cleanup: current_time}
     else
-      packet_state
+      state
     end
   end
 

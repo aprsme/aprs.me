@@ -31,38 +31,37 @@ defmodule AprsmeWeb.AprsSymbol do
           background_size: String.t()
         }
   def get_sprite_info(symbol_table, symbol_code) do
-    # For overlay symbols (A-Z, 0-9), display the base symbol with overlay
-    if symbol_table && String.match?(symbol_table, ~r/^[A-Z0-9]$/) do
-      # Use the base symbol from the overlay table, not the overlay character itself
-      get_overlay_base_symbol_info(symbol_code)
-    else
-      # Normal symbol table processing
-      symbol_table = normalize_symbol_table(symbol_table)
-      symbol_code = normalize_symbol_code(symbol_code)
+    compute_sprite_info(overlay_symbol?(symbol_table), symbol_table, symbol_code)
+  end
 
-      # Map symbol table to sprite file ID
-      table_id = get_table_id(symbol_table)
+  defp overlay_symbol?(table) when is_binary(table), do: String.match?(table, ~r/^[A-Z0-9]$/)
+  defp overlay_symbol?(_), do: false
 
-      sprite_file = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png"
+  defp compute_sprite_info(true, _symbol_table, symbol_code) do
+    get_overlay_base_symbol_info(symbol_code)
+  end
 
-      # Get symbol position using ASCII-based calculation
-      symbol_code_ord = get_symbol_code_ord(symbol_code)
+  defp compute_sprite_info(false, symbol_table, symbol_code) do
+    symbol_table = normalize_symbol_table(symbol_table)
+    symbol_code = normalize_symbol_code(symbol_code)
 
-      index = symbol_code_ord - 33
-      safe_index = max(0, min(index, 93))
+    table_id = get_table_id(symbol_table)
+    sprite_file = "/aprs-symbols/aprs-symbols-128-#{table_id}@2x.png"
 
-      # Calculate positioning for 16-column grid
-      column = rem(safe_index, 16)
-      row = div(safe_index, 16)
-      x = -column * 128
-      y = -row * 128
+    symbol_code_ord = get_symbol_code_ord(symbol_code)
+    index = symbol_code_ord - 33
+    safe_index = max(0, min(index, 93))
 
-      %{
-        sprite_file: sprite_file,
-        background_position: "#{x / 4}px #{y / 4}px",
-        background_size: "512px 192px"
-      }
-    end
+    column = rem(safe_index, 16)
+    row = div(safe_index, 16)
+    x = -column * 128
+    y = -row * 128
+
+    %{
+      sprite_file: sprite_file,
+      background_position: "#{x / 4}px #{y / 4}px",
+      background_size: "512px 192px"
+    }
   end
 
   @doc """
@@ -188,9 +187,9 @@ defmodule AprsmeWeb.AprsSymbol do
       ">"
   """
   @spec normalize_symbol_code(String.t() | nil) :: String.t()
-  def normalize_symbol_code(symbol_code) do
-    if symbol_code && symbol_code != "", do: symbol_code, else: ">"
-  end
+  def normalize_symbol_code(nil), do: ">"
+  def normalize_symbol_code(""), do: ">"
+  def normalize_symbol_code(symbol_code), do: symbol_code
 
   @doc """
   Maps a symbol table to its sprite file ID.
@@ -207,18 +206,10 @@ defmodule AprsmeWeb.AprsSymbol do
       "2"
   """
   @spec get_table_id(String.t()) :: String.t()
-  def get_table_id(symbol_table) do
-    case symbol_table do
-      # Primary table
-      "/" -> "0"
-      # Alternate table
-      "\\" -> "1"
-      # Overlay table (A-Z, 0-9)
-      "]" -> "2"
-      # Default to primary table
-      _ -> "0"
-    end
-  end
+  def get_table_id("/"), do: "0"
+  def get_table_id("\\"), do: "1"
+  def get_table_id("]"), do: "2"
+  def get_table_id(_), do: "0"
 
   @doc """
   Renders an APRS symbol as HTML for use in Leaflet markers.

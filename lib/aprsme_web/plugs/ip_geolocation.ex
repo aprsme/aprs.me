@@ -13,22 +13,16 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
   def init(opts), do: opts
 
   @impl true
-  def call(conn, _opts) do
-    # Only run for the main map page
-    if conn.request_path == "/" && conn.method == "GET" do
-      case get_session(conn, :ip_geolocation) do
-        nil ->
-          # No cached geolocation, fetch it
-          perform_geolocation(conn)
-
-        _cached ->
-          # Already have geolocation in session
-          conn
-      end
-    else
-      conn
-    end
+  def call(%{request_path: "/", method: "GET"} = conn, _opts) do
+    conn
+    |> get_session(:ip_geolocation)
+    |> handle_geolocation(conn)
   end
+
+  def call(conn, _opts), do: conn
+
+  defp handle_geolocation(nil, conn), do: perform_geolocation(conn)
+  defp handle_geolocation(_cached, conn), do: conn
 
   defp perform_geolocation(conn) do
     ip = get_client_ip(conn)
@@ -133,16 +127,12 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
 
   defp valid_ip_for_geolocation?(_), do: false
 
-  defp private_ip?(ip) do
-    cond do
-      String.starts_with?(ip, "127.") -> true
-      String.starts_with?(ip, "::1") -> true
-      String.starts_with?(ip, "10.") -> true
-      String.starts_with?(ip, "192.168.") -> true
-      String.starts_with?(ip, "172.") -> in_172_private_range?(ip)
-      true -> false
-    end
-  end
+  defp private_ip?("127." <> _), do: true
+  defp private_ip?("::1" <> _), do: true
+  defp private_ip?("10." <> _), do: true
+  defp private_ip?("192.168." <> _), do: true
+  defp private_ip?("172." <> _ = ip), do: in_172_private_range?(ip)
+  defp private_ip?(_), do: false
 
   # Check if IP is in 172.16.0.0/12 range (172.16.0.0 - 172.31.255.255)
   defp in_172_private_range?(ip) do

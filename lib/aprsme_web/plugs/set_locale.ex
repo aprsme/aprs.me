@@ -17,14 +17,13 @@ defmodule AprsmeWeb.Plugs.SetLocale do
   end
 
   defp get_locale_from_header(conn) do
-    case get_req_header(conn, "accept-language") do
-      [accept_language | _] ->
-        parse_accept_language(accept_language)
-
-      _ ->
-        nil
-    end
+    conn
+    |> get_req_header("accept-language")
+    |> extract_locale()
   end
+
+  defp extract_locale([accept_language | _]), do: parse_accept_language(accept_language)
+  defp extract_locale(_), do: nil
 
   defp parse_accept_language(accept_language) do
     accept_language

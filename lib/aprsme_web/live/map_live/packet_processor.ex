@@ -51,34 +51,39 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   """
   @spec handle_packet_visibility(map(), number() | nil, number() | nil, binary(), Socket.t()) :: Socket.t()
   def handle_packet_visibility(packet, lat, lon, callsign_key, socket) do
-    cond do
-      should_remove_marker?(lat, lon, callsign_key, socket) ->
-        remove_marker_from_map(callsign_key, socket)
+    visibility_action(packet, lat, lon, callsign_key, socket)
+  end
 
-      should_add_marker?(lat, lon, callsign_key, socket) ->
-        handle_valid_postgres_packet(packet, lat, lon, socket)
+  defp visibility_action(packet, lat, lon, callsign_key, socket) when not is_nil(lat) and not is_nil(lon) do
+    in_bounds = within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
+    has_marker = Map.has_key?(socket.assigns.visible_packets, callsign_key)
+    dispatch_visibility({in_bounds, has_marker}, packet, lat, lon, callsign_key, socket)
+  end
 
-      should_update_marker?(lat, lon, callsign_key, socket) ->
-        # Marker exists and is within bounds - check if there's significant movement
-        existing_packet = socket.assigns.visible_packets[callsign_key]
-        {existing_lat, existing_lon, _} = CoordinateUtils.get_coordinates(existing_packet)
+  defp visibility_action(_packet, _lat, _lon, _callsign_key, socket), do: socket
 
-        # Check if we have valid existing coordinates
-        if is_number(existing_lat) and is_number(existing_lon) and
-             GeoUtils.significant_movement?(existing_lat, existing_lon, lat, lon, 50) do
-          # Significant movement detected (more than 50 meters), update the marker
-          handle_valid_postgres_packet(packet, lat, lon, socket)
-        else
-          # Just GPS drift (less than 50 meters) or invalid coordinates,
-          # update the packet data but don't send visual update
-          new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
-          assign(socket, :visible_packets, new_visible_packets)
-        end
+  defp dispatch_visibility({false, true}, _packet, _lat, _lon, callsign_key, socket) do
+    remove_marker_from_map(callsign_key, socket)
+  end
 
-      true ->
-        socket
+  defp dispatch_visibility({true, false}, packet, lat, lon, _callsign_key, socket) do
+    handle_valid_postgres_packet(packet, lat, lon, socket)
+  end
+
+  defp dispatch_visibility({true, true}, packet, lat, lon, callsign_key, socket) do
+    existing_packet = socket.assigns.visible_packets[callsign_key]
+    {existing_lat, existing_lon, _} = CoordinateUtils.get_coordinates(existing_packet)
+
+    if is_number(existing_lat) and is_number(existing_lon) and
+         GeoUtils.significant_movement?(existing_lat, existing_lon, lat, lon, 50) do
+      handle_valid_postgres_packet(packet, lat, lon, socket)
+    else
+      new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
+      assign(socket, :visible_packets, new_visible_packets)
     end
   end
+
+  defp dispatch_visibility(_, _packet, _lat, _lon, _callsign_key, socket), do: socket
 
   @doc """
   Handle valid postgres packet by adding it to visible packets and displaying it.
@@ -127,24 +132,6 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   end
 
   # Private helper functions
-
-  defp should_remove_marker?(lat, lon, callsign_key, socket) do
-    !is_nil(lat) and !is_nil(lon) and
-      Map.has_key?(socket.assigns.visible_packets, callsign_key) and
-      not within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
-  end
-
-  defp should_add_marker?(lat, lon, callsign_key, socket) do
-    !is_nil(lat) and !is_nil(lon) and
-      not Map.has_key?(socket.assigns.visible_packets, callsign_key) and
-      within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
-  end
-
-  defp should_update_marker?(lat, lon, callsign_key, socket) do
-    !is_nil(lat) and !is_nil(lon) and
-      Map.has_key?(socket.assigns.visible_packets, callsign_key) and
-      within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
-  end
 
   # Use shared bounds utility
   defp within_bounds?(coords, bounds) do

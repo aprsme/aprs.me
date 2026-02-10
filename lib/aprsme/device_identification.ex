@@ -221,26 +221,21 @@ defmodule Aprsme.DeviceIdentification do
       end
 
     Enum.find(devices, fn device ->
-      pattern = device.identifier
-
-      cond do
-        String.contains?(pattern, "?") ->
-          try do
-            regex = wildcard_pattern_to_regex(pattern)
-            Regex.match?(regex, identifier)
-          rescue
-            _e in Regex.CompileError ->
-              false
-          end
-
-        String.contains?(pattern, "*") ->
-          # Compare literally if pattern contains * but not ?
-          pattern == identifier
-
-        true ->
-          pattern == identifier
-      end
+      pattern_matches?(device.identifier, identifier)
     end)
+  end
+
+  defp pattern_matches?(pattern, identifier) do
+    if String.contains?(pattern, "?") do
+      try do
+        regex = wildcard_pattern_to_regex(pattern)
+        Regex.match?(regex, identifier)
+      rescue
+        _e in Regex.CompileError -> false
+      end
+    else
+      pattern == identifier
+    end
   end
 
   # Converts a pattern with ? wildcards to a regex
