@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aprs
+  namespace: aprs
+spec:
+  selector:
+    app: aprs
+  ports:
+    - name: http
+      port: 4000
+      targetPort: 4000
+  type: ClusterIP

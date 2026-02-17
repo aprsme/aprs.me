@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aprs
+  namespace: aprs
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+  minReadySeconds: 10
+  selector:
+    matchLabels:
+      app: aprs
+  template:
+    metadata:
+      labels:
+        app: aprs
+    spec:
+      priorityClassName: system-cluster-critical
+      terminationGracePeriodSeconds: 90
+      imagePullSecrets:
+        - name: forgejo-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: aprs
+          image: git.mcintire.me/graham/aprs.me:main-0000000000-0000000 # {"$imagepolicy": "flux-system:aprs-me"}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - containerPort: 4000
+              name: http
+            - containerPort: 4369
+              name: epmd
+            - containerPort: 9000
+              name: dist
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 20
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: RELEASE_DISTRIBUTION
+              value: "name"
+            - name: RELEASE_NODE
+              value: "aprsme@$(POD_IP)"
+            - name: CLUSTER_ENABLED
+              value: "true"
+            - name: PORT
+              value: "4000"
+            - name: PHX_HOST
+              value: "aprs.me"
+            - name: MIX_ENV
+              value: "prod"
+            - name: POOL_SIZE
+              value: "5"
+            - name: PACKET_RETENTION_DAYS
+              value: "1"
+            - name: APRS_CALLSIGN
+              value: "w5isp-1"
+            - name: APRS_PORT
+              value: "10152"
+            - name: RELEASE_COOKIE
+              valueFrom:
+                secretKeyRef:
+                  name: aprs-secrets
+                  key: RELEASE_COOKIE
+            - name: SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: aprs-secrets
+                  key: SECRET_KEY_BASE
+            - name: APRS_PASSCODE
+              valueFrom:
+                secretKeyRef:
+                  name: aprs-secrets
+                  key: APRS_PASSCODE
+          envFrom:
+            - secretRef:
+                name: aprs-db
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            successThreshold: 1
+            failureThreshold: 2
