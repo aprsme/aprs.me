@@ -66,7 +66,6 @@
     right: 0 !important;
     bottom: 0 !important;
     height: 100vh !important;
-    width: 100vw !important;
     z-index: 1 !important;
     transition: right 0.3s ease-in-out !important;
   }
@@ -89,53 +88,6 @@
     }
   }
 
-  /* Slideover toggle button styles */
-  body.map-page .slideover-toggle {
-    position: fixed !important;
-    right: 10px;
-    top: 10px;
-    z-index: 1001;
-    background: white;
-    border: 2px solid rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    padding: 10px;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  body.map-page .slideover-toggle:hover {
-    background: #f8fafc;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-    transform: translateY(-1px);
-  }
-
-  body.map-page .slideover-toggle:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
-
-  /* Hide toggle on desktop when slideover is open */
-  @media (min-width: 1024px) {
-    body.map-page .slideover-toggle.slideover-open {
-      display: none;
-    }
-  }
-
-  /* Mobile toggle adjustments */
-  @media (max-width: 1023px) {
-    body.map-page .slideover-toggle {
-      right: 15px;
-      top: 15px;
-      padding: 12px;
-      border-radius: 50%;
-      width: 48px;
-      height: 48px;
-    }
-  }
 
   /* Slideover panel responsive styles */
   body.map-page .slideover-panel {
@@ -144,7 +96,7 @@
     right: 0;
     height: 100vh;
     width: 352px;
-    background: white;
+    background: var(--color-base-100);
     box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);

@@ -1021,16 +1021,6 @@ defmodule AprsmeWeb.MapLive.Index do
 
     <.locate_button />
 
-    <.slideover_panel
-      slideover_open={@slideover_open}
-      loading={@loading}
-      connection_status={@connection_status}
-      packets={@packets}
-      show_all_packets={@show_all_packets}
-      tracked_callsign={@tracked_callsign}
-      tracked_callsign_latest_packet={@tracked_callsign_latest_packet}
-    />
-
     <.toggle_button slideover_open={@slideover_open} />
 
     <.bottom_controls {assigns} />
@@ -1599,13 +1589,14 @@ defmodule AprsmeWeb.MapLive.Index do
             </svg>
             <span class="font-medium">{gettext("Navigation")}</span>
           </div>
-          <.navigation
-            variant={:vertical}
-            class="text-sm"
-            current_user={@current_user}
-            map_state={%{lat: @map_center.lat, lng: @map_center.lng, zoom: @map_zoom}}
-            tracked_callsign={@tracked_callsign}
-          />
+          <ul class="menu menu-sm text-sm">
+            <.navigation
+              variant={:vertical}
+              current_user={@current_user}
+              map_state={%{lat: @map_center.lat, lng: @map_center.lng, zoom: @map_zoom}}
+              tracked_callsign={@tracked_callsign}
+            />
+          </ul>
         </div>
         
     <!-- Last Update -->

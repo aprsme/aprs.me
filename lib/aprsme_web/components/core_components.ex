@@ -748,35 +748,35 @@ defmodule AprsmeWeb.CoreComponents do
     <%= if @variant == :horizontal do %>
       <ul class="menu menu-horizontal px-1">
         <li>
-          <.link navigate={@home_url} class="text-gray-900 hover:text-gray-700">
+          <.link navigate={@home_url} class="text-base-content hover:text-base-content/70">
             {gettext("Home")}
           </.link>
         </li>
-        <li><.link navigate="/api" class="text-gray-900 hover:text-gray-700">API</.link></li>
+        <li><.link navigate="/api" class="text-base-content hover:text-base-content/70">API</.link></li>
         <li>
-          <.link navigate="/about" class="text-gray-900 hover:text-gray-700">
+          <.link navigate="/about" class="text-base-content hover:text-base-content/70">
             {gettext("About")}
           </.link>
         </li>
         <%= if @current_user do %>
           <li>
-            <.link navigate="/users/settings" class="text-gray-900 hover:text-gray-700">
+            <.link navigate="/users/settings" class="text-base-content hover:text-base-content/70">
               {gettext("Settings")}
             </.link>
           </li>
           <li>
-            <.link href="/users/log_out" method="delete" class="text-gray-900 hover:text-gray-700">
+            <.link href="/users/log_out" method="delete" class="text-base-content hover:text-base-content/70">
               {gettext("Log out")}
             </.link>
           </li>
         <% else %>
           <li>
-            <.link navigate="/users/register" class="text-gray-900 hover:text-gray-700">
+            <.link navigate="/users/register" class="text-base-content hover:text-base-content/70">
               {gettext("Register")}
             </.link>
           </li>
           <li>
-            <.link navigate="/users/log_in" class="text-gray-900 hover:text-gray-700">
+            <.link navigate="/users/log_in" class="text-base-content hover:text-base-content/70">
               {gettext("Log in")}
             </.link>
           </li>
@@ -784,33 +784,33 @@ defmodule AprsmeWeb.CoreComponents do
       </ul>
     <% else %>
       <li>
-        <.link navigate={@home_url} class="text-gray-900 hover:text-gray-700">
+        <.link navigate={@home_url} class="text-base-content hover:text-base-content/70">
           {gettext("Home")}
         </.link>
       </li>
-      <li><.link navigate="/api" class="text-gray-900 hover:text-gray-700">API</.link></li>
+      <li><.link navigate="/api" class="text-base-content hover:text-base-content/70">API</.link></li>
       <li>
-        <.link navigate="/about" class="text-gray-900 hover:text-gray-700">{gettext("About")}</.link>
+        <.link navigate="/about" class="text-base-content hover:text-base-content/70">{gettext("About")}</.link>
       </li>
       <%= if @current_user do %>
         <li>
-          <.link navigate="/users/settings" class="text-gray-900 hover:text-gray-700">
+          <.link navigate="/users/settings" class="text-base-content hover:text-base-content/70">
             {gettext("Settings")}
           </.link>
         </li>
         <li>
-          <.link href="/users/log_out" method="delete" class="text-gray-900 hover:text-gray-700">
+          <.link href="/users/log_out" method="delete" class="text-base-content hover:text-base-content/70">
             {gettext("Log out")}
           </.link>
         </li>
       <% else %>
         <li>
-          <.link navigate="/users/register" class="text-gray-900 hover:text-gray-700">
+          <.link navigate="/users/register" class="text-base-content hover:text-base-content/70">
             {gettext("Register")}
           </.link>
         </li>
         <li>
-          <.link navigate="/users/log_in" class="text-gray-900 hover:text-gray-700">
+          <.link navigate="/users/log_in" class="text-base-content hover:text-base-content/70">
             {gettext("Log in")}
           </.link>
         </li>
