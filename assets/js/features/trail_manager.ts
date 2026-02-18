@@ -48,6 +48,9 @@ export class TrailManager {
     "#20B2AA", // Light Sea Green
   ];
   private proximityThreshold: number = 5.5; // kilometers
+  private minMovementThreshold: number = 0.1; // km - minimum total distance to show a trail
+  private maxHopDistance: number = 10; // km - max distance between consecutive points before breaking
+  private minSegmentPoints: number = 3; // minimum points in a segment to draw it
 
   constructor(trailLayer: LayerGroup, trailDuration: number = 60 * 60 * 1000) {
     this.trailLayer = trailLayer;
@@ -320,9 +323,8 @@ export class TrailManager {
     // Create new trail if we have at least 2 positions with valid coordinates
     if (trailState.positions.length >= 2) {
       // Filter out positions with invalid coordinates and create coordinate pairs
-      const latLngs: [number, number][] = trailState.positions
+      const validPositions: [number, number][] = trailState.positions
         .filter((pos) => {
-          // Validate coordinates are finite numbers within valid ranges
           return (
             pos &&
             typeof pos.lat === "number" &&
@@ -339,9 +341,47 @@ export class TrailManager {
         })
         .map((pos) => [pos.lat, pos.lng]);
 
-      // Only create trail if we still have at least 2 valid positions after filtering
-      if (latLngs.length >= 2) {
-        // Assign color if not already assigned
+      // Calculate total path distance to determine if station is actually moving
+      let totalDistance = 0;
+      for (let i = 1; i < validPositions.length; i++) {
+        totalDistance += this.calculateDistance(
+          validPositions[i - 1][0],
+          validPositions[i - 1][1],
+          validPositions[i][0],
+          validPositions[i][1],
+        );
+      }
+
+      // Skip trail if station hasn't moved enough (stationary station)
+      if (totalDistance < this.minMovementThreshold) {
+        trailState.dots = [];
+        return;
+      }
+
+      // Break trail into segments at giant jumps (bad data / different igates)
+      const segments: [number, number][][] = [[]];
+      segments[0].push(validPositions[0]);
+      for (let i = 1; i < validPositions.length; i++) {
+        const hopDist = this.calculateDistance(
+          validPositions[i - 1][0],
+          validPositions[i - 1][1],
+          validPositions[i][0],
+          validPositions[i][1],
+        );
+        if (hopDist > this.maxHopDistance) {
+          // Start a new segment
+          segments.push([validPositions[i]]);
+        } else {
+          segments[segments.length - 1].push(validPositions[i]);
+        }
+      }
+
+      // Draw only segments with enough points to indicate real movement
+      const drawableSegments = segments.filter(
+        (seg) => seg.length >= this.minSegmentPoints,
+      );
+
+      if (drawableSegments.length > 0) {
         if (!trailState.color) {
           trailState.color = this.assignTrailColor(
             baseCallsign,
@@ -349,8 +389,6 @@ export class TrailManager {
           );
         }
 
-        // Create polyline with assigned color
-        // For historical positions (immediate=true), use higher opacity for better visibility
         const polylineOptions: PolylineOptions = {
           color: trailState.color,
           weight: 3,
@@ -362,9 +400,11 @@ export class TrailManager {
         };
 
         try {
-          trailState.trail = L.polyline(latLngs, polylineOptions).addTo(
-            this.trailLayer,
-          );
+          // L.polyline accepts an array of arrays for multi-segment lines
+          trailState.trail = L.polyline(
+            drawableSegments,
+            polylineOptions,
+          ).addTo(this.trailLayer);
         } catch (error) {
           console.error(
             "Error creating trail polyline for",
@@ -372,11 +412,9 @@ export class TrailManager {
             ":",
             error,
           );
-          console.error("Invalid coordinates:", latLngs);
         }
       }
 
-      // Don't create additional dots here since historical positions are now shown as markers
       trailState.dots = [];
     }
   }
