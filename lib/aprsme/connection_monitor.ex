@@ -66,7 +66,7 @@ defmodule Aprsme.ConnectionMonitor do
   Check if this node should accept new connections
   """
   def accepting_connections? do
-    if cluster_enabled?() do
+    if cluster_enabled?() and Process.whereis(__MODULE__) != nil do
       GenServer.call(__MODULE__, :accepting_connections?)
     else
       true
