@@ -622,14 +622,18 @@ let MapAPRSMap = {
     if (typeof window.OverlappingMarkerSpiderfier !== "undefined") {
       self.oms = new window.OverlappingMarkerSpiderfier(self.map, {
         keepSpiderfied: true,
-        nearbyDistance: 20,
-        circleSpiralSwitchover: 15,
+        nearbyDistance: 65,
+        circleSpiralSwitchover: 10,
+        circleFootSeparation: 80,
+        spiralFootSeparation: 50,
+        spiralLengthStart: 30,
+        spiralLengthFactor: 6,
         legWeight: 2,
         legColors: {
           usual: "#222",
           highlighted: "#f00",
         },
-        spiderfyDistanceMultiplier: 3.5,
+        spiderfyDistanceMultiplier: 6,
       });
 
       // Add click handler for spiderfied markers
