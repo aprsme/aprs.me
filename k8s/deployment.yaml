@@ -29,6 +29,45 @@ spec:
         fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: migrate
+          image: git.mcintire.me/graham/aprs.me:main-0000000000-0000000 # {"$imagepolicy": "flux-system:aprs-me"}
+          imagePullPolicy: IfNotPresent
+          command: ["/app/bin/migrate"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: MIX_ENV
+              value: "prod"
+            - name: SKIP_DB_CREATE
+              value: "true"
+            - name: RELEASE_COOKIE
+              valueFrom:
+                secretKeyRef:
+                  name: aprs-secrets
+                  key: RELEASE_COOKIE
+            - name: SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: aprs-secrets
+                  key: SECRET_KEY_BASE
+          envFrom:
+            - secretRef:
+                name: aprs-db
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
       containers:
         - name: aprs
           image: git.mcintire.me/graham/aprs.me:main-1771368069-24c01d0 # {"$imagepolicy": "flux-system:aprs-me"}
