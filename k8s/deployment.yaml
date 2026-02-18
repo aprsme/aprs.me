@@ -31,7 +31,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: migrate
-          image: git.mcintire.me/graham/aprs.me:main-1771434255-a72d50c # {"$imagepolicy": "flux-system:aprs-me"}
+          image: git.mcintire.me/graham/aprs.me:main-1771437137-d886f5d # {"$imagepolicy": "flux-system:aprs-me"}
           imagePullPolicy: IfNotPresent
           command: ["/app/bin/migrate"]
           securityContext:
@@ -83,7 +83,7 @@ spec:
               cpu: "500m"
       containers:
         - name: aprs
-          image: git.mcintire.me/graham/aprs.me:main-1771434255-a72d50c # {"$imagepolicy": "flux-system:aprs-me"}
+          image: git.mcintire.me/graham/aprs.me:main-1771437137-d886f5d # {"$imagepolicy": "flux-system:aprs-me"}
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
