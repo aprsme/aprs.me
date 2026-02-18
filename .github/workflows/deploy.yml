@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  REGISTRY: git.mcintire.me
+  IMAGE: git.mcintire.me/graham/aprs.me
 
 jobs:
   build-and-push:
@@ -19,6 +19,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
 
     steps:
       - name: Checkout repository
@@ -26,22 +28,19 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Log in to the Container registry
+      - name: Compute image tag
+        id: tag
+        run: |
+          TIMESTAMP=$(date +%s)
+          SHA=${GITHUB_SHA:0:7}
+          echo "image_tag=main-${TIMESTAMP}-${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -51,57 +50,35 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.tag.outputs.image_tag }}
+            ${{ env.IMAGE }}:main
+          cache-from: type=registry,ref=${{ env.IMAGE }}:main
           cache-to: type=inline
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-      - name: Setup Tailscale
-        uses: tailscale/github-action@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set kubeconfig
+      - name: Update image in deployment manifest
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.TAILSCALE_KUBECONFIG }}" | base64 -d > ~/.kube/config
-          # Skip TLS verification for Tailscale IP connection
-          kubectl config set-cluster default --insecure-skip-tls-verify=true
+          NEW_IMAGE="${{ env.IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}"
+          sed -i "s|image: git.mcintire.me/graham/aprs.me:.*|image: ${NEW_IMAGE}|g" k8s/deployment.yaml
 
-      - name: Deploy to K3s
+      - name: Commit and push updated manifest
         run: |
-          # Get current timestamp in ISO8601 format
-          DEPLOYED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          
-          # Create a temporary patch file with the deployment timestamp
-          cat > /tmp/deployed-at-patch.yaml <<EOF
-          apiVersion: apps/v1
-          kind: StatefulSet
-          metadata:
-            name: aprs
-            namespace: aprs
-          spec:
-            template:
-              spec:
-                containers:
-                - name: aprs
-                  env:
-                  - name: DEPLOYED_AT
-                    value: "$DEPLOYED_AT"
-          EOF
-          
-          # Apply the patch to set the deployment timestamp
-          kubectl patch statefulset aprs -n aprs --patch-file=/tmp/deployed-at-patch.yaml
-          
-          # Update the image
-          kubectl set image statefulset/aprs aprs=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -n aprs
-          
-          # Force a rollout to ensure latest image is pulled
-          kubectl rollout restart statefulset/aprs -n aprs
-          echo "Deployment initiated with timestamp $DEPLOYED_AT - not waiting for rollout to complete"
+          NEW_IMAGE="${{ env.IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add k8s/deployment.yaml
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update aprs.me image to ${NEW_IMAGE} [skip ci]"
+          git push
