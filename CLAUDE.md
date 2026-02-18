@@ -76,6 +76,12 @@ The application provides a real-time WebSocket API for mobile clients (iOS/Andro
 - Use `Task.async_stream(collection, callback, options)` for concurrent enumeration with back-pressure. The majority of times you will want to pass `timeout: :infinity` as option
 - **Always run mix format after changing any Elixir files**
 
+## Browser / UI Verification
+
+- **Always use Tidewave's `browser_eval` tool** for browser interactions and UI verification
+- **Never use Puppeteer** (`mcp__puppeteer__*` tools) — Tidewave's browser is shared with the user
+- Use `browser.snapshot()` to inspect the DOM, `browser.click()` and `browser.fill()` to interact
+
 ## Git Commit Guidelines
 
 - **Never** add "Co-Authored-By: Claude" or similar AI co-authorship tags to commits

@@ -57,6 +57,7 @@ defmodule Aprsme.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:tidewave, "~> 0.5", only: :dev},
       {:error_tracker, "~> 0.6"},
       {:bcrypt_elixir, "~> 3.0"},
       {:certifi, "~> 2.9"},
