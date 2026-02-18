@@ -96,17 +96,6 @@ This document tracks potential improvements identified during the multi-replica 
   - Info page (/info/:callsign) now updates in real-time with complete packet data
   - Ensures all UI elements refresh properly when new packets arrive
 
-### 3. Add Metrics and Monitoring with Prometheus
-- **Status**: Pending
-- **Impact**: High - Production visibility
-- **Details**:
-  - Add Prometheus metrics exporter (prometheus_ex)
-  - Track packet processing rates and latencies
-  - Monitor connection pool usage (PgBouncer & app)
-  - Track cache hit rates
-  - Add custom business metrics
-  - Monitor APRS-IS connection stability
-
 ## Medium Priority
 
 

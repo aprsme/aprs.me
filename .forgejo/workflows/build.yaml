@@ -51,3 +51,12 @@ jobs:
             ${{ steps.meta.outputs.latest_tag }}
           cache-from: type=registry,ref=${{ steps.meta.outputs.cache_tag }}
           cache-to: type=registry,ref=${{ steps.meta.outputs.cache_tag }},mode=max
+
+      - name: Update deployment image tag
+        run: |
+          sed -i "s|image: git\.mcintire\.me/graham/aprs\.me:.*|image: ${{ steps.meta.outputs.tag }}|g" k8s/deployment.yaml
+          git config user.email "ci@git.mcintire.me"
+          git config user.name "CI"
+          git add k8s/deployment.yaml
+          git diff --cached --quiet || git commit -m "chore: update aprs.me image to ${{ steps.meta.outputs.tag }} [skip ci]"
+          git push origin HEAD:main

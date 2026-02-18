@@ -37,9 +37,6 @@ config :aprsme, AprsmeWeb.Endpoint,
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
   server: true
 
-# Disable Prometheus telemetry in test mode to avoid port conflicts
-config :aprsme, AprsmeWeb.Telemetry, enabled: false
-
 # Disable cleanup scheduler in test environment
 config :aprsme, :cleanup_scheduler, enabled: false
 
