@@ -54,8 +54,12 @@ spec:
               value: "4000"
             - name: APRS_PORT
               value: "10152"
+            - name: APRS_HOST
+              value: "204.110.191.232"
             - name: APRS_CALLSIGN
               value: "w5isp-1"
+            - name: APRS_PASSWORD
+              value: "15748"
             - name: RELEASE_COOKIE
               valueFrom:
                 secretKeyRef:
@@ -66,11 +70,6 @@ spec:
                 secretKeyRef:
                   name: aprs-secrets
                   key: SECRET_KEY_BASE
-            - name: APRS_PASSCODE
-              valueFrom:
-                secretKeyRef:
-                  name: aprs-secrets
-                  key: APRS_PASSCODE
           envFrom:
             - secretRef:
                 name: aprs-db
@@ -141,6 +140,10 @@ spec:
               value: "w5isp-1"
             - name: APRS_PORT
               value: "10152"
+            - name: APRS_HOST
+              value: "204.110.191.232"
+            - name: APRS_PASSWORD
+              value: "15748"
             - name: RELEASE_COOKIE
               valueFrom:
                 secretKeyRef:

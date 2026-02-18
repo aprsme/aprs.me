@@ -139,12 +139,12 @@ if config_env() == :prod do
 
   config :aprsme,
     ecto_repos: [Aprsme.Repo],
-    aprs_is_server: System.get_env("APRS_SERVER", "dallas.aprs2.net"),
+    aprs_is_server: System.get_env("APRS_HOST") || System.get_env("APRS_SERVER", "dallas.aprs2.net"),
     # config :aprsme, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
     aprs_is_port: String.to_integer(System.get_env("APRS_PORT") || "14580"),
     aprs_is_default_filter: System.get_env("APRS_FILTER"),
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
-    aprs_is_password: System.get_env("APRS_PASSCODE"),
+    aprs_is_password: System.get_env("APRS_PASSWORD") || System.get_env("APRS_PASSCODE"),
     env: :prod
 
   # Configure Hammer for production environment
