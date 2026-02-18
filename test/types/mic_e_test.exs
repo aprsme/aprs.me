@@ -83,12 +83,14 @@ defmodule Aprs.Types.MicETest do
   end
 
   property "fetch/2 for latitude/longitude returns correct sign for direction" do
-    check all deg <- StreamData.integer(0..90),
-              min <- StreamData.integer(0..59),
-              lat_dir <- StreamData.member_of([:north, :south]),
-              lon_dir <- StreamData.member_of([:east, :west]),
-              lon_deg <- StreamData.integer(0..180),
-              lon_min <- StreamData.integer(0..59) do
+    check all(
+            deg <- StreamData.integer(0..90),
+            min <- StreamData.integer(0..59),
+            lat_dir <- StreamData.member_of([:north, :south]),
+            lon_dir <- StreamData.member_of([:east, :west]),
+            lon_deg <- StreamData.integer(0..180),
+            lon_min <- StreamData.integer(0..59)
+          ) do
       mic_e = %MicE{
         lat_degrees: abs(deg),
         lat_minutes: abs(min),
