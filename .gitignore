@@ -57,3 +57,4 @@ gleam@@compile.erl
 
 # Expert language server directory
 /.expert
+.envrc
