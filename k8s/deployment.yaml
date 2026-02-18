@@ -125,7 +125,7 @@ spec:
             - name: RELEASE_NODE
               value: "aprsme@$(POD_IP)"
             - name: CLUSTER_ENABLED
-              value: "true"
+              value: "false"
             - name: PORT
               value: "4000"
             - name: PHX_HOST
