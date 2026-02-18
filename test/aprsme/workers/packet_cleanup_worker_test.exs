@@ -45,14 +45,19 @@ defmodule Aprsme.Workers.PacketCleanupWorkerTest do
 
   describe "perform/1 without cleanup_days" do
     test "cleans up packets using the default retention period" do
+      retention_days = Application.get_env(:aprsme, :packet_retention_days, 365)
       job_args = %{}
 
-      # Create very old packets that should be deleted (older than 365 days)
-      old_time = DateTime.utc_now() |> DateTime.add(-400 * 86_400, :second) |> DateTime.truncate(:second)
+      # Create old packets that should be deleted (older than retention period)
+      old_time =
+        DateTime.utc_now()
+        |> DateTime.add(-(retention_days + 10) * 86_400, :second)
+        |> DateTime.truncate(:second)
+
       insert_packets(10, %{received_at: old_time})
 
-      # Create recent packets that should NOT be deleted
-      recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
+      # Create recent packets that should NOT be deleted (1 hour ago)
+      recent_time = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
       insert_packets(3, %{received_at: recent_time})
 
       assert :ok = PacketCleanupWorker.perform(job_args)

@@ -36,6 +36,7 @@ npm-debug.log
 /.lexical
 /badpackets.txt
 /packets.txt
+/bad_packets.txt
 
 # Ignore Kubernetes secrets file
 k8s/secrets.yaml

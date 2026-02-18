@@ -7,7 +7,7 @@ Uses receive-only login (passcode -1) so no amateur license required.
 import socket
 import sys
 import signal
-from datetime import datetime
+from datetime import datetime, timezone
 
 HOST = "dallas.aprs2.net"
 PORT = 10152  # Full feed, no filter required (use 14580 with a filter)
@@ -52,7 +52,7 @@ def main():
         count = 0
         with open(OUTPUT_FILE, "w", encoding="utf-8") as out:
             out.write(f"# APRS capture from {HOST}:{PORT}\n")
-            out.write(f"# Started: {datetime.utcnow().isoformat()}Z\n\n")
+            out.write(f"# Started: {datetime.now(timezone.utc).isoformat()}\n\n")
 
             while running:
                 try:
