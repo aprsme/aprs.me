@@ -41,6 +41,7 @@ defmodule Mix.Tasks.Aprs.ParseFile do
       exit({:shutdown, 1})
     end
 
+    Application.put_env(:aprsme, :disable_aprs_connection, true)
     Mix.Task.run("app.start")
 
     {total, failures} =
