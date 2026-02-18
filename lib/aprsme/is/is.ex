@@ -467,8 +467,8 @@ defmodule Aprsme.Is do
     end
 
     # Cancel timers
-    if Map.has_key?(state, :timer), do: Process.cancel_timer(state.timer)
-    if Map.has_key?(state, :keepalive_timer), do: Process.cancel_timer(state.keepalive_timer)
+    if timer = Map.get(state, :timer), do: Process.cancel_timer(timer)
+    if timer = Map.get(state, :keepalive_timer), do: Process.cancel_timer(timer)
 
     # Close socket
     case Map.get(state, :socket) do
