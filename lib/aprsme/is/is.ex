@@ -244,7 +244,11 @@ defmodule Aprsme.Is do
 
           error ->
             Logger.error("Failed to send message to APRS-IS: #{inspect(error)}")
-            {:reply, {:error, error}, state}
+            if state.timer, do: Process.cancel_timer(state.timer)
+            if state.keepalive_timer, do: Process.cancel_timer(state.keepalive_timer)
+            :gen_tcp.close(socket)
+            schedule_reconnect(5000)
+            {:reply, {:error, error}, %{state | socket: nil, timer: nil, keepalive_timer: nil}}
         end
     end
   end

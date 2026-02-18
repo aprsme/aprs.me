@@ -251,6 +251,8 @@ defmodule Aprsme.Application do
     :ets.new(:query_cache, [:set, :public, :named_table, read_concurrency: true])
     :ets.new(:device_cache, [:set, :public, :named_table, read_concurrency: true])
     :ets.new(:symbol_cache, [:set, :public, :named_table, read_concurrency: true])
+    :ets.new(:aprsme, [:set, :public, :named_table, write_concurrency: true])
+    :ets.insert(:aprsme, {:message_number, 0})
 
     [
       # ETS-based rate limiter
