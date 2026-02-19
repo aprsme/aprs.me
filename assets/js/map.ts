@@ -1393,6 +1393,15 @@ let MapAPRSMap = {
       self.clearRfPathLines();
     });
 
+    // Resize map when slideover toggles (class changes handled by LiveView JS commands)
+    self.el.addEventListener("phx:map-resize", () => {
+      setTimeout(() => {
+        if (self.map) {
+          self.map.invalidateSize();
+        }
+      }, 350);
+    });
+
     // Handle bounds-based marker filtering
     self.handleEvent(
       "filter_markers_by_bounds",

@@ -11,7 +11,6 @@ defmodule AprsmeWeb.MapLive.Index do
   import Phoenix.LiveView,
     only: [connected?: 1, get_connect_params: 1, push_event: 3, push_patch: 2, put_flash: 3]
 
-  # Import the new components module
   alias Aprsme.Packets
   alias Aprsme.Packets.Clustering
   alias AprsmeWeb.Endpoint
@@ -30,6 +29,9 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.MapLive.RfPath
   alias AprsmeWeb.MapLive.UrlParams
   alias AprsmeWeb.TimeUtils
+  alias Phoenix.LiveView.JS
+
+  # Import the new components module
   alias Phoenix.LiveView.Socket
   alias Phoenix.Socket.Broadcast
 
@@ -1087,7 +1089,7 @@ defmodule AprsmeWeb.MapLive.Index do
   defp toggle_button(assigns) do
     ~H"""
     <button
-      phx-click="toggle_slideover"
+      phx-click={toggle_slideover_js()}
       class={[
         "fixed right-4 top-4 z-40 bg-white rounded-lg shadow-lg p-3",
         "hover:bg-gray-50 transition-colors lg:hidden",
@@ -1097,6 +1099,14 @@ defmodule AprsmeWeb.MapLive.Index do
       <.icon name="hero-bars-3" class="w-6 h-6 text-gray-700" />
     </button>
     """
+  end
+
+  defp toggle_slideover_js do
+    "toggle_slideover"
+    |> JS.push()
+    |> JS.toggle_class("slideover-open", to: "#aprs-map")
+    |> JS.toggle_class("slideover-closed", to: "#aprs-map")
+    |> JS.dispatch("phx:map-resize", to: "#aprs-map")
   end
 
   defp bottom_controls(assigns) do
@@ -1333,20 +1343,13 @@ defmodule AprsmeWeb.MapLive.Index do
         transform: translateY(-50%);
         z-index: 999;
         background: white;
+        color: #374151;
         border: 2px solid rgba(0, 0, 0, 0.1);
         border-radius: 8px 0 0 8px;
         padding: 12px 8px;
         cursor: pointer;
         transition: all 0.3s ease-in-out;
         box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .slideover-toggle {
-          background: rgb(30 41 59); /* slate-800 */
-          border-color: rgba(255, 255, 255, 0.1);
-          box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
-        }
       }
 
       .slideover-toggle.slideover-open {
@@ -1367,18 +1370,12 @@ defmodule AprsmeWeb.MapLive.Index do
       .slideover-toggle:hover {
         background: #f3f4f6;
       }
-
-      @media (prefers-color-scheme: dark) {
-        .slideover-toggle:hover {
-          background: rgb(51 65 85); /* slate-700 */
-        }
-      }
     </style>
 
     <!-- Slideover Toggle Button -->
     <button
       class={["slideover-toggle", if(@slideover_open, do: "slideover-open", else: "slideover-closed")]}
-      phx-click="toggle_slideover"
+      phx-click={toggle_slideover_js()}
       title={
         if @slideover_open,
           do: Gettext.gettext(AprsmeWeb.Gettext, "Hide controls"),
@@ -1432,7 +1429,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     <!-- Mobile Backdrop -->
     <%= if @slideover_open do %>
-      <div class="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden backdrop-blur-sm" phx-click="toggle_slideover">
+      <div class="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden backdrop-blur-sm" phx-click={toggle_slideover_js()}>
       </div>
     <% end %>
 
@@ -1461,7 +1458,7 @@ defmodule AprsmeWeb.MapLive.Index do
     <!-- Close button for mobile -->
         <button
           class="lg:hidden text-white hover:text-slate-200 transition-colors"
-          phx-click="toggle_slideover"
+          phx-click={toggle_slideover_js()}
           title={Gettext.gettext(AprsmeWeb.Gettext, "Close controls")}
         >
           <svg
