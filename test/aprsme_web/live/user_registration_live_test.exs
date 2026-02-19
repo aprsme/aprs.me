@@ -69,6 +69,26 @@ defmodule AprsmeWeb.UserRegistrationLiveTest do
 
       assert result =~ "has already been taken"
     end
+
+    test "renders errors for duplicated callsign (case-insensitive)", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/users/register", on_error: :warn)
+
+      _user = user_fixture(%{callsign: "W1AW"})
+
+      # Try to register with same callsign in different case
+      result =
+        lv
+        |> form("#registration_form",
+          user: %{
+            "email" => unique_user_email(),
+            "callsign" => "w1aw",
+            "password" => "valid_password123"
+          }
+        )
+        |> render_submit()
+
+      assert result =~ "has already been taken"
+    end
   end
 
   describe "registration navigation" do
