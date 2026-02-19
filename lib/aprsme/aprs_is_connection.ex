@@ -174,8 +174,15 @@ defmodule Aprsme.AprsIsConnection do
     case :gen_tcp.connect(host, port, opts, connect_timeout) do
       {:ok, socket} ->
         login = "user #{callsign} pass #{passcode} vers aprs.me 0.1 #{filter}\r\n"
-        :ok = :gen_tcp.send(socket, login)
-        {:ok, socket}
+
+        case :gen_tcp.send(socket, login) do
+          :ok ->
+            {:ok, socket}
+
+          {:error, reason} ->
+            :gen_tcp.close(socket)
+            {:error, {:login_send_failed, reason}}
+        end
 
       error ->
         error

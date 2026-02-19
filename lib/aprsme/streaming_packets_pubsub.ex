@@ -133,16 +133,6 @@ defmodule Aprsme.StreamingPacketsPubSub do
     {:noreply, state}
   end
 
-  @impl true
-  def handle_info({:cleanup_dead_subscribers, pids}, state) do
-    # Clean up dead subscribers from the GenServer process
-    Enum.each(pids, fn pid ->
-      :ets.delete(@table_name, pid)
-    end)
-
-    {:noreply, state}
-  end
-
   # Private functions
 
   defp valid_bounds?(%{north: n, south: s, east: e, west: w}) do
@@ -184,25 +174,13 @@ defmodule Aprsme.StreamingPacketsPubSub do
     lat_in_bounds and lon_in_bounds
   end
 
-  defp send_to_matching_subscribers(subscribers, lat, lon, packet, server_pid) do
-    dead_pids =
-      subscribers
-      |> Stream.filter(fn {_pid, bounds} -> packet_in_bounds?(lat, lon, bounds) end)
-      |> Enum.reduce([], fn {pid, _bounds}, acc ->
-        send_to_subscriber_if_alive(pid, packet, acc)
-      end)
-
-    # Send dead pids back to GenServer for cleanup
-    send(server_pid, {:cleanup_dead_subscribers, dead_pids})
-  end
-
-  defp send_to_subscriber_if_alive(pid, packet, acc) do
-    if Process.alive?(pid) do
+  defp send_to_matching_subscribers(subscribers, lat, lon, packet, _server_pid) do
+    # send/2 to a dead PID is a no-op in Erlang (does not crash).
+    # Process.monitor :DOWN messages handle cleanup, so no alive? check needed.
+    subscribers
+    |> Stream.filter(fn {_pid, bounds} -> packet_in_bounds?(lat, lon, bounds) end)
+    |> Enum.each(fn {pid, _bounds} ->
       send(pid, {:streaming_packet, packet})
-      acc
-    else
-      # Collect dead pid for cleanup
-      [pid | acc]
-    end
+    end)
   end
 end

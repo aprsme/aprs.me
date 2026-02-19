@@ -325,41 +325,33 @@ defmodule Aprsme.PacketConsumer do
     end
   end
 
-  # Broadcast packets asynchronously to avoid blocking
+  # Broadcast packets asynchronously using supervised task pool
   defp broadcast_packets_async(packets) do
-    Task.start(fn ->
-      try do
-        cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
-
-        Enum.each(packets, fn packet_attrs ->
-          # Convert back to a format suitable for broadcasting
-          packet = %{
-            sender: packet_attrs[:sender],
-            latitude: packet_attrs[:lat],
-            longitude: packet_attrs[:lon],
-            received_at: packet_attrs[:received_at],
-            data_type: packet_attrs[:data_type],
-            altitude: packet_attrs[:altitude],
-            speed: packet_attrs[:speed],
-            course: packet_attrs[:course],
-            comment: packet_attrs[:comment]
-          }
-
-          if cluster_enabled do
-            # Use cluster distributor to broadcast to all nodes
-            PacketDistributor.distribute_packet(packet)
-          else
-            # Normal single-node broadcasting
-            Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
-            # Also broadcast to SpatialPubSub for viewport-based filtering
-            Aprsme.SpatialPubSub.broadcast_packet(packet)
-          end
-        end)
-      rescue
-        error ->
-          Logger.error("Failed to broadcast packets asynchronously: #{inspect(error)}")
-      end
+    Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
+      cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
+      Enum.each(packets, &broadcast_single_packet(&1, cluster_enabled))
     end)
+  end
+
+  defp broadcast_single_packet(packet_attrs, cluster_enabled) do
+    packet = %{
+      sender: packet_attrs[:sender],
+      latitude: packet_attrs[:lat],
+      longitude: packet_attrs[:lon],
+      received_at: packet_attrs[:received_at],
+      data_type: packet_attrs[:data_type],
+      altitude: packet_attrs[:altitude],
+      speed: packet_attrs[:speed],
+      course: packet_attrs[:course],
+      comment: packet_attrs[:comment]
+    }
+
+    if cluster_enabled do
+      PacketDistributor.distribute_packet(packet)
+    else
+      Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
+      Aprsme.SpatialPubSub.broadcast_packet(packet)
+    end
   end
 
   defp prepare_packet_for_insert(packet_data) do

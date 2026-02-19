@@ -20,6 +20,7 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
   # Import modules needed for database operations
   import Ecto.Query
 
+  alias Aprsme.BadPacket
   alias Aprsme.Packet
   alias Aprsme.Repo
 
@@ -61,10 +62,15 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
     # Perform the cleanup of old packets (older than 1 year by default) using batch processing
     {deleted_count, _} = cleanup_old_packets_batched()
 
+    # Clean up old bad packets using the same retention period
+    bad_packet_count = cleanup_old_bad_packets()
+
     # Log results
     retention_days = Application.get_env(:aprsme, :packet_retention_days, 365)
 
-    Logger.info("APRS packet cleanup complete: removed #{deleted_count} packets older than #{retention_days} days")
+    Logger.info(
+      "APRS packet cleanup complete: removed #{deleted_count} packets and #{bad_packet_count} bad packets older than #{retention_days} days"
+    )
 
     # Return success
     :ok
@@ -85,6 +91,20 @@ defmodule Aprsme.Workers.PacketCleanupWorker do
   defp cleanup_old_packets_batched do
     retention_days = Application.get_env(:aprsme, :packet_retention_days, 365)
     cleanup_packets_older_than_batched(retention_days)
+  end
+
+  defp cleanup_old_bad_packets do
+    retention_days = Application.get_env(:aprsme, :packet_retention_days, 365)
+    cutoff_time = DateTime.add(DateTime.utc_now(), -retention_days * 86_400, :second)
+
+    {deleted_count, _} =
+      Repo.delete_all(from(b in BadPacket, where: b.attempted_at < ^cutoff_time))
+
+    deleted_count
+  rescue
+    error ->
+      Logger.error("Failed to clean up bad packets: #{inspect(error)}")
+      0
   end
 
   @doc """

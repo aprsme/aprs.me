@@ -180,10 +180,13 @@ defmodule Aprsme.IsTest do
   end
 
   describe "handle_info(:send_keepalive, ...)" do
-    test "skips keepalive when socket is nil" do
+    test "reschedules keepalive when socket is nil" do
       state = build_state(%{socket: nil})
 
-      assert {:noreply, ^state} = Aprsme.Is.handle_info(:send_keepalive, state)
+      assert {:noreply, new_state} = Aprsme.Is.handle_info(:send_keepalive, state)
+      assert new_state.socket == nil
+      # Timer should be rescheduled even when disconnected
+      assert new_state.keepalive_timer != state.keepalive_timer
     end
   end
 

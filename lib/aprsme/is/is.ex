@@ -99,6 +99,7 @@ defmodule Aprsme.Is do
 
           error ->
             Logger.warning("Failed to login to APRS-IS: #{inspect(error)}, will retry")
+            :gen_tcp.close(socket)
             schedule_reconnect(5000)
             {:ok, state}
         end
@@ -289,8 +290,9 @@ defmodule Aprsme.Is do
     case state.socket do
       nil ->
         Logger.debug("Skipping keepalive - not connected to APRS-IS")
-        # Don't schedule another keepalive if we're not connected
-        {:noreply, state}
+        # Keep rescheduling so the timer stays alive for when we reconnect
+        keepalive_timer = create_keepalive_timer(@keepalive_interval)
+        {:noreply, %{state | keepalive_timer: keepalive_timer}}
 
       socket ->
         # Send a comment line as keepalive (APRS-IS standard)
@@ -420,6 +422,7 @@ defmodule Aprsme.Is do
 
           error ->
             Logger.warning("Failed to login to APRS-IS: #{inspect(error)}, will retry in 10 seconds")
+            :gen_tcp.close(socket)
             schedule_reconnect(10_000)
             {:noreply, state}
         end

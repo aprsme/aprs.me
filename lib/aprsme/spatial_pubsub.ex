@@ -320,7 +320,19 @@ defmodule Aprsme.SpatialPubSub do
   end
 
   defp point_in_bounds?(lat, lon, %{north: n, south: s, east: e, west: w}) do
-    lat >= s and lat <= n and lon >= w and lon <= e
+    lat_in_bounds = lat >= s and lat <= n
+
+    # Handle longitude wrap-around at international date line
+    lon_in_bounds =
+      if w > e do
+        # Bounds cross the date line
+        lon >= w or lon <= e
+      else
+        # Normal bounds
+        lon >= w and lon <= e
+      end
+
+    lat_in_bounds and lon_in_bounds
   end
 
   defp extract_location(packet) do
