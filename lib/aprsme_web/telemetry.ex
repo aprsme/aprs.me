@@ -108,6 +108,12 @@ defmodule AprsmeWeb.Telemetry do
         reporter_options: [buckets: buckets]
       ),
 
+      # Backpressure Metrics
+      counter("aprsme.packet_producer.backpressure.count",
+        unit: :event,
+        description: "Backpressure state changes"
+      ),
+
       # Note: SystemMonitor and InsertOptimizer metrics removed after reverting performance optimizations
 
       # Spatial PubSub Metrics

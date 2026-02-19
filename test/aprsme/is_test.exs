@@ -31,7 +31,9 @@ defmodule Aprsme.IsTest do
         user_id: "TEST",
         passcode: "-1",
         filter: "r/33/-96/100"
-      }
+      },
+      backpressure_active: false,
+      safety_valve_timer: nil
     }
 
     Map.merge(base, overrides)

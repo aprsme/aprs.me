@@ -6,6 +6,7 @@ defmodule Aprsme.Is do
 
   @aprs_timeout 60 * 1000
   @keepalive_interval 20 * 1000
+  @backpressure_safety_valve_timeout 30_000
 
   @type state :: %{
           server: charlist() | String.t(),
@@ -20,7 +21,9 @@ defmodule Aprsme.Is do
             user_id: String.t(),
             passcode: String.t(),
             filter: String.t()
-          }
+          },
+          backpressure_active: boolean(),
+          safety_valve_timer: reference() | nil
         }
 
   def start_link(opts \\ []) do
@@ -85,7 +88,9 @@ defmodule Aprsme.Is do
         user_id: aprs_user_id,
         passcode: aprs_passcode,
         filter: default_filter
-      }
+      },
+      backpressure_active: false,
+      safety_valve_timer: nil
     }
 
     # Try to connect initially, but don't fail if it doesn't work
@@ -381,15 +386,71 @@ defmodule Aprsme.Is do
     {:noreply, state}
   end
 
+  def handle_info({:backpressure, :activate}, %{socket: nil} = state) do
+    {:noreply, state}
+  end
+
+  def handle_info({:backpressure, :activate}, %{backpressure_active: true} = state) do
+    {:noreply, state}
+  end
+
+  def handle_info({:backpressure, :activate}, state) do
+    :inet.setopts(state.socket, active: false)
+    if state.timer, do: Process.cancel_timer(state.timer)
+    safety_valve_timer = Process.send_after(self(), :backpressure_safety_valve, @backpressure_safety_valve_timeout)
+
+    Logger.warning("Backpressure activated — socket set to passive mode")
+
+    {:noreply, %{state | backpressure_active: true, timer: nil, safety_valve_timer: safety_valve_timer}}
+  end
+
+  def handle_info({:backpressure, :deactivate}, %{backpressure_active: false} = state) do
+    {:noreply, state}
+  end
+
+  def handle_info({:backpressure, :deactivate}, %{socket: nil} = state) do
+    cancel_safety_valve(state)
+    {:noreply, %{state | backpressure_active: false, safety_valve_timer: nil}}
+  end
+
+  def handle_info({:backpressure, :deactivate}, state) do
+    :inet.setopts(state.socket, active: true)
+    cancel_safety_valve(state)
+    timer = create_timer(@aprs_timeout)
+
+    Logger.info("Backpressure deactivated — socket resumed active mode")
+
+    {:noreply, %{state | backpressure_active: false, safety_valve_timer: nil, timer: timer}}
+  end
+
+  def handle_info(:backpressure_safety_valve, %{backpressure_active: false} = state) do
+    {:noreply, state}
+  end
+
+  def handle_info(:backpressure_safety_valve, %{socket: nil} = state) do
+    {:noreply, %{state | backpressure_active: false, safety_valve_timer: nil}}
+  end
+
+  def handle_info(:backpressure_safety_valve, state) do
+    Logger.warning("Backpressure safety valve triggered — forcing resume after timeout")
+    :inet.setopts(state.socket, active: true)
+    timer = create_timer(@aprs_timeout)
+
+    {:noreply, %{state | backpressure_active: false, safety_valve_timer: nil, timer: timer}}
+  end
+
   def handle_info({:tcp_closed, _socket}, state) do
     Logger.warning("Socket has been closed by remote server - will reconnect")
     # Cancel any existing timers
     if state.timer, do: Process.cancel_timer(state.timer)
     if state.keepalive_timer, do: Process.cancel_timer(state.keepalive_timer)
+    cancel_safety_valve(state)
 
     # Schedule reconnect
     schedule_reconnect(5000)
-    {:noreply, %{state | socket: nil, timer: nil, keepalive_timer: nil}}
+
+    {:noreply,
+     %{state | socket: nil, timer: nil, keepalive_timer: nil, backpressure_active: false, safety_valve_timer: nil}}
   end
 
   def handle_info({:tcp_error, _socket, reason}, state) do
@@ -397,10 +458,13 @@ defmodule Aprsme.Is do
     # Cancel any existing timers
     if state.timer, do: Process.cancel_timer(state.timer)
     if state.keepalive_timer, do: Process.cancel_timer(state.keepalive_timer)
+    cancel_safety_valve(state)
 
     # Schedule reconnect
     schedule_reconnect(5000)
-    {:noreply, %{state | socket: nil, timer: nil, keepalive_timer: nil}}
+
+    {:noreply,
+     %{state | socket: nil, timer: nil, keepalive_timer: nil, backpressure_active: false, safety_valve_timer: nil}}
   end
 
   def handle_info(:reconnect, state) do
@@ -418,7 +482,16 @@ defmodule Aprsme.Is do
             Logger.info("Successfully reconnected to APRS-IS")
             timer = create_timer(@aprs_timeout)
             keepalive_timer = create_keepalive_timer(@keepalive_interval)
-            {:noreply, %{state | socket: socket, timer: timer, keepalive_timer: keepalive_timer}}
+
+            {:noreply,
+             %{
+               state
+               | socket: socket,
+                 timer: timer,
+                 keepalive_timer: keepalive_timer,
+                 backpressure_active: false,
+                 safety_valve_timer: nil
+             }}
 
           error ->
             Logger.warning("Failed to login to APRS-IS: #{inspect(error)}, will retry in 10 seconds")
@@ -476,6 +549,7 @@ defmodule Aprsme.Is do
     # Cancel timers
     if timer = Map.get(state, :timer), do: Process.cancel_timer(timer)
     if timer = Map.get(state, :keepalive_timer), do: Process.cancel_timer(timer)
+    if timer = Map.get(state, :safety_valve_timer), do: Process.cancel_timer(timer)
 
     # Close socket
     case Map.get(state, :socket) do
@@ -617,6 +691,13 @@ defmodule Aprsme.Is do
   end
 
   defp struct_to_map(value), do: value
+
+  defp cancel_safety_valve(%{safety_valve_timer: nil}), do: :ok
+
+  defp cancel_safety_valve(%{safety_valve_timer: timer}) do
+    Process.cancel_timer(timer)
+    :ok
+  end
 
   @spec schedule_reconnect(non_neg_integer()) :: reference()
   defp schedule_reconnect(delay) do

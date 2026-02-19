@@ -25,7 +25,17 @@ defmodule Aprsme.PacketProducerTest do
 
   describe "handle_cast {:packet, _} with demand > 0" do
     test "dispatches packet immediately when demand exists" do
-      state = %{demand: 3, buffer: :queue.new(), buffer_size: 0, max_buffer_size: 1000}
+      state = %{
+        demand: 3,
+        buffer: :queue.new(),
+        buffer_size: 0,
+        max_buffer_size: 1000,
+        high_water_mark: 800,
+        low_water_mark: 300,
+        backpressure_active: false,
+        is_monitor_ref: nil
+      }
+
       {:noreply, events, new_state} = PacketProducer.handle_cast({:packet, %{sender: "TEST"}}, state)
 
       assert events == [%{sender: "TEST"}]
@@ -35,7 +45,17 @@ defmodule Aprsme.PacketProducerTest do
 
   describe "handle_cast {:packet, _} with demand == 0" do
     test "buffers packet when no demand" do
-      state = %{demand: 0, buffer: :queue.new(), buffer_size: 0, max_buffer_size: 1000}
+      state = %{
+        demand: 0,
+        buffer: :queue.new(),
+        buffer_size: 0,
+        max_buffer_size: 1000,
+        high_water_mark: 800,
+        low_water_mark: 300,
+        backpressure_active: false,
+        is_monitor_ref: nil
+      }
+
       {:noreply, [], new_state} = PacketProducer.handle_cast({:packet, %{sender: "TEST"}}, state)
 
       assert new_state.buffer_size == 1
@@ -49,7 +69,16 @@ defmodule Aprsme.PacketProducerTest do
           :queue.in(%{sender: "PACKET#{i}"}, q)
         end)
 
-      state = %{demand: 0, buffer: buffer, buffer_size: 3, max_buffer_size: 3}
+      state = %{
+        demand: 0,
+        buffer: buffer,
+        buffer_size: 3,
+        max_buffer_size: 3,
+        high_water_mark: 2,
+        low_water_mark: 1,
+        backpressure_active: false,
+        is_monitor_ref: nil
+      }
 
       {:noreply, [], new_state} =
         PacketProducer.handle_cast({:packet, %{sender: "NEW"}}, state)
@@ -74,7 +103,17 @@ defmodule Aprsme.PacketProducerTest do
           :queue.in(%{sender: "P#{i}"}, q)
         end)
 
-      state = %{demand: 0, buffer: buffer, buffer_size: 5, max_buffer_size: 1000}
+      state = %{
+        demand: 0,
+        buffer: buffer,
+        buffer_size: 5,
+        max_buffer_size: 1000,
+        high_water_mark: 800,
+        low_water_mark: 300,
+        backpressure_active: false,
+        is_monitor_ref: nil
+      }
+
       {:noreply, events, new_state} = PacketProducer.handle_demand(3, state)
 
       # Should dispatch first 3 (FIFO order)
@@ -87,7 +126,17 @@ defmodule Aprsme.PacketProducerTest do
     test "dispatches all available when demand exceeds buffer" do
       buffer = :queue.in(%{sender: "ONLY"}, :queue.new())
 
-      state = %{demand: 0, buffer: buffer, buffer_size: 1, max_buffer_size: 1000}
+      state = %{
+        demand: 0,
+        buffer: buffer,
+        buffer_size: 1,
+        max_buffer_size: 1000,
+        high_water_mark: 800,
+        low_water_mark: 300,
+        backpressure_active: false,
+        is_monitor_ref: nil
+      }
+
       {:noreply, events, new_state} = PacketProducer.handle_demand(5, state)
 
       assert events == [%{sender: "ONLY"}]
@@ -96,14 +145,34 @@ defmodule Aprsme.PacketProducerTest do
     end
 
     test "stores demand when buffer is empty" do
-      state = %{demand: 0, buffer: :queue.new(), buffer_size: 0, max_buffer_size: 1000}
+      state = %{
+        demand: 0,
+        buffer: :queue.new(),
+        buffer_size: 0,
+        max_buffer_size: 1000,
+        high_water_mark: 800,
+        low_water_mark: 300,
+        backpressure_active: false,
+        is_monitor_ref: nil
+      }
+
       {:noreply, [], new_state} = PacketProducer.handle_demand(10, state)
 
       assert new_state.demand == 10
     end
 
     test "accumulates demand" do
-      state = %{demand: 5, buffer: :queue.new(), buffer_size: 0, max_buffer_size: 1000}
+      state = %{
+        demand: 5,
+        buffer: :queue.new(),
+        buffer_size: 0,
+        max_buffer_size: 1000,
+        high_water_mark: 800,
+        low_water_mark: 300,
+        backpressure_active: false,
+        is_monitor_ref: nil
+      }
+
       {:noreply, [], new_state} = PacketProducer.handle_demand(3, state)
 
       assert new_state.demand == 8

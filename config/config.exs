@@ -68,7 +68,10 @@ config :aprsme,
     # Adjust demand for smaller batches
     max_demand: 300,
     # Number of parallel consumers for better throughput
-    num_consumers: 3
+    num_consumers: 3,
+    # Backpressure water marks (ratio of max_buffer_size)
+    high_water_ratio: 0.8,
+    low_water_ratio: 0.3
   ]
 
 config :error_tracker,
