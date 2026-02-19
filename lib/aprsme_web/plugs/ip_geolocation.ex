@@ -1,13 +1,11 @@
 defmodule AprsmeWeb.Plugs.IPGeolocation do
   @moduledoc """
-  Plug that performs IP-based geolocation on initial page load.
-  Results are stored in the session to avoid repeated API calls.
+  Plug that extracts geolocation from Cloudflare's CF-IPLatitude and CF-IPLongitude
+  headers on initial page load. Results are stored in the session to avoid repeated parsing.
   """
   @behaviour Plug
 
   import Plug.Conn
-
-  require Logger
 
   @impl true
   def init(opts), do: opts
@@ -21,190 +19,18 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
 
   def call(conn, _opts), do: conn
 
-  defp handle_geolocation(nil, conn), do: perform_geolocation(conn)
+  defp handle_geolocation(nil, conn), do: extract_cf_headers(conn)
   defp handle_geolocation(_cached, conn), do: conn
 
-  defp perform_geolocation(conn) do
-    ip = get_client_ip(conn)
-    Logger.info("IP geolocation: Starting lookup for IP #{ip}")
-
-    if valid_ip_for_geolocation?(ip) do
-      start_time = System.monotonic_time(:millisecond)
-
-      # Run geolocation in a task with a hard timeout
-      task = Task.async(fn -> fetch_ip_location(ip) end)
-
-      case Task.yield(task, 600) || Task.shutdown(task, :brutal_kill) do
-        {:ok, {:ok, location}} ->
-          duration = System.monotonic_time(:millisecond) - start_time
-
-          Logger.info(
-            "IP geolocation: Successfully located #{ip} at #{location["lat"]}, #{location["lng"]} in #{duration}ms"
-          )
-
-          put_session(conn, :ip_geolocation, location)
-
-        {:ok, {:error, reason}} ->
-          duration = System.monotonic_time(:millisecond) - start_time
-          Logger.warning("IP geolocation: Failed for #{ip} after #{duration}ms - #{inspect(reason)}")
-          conn
-
-        nil ->
-          # Task timed out
-          duration = System.monotonic_time(:millisecond) - start_time
-          Logger.warning("IP geolocation: Task timeout for #{ip} after #{duration}ms")
-          conn
-      end
+  defp extract_cf_headers(conn) do
+    with [lat_str] <- get_req_header(conn, "cf-iplatitude"),
+         [lng_str] <- get_req_header(conn, "cf-iplongitude"),
+         {lat, ""} <- Float.parse(lat_str),
+         {lng, ""} <- Float.parse(lng_str),
+         true <- lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180 do
+      put_session(conn, :ip_geolocation, %{"lat" => lat, "lng" => lng})
     else
-      Logger.info("IP geolocation: Skipping private/local IP #{ip}")
-      conn
+      _ -> conn
     end
   end
-
-  defp get_client_ip(conn) do
-    # Check for Cloudflare header first (CF-Connecting-IP)
-    cf_ip = get_req_header(conn, "cf-connecting-ip")
-
-    # Then check for standard forwarded headers
-    forwarded_for = get_req_header(conn, "x-forwarded-for")
-    real_ip = get_req_header(conn, "x-real-ip")
-
-    ip =
-      case {cf_ip, forwarded_for, real_ip} do
-        {[cf | _], _, _} ->
-          # Cloudflare header takes precedence
-          ip_from_cf = String.trim(cf)
-          Logger.info("IP geolocation: Using Cloudflare CF-Connecting-IP: #{ip_from_cf}")
-          ip_from_cf
-
-        {[], [forwarded | _], _} ->
-          # Take the first IP from the X-Forwarded-For header
-          ip_from_header =
-            forwarded
-            |> String.split(",")
-            |> List.first()
-            |> String.trim()
-
-          Logger.info("IP geolocation: Using forwarded IP from X-Forwarded-For header: #{ip_from_header}")
-          ip_from_header
-
-        {[], [], [real | _]} ->
-          # Use X-Real-IP header
-          ip_from_real = String.trim(real)
-          Logger.info("IP geolocation: Using X-Real-IP header: #{ip_from_real}")
-          ip_from_real
-
-        {[], [], []} ->
-          # Fall back to remote_ip
-          ip_from_remote =
-            case conn.remote_ip do
-              {a, b, c, d} ->
-                "#{a}.#{b}.#{c}.#{d}"
-
-              {a, b, c, d, e, f, g, h} ->
-                # Convert IPv6 tuple to proper IPv6 format
-                {a, b, c, d, e, f, g, h}
-                |> :inet.ntoa()
-                |> to_string()
-
-              _ ->
-                nil
-            end
-
-          if ip_from_remote do
-            Logger.info("IP geolocation: Using remote_ip: #{ip_from_remote}")
-          end
-
-          ip_from_remote
-      end
-
-    ip
-  end
-
-  defp valid_ip_for_geolocation?(ip) when is_binary(ip) do
-    not private_ip?(ip)
-  end
-
-  defp valid_ip_for_geolocation?(_), do: false
-
-  defp private_ip?("127." <> _), do: true
-  defp private_ip?("::1" <> _), do: true
-  defp private_ip?("10." <> _), do: true
-  defp private_ip?("192.168." <> _), do: true
-  defp private_ip?("172." <> _ = ip), do: in_172_private_range?(ip)
-  defp private_ip?(_), do: false
-
-  # Check if IP is in 172.16.0.0/12 range (172.16.0.0 - 172.31.255.255)
-  defp in_172_private_range?(ip) do
-    case String.split(ip, ".") do
-      ["172", second_octet | _] ->
-        case Integer.parse(second_octet) do
-          {num, _} when num >= 16 and num <= 31 -> true
-          _ -> false
-        end
-
-      _ ->
-        false
-    end
-  end
-
-  defp fetch_ip_location(ip) do
-    url = "http://ip-api.com/json/#{ip}"
-    Logger.info("IP geolocation: Making HTTP request to #{url}")
-
-    # Configure very short timeout to prevent blocking page load
-    req_options = [
-      # 500ms timeout - fail fast
-      receive_timeout: 500,
-      # No retries - we want fast failure
-      retry: false,
-      # Also limit connection pool wait time
-      pool_timeout: 500
-    ]
-
-    case Req.get(url, req_options) do
-      {:ok, %Req.Response{status: 200, body: body}} ->
-        Logger.info("IP geolocation: Got 200 response with body: #{inspect(body)}")
-        parse_ip_api_response(body)
-
-      {:ok, response} ->
-        Logger.warning("IP geolocation: Got non-200 response: #{response.status}")
-        {:error, :invalid_response}
-
-      {:error, reason} ->
-        Logger.error("IP geolocation: HTTP request failed: #{inspect(reason)}")
-        {:error, reason}
-    end
-  end
-
-  defp parse_ip_api_response(body) when is_map(body) do
-    case body do
-      %{"status" => "success", "lat" => lat, "lon" => lon}
-      when is_number(lat) and is_number(lon) ->
-        if lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 do
-          Logger.info("IP geolocation: Parsed coordinates lat=#{lat}, lon=#{lon}")
-          {:ok, %{"lat" => lat / 1.0, "lng" => lon / 1.0}}
-        else
-          Logger.warning("IP geolocation: Invalid coordinates lat=#{lat}, lon=#{lon}")
-          {:error, :invalid_coordinates}
-        end
-
-      %{"status" => "fail", "message" => message} ->
-        Logger.warning("IP geolocation: API returned failure: #{message}")
-        {:error, :api_failure}
-
-      data ->
-        Logger.warning("IP geolocation: Unexpected response format: #{inspect(data)}")
-        {:error, :api_failure}
-    end
-  end
-
-  defp parse_ip_api_response(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> parse_ip_api_response(decoded)
-      {:error, _} -> {:error, :json_decode_error}
-    end
-  end
-
-  defp parse_ip_api_response(_), do: {:error, :invalid_response}
 end

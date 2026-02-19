@@ -11,10 +11,6 @@
   # The filter_packets_by_bounds function has two clauses for map and list inputs
   ~r/lib\/aprsme_web\/live\/map_live\/index\.ex.*The pattern.*can never match/,
 
-  # IP geolocation plug - these patterns are actually reachable but dialyzer can't prove it
-  # The remote_ip can be nil or other values beyond just IPv4/IPv6 tuples
-  ~r/lib\/aprsme_web\/plugs\/ip_geolocation\.ex/,
-
   # False positive: Aprs.parse/1 does return {:ok, _} but dialyzer can't see the vendored library types
   {"lib/aprsme/is/is.ex"},
 

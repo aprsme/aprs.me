@@ -35,7 +35,7 @@ config :aprsme, AprsmeWeb.Endpoint,
   adapter: Bandit.PhoenixAdapter,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "IV9+ENaw9i8xjReRk4sULRvRgsmFVTGQwQGGrf4G+Q/SFMeHBCNWRlPXQ2YvT36R",
-  server: true
+  server: false
 
 # Disable cleanup scheduler in test environment
 config :aprsme, :cleanup_scheduler, enabled: false
