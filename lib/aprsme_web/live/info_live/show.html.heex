@@ -368,14 +368,14 @@
                             <% end %>
                           </td>
                           <td class="opacity-70">
-                            <%= if ssid_info.last_heard && ssid_info.last_heard.timestamp do %>
+                            <%= if ssid_info.received_at do %>
                               <span
                                 class="text-sm"
                                 phx-hook="TimeAgoHook"
                                 id={"ssid-time-#{ssid_info.ssid}"}
-                                data-timestamp={ssid_info.last_heard.timestamp}
+                                data-timestamp={DateTime.to_iso8601(ssid_info.received_at)}
                               >
-                                {ssid_info.last_heard.time_ago}
+                                {AprsmeWeb.TimeHelpers.time_ago_in_words(ssid_info.received_at)}
                               </span>
                             <% else %>
                               <span class="text-sm opacity-70">{gettext("Unknown")}</span>

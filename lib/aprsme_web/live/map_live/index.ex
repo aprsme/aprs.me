@@ -176,20 +176,22 @@ defmodule AprsmeWeb.MapLive.Index do
     historical_hours = Map.get(socket.assigns, :historical_hours, "1")
     packet_age_threshold = Map.get(socket.assigns, :packet_age_threshold, one_hour_ago)
 
-    # If tracking a specific callsign, fetch their latest packet
-    tracked_callsign_latest_packet =
+    # If tracking a specific callsign, fetch their latest packet and other SSIDs
+    {tracked_callsign_latest_packet, other_ssids} =
       if tracked_callsign == "" do
-        nil
+        {nil, []}
       else
         try do
-          Packets.get_latest_packet_for_callsign(tracked_callsign)
+          packet = Packets.get_latest_packet_for_callsign(tracked_callsign)
+          ssids = Packets.get_other_ssids(tracked_callsign)
+          {packet, ssids}
         rescue
           # Handle database connection errors gracefully (especially in tests)
           DBConnection.OwnershipError ->
-            nil
+            {nil, []}
 
           _ ->
-            nil
+            {nil, []}
         end
       end
 
@@ -206,6 +208,7 @@ defmodule AprsmeWeb.MapLive.Index do
       overlay_callsign: "",
       tracked_callsign: tracked_callsign,
       tracked_callsign_latest_packet: tracked_callsign_latest_packet,
+      other_ssids: other_ssids,
       trail_duration: trail_duration,
       historical_hours: historical_hours,
       packet_age_threshold: packet_age_threshold,
@@ -461,13 +464,40 @@ defmodule AprsmeWeb.MapLive.Index do
       if normalized_callsign == "" do
         # Clear tracking
         socket
-        |> assign(tracked_callsign: "")
+        |> assign(tracked_callsign: "", other_ssids: [])
         |> update_url_with_current_state()
       else
-        # Set tracking and navigate to callsign URL
-        socket
-        |> assign(tracked_callsign: normalized_callsign)
-        |> push_patch(to: "/#{normalized_callsign}")
+        # Set tracking, fetch latest packet, zoom to location, and show marker
+        other_ssids = Packets.get_other_ssids(normalized_callsign)
+        latest_packet = Packets.get_latest_packet_for_callsign(normalized_callsign)
+
+        socket =
+          assign(socket,
+            tracked_callsign: normalized_callsign,
+            other_ssids: other_ssids,
+            tracked_callsign_latest_packet: latest_packet
+          )
+
+        # Zoom to the callsign's location and display its marker
+        socket =
+          if latest_packet && latest_packet.lat && latest_packet.lon do
+            lat = Aprsme.EncodingUtils.to_float(latest_packet.lat) || 0.0
+            lon = Aprsme.EncodingUtils.to_float(latest_packet.lon) || 0.0
+
+            packet_data = DataBuilder.build_packet_data(latest_packet)
+
+            socket
+            |> push_event("zoom_to_location", %{lat: lat, lng: lon, zoom: 12})
+            |> push_event("add_historical_packets_batch", %{
+              packets: [packet_data],
+              batch: 0,
+              is_final: false
+            })
+          else
+            socket
+          end
+
+        push_patch(socket, to: "/#{normalized_callsign}")
       end
 
     {:noreply, socket}
@@ -477,7 +507,7 @@ defmodule AprsmeWeb.MapLive.Index do
   def handle_event("clear_tracking", _params, socket) do
     socket =
       socket
-      |> assign(tracked_callsign: "", overlay_callsign: "")
+      |> assign(tracked_callsign: "", overlay_callsign: "", other_ssids: [])
       |> update_url_with_current_state()
 
     {:noreply, socket}
@@ -1488,6 +1518,57 @@ defmodule AprsmeWeb.MapLive.Index do
             <% end %>
           </form>
         </div>
+        
+    <!-- Other SSIDs -->
+        <%= if @tracked_callsign != "" and @other_ssids != [] do %>
+          <div class="space-y-3">
+            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-2">
+              <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                />
+              </svg>
+              <span>{gettext("Other SSIDs")}</span>
+            </label>
+            <div class="space-y-1">
+              <%= for ssid_info <- @other_ssids do %>
+                <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all duration-200 text-sm group">
+                  <button
+                    phx-click="track_callsign"
+                    phx-value-callsign={ssid_info.callsign}
+                    class="font-semibold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-800 dark:group-hover:text-indigo-300 cursor-pointer"
+                  >
+                    {ssid_info.callsign}
+                  </button>
+                  <div class="flex items-center space-x-2">
+                    <%= if ssid_info.received_at do %>
+                      <span class="text-xs text-slate-500 dark:text-slate-400">
+                        {time_ago_in_words(ssid_info.received_at)}
+                      </span>
+                    <% end %>
+                    <.link
+                      navigate={~p"/info/#{ssid_info.callsign}"}
+                      class="text-xs text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                      title={gettext("Station info")}
+                    >
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </.link>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
         
     <!-- Trail Duration -->
         <div class="space-y-4">

@@ -26,3 +26,7 @@ XSS.Raw: XSS,lib/aprsme_web/components/core_components.ex:48,1E00DD8
 SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:603,52B452D
 XSS.Raw: XSS,lib/aprsme_web/live/info_live/show.ex:661,5C70BB5
 XSS.Raw: XSS,lib/aprsme_web/live/info_live/show.ex:643,692A7EC
+XSS.Raw: XSS,lib/aprsme_web/live/info_live/show.ex:604,12E0C65
+SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:448,1662A49
+SQL.Query: SQL injection,lib/aprsme_web/live/info_live/show.ex:546,37D03BD
+XSS.Raw: XSS,lib/aprsme_web/live/info_live/show.ex:586,509A015

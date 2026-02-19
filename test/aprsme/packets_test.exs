@@ -744,6 +744,133 @@ defmodule Aprsme.PacketsTest do
     end
   end
 
+  describe "get_other_ssids/2" do
+    test "returns other SSIDs for a base callsign" do
+      now = DateTime.utc_now()
+
+      # Create packets for multiple SSIDs of the same base callsign
+      PacketsFixtures.packet_fixture(%{
+        sender: "AE5PL",
+        base_callsign: "AE5PL",
+        ssid: "0",
+        received_at: DateTime.add(now, -1800, :second),
+        symbol_table_id: "/",
+        symbol_code: "-"
+      })
+
+      PacketsFixtures.packet_fixture(%{
+        sender: "AE5PL-1",
+        base_callsign: "AE5PL",
+        ssid: "1",
+        received_at: DateTime.add(now, -900, :second),
+        symbol_table_id: "/",
+        symbol_code: ">"
+      })
+
+      PacketsFixtures.packet_fixture(%{
+        sender: "AE5PL-15",
+        base_callsign: "AE5PL",
+        ssid: "15",
+        received_at: DateTime.add(now, -300, :second),
+        symbol_table_id: "/",
+        symbol_code: "#"
+      })
+
+      # Query for SSIDs other than AE5PL (the base callsign with no SSID)
+      results = Packets.get_other_ssids("AE5PL")
+
+      callsigns = Enum.map(results, & &1.callsign)
+      assert "AE5PL-1" in callsigns
+      assert "AE5PL-15" in callsigns
+      refute "AE5PL" in callsigns
+    end
+
+    test "returns other SSIDs when querying from an SSID variant" do
+      now = DateTime.utc_now()
+
+      PacketsFixtures.packet_fixture(%{
+        sender: "W5ABC",
+        base_callsign: "W5ABC",
+        ssid: "0",
+        received_at: DateTime.add(now, -1800, :second)
+      })
+
+      PacketsFixtures.packet_fixture(%{
+        sender: "W5ABC-9",
+        base_callsign: "W5ABC",
+        ssid: "9",
+        received_at: DateTime.add(now, -900, :second)
+      })
+
+      # Query from the -9 SSID should show the base callsign
+      results = Packets.get_other_ssids("W5ABC-9")
+
+      callsigns = Enum.map(results, & &1.callsign)
+      assert "W5ABC" in callsigns
+      refute "W5ABC-9" in callsigns
+    end
+
+    test "returns empty list when no other SSIDs exist" do
+      PacketsFixtures.packet_fixture(%{
+        sender: "LONELY",
+        base_callsign: "LONELY",
+        ssid: "0"
+      })
+
+      results = Packets.get_other_ssids("LONELY")
+      assert results == []
+    end
+
+    test "only returns SSIDs with recent packets" do
+      now = DateTime.utc_now()
+
+      # Create a recent packet
+      PacketsFixtures.packet_fixture(%{
+        sender: "RECENT-1",
+        base_callsign: "RECENT",
+        ssid: "1",
+        received_at: DateTime.add(now, -300, :second)
+      })
+
+      # Create an old packet (2 hours ago, outside 1-hour window)
+      PacketsFixtures.packet_fixture(%{
+        sender: "RECENT-2",
+        base_callsign: "RECENT",
+        ssid: "2",
+        received_at: DateTime.add(now, -7200, :second)
+      })
+
+      results = Packets.get_other_ssids("RECENT")
+
+      callsigns = Enum.map(results, & &1.callsign)
+      assert "RECENT-1" in callsigns
+      refute "RECENT-2" in callsigns
+    end
+
+    test "includes symbol information and received_at in results" do
+      now = DateTime.utc_now()
+
+      PacketsFixtures.packet_fixture(%{
+        sender: "SYM-1",
+        base_callsign: "SYM",
+        ssid: "1",
+        received_at: now,
+        symbol_table_id: "/",
+        symbol_code: ">"
+      })
+
+      [result] = Packets.get_other_ssids("SYM")
+
+      assert result.callsign == "SYM-1"
+      assert result.ssid == "1"
+      assert result.packet.symbol_table_id == "/"
+      assert result.packet.symbol_code == ">"
+      # Returns raw received_at DateTime, not a formatted map
+      assert %DateTime{} = result.received_at
+      refute Map.has_key?(result, :last_heard)
+    end
+  end
+
   describe "get_last_hour_packets/0" do
     test "returns packets from last hour" do
       now = DateTime.utc_now()

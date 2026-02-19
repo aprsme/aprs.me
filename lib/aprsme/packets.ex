@@ -859,6 +859,54 @@ defmodule Aprsme.Packets do
     PreparedQueries.has_weather_packets?(callsign)
   end
 
+  @doc """
+  Gets other SSIDs for a given callsign's base callsign.
+  Returns a list of maps with callsign, ssid, received_at, and packet info.
+  Only returns SSIDs active within the last hour.
+  """
+  @spec get_other_ssids(String.t()) :: list(map())
+  def get_other_ssids(callsign) when is_binary(callsign) do
+    base_callsign = Aprsme.Callsign.extract_base(callsign)
+    one_hour_ago = DateTime.add(DateTime.utc_now(), -3600, :second)
+
+    query =
+      from p in Packet,
+        where: p.base_callsign == ^base_callsign,
+        where: p.received_at >= ^one_hour_ago,
+        where: p.sender != ^callsign,
+        distinct: p.sender,
+        order_by: [desc: p.received_at],
+        limit: 10,
+        select: %{
+          sender: p.sender,
+          ssid: p.ssid,
+          received_at: p.received_at,
+          id: p.id,
+          symbol_table_id: p.symbol_table_id,
+          symbol_code: p.symbol_code
+        }
+
+    query
+    |> Repo.all()
+    |> Enum.map(fn row ->
+      packet = %Packet{
+        id: row.id,
+        sender: row.sender,
+        ssid: row.ssid,
+        received_at: row.received_at,
+        symbol_table_id: row.symbol_table_id,
+        symbol_code: row.symbol_code
+      }
+
+      %{
+        callsign: row.sender,
+        ssid: row.ssid,
+        received_at: row.received_at,
+        packet: packet
+      }
+    end)
+  end
+
   defp get_latest_weather_in_window(callsign, hours) do
     import Ecto.Query
 

@@ -12,7 +12,6 @@ defmodule AprsmeWeb.InfoLive.Show do
   alias AprsmeWeb.AprsSymbol
   alias AprsmeWeb.Live.SharedPacketHandler
   alias AprsmeWeb.MapLive.PacketUtils
-  alias AprsmeWeb.TimeUtils
 
   @neighbor_limit 10
 
@@ -74,7 +73,7 @@ defmodule AprsmeWeb.InfoLive.Show do
     locale = Map.get(socket.assigns, :locale, "en")
     neighbors = get_neighbors(packet, normalized_callsign, locale)
     has_weather_packets = PacketUtils.has_weather_packets?(normalized_callsign)
-    other_ssids = get_other_ssids(normalized_callsign)
+    other_ssids = Packets.get_other_ssids(normalized_callsign)
 
     heard_by_stations = get_heard_by_stations(normalized_callsign, locale)
     stations_heard_by = get_stations_heard_by(normalized_callsign, locale)
@@ -359,62 +358,6 @@ defmodule AprsmeWeb.InfoLive.Show do
     bearing = :math.atan2(y, x) * 180 / :math.pi()
     # Convert to 0-360 range
     if bearing < 0, do: bearing + 360, else: bearing
-  end
-
-  defp get_other_ssids(callsign) do
-    alias Aprsme.Packet
-    alias Aprsme.Repo
-    # Extract base callsign from the full callsign (remove SSID if present)
-    base_callsign = extract_base_callsign(callsign)
-
-    # Get recent packets for the base callsign to find other SSIDs
-    one_hour_ago = TimeUtils.one_hour_ago()
-
-    # Use a window function to get the most recent packet per sender
-    # This is much more efficient than fetching 100 packets and filtering in Elixir
-    query = """
-    WITH recent_ssids AS (
-      SELECT DISTINCT ON (sender)
-        sender, ssid, received_at, id, symbol_table_id, symbol_code
-      FROM packets
-      WHERE base_callsign = $1
-        AND received_at >= $2
-        AND sender != $3
-      ORDER BY sender, received_at DESC
-    )
-    SELECT * FROM recent_ssids
-    ORDER BY received_at DESC
-    LIMIT 10
-    """
-
-    case Repo.query(query, [base_callsign, one_hour_ago, callsign]) do
-      {:ok, result} ->
-        Enum.map(result.rows, fn [sender, ssid, received_at, id, symbol_table_id, symbol_code] ->
-          # Create a minimal packet struct for display
-          packet = %Packet{
-            id: id,
-            sender: sender,
-            ssid: ssid,
-            received_at: received_at,
-            symbol_table_id: symbol_table_id,
-            symbol_code: symbol_code
-          }
-
-          %{
-            callsign: sender,
-            ssid: ssid,
-            last_heard: format_timestamp_for_display(packet),
-            packet: packet
-          }
-        end)
-
-      {:error, _} ->
-        []
-    end
-  end
-
-  defp extract_base_callsign(callsign) do
-    Callsign.extract_base(callsign)
   end
 
   defp get_heard_by_stations(callsign, locale) do
