@@ -126,19 +126,21 @@ defmodule Aprsme.Cluster.LeaderElection do
     # First, try to clean up any stale registrations
     cleanup_stale_registrations()
 
-    case :global.register_name(@election_key, self(), &resolve_conflict/3) do
-      :yes ->
-        Logger.info("Elected as APRS-IS connection leader on node #{node()}")
-        :persistent_term.put({__MODULE__, :is_leader}, true)
-        notify_leadership_change(true)
+    # Check if we already hold the registration — re-registering the same
+    # name returns :no even for the same PID, which would incorrectly clear
+    # our leadership state.
+    case :global.whereis_name(@election_key) do
+      pid when pid == self() ->
+        if !state.is_leader do
+          Logger.info("Re-confirming leadership on node #{node()}")
+          :persistent_term.put({__MODULE__, :is_leader}, true)
+          notify_leadership_change(true)
+        end
+
         {:noreply, %{state | is_leader: true, leader_node: node()}}
 
-      :no ->
-        leader_pid = :global.whereis_name(@election_key)
-        leader_node = if leader_pid != :undefined and is_pid(leader_pid), do: node(leader_pid)
-        Logger.info("Not elected as leader. Current leader is on node #{inspect(leader_node)}")
-        :persistent_term.put({__MODULE__, :is_leader}, false)
-        {:noreply, %{state | is_leader: false, leader_node: leader_node}}
+      _ ->
+        attempt_registration(state)
     end
   end
 
@@ -181,6 +183,23 @@ defmodule Aprsme.Cluster.LeaderElection do
     end
 
     :ok
+  end
+
+  defp attempt_registration(state) do
+    case :global.register_name(@election_key, self(), &resolve_conflict/3) do
+      :yes ->
+        Logger.info("Elected as APRS-IS connection leader on node #{node()}")
+        :persistent_term.put({__MODULE__, :is_leader}, true)
+        notify_leadership_change(true)
+        {:noreply, %{state | is_leader: true, leader_node: node()}}
+
+      :no ->
+        leader_pid = :global.whereis_name(@election_key)
+        leader_node = if leader_pid != :undefined and is_pid(leader_pid), do: node(leader_pid)
+        Logger.info("Not elected as leader. Current leader is on node #{inspect(leader_node)}")
+        :persistent_term.put({__MODULE__, :is_leader}, false)
+        {:noreply, %{state | is_leader: false, leader_node: leader_node}}
+    end
   end
 
   # Conflict resolution - prefer the process on the lexicographically lower node
