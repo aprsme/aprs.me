@@ -473,6 +473,26 @@ defmodule Aprsme.PacketConsumer do
   # Detect if packet is an item or object and set appropriate fields
   defp detect_item_or_object(attrs) do
     cond do
+      # Check for object data type first (takes priority over itemname)
+      attrs[:data_type] == "object" or attrs["data_type"] == "object" ->
+        object_name = extract_object_name(attrs)
+
+        attrs
+        |> Map.put(:object_name, object_name)
+        |> Map.put(:is_object, true)
+        |> Map.delete(:itemname)
+        |> Map.delete("itemname")
+
+      # Check information field for object format (starts with ;)
+      is_binary(attrs[:information_field]) and String.starts_with?(attrs[:information_field], ";") ->
+        object_name = extract_object_name_from_info_field(attrs[:information_field])
+
+        attrs
+        |> Map.put(:object_name, object_name)
+        |> Map.put(:is_object, true)
+        |> Map.delete(:itemname)
+        |> Map.delete("itemname")
+
       # Check for itemname field from parser
       Map.has_key?(attrs, :itemname) or Map.has_key?(attrs, "itemname") ->
         item_name = Map.get(attrs, :itemname) || Map.get(attrs, "itemname")
@@ -482,23 +502,6 @@ defmodule Aprsme.PacketConsumer do
         |> Map.put(:is_item, true)
         |> Map.delete(:itemname)
         |> Map.delete("itemname")
-
-      # Check for object data type and extract object name from data_extended
-      attrs[:data_type] == "object" or attrs["data_type"] == "object" ->
-        object_name = extract_object_name(attrs)
-
-        attrs
-        |> Map.put(:object_name, object_name)
-        |> Map.put(:is_object, true)
-
-      # Check information field for object format (starts with ;)
-      is_binary(attrs[:information_field]) and String.starts_with?(attrs[:information_field], ";") ->
-        # Extract object name from information field
-        object_name = extract_object_name_from_info_field(attrs[:information_field])
-
-        attrs
-        |> Map.put(:object_name, object_name)
-        |> Map.put(:is_object, true)
 
       true ->
         attrs
@@ -682,7 +685,7 @@ defmodule Aprsme.PacketConsumer do
     # Handle ParseError specially to avoid Access behavior issues
     %{
       error_code: error.error_code,
-      message: error.message,
+      message: error.error_message,
       __original_struct__: ParseError
     }
   end

@@ -98,11 +98,13 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
       symbol_code = get_packet_field(packet, :symbol_code, ">")
 
       # Generate symbol HTML using the SymbolRenderer
+      callsign = display_name(packet)
+
       symbol_html =
         AprsmeWeb.SymbolRenderer.render_marker_symbol(
           symbol_table_id,
           symbol_code,
-          get_packet_field(packet, :sender, ""),
+          callsign,
           32
         )
 
@@ -110,7 +112,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
         "id" => if(is_most_recent, do: "current_#{get_packet_id(packet)}", else: "hist_#{get_packet_id(packet)}"),
         "lat" => to_float(lat),
         "lng" => to_float(lon),
-        "callsign" => get_packet_field(packet, :sender, ""),
+        "callsign" => callsign,
         "symbol_table_id" => symbol_table_id,
         "symbol_code" => symbol_code,
         "symbol_html" => symbol_html,
@@ -149,9 +151,10 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   @spec build_packet_data_list(list()) :: list()
   def build_packet_data_list(historical_packets) do
     # Include weather data in initial grouping to avoid separate query
+    # Group by display name so objects/items are grouped by their name, not sender
     grouped_packets =
       Enum.group_by(historical_packets, fn packet ->
-        get_packet_field(packet, :sender, "unknown")
+        display_name(packet)
       end)
 
     # Build weather callsign set from packets themselves (no DB query needed)
@@ -200,7 +203,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   @spec build_simple_popup(map(), boolean()) :: String.t()
   def build_simple_popup(packet, has_weather) do
     # Build popup HTML directly without database queries
-    callsign = get_packet_field(packet, :sender, "Unknown")
+    callsign = display_name(packet)
     timestamp_dt = get_packet_received_at(packet)
     cache_buster = System.system_time(:millisecond)
 
@@ -289,7 +292,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   def build_weather_callsign_set(packets) do
     packets
     |> Enum.filter(&weather_packet?/1)
-    |> MapSet.new(fn packet -> String.upcase(get_packet_field(packet, :sender, "")) end)
+    |> MapSet.new(fn packet -> String.upcase(display_name(packet)) end)
   end
 
   # Private functions moved from packet_utils.ex
@@ -306,7 +309,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   @spec extract_packet_info(map(), map()) :: map()
   defp extract_packet_info(packet, data_extended) do
     %{
-      callsign: get_packet_field(packet, :sender, ""),
+      callsign: display_name(packet),
       symbol_table_id: get_packet_field(packet, :symbol_table_id, "/"),
       symbol_code: get_packet_field(packet, :symbol_code, ">"),
       timestamp: get_timestamp(packet),
@@ -458,6 +461,11 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   @spec generate_callsign(map()) :: String.t()
   defp generate_callsign(packet) do
     SharedPacketUtils.generate_callsign(packet)
+  end
+
+  @spec display_name(map()) :: String.t()
+  defp display_name(packet) do
+    SharedPacketUtils.display_name(packet)
   end
 
   @spec weather_packet?(map()) :: boolean()

@@ -89,6 +89,7 @@ defmodule Aprsme.PacketPipelineSupervisorTest do
 
   describe "start_link/0" do
     test "is exported as a function" do
+      Code.ensure_loaded!(PacketPipelineSupervisor)
       assert function_exported?(PacketPipelineSupervisor, :start_link, 0)
     end
 

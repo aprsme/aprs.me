@@ -223,6 +223,28 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
     format_callsign_with_ssid(base_callsign, ssid)
   end
 
+  @doc """
+  Returns the display name for a packet.
+
+  For APRS objects, returns the object_name.
+  For APRS items, returns the item_name.
+  Otherwise, falls back to the sender callsign.
+  """
+  @spec display_name(map()) :: String.t()
+  def display_name(packet) do
+    object_name = get_packet_field(packet, :object_name, nil)
+    item_name = get_packet_field(packet, :item_name, nil)
+
+    cond do
+      non_empty_string?(object_name) -> String.trim(object_name)
+      non_empty_string?(item_name) -> String.trim(item_name)
+      true -> get_packet_field(packet, :sender, "")
+    end
+  end
+
+  defp non_empty_string?(value) when is_binary(value), do: String.trim(value) != ""
+  defp non_empty_string?(_), do: false
+
   defp format_callsign_with_ssid(base_callsign, nil), do: base_callsign
   defp format_callsign_with_ssid(base_callsign, ""), do: base_callsign
   defp format_callsign_with_ssid(base_callsign, ssid), do: "#{base_callsign}-#{ssid}"
