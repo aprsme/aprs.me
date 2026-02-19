@@ -409,9 +409,48 @@ let MapAPRSMap = {
       console.error("Error creating heat layer:", error);
     }
 
-    // Create trail layer and manager
+    // Create trail layer and manager with RF path hover callbacks
     const trailLayer = L.layerGroup().addTo(self.map);
-    self.trailManager = new TrailManager(trailLayer);
+    self.trailManager = new TrailManager(
+      trailLayer,
+      60 * 60 * 1000,
+      // onTrailHover: send RF path visualization event to backend
+      (lat: number, lng: number, path: string) => {
+        if (
+          self.pushEvent &&
+          typeof self.pushEvent === "function" &&
+          !self.isDestroyed
+        ) {
+          try {
+            self.pushEvent.call(self, "marker_hover_start", {
+              id: "trail_hover",
+              callsign: "",
+              path: path,
+              lat: lat,
+              lng: lng,
+            });
+          } catch (error) {
+            console.warn("Failed to send trail hover event:", error);
+          }
+        }
+      },
+      // onTrailHoverEnd: clear RF path lines
+      () => {
+        if (
+          self.pushEvent &&
+          typeof self.pushEvent === "function" &&
+          !self.isDestroyed
+        ) {
+          try {
+            self.pushEvent.call(self, "marker_hover_end", {
+              id: "trail_hover",
+            });
+          } catch (error) {
+            console.warn("Failed to send trail hover end event:", error);
+          }
+        }
+      },
+    );
 
     // Track marker states to prevent unnecessary operations
     self.markerStates = new Map<string, MarkerState>();
@@ -1586,6 +1625,7 @@ let MapAPRSMap = {
           lng,
           timestamp,
           isHistoricalDot,
+          data.path,
         );
       }
 
@@ -1677,8 +1717,7 @@ let MapAPRSMap = {
     });
 
     // Handle marker hover for RF path visualization
-    // Check for non-empty RF path (not TCPIP and not empty string)
-    if (data.path && data.path.trim() !== "" && !data.path.includes("TCPIP")) {
+    if (data.path && data.path.trim() !== "") {
       marker.on("mouseover", () => {
         // Check if LiveView is still connected before sending event
         if (
@@ -1763,6 +1802,7 @@ let MapAPRSMap = {
         lng,
         timestamp,
         isHistoricalDot,
+        data.path,
       );
     }
 
@@ -1875,6 +1915,7 @@ let MapAPRSMap = {
                 lng,
                 timestamp,
                 isHistoricalDot,
+                data.path,
               );
             }
           }

@@ -14,6 +14,7 @@ export interface PositionHistory {
   lat: number;
   lng: number;
   timestamp: number;
+  path?: string;
 }
 
 export interface TrailState {
@@ -51,12 +52,21 @@ export class TrailManager {
   private minMovementThreshold: number = 0.1; // km - minimum total distance to show a trail
   private maxHopDistance: number = 10; // km - max distance between consecutive points before breaking
   private minSegmentPoints: number = 3; // minimum points in a segment to draw it
+  private onTrailHover?: (lat: number, lng: number, path: string) => void;
+  private onTrailHoverEnd?: () => void;
 
-  constructor(trailLayer: LayerGroup, trailDuration: number = 60 * 60 * 1000) {
+  constructor(
+    trailLayer: LayerGroup,
+    trailDuration: number = 60 * 60 * 1000,
+    onTrailHover?: (lat: number, lng: number, path: string) => void,
+    onTrailHoverEnd?: () => void,
+  ) {
     this.trailLayer = trailLayer;
     this.trails = new Map();
     this.showTrails = true;
     this.trailDuration = trailDuration;
+    this.onTrailHover = onTrailHover;
+    this.onTrailHoverEnd = onTrailHoverEnd;
 
     // Ensure trail layer is added to the map and visible
     if (this.trailLayer && this.trailLayer.bringToFront) {
@@ -113,6 +123,7 @@ export class TrailManager {
     lng: number,
     timestamp: number,
     isHistoricalDot: boolean = false,
+    path?: string,
   ) {
     if (!this.showTrails) return;
 
@@ -165,7 +176,7 @@ export class TrailManager {
 
     if (!existingPos) {
       // Add new position
-      trailState.positions.push({ lat, lng, timestamp });
+      trailState.positions.push({ lat, lng, timestamp, path });
 
       // Sort positions by timestamp to maintain chronological order
       trailState.positions.sort((a, b) => a.timestamp - b.timestamp);
@@ -405,6 +416,28 @@ export class TrailManager {
             drawableSegments,
             polylineOptions,
           ).addTo(this.trailLayer);
+
+          // Attach hover handlers for RF path visualization
+          if (this.onTrailHover && this.onTrailHoverEnd) {
+            const positions = trailState.positions;
+            const hoverCb = this.onTrailHover;
+            const hoverEndCb = this.onTrailHoverEnd;
+
+            trailState.trail.on("mouseover", (e: L.LeafletMouseEvent) => {
+              const nearest = this.findNearestPositionWithPath(
+                e.latlng.lat,
+                e.latlng.lng,
+                positions,
+              );
+              if (nearest) {
+                hoverCb(nearest.lat, nearest.lng, nearest.path!);
+              }
+            });
+
+            trailState.trail.on("mouseout", () => {
+              hoverEndCb();
+            });
+          }
         } catch (error) {
           console.error(
             "Error creating trail polyline for",
@@ -417,6 +450,26 @@ export class TrailManager {
 
       trailState.dots = [];
     }
+  }
+
+  private findNearestPositionWithPath(
+    lat: number,
+    lng: number,
+    positions: PositionHistory[],
+  ): PositionHistory | null {
+    let nearest: PositionHistory | null = null;
+    let minDist = Infinity;
+
+    for (const pos of positions) {
+      if (!pos.path || pos.path.trim() === "") continue;
+      const dist = (pos.lat - lat) ** 2 + (pos.lng - lng) ** 2;
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = pos;
+      }
+    }
+
+    return nearest;
   }
 
   removeTrail(markerId: string) {

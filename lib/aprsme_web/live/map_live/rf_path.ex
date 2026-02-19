@@ -6,28 +6,35 @@ defmodule AprsmeWeb.MapLive.RfPath do
   alias Aprsme.Packets
   alias AprsmeWeb.MapLive.Utils
 
+  # APRS aliases that are not real stations
+  @path_aliases ~w(WIDE WIDE1 WIDE2 WIDE3 WIDE4 WIDE5 WIDE6 WIDE7
+    RELAY TRACE ECHO HOP DMR)
+
   @doc """
   Parse RF path string to extract digipeater/igate stations.
-  Excludes APRS-IS (Internet) paths that contain TCPIP.
 
-  APRS-IS path indicators:
-  - TCPIP: Packet came via Internet connection
-  - NOGATE: Should not be gated to RF
-  - qA*: Various APRS-IS q-constructs (qAC, qAS, qAR, etc.)
+  APRS-IS path format: [RF digipeaters...],qA[R/S/O/C],[igate]
 
-  These are not actual RF digipeaters, so we don't show path lines for them.
+  - Everything before the qA* element = RF path (digipeaters)
+  - The element after qA* = the igate that received/gated the packet
+  - TCPIP/NOGATE paths are Internet-only and return empty
+  - WIDE*, RELAY, TRACE, etc. are aliases, not real stations
   """
   @spec parse_rf_path(binary()) :: list(binary())
+  def parse_rf_path(""), do: []
+
   def parse_rf_path(path) when is_binary(path) do
-    # Skip APRS-IS paths - these are Internet-only, not RF
-    if String.contains?(path, "TCPIP") or String.contains?(path, "NOGATE") or String.contains?(path, "qA") do
+    if String.contains?(path, "TCPIP") or String.contains?(path, "NOGATE") do
       []
     else
-      path
-      |> String.split(",")
-      |> Enum.map(&String.trim/1)
+      elements = path |> String.split(",") |> Enum.map(&String.trim/1)
+
+      {rf_elements, igate_elements} = split_at_q_construct(elements)
+
+      (rf_elements ++ igate_elements)
       |> Enum.map(&extract_callsign_from_path_element/1)
       |> Enum.filter(&(&1 != ""))
+      |> Enum.reject(&path_alias?/1)
       |> Enum.uniq()
     end
   end
@@ -45,6 +52,31 @@ defmodule AprsmeWeb.MapLive.RfPath do
     limited_stations
     |> Enum.map(&get_station_position/1)
     |> Enum.filter(& &1)
+  end
+
+  defp split_at_q_construct(elements) do
+    q_index = Enum.find_index(elements, &String.starts_with?(&1, "qA"))
+
+    case q_index do
+      nil ->
+        # No q-construct found — treat all elements as RF path
+        {elements, []}
+
+      idx ->
+        rf_elements = Enum.slice(elements, 0, idx)
+        # The element after qA* is the igate
+        igate_elements = Enum.slice(elements, (idx + 1)..-1//1)
+        {rf_elements, igate_elements}
+    end
+  end
+
+  defp path_alias?(callsign) do
+    # Check base callsign (without SSID) against known aliases
+    base = callsign |> String.split("-") |> hd()
+    # Also filter out aliases with numeric suffixes like WIDE1, WIDE2, TRACE3, HOP7
+    stripped = String.replace(base, ~r/\d+$/, "")
+
+    base in @path_aliases or stripped in @path_aliases
   end
 
   defp extract_callsign_from_path_element(element) do
