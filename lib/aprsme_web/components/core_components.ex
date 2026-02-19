@@ -224,7 +224,7 @@ defmodule AprsmeWeb.CoreComponents do
   def simple_form(assigns) do
     ~H"""
     <.form :let={f} for={@for} as={@as} {@rest}>
-      <div class="space-y-8 bg-base-100 mt-10">
+      <div class="space-y-8 mt-10">
         {render_slot(@inner_block, f)}
         <div :for={action <- @actions} class="mt-2 flex items-center justify-between gap-6">
           {render_slot(action, f)}
@@ -433,32 +433,47 @@ defmodule AprsmeWeb.CoreComponents do
 
   def header(assigns) do
     ~H"""
-    <div class="navbar bg-base-200 shadow-lg">
-      <div class="navbar-start">
-        <.link navigate="/" class="btn btn-ghost text-xl font-bold text-primary">
-          aprs.me
-          <%= if @dev_mode do %>
-            <span class="badge badge-warning badge-sm ml-2">DEV</span>
-          <% end %>
-        </.link>
-      </div>
-      <div class="navbar-center hidden lg:flex">
-        <.navigation variant={:horizontal} current_user={@current_user} />
-      </div>
-      <div class="navbar-end">
-        <.theme_selector />
-        <div class="dropdown dropdown-end">
-          <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </div>
-          <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
-            <.navigation variant={:vertical} current_user={@current_user} />
-          </ul>
+    <header class="site-header bg-white shadow-sm dark:bg-gray-800/50 dark:shadow-none dark:border-b dark:border-white/10">
+      <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <div class="flex items-center">
+          <.link
+            navigate="/"
+            class="text-xl font-bold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+          >
+            aprs.me
+            <%= if @dev_mode do %>
+              <span class="ml-2 inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-400/10 dark:text-yellow-500">
+                DEV
+              </span>
+            <% end %>
+          </.link>
         </div>
-      </div>
-    </div>
+        <div class="hidden lg:flex lg:items-center lg:gap-x-8">
+          <.navigation variant={:horizontal} current_user={@current_user} />
+        </div>
+        <div class="flex items-center gap-2">
+          <.theme_selector />
+          <div class="relative lg:hidden">
+            <button
+              phx-click={
+                JS.toggle(to: "#mobile-menu", in: "transition ease-out duration-100", out: "transition ease-in duration-75")
+              }
+              class="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+            >
+              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div
+              id="mobile-menu"
+              class="hidden absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10"
+            >
+              <.navigation variant={:vertical} current_user={@current_user} />
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
     """
   end
 
@@ -467,46 +482,58 @@ defmodule AprsmeWeb.CoreComponents do
   """
   def theme_selector(assigns) do
     ~H"""
-    <div class="dropdown dropdown-end">
-      <div tabindex="0" role="button" class="btn btn-ghost btn-circle">
-        <svg class="w-5 h-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <div class="relative">
+      <button
+        phx-click={
+          JS.toggle(to: "#theme-menu", in: "transition ease-out duration-100", out: "transition ease-in duration-75")
+        }
+        class="rounded-full p-2 text-gray-400 hover:text-gray-500 dark:text-gray-300 dark:hover:text-white"
+      >
+        <svg class="h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
           <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
         </svg>
+      </button>
+      <div
+        id="theme-menu"
+        phx-click-away={JS.hide(to: "#theme-menu")}
+        class="hidden absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10"
+      >
+        <button
+          phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "light"}) |> JS.hide(to: "#theme-menu")}
+          class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fill-rule="evenodd"
+              d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          {gettext("Light")}
+        </button>
+        <button
+          phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "dark"}) |> JS.hide(to: "#theme-menu")}
+          class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+          </svg>
+          {gettext("Dark")}
+        </button>
+        <button
+          phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "auto"}) |> JS.hide(to: "#theme-menu")}
+          class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fill-rule="evenodd"
+              d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          {gettext("Auto")}
+        </button>
       </div>
-      <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-        <li>
-          <button phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "light"})} class="flex items-center gap-2">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            {gettext("Light")}
-          </button>
-        </li>
-        <li>
-          <button phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "dark"})} class="flex items-center gap-2">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-            </svg>
-            {gettext("Dark")}
-          </button>
-        </li>
-        <li>
-          <button phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "auto"})} class="flex items-center gap-2">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            {gettext("Auto")}
-          </button>
-        </li>
-      </ul>
     </div>
     """
   end
@@ -746,74 +773,98 @@ defmodule AprsmeWeb.CoreComponents do
 
     ~H"""
     <%= if @variant == :horizontal do %>
-      <ul class="menu menu-horizontal px-1">
-        <li>
-          <.link navigate={@home_url} class="text-base-content hover:text-base-content/70">
-            {gettext("Home")}
-          </.link>
-        </li>
-        <li><.link navigate="/api" class="text-base-content hover:text-base-content/70">API</.link></li>
-        <li>
-          <.link navigate="/about" class="text-base-content hover:text-base-content/70">
-            {gettext("About")}
-          </.link>
-        </li>
-        <%= if @current_user do %>
-          <li>
-            <.link navigate="/users/settings" class="text-base-content hover:text-base-content/70">
-              {gettext("Settings")}
-            </.link>
-          </li>
-          <li>
-            <.link href="/users/log_out" method="delete" class="text-base-content hover:text-base-content/70">
-              {gettext("Log out")}
-            </.link>
-          </li>
-        <% else %>
-          <li>
-            <.link navigate="/users/register" class="text-base-content hover:text-base-content/70">
-              {gettext("Register")}
-            </.link>
-          </li>
-          <li>
-            <.link navigate="/users/log_in" class="text-base-content hover:text-base-content/70">
-              {gettext("Log in")}
-            </.link>
-          </li>
-        <% end %>
-      </ul>
-    <% else %>
-      <li>
-        <.link navigate={@home_url} class="text-base-content hover:text-base-content/70">
-          {gettext("Home")}
-        </.link>
-      </li>
-      <li><.link navigate="/api" class="text-base-content hover:text-base-content/70">API</.link></li>
-      <li>
-        <.link navigate="/about" class="text-base-content hover:text-base-content/70">{gettext("About")}</.link>
-      </li>
+      <.link
+        navigate={@home_url}
+        class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+      >
+        {gettext("Home")}
+      </.link>
+      <.link
+        navigate="/api"
+        class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+      >
+        API
+      </.link>
+      <.link
+        navigate="/about"
+        class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+      >
+        {gettext("About")}
+      </.link>
       <%= if @current_user do %>
-        <li>
-          <.link navigate="/users/settings" class="text-base-content hover:text-base-content/70">
-            {gettext("Settings")}
-          </.link>
-        </li>
-        <li>
-          <.link href="/users/log_out" method="delete" class="text-base-content hover:text-base-content/70">
-            {gettext("Log out")}
-          </.link>
-        </li>
+        <.link
+          navigate="/users/settings"
+          class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+        >
+          {gettext("Settings")}
+        </.link>
+        <.link
+          href="/users/log_out"
+          method="delete"
+          class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+        >
+          {gettext("Log out")}
+        </.link>
       <% else %>
-        <li>
-          <.link navigate="/users/register" class="text-base-content hover:text-base-content/70">
-            {gettext("Register")}
-          </.link>
-        </li>
-        <li>
-          <.link navigate="/users/log_in" class="text-base-content hover:text-base-content/70">
-            {gettext("Log in")}
-          </.link>
-        </li>
+        <.link
+          navigate="/users/register"
+          class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+        >
+          {gettext("Register")}
+        </.link>
+        <.link
+          navigate="/users/log_in"
+          class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+        >
+          {gettext("Log in")}
+        </.link>
+      <% end %>
+    <% else %>
+      <.link
+        navigate={@home_url}
+        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        {gettext("Home")}
+      </.link>
+      <.link
+        navigate="/api"
+        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        API
+      </.link>
+      <.link
+        navigate="/about"
+        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+      >
+        {gettext("About")}
+      </.link>
+      <%= if @current_user do %>
+        <.link
+          navigate="/users/settings"
+          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          {gettext("Settings")}
+        </.link>
+        <.link
+          href="/users/log_out"
+          method="delete"
+          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          {gettext("Log out")}
+        </.link>
+      <% else %>
+        <.link
+          navigate="/users/register"
+          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          {gettext("Register")}
+        </.link>
+        <.link
+          navigate="/users/log_in"
+          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          {gettext("Log in")}
+        </.link>
       <% end %>
     <% end %>
     """

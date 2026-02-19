@@ -8,250 +8,289 @@ defmodule AprsmeWeb.UserSettingsLive do
 
   def render(assigns) do
     ~H"""
-    <div class="hero min-h-screen bg-base-200">
-      <div class="hero-content flex-col w-full max-w-4xl">
+    <div class="min-h-screen bg-gray-50 py-12 dark:bg-gray-900">
+      <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-8">
-          <h1 class="text-4xl font-bold">Account Settings</h1>
-          <p class="text-base-content/70">Update your email address, callsign, and password</p>
+          <h1 class="text-4xl font-bold text-gray-900 dark:text-white">Account Settings</h1>
+          <p class="mt-2 text-gray-500 dark:text-gray-400">Update your email address, callsign, and password</p>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <!-- Change Email Section -->
-          <div class="card bg-base-100 shadow-xl">
-            <div class="card-body">
-              <h2 class="card-title text-2xl mb-4">Change Email</h2>
+          <div class="bg-white px-6 py-8 shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 dark:text-white">Change Email</h2>
 
-              <.simple_form
-                :let={f}
-                id="email_form"
-                for={@email_changeset}
-                phx-submit="update_email"
-                phx-change="validate_email"
-              >
-                <div :if={@email_changeset.action == :insert} class="alert alert-error mb-4">
-                  <span>Oops, something went wrong! Please check the errors below.</span>
-                </div>
+            <.simple_form
+              :let={f}
+              id="email_form"
+              for={@email_changeset}
+              phx-submit="update_email"
+              phx-change="validate_email"
+            >
+              <div :if={@email_changeset.action == :insert} class="rounded-md bg-red-50 p-4 dark:bg-red-500/10">
+                <p class="text-sm text-red-700 dark:text-red-400">
+                  Oops, something went wrong! Please check the errors below.
+                </p>
+              </div>
 
-                <div class="form-control w-full">
-                  <label class="label">
-                    <span class="label-text">Email</span>
-                  </label>
+              <div>
+                <label class="block text-sm/6 font-medium text-gray-900 dark:text-white">Email</label>
+                <div class="mt-2">
                   <input
                     type="email"
                     name={Phoenix.HTML.Form.input_name(f, :email)}
                     value={Phoenix.HTML.Form.input_value(f, :email) || ""}
                     class={[
-                      "input input-bordered w-full bg-base-100 text-base-content",
-                      Keyword.has_key?(@email_changeset.errors, :email) && "input-error"
+                      "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
+                      if(Keyword.has_key?(@email_changeset.errors, :email),
+                        do: "outline-red-500 dark:outline-red-400",
+                        else: "outline-gray-300 dark:outline-white/10"
+                      )
                     ]}
                     placeholder="Enter your email"
                     required
                   />
-                  <label :if={Keyword.has_key?(@email_changeset.errors, :email)} class="label">
-                    <span class="label-text-alt text-error">
-                      {translate_error(Keyword.get(@email_changeset.errors, :email))}
-                    </span>
-                  </label>
                 </div>
+                <p
+                  :if={Keyword.has_key?(@email_changeset.errors, :email)}
+                  class="mt-1 text-sm text-red-600 dark:text-red-400"
+                >
+                  {translate_error(Keyword.get(@email_changeset.errors, :email))}
+                </p>
+              </div>
 
-                <div class="form-control w-full">
-                  <label class="label">
-                    <span class="label-text">Current password</span>
-                  </label>
+              <div>
+                <label class="block text-sm/6 font-medium text-gray-900 dark:text-white">Current password</label>
+                <div class="mt-2">
                   <input
                     type="password"
                     name="current_password"
                     id="current_password_for_email"
                     value={@email_form_current_password || ""}
                     class={[
-                      "input input-bordered w-full bg-base-100 text-base-content",
-                      Keyword.has_key?(@email_changeset.errors, :current_password) && "input-error"
+                      "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
+                      if(Keyword.has_key?(@email_changeset.errors, :current_password),
+                        do: "outline-red-500 dark:outline-red-400",
+                        else: "outline-gray-300 dark:outline-white/10"
+                      )
                     ]}
                     placeholder="Enter current password"
                     required
                   />
-                  <label :if={Keyword.has_key?(@email_changeset.errors, :current_password)} class="label">
-                    <span class="label-text-alt text-error">
-                      {translate_error(Keyword.get(@email_changeset.errors, :current_password))}
-                    </span>
-                  </label>
                 </div>
+                <p
+                  :if={Keyword.has_key?(@email_changeset.errors, :current_password)}
+                  class="mt-1 text-sm text-red-600 dark:text-red-400"
+                >
+                  {translate_error(Keyword.get(@email_changeset.errors, :current_password))}
+                </p>
+              </div>
 
-                <div class="form-control mt-6">
-                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Changing...">
-                    Change Email
-                  </button>
-                </div>
-              </.simple_form>
-            </div>
+              <div>
+                <button
+                  type="submit"
+                  class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500"
+                  phx-disable-with="Changing..."
+                >
+                  Change Email
+                </button>
+              </div>
+            </.simple_form>
           </div>
           
     <!-- Change Callsign Section -->
-          <div class="card bg-base-100 shadow-xl">
-            <div class="card-body">
-              <h2 class="card-title text-2xl mb-4">Change Callsign</h2>
+          <div class="bg-white px-6 py-8 shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 dark:text-white">Change Callsign</h2>
 
-              <.simple_form
-                :let={f}
-                id="callsign_form"
-                for={@callsign_changeset}
-                phx-submit="update_callsign"
-                phx-change="validate_callsign"
-              >
-                <div :if={@callsign_changeset.action == :insert} class="alert alert-error mb-4">
-                  <span>Oops, something went wrong! Please check the errors below.</span>
-                </div>
+            <.simple_form
+              :let={f}
+              id="callsign_form"
+              for={@callsign_changeset}
+              phx-submit="update_callsign"
+              phx-change="validate_callsign"
+            >
+              <div :if={@callsign_changeset.action == :insert} class="rounded-md bg-red-50 p-4 dark:bg-red-500/10">
+                <p class="text-sm text-red-700 dark:text-red-400">
+                  Oops, something went wrong! Please check the errors below.
+                </p>
+              </div>
 
-                <div class="form-control w-full">
-                  <label class="label">
-                    <span class="label-text">Callsign</span>
-                  </label>
+              <div>
+                <label class="block text-sm/6 font-medium text-gray-900 dark:text-white">Callsign</label>
+                <div class="mt-2">
                   <input
                     type="text"
                     name={Phoenix.HTML.Form.input_name(f, :callsign)}
                     value={Phoenix.HTML.Form.input_value(f, :callsign) || ""}
                     class={[
-                      "input input-bordered w-full bg-base-100 text-base-content",
-                      Keyword.has_key?(@callsign_changeset.errors, :callsign) && "input-error"
+                      "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
+                      if(Keyword.has_key?(@callsign_changeset.errors, :callsign),
+                        do: "outline-red-500 dark:outline-red-400",
+                        else: "outline-gray-300 dark:outline-white/10"
+                      )
                     ]}
                     placeholder="Enter your callsign"
                     required
                   />
-                  <label :if={Keyword.has_key?(@callsign_changeset.errors, :callsign)} class="label">
-                    <span class="label-text-alt text-error">
-                      {translate_error(Keyword.get(@callsign_changeset.errors, :callsign))}
-                    </span>
-                  </label>
                 </div>
+                <p
+                  :if={Keyword.has_key?(@callsign_changeset.errors, :callsign)}
+                  class="mt-1 text-sm text-red-600 dark:text-red-400"
+                >
+                  {translate_error(Keyword.get(@callsign_changeset.errors, :callsign))}
+                </p>
+              </div>
 
-                <div class="form-control w-full">
-                  <label class="label">
-                    <span class="label-text">Current password</span>
-                  </label>
+              <div>
+                <label class="block text-sm/6 font-medium text-gray-900 dark:text-white">Current password</label>
+                <div class="mt-2">
                   <input
                     type="password"
                     name="current_password"
                     id="current_password_for_callsign"
                     value={@callsign_form_current_password || ""}
                     class={[
-                      "input input-bordered w-full bg-base-100 text-base-content",
-                      Keyword.has_key?(@callsign_changeset.errors, :current_password) && "input-error"
+                      "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
+                      if(Keyword.has_key?(@callsign_changeset.errors, :current_password),
+                        do: "outline-red-500 dark:outline-red-400",
+                        else: "outline-gray-300 dark:outline-white/10"
+                      )
                     ]}
                     placeholder="Enter current password"
                     required
                   />
-                  <label :if={Keyword.has_key?(@callsign_changeset.errors, :current_password)} class="label">
-                    <span class="label-text-alt text-error">
-                      {translate_error(Keyword.get(@callsign_changeset.errors, :current_password))}
-                    </span>
-                  </label>
                 </div>
+                <p
+                  :if={Keyword.has_key?(@callsign_changeset.errors, :current_password)}
+                  class="mt-1 text-sm text-red-600 dark:text-red-400"
+                >
+                  {translate_error(Keyword.get(@callsign_changeset.errors, :current_password))}
+                </p>
+              </div>
 
-                <div class="form-control mt-6">
-                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Changing...">
-                    Change Callsign
-                  </button>
-                </div>
-              </.simple_form>
-            </div>
+              <div>
+                <button
+                  type="submit"
+                  class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500"
+                  phx-disable-with="Changing..."
+                >
+                  Change Callsign
+                </button>
+              </div>
+            </.simple_form>
           </div>
           
     <!-- Change Password Section -->
-          <div class="card bg-base-100 shadow-xl">
-            <div class="card-body">
-              <h2 class="card-title text-2xl mb-4">Change Password</h2>
+          <div class="bg-white px-6 py-8 shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 dark:text-white">Change Password</h2>
 
-              <.simple_form
-                :let={f}
-                id="password_form"
-                for={@password_changeset}
-                action={~p"/users/log_in?_action=password_updated"}
-                method="post"
-                phx-change="validate_password"
-                phx-submit="update_password"
-                phx-trigger-action={@trigger_submit}
-              >
-                <div :if={@password_changeset.action == :insert} class="alert alert-error mb-4">
-                  <span>Oops, something went wrong! Please check the errors below.</span>
-                </div>
+            <.simple_form
+              :let={f}
+              id="password_form"
+              for={@password_changeset}
+              action={~p"/users/log_in?_action=password_updated"}
+              method="post"
+              phx-change="validate_password"
+              phx-submit="update_password"
+              phx-trigger-action={@trigger_submit}
+            >
+              <div :if={@password_changeset.action == :insert} class="rounded-md bg-red-50 p-4 dark:bg-red-500/10">
+                <p class="text-sm text-red-700 dark:text-red-400">
+                  Oops, something went wrong! Please check the errors below.
+                </p>
+              </div>
 
-                <input type="hidden" name={Phoenix.HTML.Form.input_name(f, :email)} value={@current_email} />
+              <input type="hidden" name={Phoenix.HTML.Form.input_name(f, :email)} value={@current_email} />
 
-                <div class="form-control w-full">
-                  <label class="label">
-                    <span class="label-text">New password</span>
-                  </label>
+              <div>
+                <label class="block text-sm/6 font-medium text-gray-900 dark:text-white">New password</label>
+                <div class="mt-2">
                   <input
                     type="password"
                     name={Phoenix.HTML.Form.input_name(f, :password)}
                     value={Phoenix.HTML.Form.input_value(f, :password) || ""}
                     class={[
-                      "input input-bordered w-full bg-base-100 text-base-content",
-                      Keyword.has_key?(@password_changeset.errors, :password) && "input-error"
+                      "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
+                      if(Keyword.has_key?(@password_changeset.errors, :password),
+                        do: "outline-red-500 dark:outline-red-400",
+                        else: "outline-gray-300 dark:outline-white/10"
+                      )
                     ]}
                     placeholder="Enter new password"
                     required
                   />
-                  <label :if={Keyword.has_key?(@password_changeset.errors, :password)} class="label">
-                    <span class="label-text-alt text-error">
-                      {translate_error(Keyword.get(@password_changeset.errors, :password))}
-                    </span>
-                  </label>
                 </div>
+                <p
+                  :if={Keyword.has_key?(@password_changeset.errors, :password)}
+                  class="mt-1 text-sm text-red-600 dark:text-red-400"
+                >
+                  {translate_error(Keyword.get(@password_changeset.errors, :password))}
+                </p>
+              </div>
 
-                <div class="form-control w-full">
-                  <label class="label">
-                    <span class="label-text">Confirm new password</span>
-                  </label>
+              <div>
+                <label class="block text-sm/6 font-medium text-gray-900 dark:text-white">Confirm new password</label>
+                <div class="mt-2">
                   <input
                     type="password"
                     name={Phoenix.HTML.Form.input_name(f, :password_confirmation)}
                     value={Phoenix.HTML.Form.input_value(f, :password_confirmation) || ""}
                     class={[
-                      "input input-bordered w-full bg-base-100 text-base-content",
-                      Keyword.has_key?(@password_changeset.errors, :password_confirmation) &&
-                        "input-error"
+                      "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
+                      if(Keyword.has_key?(@password_changeset.errors, :password_confirmation),
+                        do: "outline-red-500 dark:outline-red-400",
+                        else: "outline-gray-300 dark:outline-white/10"
+                      )
                     ]}
                     placeholder="Confirm new password"
                     required
                   />
-                  <label :if={Keyword.has_key?(@password_changeset.errors, :password_confirmation)} class="label">
-                    <span class="label-text-alt text-error">
-                      {translate_error(Keyword.get(@password_changeset.errors, :password_confirmation))}
-                    </span>
-                  </label>
                 </div>
+                <p
+                  :if={Keyword.has_key?(@password_changeset.errors, :password_confirmation)}
+                  class="mt-1 text-sm text-red-600 dark:text-red-400"
+                >
+                  {translate_error(Keyword.get(@password_changeset.errors, :password_confirmation))}
+                </p>
+              </div>
 
-                <div class="form-control w-full">
-                  <label class="label">
-                    <span class="label-text">Current password</span>
-                  </label>
+              <div>
+                <label class="block text-sm/6 font-medium text-gray-900 dark:text-white">Current password</label>
+                <div class="mt-2">
                   <input
                     type="password"
                     name="current_password"
                     id="current_password_for_password"
                     value={@current_password || ""}
                     class={[
-                      "input input-bordered w-full bg-base-100 text-base-content",
-                      Keyword.has_key?(@password_changeset.errors, :current_password) && "input-error"
+                      "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
+                      if(Keyword.has_key?(@password_changeset.errors, :current_password),
+                        do: "outline-red-500 dark:outline-red-400",
+                        else: "outline-gray-300 dark:outline-white/10"
+                      )
                     ]}
                     placeholder="Enter current password"
                     required
                   />
-                  <label :if={Keyword.has_key?(@password_changeset.errors, :current_password)} class="label">
-                    <span class="label-text-alt text-error">
-                      {translate_error(Keyword.get(@password_changeset.errors, :current_password))}
-                    </span>
-                  </label>
                 </div>
+                <p
+                  :if={Keyword.has_key?(@password_changeset.errors, :current_password)}
+                  class="mt-1 text-sm text-red-600 dark:text-red-400"
+                >
+                  {translate_error(Keyword.get(@password_changeset.errors, :current_password))}
+                </p>
+              </div>
 
-                <div class="form-control mt-6">
-                  <button type="submit" class="btn btn-primary w-full" phx-disable-with="Changing...">
-                    Change Password
-                  </button>
-                </div>
-              </.simple_form>
-            </div>
+              <div>
+                <button
+                  type="submit"
+                  class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:focus-visible:outline-indigo-500"
+                  phx-disable-with="Changing..."
+                >
+                  Change Password
+                </button>
+              </div>
+            </.simple_form>
           </div>
         </div>
       </div>

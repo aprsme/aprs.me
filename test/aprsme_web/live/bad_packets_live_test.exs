@@ -7,15 +7,14 @@ defmodule AprsmeWeb.BadPacketsLiveTest do
   alias Aprsme.Repo
 
   describe "Index" do
-    test "renders bad packets page with DaisyUI card", %{conn: conn} do
+    test "renders bad packets page with card", %{conn: conn} do
       {:ok, _index_live, html} = live(conn, ~p"/badpackets", on_error: :warn)
 
-      assert html =~ "card"
-      assert html =~ "bg-base-100"
-      assert html =~ "shadow-xl"
+      assert html =~ "shadow-sm"
+      assert html =~ "sm:rounded-lg"
     end
 
-    test "lists all bad packets with DaisyUI table", %{conn: conn} do
+    test "lists all bad packets with table", %{conn: conn} do
       bad_packet =
         Repo.insert!(%BadPacket{
           raw_packet: "KD9PDP>APRS:Invalid packet data",
@@ -29,15 +28,15 @@ defmodule AprsmeWeb.BadPacketsLiveTest do
       assert html =~ bad_packet.error_message
       assert html =~ bad_packet.error_type
       assert html =~ "table"
-      assert html =~ "badge"
+      assert html =~ "rounded-md"
     end
 
-    test "displays empty state with DaisyUI components when no bad packets", %{conn: conn} do
+    test "displays empty state when no bad packets", %{conn: conn} do
       {:ok, _index_live, html} = live(conn, ~p"/badpackets", on_error: :warn)
 
       assert html =~ "No bad packets"
       assert html =~ "All packets are parsing successfully!"
-      assert html =~ "text-success"
+      assert html =~ "text-green-600"
     end
 
     test "updates in real-time when new bad packet is created", %{conn: conn} do
@@ -64,13 +63,11 @@ defmodule AprsmeWeb.BadPacketsLiveTest do
       assert html =~ bad_packet.error_type
     end
 
-    test "works correctly in dark mode", %{conn: conn} do
+    test "works correctly with dark mode support", %{conn: conn} do
       {:ok, _index_live, html} = live(conn, ~p"/badpackets", on_error: :warn)
 
-      # DaisyUI uses data-theme for theming
-      # The components should work with both light and dark themes
-      assert html =~ "bg-base-100"
-      assert html =~ "text-base-content"
+      assert html =~ "dark:bg-gray-800"
+      assert html =~ "dark:text-gray-400"
     end
   end
 end

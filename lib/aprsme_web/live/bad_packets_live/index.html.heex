@@ -1,20 +1,32 @@
 <div class="container mx-auto px-4 py-8">
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body">
+  <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+    <div class="px-6 py-6">
       <div class="flex items-center justify-between mb-4">
-        <span class="text-sm text-base-content/70">
+        <span class="text-sm text-gray-500 dark:text-gray-400">
           {gettext("Auto-refreshes every 5 seconds")}
         </span>
         <%= if @loading do %>
-          <span class="flex items-center gap-2 text-sm text-primary">
-            <span class="loading loading-spinner loading-xs"></span>
+          <span class="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400">
+            <svg
+              class="animate-spin h-4 w-4"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
             {gettext("Updating...")}
           </span>
         <% end %>
       </div>
 
       <div class="overflow-x-auto">
-        <table class="table table-zebra">
+        <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
           <thead>
             <tr>
               <th>{gettext("Attempted At")}</th>
@@ -35,18 +47,18 @@
                   </span>
                 </td>
                 <td>
-                  <div class="badge badge-error badge-sm">
+                  <span class="inline-flex items-center rounded-md bg-red-100 px-2 py-1 text-xs font-medium text-red-700 dark:bg-red-400/10 dark:text-red-400">
                     {bad_packet.error_type || gettext("Unknown")}
-                  </div>
+                  </span>
                 </td>
                 <td>
-                  <span class="text-sm text-error font-mono">
+                  <span class="text-sm text-red-600 dark:text-red-400 font-mono">
                     {bad_packet.error_message || gettext("No error message")}
                   </span>
                 </td>
                 <td>
                   <div class="max-w-md">
-                    <div class="text-xs font-mono text-base-content/80 break-all">
+                    <div class="text-xs font-mono text-gray-600 dark:text-gray-300 break-all">
                       <%= if is_binary(bad_packet.raw_packet) do %>
                         {Aprsme.EncodingUtils.sanitize_string(bad_packet.raw_packet)}
                       <% else %>
@@ -64,11 +76,16 @@
   </div>
 
   <%= if length(@bad_packets) == 0 do %>
-    <div class="card bg-base-100 shadow-xl mt-8">
-      <div class="card-body text-center">
+    <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 mt-8">
+      <div class="px-6 py-8 text-center">
         <div class="flex justify-center mb-4">
-          <div class="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center">
-            <svg class="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="w-16 h-16 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center">
+            <svg
+              class="w-8 h-8 text-green-600 dark:text-green-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -79,7 +96,7 @@
           </div>
         </div>
         <h3 class="text-lg font-semibold">{gettext("No bad packets")}</h3>
-        <p class="text-base-content/70">{gettext("All packets are parsing successfully!")}</p>
+        <p class="text-gray-500 dark:text-gray-400">{gettext("All packets are parsing successfully!")}</p>
       </div>
     </div>
   <% end %>

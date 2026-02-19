@@ -1,8 +1,8 @@
 <div class="container mx-auto max-w-7xl py-8">
-  <div class="card bg-base-100 shadow-xl">
-    <div class="card-body">
+  <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+    <div class="px-6 py-6">
       <div class="overflow-x-auto">
-        <table class="table table-zebra">
+        <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
           <thead>
             <tr>
               <th>{gettext("Sender")}</th>
@@ -22,7 +22,7 @@
                 <td>
                   <.link
                     navigate={~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"}
-                    class="link link-primary font-medium"
+                    class="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
                   >
                     {Map.get(packet, :sender, Map.get(packet, "sender", ""))}
                   </.link>
@@ -35,13 +35,13 @@
                 <td>
                   <.link
                     navigate={~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"}
-                    class="link link-primary font-medium"
+                    class="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
                   >
                     {Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}
                   </.link>
                 </td>
                 <td>
-                  <span class="badge badge-primary">
+                  <span class="inline-flex items-center rounded-md bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-400">
                     {Map.get(packet, :data_type, Map.get(packet, "data_type", ""))}
                   </span>
                 </td>
@@ -58,7 +58,7 @@
                   </span>
                 </td>
                 <td>
-                  <span class="text-xs font-mono opacity-70">
+                  <span class="text-xs font-mono text-gray-500 dark:text-gray-400">
                     {Map.get(packet, :path, Map.get(packet, "path", ""))}
                   </span>
                 </td>
@@ -148,7 +148,7 @@
   <%= if length(@packets) == 0 do %>
     <div class="text-center py-12">
       <div class="flex justify-center mb-4">
-        <svg class="w-16 h-16 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-16 h-16 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -158,7 +158,7 @@
         </svg>
       </div>
       <h3 class="text-lg font-medium mb-2">{gettext("No packets")}</h3>
-      <p class="opacity-70">{gettext("Packets will appear here as they are received.")}</p>
+      <p class="text-gray-500 dark:text-gray-400">{gettext("Packets will appear here as they are received.")}</p>
     </div>
   <% end %>
 </div>

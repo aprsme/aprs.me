@@ -15,7 +15,7 @@ html, body {
   }
 
   /* Optimize header for mobile */
-  .navbar {
+  .site-header {
     padding: 0.5rem;
     position: sticky;
     top: 0;
@@ -84,10 +84,8 @@ html, body {
   }
 
   /* Mobile-friendly buttons */
-  .btn, button {
+  button {
     min-height: 44px;
-    padding: 12px 16px;
-    font-size: 16px;
   }
 
   /* Hide non-essential elements on small screens */
@@ -152,7 +150,7 @@ html, body {
   }
 
   /* Safe area insets for devices with notches */
-  .navbar {
+  .site-header {
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
     padding-top: env(safe-area-inset-top);
@@ -165,7 +163,7 @@ html, body {
 
 /* Landscape mode optimizations */
 @media (max-width: 768px) and (orientation: landscape) {
-  .navbar {
+  .site-header {
     padding: 0.25rem 0.5rem;
   }
 

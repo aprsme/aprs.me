@@ -101,38 +101,41 @@ defmodule AprsmeWeb.StatusLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="container mx-auto max-w-4xl p-4">
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
+    <div class="mx-auto max-w-4xl p-4 sm:px-6 lg:px-8">
+      <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+        <div class="px-6 py-8">
           <div class="flex justify-between items-center mb-6">
-            <h1 class="card-title text-3xl">{gettext("APRS.me System Status")}</h1>
-            <div class="text-sm opacity-70">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{gettext("APRS.me System Status")}</h1>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
               {gettext("Last updated:")}
               <span class="font-mono">{Calendar.strftime(@current_time, "%H:%M:%S UTC")}</span>
             </div>
           </div>
           <!-- Overall Status Alert -->
           <%= if not @aprs_status.connected do %>
-            <div class="alert alert-error mb-6">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="stroke-current shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div>
-                <h3 class="font-bold">{gettext("APRS-IS Connection Issue")}</h3>
-                <div class="text-xs">
-                  {gettext(
-                    "The system is currently disconnected from the APRS-IS network. This may be due to network issues or server maintenance."
-                  )}
+            <div class="rounded-md bg-red-50 p-4 mb-6 dark:bg-red-500/10">
+              <div class="flex">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-red-400 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <div class="ml-3">
+                  <h3 class="text-sm font-medium text-red-800 dark:text-red-300">{gettext("APRS-IS Connection Issue")}</h3>
+                  <div class="mt-1 text-sm text-red-700 dark:text-red-400">
+                    {gettext(
+                      "The system is currently disconnected from the APRS-IS network. This may be due to network issues or server maintenance."
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -140,239 +143,254 @@ defmodule AprsmeWeb.StatusLive.Index do
           
     <!-- APRS-IS Connection Status -->
           <div class="mb-8">
-            <h2 class="text-xl font-semibold mb-4">{gettext("APRS-IS Connection")}</h2>
-            <div class="card bg-base-200">
-              <div class="card-body">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Status:")}</span>
-                    <%= if @aprs_status.connected do %>
-                      <div class="badge badge-success gap-1">
-                        <div class="w-2 h-2 bg-current rounded-full"></div>
-                        {gettext("Connected")}
-                      </div>
+            <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">{gettext("APRS-IS Connection")}</h2>
+            <div class="rounded-lg bg-gray-50 p-6 dark:bg-gray-700/50">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex items-center">
+                  <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">{gettext("Status:")}</span>
+                  <%= if @aprs_status.connected do %>
+                    <span class="inline-flex items-center gap-1 rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-400/10 dark:text-green-400">
+                      <span class="h-2 w-2 rounded-full bg-current"></span>
+                      {gettext("Connected")}
+                    </span>
+                  <% else %>
+                    <span class="inline-flex items-center gap-1 rounded-md bg-red-100 px-2 py-1 text-xs font-medium text-red-700 dark:bg-red-400/10 dark:text-red-400">
+                      <span class="h-2 w-2 rounded-full bg-current"></span>
+                      {gettext("Disconnected")}
+                    </span>
+                  <% end %>
+                </div>
+
+                <div class="flex items-center">
+                  <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">{gettext("Server:")}</span>
+                  <span class="text-sm font-mono text-gray-900 dark:text-white">
+                    {@aprs_status.server}
+                  </span>
+                </div>
+
+                <div class="flex items-center">
+                  <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">{gettext("Login ID:")}</span>
+                  <span class="text-sm font-mono text-gray-900 dark:text-white">{@aprs_status.login_id}</span>
+                </div>
+
+                <div class="flex items-center">
+                  <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">
+                    {gettext("Connected Since:")}
+                  </span>
+                  <span class="text-sm text-gray-900 dark:text-white">
+                    <%= if @aprs_status.connected_at do %>
+                      {Calendar.strftime(@aprs_status.connected_at, "%Y-%m-%d %H:%M:%S UTC")}
                     <% else %>
-                      <div class="badge badge-error gap-1">
-                        <div class="w-2 h-2 bg-current rounded-full"></div>
-                        {gettext("Disconnected")}
-                      </div>
+                      <span class="text-gray-400 dark:text-gray-500">{gettext("Not connected")}</span>
                     <% end %>
-                  </div>
-
-                  <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Server:")}</span>
-                    <span class="text-sm font-mono">
-                      {@aprs_status.server}
-                    </span>
-                  </div>
-
-                  <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Login ID:")}</span>
-                    <span class="text-sm font-mono">{@aprs_status.login_id}</span>
-                  </div>
-
-                  <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">
-                      {gettext("Connected Since:")}
-                    </span>
-                    <span class="text-sm">
-                      <%= if @aprs_status.connected_at do %>
-                        {Calendar.strftime(@aprs_status.connected_at, "%Y-%m-%d %H:%M:%S UTC")}
-                      <% else %>
-                        <span class="opacity-50">{gettext("Not connected")}</span>
-                      <% end %>
-                    </span>
-                  </div>
-
-                  <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Uptime:")}</span>
-                    <span class={[
-                      "text-sm font-medium",
-                      if(@aprs_status.connected, do: "text-success", else: "text-error")
-                    ]}>
-                      {format_uptime(@aprs_status.uptime_seconds)}
-                    </span>
-                  </div>
-
-                  <div class="flex items-center col-span-2">
-                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Filter:")}</span>
-                    <div class="badge badge-outline font-mono">
-                      {@aprs_status.filter}
-                    </div>
-                  </div>
+                  </span>
                 </div>
-                
-    <!-- Packet Statistics -->
-                <div class="divider"></div>
-                <div>
-                  <h3 class="text-sm font-medium mb-3">{gettext("Packet Statistics")}</h3>
-                  <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">
-                        {gettext("Total Packets:")}
-                      </span>
-                      <span class="text-sm font-mono">
-                        {format_number(@aprs_status.packet_stats.total_packets)}
-                      </span>
-                    </div>
 
-                    <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">
-                        {gettext("Packets/Sec:")}
-                      </span>
-                      <span class="text-sm font-mono">
-                        {@aprs_status.packet_stats.packets_per_second}
-                      </span>
-                    </div>
-
-                    <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">
-                        {gettext("Packets/Min:")}
-                      </span>
-                      <span class="text-sm font-mono">
-                        {@aprs_status.packet_stats.packets_per_second * 60}
-                      </span>
-                    </div>
-
-                    <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">
-                        {gettext("Last Packet:")}
-                      </span>
-                      <span class="text-sm">
-                        <%= if @aprs_status.packet_stats.last_packet_at do %>
-                          {format_time_ago(@aprs_status.packet_stats.last_packet_at)}
-                        <% else %>
-                          <span class="opacity-50">{gettext("None")}</span>
-                        <% end %>
-                      </span>
-                    </div>
-
-                    <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">
-                        {gettext("Stored Packets:")}
-                      </span>
-                      <span class="text-sm font-mono">
-                        {format_number(@aprs_status.stored_packet_count)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="mt-2">
-                    <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">
-                        {gettext("Oldest Packet:")}
-                      </span>
-                      <span class="text-sm">
-                        <%= if @aprs_status[:oldest_packet_timestamp] do %>
-                          <span class="font-mono">
-                            {Calendar.strftime(
-                              @aprs_status.oldest_packet_timestamp,
-                              "%Y-%m-%d %H:%M:%S UTC"
-                            )}
-                          </span>
-                          <span class="opacity-70">
-                            ({format_time_ago(@aprs_status.oldest_packet_timestamp)})
-                          </span>
-                        <% else %>
-                          <span class="opacity-50">{gettext("No packets stored")}</span>
-                        <% end %>
-                      </span>
-                    </div>
-                  </div>
+                <div class="flex items-center">
+                  <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">{gettext("Uptime:")}</span>
+                  <span class={[
+                    "text-sm font-medium",
+                    if(@aprs_status.connected,
+                      do: "text-green-600 dark:text-green-400",
+                      else: "text-red-600 dark:text-red-400"
+                    )
+                  ]}>
+                    {format_uptime(@aprs_status.uptime_seconds)}
+                  </span>
                 </div>
-                
-    <!-- Health Score -->
-                <div class="divider"></div>
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium opacity-70">{gettext("Connection Health:")}</span>
-                  <div class="flex items-center">
-                    <div class="rating rating-sm mr-2">
-                      <%= for i <- 1..5 do %>
-                        <input
-                          type="radio"
-                          name="health-rating"
-                          class="mask mask-star-2 bg-orange-400"
-                          disabled
-                          checked={i <= @health_score}
-                        />
-                      <% end %>
-                    </div>
-                    <span class="text-sm font-medium">
-                      {@health_score}/5
-                    </span>
-                  </div>
+
+                <div class="flex items-center col-span-2">
+                  <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">{gettext("Filter:")}</span>
+                  <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium font-mono text-gray-600 dark:bg-gray-400/10 dark:text-gray-400">
+                    {@aprs_status.filter}
+                  </span>
                 </div>
-                <p class="text-xs opacity-70 mt-1">
-                  {get_health_description(@health_score, @aprs_status.connected)}
-                </p>
               </div>
+              
+    <!-- Packet Statistics -->
+              <div class="border-t border-gray-200 dark:border-white/10 my-4"></div>
+              <div>
+                <h3 class="text-sm font-medium mb-3 text-gray-900 dark:text-white">{gettext("Packet Statistics")}</h3>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">
+                      {gettext("Total Packets:")}
+                    </span>
+                    <span class="text-sm font-mono text-gray-900 dark:text-white">
+                      {format_number(@aprs_status.packet_stats.total_packets)}
+                    </span>
+                  </div>
+
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">
+                      {gettext("Packets/Sec:")}
+                    </span>
+                    <span class="text-sm font-mono text-gray-900 dark:text-white">
+                      {@aprs_status.packet_stats.packets_per_second}
+                    </span>
+                  </div>
+
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">
+                      {gettext("Packets/Min:")}
+                    </span>
+                    <span class="text-sm font-mono text-gray-900 dark:text-white">
+                      {@aprs_status.packet_stats.packets_per_second * 60}
+                    </span>
+                  </div>
+
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">
+                      {gettext("Last Packet:")}
+                    </span>
+                    <span class="text-sm text-gray-900 dark:text-white">
+                      <%= if @aprs_status.packet_stats.last_packet_at do %>
+                        {format_time_ago(@aprs_status.packet_stats.last_packet_at)}
+                      <% else %>
+                        <span class="text-gray-400 dark:text-gray-500">{gettext("None")}</span>
+                      <% end %>
+                    </span>
+                  </div>
+
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">
+                      {gettext("Stored Packets:")}
+                    </span>
+                    <span class="text-sm font-mono text-gray-900 dark:text-white">
+                      {format_number(@aprs_status.stored_packet_count)}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="mt-2">
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">
+                      {gettext("Oldest Packet:")}
+                    </span>
+                    <span class="text-sm text-gray-900 dark:text-white">
+                      <%= if @aprs_status[:oldest_packet_timestamp] do %>
+                        <span class="font-mono">
+                          {Calendar.strftime(
+                            @aprs_status.oldest_packet_timestamp,
+                            "%Y-%m-%d %H:%M:%S UTC"
+                          )}
+                        </span>
+                        <span class="text-gray-500 dark:text-gray-400">
+                          ({format_time_ago(@aprs_status.oldest_packet_timestamp)})
+                        </span>
+                      <% else %>
+                        <span class="text-gray-400 dark:text-gray-500">{gettext("No packets stored")}</span>
+                      <% end %>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+    <!-- Health Score -->
+              <div class="border-t border-gray-200 dark:border-white/10 my-4"></div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{gettext("Connection Health:")}</span>
+                <div class="flex items-center gap-1">
+                  <%= for i <- 1..5 do %>
+                    <svg
+                      class={[
+                        "h-5 w-5",
+                        if(i <= @health_score, do: "text-amber-400", else: "text-gray-300 dark:text-gray-600")
+                      ]}
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  <% end %>
+                  <span class="ml-1 text-sm font-medium text-gray-900 dark:text-white">
+                    {@health_score}/5
+                  </span>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {get_health_description(@health_score, @aprs_status.connected)}
+              </p>
             </div>
           </div>
           
     <!-- Cluster Information (if available) -->
           <%= if Map.has_key?(@aprs_status, :cluster_info) do %>
             <div class="mb-8">
-              <h2 class="text-xl font-semibold mb-4">{gettext("Cluster Status")}</h2>
-              <div class="card bg-base-200">
-                <div class="card-body">
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">{gettext("Total Nodes:")}</span>
-                      <span class="text-sm font-mono">{@aprs_status.cluster_info.total_nodes}</span>
-                    </div>
-
-                    <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">{gettext("Connected Nodes:")}</span>
-                      <span class="text-sm font-mono">{@aprs_status.cluster_info.connected_nodes}</span>
-                    </div>
-
-                    <div class="flex items-center">
-                      <span class="text-sm font-medium opacity-70 mr-2">{gettext("Leader Node:")}</span>
-                      <span class="text-sm font-mono">{@aprs_status.cluster_info.leader_node}</span>
-                    </div>
+              <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">{gettext("Cluster Status")}</h2>
+              <div class="rounded-lg bg-gray-50 p-6 dark:bg-gray-700/50">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">{gettext("Total Nodes:")}</span>
+                    <span class="text-sm font-mono text-gray-900 dark:text-white">
+                      {@aprs_status.cluster_info.total_nodes}
+                    </span>
                   </div>
-
-                  <div class="divider"></div>
 
                   <div class="flex items-center">
-                    <span class="text-sm font-medium opacity-70 mr-2">{gettext("Cluster Mode:")}</span>
-                    <div class="badge badge-success gap-1">
-                      <div class="w-2 h-2 bg-current rounded-full"></div>
-                      {gettext("Enabled")}
-                    </div>
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">
+                      {gettext("Connected Nodes:")}
+                    </span>
+                    <span class="text-sm font-mono text-gray-900 dark:text-white">
+                      {@aprs_status.cluster_info.connected_nodes}
+                    </span>
                   </div>
 
-                  <%= if Map.has_key?(@aprs_status.cluster_info, :all_nodes) do %>
-                    <div class="mt-4">
-                      <span class="text-sm font-medium opacity-70">{gettext("Cluster Nodes:")}</span>
-                      <div class="flex flex-wrap gap-2 mt-2">
-                        <%= for node_name <- @aprs_status.cluster_info.all_nodes do %>
-                          <div class={[
-                            "badge gap-1",
-                            if(node_name == @aprs_status.cluster_info.leader_node,
-                              do: "badge-primary",
-                              else: "badge-outline"
-                            )
-                          ]}>
-                            <%= if node_name == @aprs_status.cluster_info.leader_node do %>
-                              <div class="w-2 h-2 bg-current rounded-full"></div>
-                            <% end %>
-                            <span class="font-mono text-xs">{node_name}</span>
-                          </div>
-                        <% end %>
-                      </div>
-                      <p class="text-xs opacity-70 mt-1">
-                        {gettext("Leader node")} <span class="badge badge-primary badge-xs">{gettext("highlighted")}</span>
-                      </p>
-                    </div>
-                  <% end %>
-
-                  <p class="text-xs opacity-70 mt-2">
-                    {gettext(
-                      "Status is aggregated from all nodes in the cluster. Only the leader node maintains the APRS-IS connection."
-                    )}
-                  </p>
+                  <div class="flex items-center">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">{gettext("Leader Node:")}</span>
+                    <span class="text-sm font-mono text-gray-900 dark:text-white">
+                      {@aprs_status.cluster_info.leader_node}
+                    </span>
+                  </div>
                 </div>
+
+                <div class="border-t border-gray-200 dark:border-white/10 my-4"></div>
+
+                <div class="flex items-center">
+                  <span class="text-sm font-medium text-gray-500 dark:text-gray-400 mr-2">{gettext("Cluster Mode:")}</span>
+                  <span class="inline-flex items-center gap-1 rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-400/10 dark:text-green-400">
+                    <span class="h-2 w-2 rounded-full bg-current"></span>
+                    {gettext("Enabled")}
+                  </span>
+                </div>
+
+                <%= if Map.has_key?(@aprs_status.cluster_info, :all_nodes) do %>
+                  <div class="mt-4">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{gettext("Cluster Nodes:")}</span>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                      <%= for node_name <- @aprs_status.cluster_info.all_nodes do %>
+                        <span class={[
+                          "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium font-mono",
+                          if(node_name == @aprs_status.cluster_info.leader_node,
+                            do: "bg-indigo-100 text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-400",
+                            else: "bg-gray-100 text-gray-600 dark:bg-gray-400/10 dark:text-gray-400"
+                          )
+                        ]}>
+                          <%= if node_name == @aprs_status.cluster_info.leader_node do %>
+                            <span class="h-2 w-2 rounded-full bg-current"></span>
+                          <% end %>
+                          {node_name}
+                        </span>
+                      <% end %>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {gettext("Leader node")}
+                      <span class="inline-flex items-center rounded-md bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-400">
+                        {gettext("highlighted")}
+                      </span>
+                    </p>
+                  </div>
+                <% end %>
+
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  {gettext(
+                    "Status is aggregated from all nodes in the cluster. Only the leader node maintains the APRS-IS connection."
+                  )}
+                </p>
               </div>
             </div>
           <% end %>

@@ -1,6 +1,6 @@
 <%= if @weather_packet do %>
-  <div class="bg-base-200">
-    <div class="bg-base-100 shadow-sm">
+  <div class="bg-gray-50 dark:bg-gray-900">
+    <div class="bg-white shadow-sm dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
       <div class="container mx-auto px-4 sm:px-6 lg:px-8">
         <div class="py-4 md:flex md:items-center md:justify-between">
           <div class="flex items-center">
@@ -8,7 +8,7 @@
               {gettext("Weather Station")}
             </h1>
             <div class="ml-3 flex items-center space-x-3">
-              <span class="badge badge-primary">
+              <span class="inline-flex items-center rounded-md bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-400">
                 {@callsign}
               </span>
               <% {symbol_table_id, symbol_code} =
@@ -39,13 +39,22 @@
           </div>
           <div class="mt-3 flex md:ml-4 md:mt-0">
             <div class="flex space-x-2">
-              <.link navigate={~p"/info/#{@callsign}"} class="btn btn-outline btn-sm">
+              <.link
+                navigate={~p"/info/#{@callsign}"}
+                class="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-white/10 dark:text-white dark:ring-white/10 dark:hover:bg-white/20"
+              >
                 {gettext("View info")}
               </.link>
-              <.link navigate={~p"/packets/#{@callsign}"} class="btn btn-outline btn-sm">
+              <.link
+                navigate={~p"/packets/#{@callsign}"}
+                class="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-white/10 dark:text-white dark:ring-white/10 dark:hover:bg-white/20"
+              >
                 {gettext("View packets")}
               </.link>
-              <.link navigate={"/?call=#{@callsign}"} class="btn btn-primary btn-sm">
+              <.link
+                navigate={"/?call=#{@callsign}"}
+                class="rounded-md bg-indigo-600 px-2.5 py-1.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+              >
                 {gettext("View on map")}
               </.link>
             </div>
@@ -54,15 +63,20 @@
       </div>
     </div>
     <div class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
-      <div class="card bg-base-100 shadow-xl mb-6">
-        <div class="card-body">
+      <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 mb-6">
+        <div class="px-6 py-6">
           <% dt =
             AprsmeWeb.TimeHelpers.to_datetime(
               Map.get(@weather_packet, :inserted_at) || Map.get(@weather_packet, "inserted_at")
             ) %>
           <div class="flex items-center mb-3">
             <div class="flex-shrink-0">
-              <svg class="h-4 w-4 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <svg
+                class="h-4 w-4 text-indigo-600 dark:text-indigo-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
                 <path
                   fill-rule="evenodd"
                   d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.75.75 0 00.736-.686L11.477 4.5a.75.75 0 00-1.491-.154L9.477 9.5H9z"
@@ -76,7 +90,7 @@
           </div>
           <dl class="grid grid-cols-2 gap-3">
             <div>
-              <dt class="text-xs font-medium opacity-70">{gettext("Last WX report")}</dt>
+              <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Last WX report")}</dt>
               <dd class="mt-1 text-sm font-semibold">
                 <%= if dt do %>
                   {Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S UTC")} ({AprsmeWeb.TimeHelpers.time_ago_in_words(dt)})<br />
@@ -88,7 +102,7 @@
             </div>
             <%= if has_weather_field?(@weather_packet, :temperature) do %>
               <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Temperature")}</dt>
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Temperature")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   {format_weather_value(@weather_packet, :temperature, @locale)}
                 </dd>
@@ -96,7 +110,7 @@
             <% end %>
             <%= if has_weather_field?(@weather_packet, :humidity) do %>
               <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Humidity")}</dt>
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Humidity")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   {PacketUtils.get_weather_field(@weather_packet, :humidity)}%
                 </dd>
@@ -104,7 +118,7 @@
             <% end %>
             <%= if has_weather_field?(@weather_packet, :wind_direction) || has_weather_field?(@weather_packet, :wind_speed) do %>
               <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Wind")}</dt>
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Wind")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   <%= if has_weather_field?(@weather_packet, :wind_direction) do %>
                     {PacketUtils.get_weather_field(@weather_packet, :wind_direction)}°
@@ -117,7 +131,7 @@
             <% end %>
             <%= if has_weather_field?(@weather_packet, :wind_gust) do %>
               <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Gusts")}</dt>
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Gusts")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   {format_weather_value(@weather_packet, :wind_gust, @locale)}
                 </dd>
@@ -125,7 +139,7 @@
             <% end %>
             <%= if has_weather_field?(@weather_packet, :pressure) do %>
               <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Pressure")}</dt>
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Pressure")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   {PacketUtils.get_weather_field(@weather_packet, :pressure)} hPa
                 </dd>
@@ -133,7 +147,7 @@
             <% end %>
             <%= if has_weather_field?(@weather_packet, :rain_1h) do %>
               <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Rain (1h)")}</dt>
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Rain (1h)")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   {format_weather_value(@weather_packet, :rain_1h, @locale)}
                 </dd>
@@ -141,7 +155,7 @@
             <% end %>
             <%= if has_weather_field?(@weather_packet, :rain_24h) do %>
               <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Rain (24h)")}</dt>
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Rain (24h)")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   {format_weather_value(@weather_packet, :rain_24h, @locale)}
                 </dd>
@@ -149,14 +163,14 @@
             <% end %>
             <%= if has_weather_field?(@weather_packet, :rain_since_midnight) do %>
               <div>
-                <dt class="text-xs font-medium opacity-70">{gettext("Rain (since midnight)")}</dt>
+                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Rain (since midnight)")}</dt>
                 <dd class="mt-1 text-sm font-semibold">
                   {format_weather_value(@weather_packet, :rain_since_midnight, @locale)}
                 </dd>
               </div>
             <% end %>
             <div class="col-span-2">
-              <dt class="text-xs font-medium opacity-70">{gettext("Raw Packet")}</dt>
+              <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Raw Packet")}</dt>
               <dd class="mt-1 text-xs font-mono break-all">
                 <%= if is_binary(@weather_packet.raw_packet) do %>
                   {Aprsme.EncodingUtils.sanitize_string(@weather_packet.raw_packet)}
@@ -166,14 +180,14 @@
               </dd>
             </div>
           </dl>
-          <div class="mt-2 text-xs opacity-70">
+          <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
             <strong>{gettext("Raw comment")}:</strong> {@weather_packet.comment ||
               @weather_packet["comment"]}
           </div>
         </div>
       </div>
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
+      <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+        <div class="px-6 py-6">
           <h3 class="text-sm font-medium mb-2">{gettext("Weather History Graphs")}</h3>
           <%= if Enum.any?(@weather_history, &(not is_nil(Map.get(&1, :temperature, nil)))) do %>
             <div
@@ -181,7 +195,7 @@
               phx-hook="ChartJSTempChart"
               data-weather-history={@weather_history_json}
               data-chart-labels={Jason.encode!(@chart_labels)}
-              class="bg-base-200 rounded-lg p-4 mb-4"
+              class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
               <canvas></canvas>
@@ -193,7 +207,7 @@
               phx-hook="ChartJSHumidityChart"
               data-weather-history={@weather_history_json}
               data-chart-labels={Jason.encode!(@chart_labels)}
-              class="bg-base-200 rounded-lg p-4 mb-4"
+              class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
               <canvas></canvas>
@@ -205,7 +219,7 @@
               phx-hook="ChartJSPressureChart"
               data-weather-history={@weather_history_json}
               data-chart-labels={Jason.encode!(@chart_labels)}
-              class="bg-base-200 rounded-lg p-4 mb-4"
+              class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
               <canvas></canvas>
@@ -217,7 +231,7 @@
               phx-hook="ChartJSWindChart"
               data-weather-history={@weather_history_json}
               data-chart-labels={Jason.encode!(@chart_labels)}
-              class="bg-base-200 rounded-lg p-4 mb-4"
+              class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
               <canvas></canvas>
@@ -229,7 +243,7 @@
               phx-hook="ChartJSRainChart"
               data-weather-history={@weather_history_json}
               data-chart-labels={Jason.encode!(@chart_labels)}
-              class="bg-base-200 rounded-lg p-4 mb-4"
+              class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
               <canvas></canvas>
@@ -241,7 +255,7 @@
               phx-hook="ChartJSLuminosityChart"
               data-weather-history={@weather_history_json}
               data-chart-labels={Jason.encode!(@chart_labels)}
-              class="bg-base-200 rounded-lg p-4 mb-4"
+              class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4"
               style="height:250px;"
             >
               <canvas></canvas>
@@ -253,11 +267,11 @@
     </div>
   </div>
 <% else %>
-  <div class="bg-base-200 flex items-center justify-center min-h-screen">
-    <div class="card bg-base-100 shadow-xl max-w-lg">
-      <div class="card-body text-center">
+  <div class="bg-gray-50 dark:bg-gray-900 flex items-center justify-center min-h-screen">
+    <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 max-w-lg">
+      <div class="px-6 py-8 text-center">
         <h1 class="text-2xl font-bold mb-2">Weather for {@callsign}</h1>
-        <div class="opacity-70">No recent weather data available for this callsign.</div>
+        <div class="text-gray-500 dark:text-gray-400">No recent weather data available for this callsign.</div>
       </div>
     </div>
   </div>

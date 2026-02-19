@@ -1682,14 +1682,14 @@ defmodule AprsmeWeb.MapLive.Index do
             </svg>
             <span class="font-medium">{gettext("Navigation")}</span>
           </div>
-          <ul class="menu menu-sm text-sm">
+          <div class="text-sm">
             <.navigation
               variant={:vertical}
               current_user={@current_user}
               map_state={%{lat: @map_center.lat, lng: @map_center.lng, zoom: @map_zoom}}
               tracked_callsign={@tracked_callsign}
             />
-          </ul>
+          </div>
         </div>
         
     <!-- Last Update -->
