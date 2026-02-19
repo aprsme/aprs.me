@@ -21,7 +21,7 @@
 - [x] Simplify coordinate extraction in `packets_live/index.html.heex` — extracted `extract_coordinate/2` and `format_coordinate/1` helpers into `PacketsLive.Index`; template went from 70 lines of nested conditionals to 6 lines
 - [x] Fix memory leak in InfoMap hook — stored `setTimeout` ref in `this.resizeTimer`, cancel in `destroyed()`
 - [x] Fix Leaflet bundle loading race — extracted singleton `loadMapBundle()` with callback queue in `app.js`
-- [ ] Add loading indicator for real-time bounds updates — only `@historical_loading` triggers spinner, not bounds filtering
+- [~] Add loading indicator for real-time bounds updates — assessed: bounds changes already trigger `HistoricalLoader.start_progressive_historical_loading` which sets `@historical_loading = true` and shows the spinner; the only unindicated gap is the 400ms debounce, too short for a spinner without causing flicker
 - [x] Fix stale generation check bypass in `historical_loader.ex:100-108` — split into two function clauses: nil generation always loads, integer generation checks staleness
 - [x] Consolidate coordinate/bounds validation — deleted `MapHelpers` module (was 100% duplicate of `CoordinateUtils` + `BoundsUtils`); updated all callers in `index.ex`, `data_builder.ex`, `mobile_channel.ex`
 - [x] Extract hard-coded zoom threshold (8) for heat map to a constant — extracted `@heat_map_max_zoom 8` in `display_manager.ex`
