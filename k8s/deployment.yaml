@@ -4,7 +4,7 @@ metadata:
   name: aprs
   namespace: aprs
 spec:
-  replicas: 1
+  replicas: 2
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -109,7 +109,11 @@ spec:
                   - sleep 20
           env:
             - name: CLUSTER_ENABLED
-              value: "false"
+              value: "true"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: PORT
               value: "4000"
             - name: PHX_HOST
