@@ -44,7 +44,8 @@ defmodule AprsmeWeb.MobileChannel do
       comment: string (optional),
       altitude: float (optional),
       speed: float (optional),
-      course: integer (optional)
+      course: integer (optional),
+      path: string (optional)
     }
 
   - "subscription_confirmed" - Bounds subscription successful

@@ -1,5 +1,5 @@
 defmodule Aprsme.PacketPipelineSupervisorTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Aprsme.PacketPipelineSupervisor
 

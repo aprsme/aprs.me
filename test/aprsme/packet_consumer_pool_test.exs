@@ -1,5 +1,5 @@
 defmodule Aprsme.PacketConsumerPoolTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Aprsme.PacketConsumerPool
 
@@ -13,15 +13,15 @@ defmodule Aprsme.PacketConsumerPoolTest do
   end
 
   describe "init/1" do
-    test "returns supervisor flags with one_for_one strategy and 3 children by default" do
-      {:ok, {sup_flags, children}} = PacketConsumerPool.init([])
+    test "returns supervisor flags with one_for_one strategy and 3 children" do
+      {:ok, {sup_flags, children}} = PacketConsumerPool.init(num_consumers: 3)
 
       assert sup_flags.strategy == :one_for_one
       assert length(children) == 3
     end
 
     test "each child has a unique id of {Aprsme.PacketConsumer, index}" do
-      {:ok, {_sup_flags, children}} = PacketConsumerPool.init([])
+      {:ok, {_sup_flags, children}} = PacketConsumerPool.init(num_consumers: 3)
 
       ids = Enum.map(children, & &1.id)
 
@@ -72,7 +72,7 @@ defmodule Aprsme.PacketConsumerPoolTest do
 
       Application.delete_env(:aprsme, :packet_pipeline)
 
-      {:ok, {_sup_flags, children}} = PacketConsumerPool.init([])
+      {:ok, {_sup_flags, children}} = PacketConsumerPool.init(num_consumers: 3)
 
       expected_demand = div(250, 3)
 

@@ -111,7 +111,7 @@ Subscribe to receive packets within specific geographic bounds. Upon subscriptio
 
 ### Updating Bounds
 
-Update the geographic bounds (e.g., when user pans/zooms the map).
+Update the geographic bounds (e.g., when user pans/zooms the map). This updates the real-time streaming filter only; it does not re-send historical packets for the new bounds.
 
 **Event:** `update_bounds`
 
@@ -174,18 +174,20 @@ Once subscribed, you'll receive packets within your bounds. Historical packets a
 
 | Field | Type | Description | Required |
 |-------|------|-------------|----------|
-| `id` | string | Unique packet identifier | Yes |
-| `callsign` | string | Station callsign | Yes |
+| `id` | string | Unique packet identifier (UUID) | Yes |
+| `callsign` | string | Station callsign (sender). For APRS objects/items, this is still the sender callsign, not the object name. | Yes |
 | `lat` | float | Latitude (-90 to 90) | Yes |
 | `lng` | float | Longitude (-180 to 180) | Yes |
 | `timestamp` | string | ISO 8601 timestamp | Yes |
 | `symbol_table_id` | string | APRS symbol table (/, \\) | Yes |
 | `symbol_code` | string | APRS symbol code | Yes |
 | `comment` | string | Station comment/status | Optional |
-| `altitude` | float | Altitude in meters | Optional |
+| `altitude` | float | Altitude in feet | Optional |
 | `speed` | float | Speed in knots | Optional |
 | `course` | integer | Course in degrees (0-359) | Optional |
 | `path` | string | APRS digipeater path | Optional |
+
+**Note:** Optional fields are omitted from the payload entirely when their value is `nil`.
 
 ### Unsubscribing
 
@@ -245,7 +247,7 @@ Search for callsigns matching a pattern.
           "base_callsign": "W5ISP",
           "last_seen": "2025-10-25T17:30:00Z",
           "lat": 33.1225,
-          "lng": -96.124
+          "lon": -96.124
         }
       ],
       "count": 1
@@ -461,11 +463,9 @@ struct APRSMapView: View {
 }
 ```
 
-## Rate Limiting
+## Connection Timeout
 
-The API is rate-limited to prevent abuse:
-- 200 requests per minute per IP address
-- Connections are automatically closed if idle for >60 seconds
+WebSocket connections have a 60-second heartbeat timeout. If the server does not receive a heartbeat within 60 seconds, the connection is closed. Phoenix Channels clients send heartbeats automatically (every 30 seconds by default).
 
 ## Best Practices
 

@@ -177,10 +177,22 @@ defmodule AprsmeWeb.ApiDocsLive do
   end
 
   defp format_equipment(packet) do
+    device =
+      case packet.device_identifier do
+        nil -> nil
+        "" -> nil
+        identifier -> Aprsme.DeviceCache.lookup_device(identifier)
+      end
+
     equipment =
       %{}
+      |> maybe_add("device_identifier", packet.device_identifier)
       |> maybe_add("manufacturer", packet.manufacturer)
       |> maybe_add("equipment_type", packet.equipment_type)
+      |> maybe_add("device_model", device && device.model)
+      |> maybe_add("device_vendor", device && device.vendor)
+      |> maybe_add("device_contact", device && device.contact)
+      |> maybe_add("device_class", device && device.class)
 
     if map_size(equipment) == 0, do: nil, else: equipment
   end
@@ -266,7 +278,7 @@ defmodule AprsmeWeb.ApiDocsLive do
               <div class="ml-3">
                 <h3 class="text-sm font-bold text-yellow-700 dark:text-yellow-400">Rate Limiting</h3>
                 <div class="text-sm text-yellow-700 dark:text-yellow-400">
-                  Currently no rate limiting is enforced, but please be respectful and avoid excessive requests. Rate limiting may be implemented in the future.
+                  API requests are rate limited to 100 requests per minute per IP address. Exceeding this limit will return a 429 Too Many Requests response.
                 </div>
               </div>
             </div>
@@ -344,7 +356,7 @@ defmodule AprsmeWeb.ApiDocsLive do
               <div class="bg-gray-900 text-gray-100 dark:bg-gray-950 p-4 rounded-lg overflow-x-auto mb-4">
                 <pre><code><%= raw ~s|{
     "data": {
-    "id": 12345,
+    "id": "d7249877-d4a6-45c2-b314-2a8a355d2566",
     "callsign": "N0CALL-9",
     "base_callsign": "N0CALL",
     "ssid": "9",
@@ -354,7 +366,7 @@ defmodule AprsmeWeb.ApiDocsLive do
     "data_type": "position",
     "information_field": "!4740.00N/12200.00W>Mobile Station",
     "raw_packet": "N0CALL-9>APRS,WIDE1-1,WIDE2-1:!4740.00N/12200.00W>Mobile Station",
-    "received_at": "2024-01-15T10:30:45.123456Z",
+    "received_at": "2024-01-15T10:30:45Z",
     "region": "US-West",
     "position": {
       "latitude": 47.666667,
@@ -372,13 +384,17 @@ defmodule AprsmeWeb.ApiDocsLive do
     "aprs_messaging": false,
     "weather": null,
     "equipment": {
+      "device_identifier": "APK004",
       "manufacturer": "Kenwood",
-      "equipment_type": "TM-D710"
+      "equipment_type": "TM-D710",
+      "device_model": "TM-D710G",
+      "device_vendor": "Kenwood",
+      "device_class": "rig"
     },
     "message": null,
     "has_position": true,
-    "inserted_at": "2024-01-15T10:30:45.123456Z",
-    "updated_at": "2024-01-15T10:30:45.123456Z"
+    "inserted_at": "2024-01-15T10:30:45Z",
+    "updated_at": "2024-01-15T10:30:45Z"
     }
     }| %></code></pre>
               </div>
@@ -420,7 +436,7 @@ defmodule AprsmeWeb.ApiDocsLive do
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                   <tr>
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">id</td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">integer</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">string (UUID)</td>
                     <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">Unique packet identifier</td>
                   </tr>
                   <tr>
@@ -480,7 +496,7 @@ defmodule AprsmeWeb.ApiDocsLive do
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">object</td>
                     <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                      Equipment information (manufacturer, type)
+                      Equipment information (device_identifier, manufacturer, equipment_type, device_model, device_vendor, device_class, device_contact)
                     </td>
                   </tr>
                   <tr>
@@ -543,6 +559,14 @@ defmodule AprsmeWeb.ApiDocsLive do
                       408 Request Timeout
                     </td>
                     <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">Request took too long to process</td>
+                  </tr>
+                  <tr>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm font-mono text-orange-600 dark:text-orange-400">
+                      429 Too Many Requests
+                    </td>
+                    <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                      Rate limit exceeded (100 requests per minute per IP)
+                    </td>
                   </tr>
                   <tr>
                     <td class="whitespace-nowrap px-3 py-4 text-sm font-mono text-red-600 dark:text-red-400">
