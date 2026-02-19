@@ -13,7 +13,7 @@
 - [x] Improve `PacketProducer` buffer drop logging — track `buffer_size` as integer (O(1)), added telemetry for buffer overflow events
 - [x] Switch `PacketProducer` buffer from list to `:queue` — O(1) amortized enqueue/dequeue instead of O(n) `Enum.take` on overflow; also fixes LIFO→FIFO dispatch order
 - [x] Cluster packet distribution race — replaced `GenServer.call` leadership check with `:persistent_term` cached read via `leader_cached?/0`; eliminates per-packet serialization through LeaderElection GenServer
-- [ ] Add backpressure mechanism — no global rate limiting if APRS-IS sends burst traffic; only defense is fixed-size buffer with silent drops
+- [x] Add backpressure mechanism — water-mark-based TCP backpressure: PacketProducer signals Aprsme.Is to toggle socket active/passive mode at 80%/30% buffer thresholds; 30s safety valve auto-resumes
 
 ## Front-End Display
 
