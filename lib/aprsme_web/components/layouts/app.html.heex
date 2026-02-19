@@ -1,29 +1,6 @@
 <% assigns = assign_new(assigns, :map_page, fn -> false end) %>
 <style>
-  /* Default scrolling behavior for all pages */
-  html, body {
-    overflow: auto !important;
-    height: auto !important;
-    min-height: 100vh !important;
-  }
-
-  /* Reset constraints for non-map pages */
-  body:not(:has(#main-content[data-map-page="true"])) main,
-  body:not(:has(#main-content[data-map-page="true"])) .phx-main,
-  body:not(:has(#main-content[data-map-page="true"])) div[data-phx-main="true"] {
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
-    min-height: 100vh !important;
-  }
-
-  /* Ensure proper scrolling for non-map pages */
-  body:not(:has(#main-content[data-map-page="true"])) {
-    overflow-y: auto !important;
-    height: auto !important;
-  }
-
-  /* Only apply map constraints to map pages */
+  /* Map page constraints */
   body:has(#main-content[data-map-page="true"]) {
     overflow: hidden !important;
     height: 100vh !important;
