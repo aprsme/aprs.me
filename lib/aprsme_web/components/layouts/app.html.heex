@@ -8,9 +8,9 @@
   }
 
   /* Reset constraints for non-map pages */
-  body:not(.map-page) main,
-  body:not(.map-page) .phx-main,
-  body:not(.map-page) div[data-phx-main="true"] {
+  body:not(:has(#main-content[data-map-page="true"])) main,
+  body:not(:has(#main-content[data-map-page="true"])) .phx-main,
+  body:not(:has(#main-content[data-map-page="true"])) div[data-phx-main="true"] {
     overflow: visible !important;
     height: auto !important;
     max-height: none !important;
@@ -18,48 +18,47 @@
   }
 
   /* Ensure proper scrolling for non-map pages */
-  body:not(.map-page) {
+  body:not(:has(#main-content[data-map-page="true"])) {
     overflow-y: auto !important;
     height: auto !important;
   }
 
   /* Only apply map constraints to map pages */
-  body.map-page,
-  body.map-page html {
+  body:has(#main-content[data-map-page="true"]) {
     overflow: hidden !important;
     height: 100vh !important;
   }
 
-  /* Map page specific styles */
-  body.map-page header {
+  /* Map page specific styles - hide navbar header */
+  body:has(#main-content[data-map-page="true"]) .navbar {
     display: none;
   }
 
-  body.map-page main {
+  body:has(#main-content[data-map-page="true"]) main {
     padding: 0;
     max-width: none;
     height: 100vh;
     overflow: hidden;
   }
 
-  body.map-page main > div {
+  body:has(#main-content[data-map-page="true"]) main > div {
     max-width: none;
     height: 100%;
   }
 
-  body.map-page .phx-main {
+  body:has(#main-content[data-map-page="true"]) .phx-main {
     position: relative;
     height: 100vh;
     overflow: hidden;
   }
 
-  body.map-page div[data-phx-main="true"] {
+  body:has(#main-content[data-map-page="true"]) div[data-phx-main="true"] {
     height: 100vh;
     overflow: hidden;
   }
 
   /* Full page map for APRS home page and callsign pages */
-  body.map-page #aprs-map {
+  body:has(#main-content[data-map-page="true"]) #aprs-map {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -72,24 +71,24 @@
 
   /* Desktop slideover behavior for map */
   @media (min-width: 1024px) {
-    body.map-page #aprs-map.slideover-open {
+    body:has(#main-content[data-map-page="true"]) #aprs-map.slideover-open {
       right: 352px !important;
     }
-    
-    body.map-page #aprs-map.slideover-closed {
+
+    body:has(#main-content[data-map-page="true"]) #aprs-map.slideover-closed {
       right: 0 !important;
     }
   }
 
   /* Mobile slideover behavior for map */
   @media (max-width: 1023px) {
-    body.map-page #aprs-map {
+    body:has(#main-content[data-map-page="true"]) #aprs-map {
       right: 0 !important;
     }
   }
 
   /* Slideover panel responsive styles */
-  body.map-page .slideover-panel {
+  body:has(#main-content[data-map-page="true"]) .slideover-panel {
     position: fixed;
     top: 0;
     right: 0;
@@ -104,35 +103,35 @@
 
   /* Desktop slideover behavior */
   @media (min-width: 1024px) {
-    body.map-page .slideover-panel.slideover-open {
+    body:has(#main-content[data-map-page="true"]) .slideover-panel.slideover-open {
       transform: translateX(0);
     }
-    
-    body.map-page .slideover-panel.slideover-closed {
+
+    body:has(#main-content[data-map-page="true"]) .slideover-panel.slideover-closed {
       transform: translateX(100%);
     }
   }
 
   /* Mobile slideover behavior */
   @media (max-width: 1023px) {
-    body.map-page .slideover-panel {
+    body:has(#main-content[data-map-page="true"]) .slideover-panel {
       width: 100vw;
       max-width: 400px;
       box-shadow: -8px 0 32px rgba(0, 0, 0, 0.2);
     }
-    
-    body.map-page .slideover-panel.slideover-open {
+
+    body:has(#main-content[data-map-page="true"]) .slideover-panel.slideover-open {
       transform: translateX(0);
     }
-    
-    body.map-page .slideover-panel.slideover-closed {
+
+    body:has(#main-content[data-map-page="true"]) .slideover-panel.slideover-closed {
       transform: translateX(100%);
     }
   }
 
   /* Mobile panel improvements */
   @media (max-width: 1023px) {
-    body.map-page .slideover-panel {
+    body:has(#main-content[data-map-page="true"]) .slideover-panel {
       display: flex;
       flex-direction: column;
     }
@@ -140,12 +139,12 @@
 
   /* Improve scrolling on mobile */
   @media (max-width: 1023px) {
-    body.map-page .slideover-panel {
+    body:has(#main-content[data-map-page="true"]) .slideover-panel {
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
     }
-    
-    body.map-page .slideover-panel .flex-1 {
+
+    body:has(#main-content[data-map-page="true"]) .slideover-panel .flex-1 {
       min-height: 0;
     }
   }
@@ -155,7 +154,6 @@
 <main
   id="main-content"
   class={if assigns[:map_page], do: "min-h-screen bg-base-100", else: "bg-base-100"}
-  phx-hook="BodyClassHook"
   data-map-page={to_string(assigns[:map_page] || false)}
 >
   <div>

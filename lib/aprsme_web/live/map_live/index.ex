@@ -7,7 +7,9 @@ defmodule AprsmeWeb.MapLive.Index do
   import AprsmeWeb.Live.Shared.PacketUtils, only: [get_callsign_key: 1]
   import AprsmeWeb.MapLive.Components
   import AprsmeWeb.TimeHelpers, only: [time_ago_in_words: 1]
-  import Phoenix.LiveView, only: [connected?: 1, push_event: 3, push_patch: 2, put_flash: 3]
+
+  import Phoenix.LiveView,
+    only: [connected?: 1, get_connect_params: 1, push_event: 3, push_patch: 2, put_flash: 3]
 
   # Import the new components module
   alias Aprsme.Packets
@@ -198,6 +200,9 @@ defmodule AprsmeWeb.MapLive.Index do
     # Start packet batcher for efficient updates
     {:ok, batcher_pid} = PacketBatcher.start_link(self())
 
+    # Determine initial slideover state from client viewport width
+    slideover_open = initial_slideover_open?(socket)
+
     assign(socket,
       map_ready: false,
       map_bounds: initial_bounds,
@@ -212,7 +217,7 @@ defmodule AprsmeWeb.MapLive.Index do
       trail_duration: trail_duration,
       historical_hours: historical_hours,
       packet_age_threshold: packet_age_threshold,
-      slideover_open: true,
+      slideover_open: slideover_open,
       deployed_at: deployed_at,
       map_page: true,
       packet_buffer: [],
@@ -237,6 +242,15 @@ defmodule AprsmeWeb.MapLive.Index do
     # Check if APRS connection is disabled
     connection_disabled = Application.get_env(:aprsme, :disable_aprs_connection, false)
     if connection_disabled, do: "disconnected", else: "connected"
+  end
+
+  defp initial_slideover_open?(socket) do
+    if connected?(socket) do
+      viewport_width = get_connect_params(socket)["viewport_width"] || 1024
+      viewport_width >= 1024
+    else
+      true
+    end
   end
 
   @spec assign_defaults(Socket.t(), DateTime.t()) :: Socket.t()
@@ -269,7 +283,6 @@ defmodule AprsmeWeb.MapLive.Index do
       pending_batch_tasks: [],
       # Overlay controls
       overlay_callsign: "",
-      # Slideover state - will be set based on screen size
       slideover_open: true,
       # Track when last update occurred for real-time display in map sidebar
       # Updated when packets are processed or map bounds change
@@ -1431,7 +1444,6 @@ defmodule AprsmeWeb.MapLive.Index do
         "slideover-panel",
         if(@slideover_open, do: "slideover-open", else: "slideover-closed")
       ]}
-      phx-hook="ResponsiveSlideoverHook"
     >
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">

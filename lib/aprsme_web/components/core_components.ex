@@ -475,7 +475,7 @@ defmodule AprsmeWeb.CoreComponents do
       </div>
       <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
         <li>
-          <button data-set-theme="light" data-act-class="ACTIVECLASS" class="flex items-center gap-2">
+          <button phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "light"})} class="flex items-center gap-2">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fill-rule="evenodd"
@@ -487,7 +487,7 @@ defmodule AprsmeWeb.CoreComponents do
           </button>
         </li>
         <li>
-          <button data-set-theme="dark" data-act-class="ACTIVECLASS" class="flex items-center gap-2">
+          <button phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "dark"})} class="flex items-center gap-2">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
             </svg>
@@ -495,7 +495,7 @@ defmodule AprsmeWeb.CoreComponents do
           </button>
         </li>
         <li>
-          <button data-set-theme="auto" data-act-class="ACTIVECLASS" class="flex items-center gap-2">
+          <button phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "auto"})} class="flex items-center gap-2">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fill-rule="evenodd"

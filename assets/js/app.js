@@ -40,73 +40,6 @@ import { InfoMap } from "./hooks/info_map";
 // Import time ago hook
 import TimeAgoHook from "./hooks/time_ago_hook";
 
-// Responsive Slideover Hook
-let ResponsiveSlideoverHook = {
-  mounted() {
-    this.isInitialized = false;
-
-    this.handleResize = () => {
-      const isDesktop = window.innerWidth >= 1024;
-      const isMobile = window.innerWidth < 1024;
-
-      // Set initial state based on screen size
-      if (!this.isInitialized) {
-        this.isInitialized = true;
-        if (isDesktop) {
-          this.pushEvent("set_slideover_state", { open: true });
-        } else {
-          this.pushEvent("set_slideover_state", { open: false });
-        }
-      }
-    };
-
-    // Initial check after a brief delay to ensure LiveView is ready
-    setTimeout(() => {
-      this.handleResize();
-    }, 100);
-
-    // Listen for resize events with debouncing
-    let resizeTimer;
-    this.debouncedResize = () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(this.handleResize, 150);
-    };
-
-    window.addEventListener("resize", this.debouncedResize);
-  },
-
-  destroyed() {
-    if (this.debouncedResize) {
-      window.removeEventListener("resize", this.debouncedResize);
-    }
-  },
-};
-
-// Body Class Hook - Updates body class based on map_page assign
-let BodyClassHook = {
-  mounted() {
-    this.updateBodyClass();
-  },
-
-  updated() {
-    this.updateBodyClass();
-  },
-
-  updateBodyClass() {
-    // Get the map_page value from the element's data attribute
-    const mapPage = this.el?.dataset?.mapPage === "true";
-
-    // Update body class based on map_page value
-    if (document.body && document.body.classList) {
-      if (mapPage) {
-        document.body.classList.add("map-page");
-      } else {
-        document.body.classList.remove("map-page");
-      }
-    }
-  },
-};
-
 // APRS MapAPRSMap Hook
 let Hooks = {};
 
@@ -206,29 +139,10 @@ Object.keys(WeatherChartHooks).forEach(hookName => {
 });
 
 // Core hooks - no bundle loading needed
-Hooks.ResponsiveSlideoverHook = ResponsiveSlideoverHook;
-Hooks.BodyClassHook = BodyClassHook;
 Hooks.ErrorBoundary = ErrorBoundary;
 Hooks.TimeAgoHook = TimeAgoHook;
 
-// Helper function to get theme-aware colors
-const getThemeColors = () => {
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-  return {
-    text: isDark ? "#e5e7eb" : "#111827",
-    grid: isDark ? "#374151" : "#9ca3af",
-    background: isDark ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.1)",
-  };
-};
-
-// Theme switching functionality
-const theme = (() => {
-  if (typeof localStorage !== "undefined" && localStorage.getItem("theme")) {
-    return localStorage.getItem("theme");
-  }
-  return "auto";
-})();
-
+// Theme management
 const applyTheme = (theme) => {
   const element = document.documentElement;
   if (!element) return;
@@ -244,65 +158,29 @@ const applyTheme = (theme) => {
   }
 };
 
-// Apply initial theme
-applyTheme(theme);
-window.localStorage.setItem("theme", theme);
+// Apply initial theme from localStorage
+applyTheme(localStorage.getItem("theme") || "auto");
 
-// Global function to re-render all charts
-window.reRenderAllCharts = () => {
-  // Store all chart instances globally so we can access them
-  if (!window.chartInstances) {
-    window.chartInstances = new MapAPRSMap();
-  }
-
-  // Re-render all stored chart instances
-  window.chartInstances.forEach((chartInstance, elementId) => {
-    if (chartInstance && typeof chartInstance.renderChart === "function") {
-      chartInstance.renderChart();
-    }
-  });
-
-  // Also dispatch a custom event that charts can listen to
+// Handle theme changes dispatched from LiveView via JS.dispatch
+window.addEventListener("phx:set-theme", (e) => {
+  const theme = e.detail.theme;
+  applyTheme(theme);
+  localStorage.setItem("theme", theme);
   window.dispatchEvent(new CustomEvent("themeChanged"));
-};
-
-const handleThemeClick = (selectedTheme) => {
-  applyTheme(selectedTheme);
-  localStorage.setItem("theme", selectedTheme);
-
-  // Re-render all charts with new theme colors
-  setTimeout(() => {
-    window.reRenderAllCharts();
-  }, 100);
-};
-
-// Listen for system theme changes when auto is selected
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
-  if (localStorage.getItem("theme") === "auto") {
-    applyTheme("auto");
-
-    // Re-render all charts with new theme colors
-    setTimeout(() => {
-      window.reRenderAllCharts();
-    }, 100);
-  }
 });
 
-// Add event listeners for theme switching
-document.addEventListener("DOMContentLoaded", () => {
-  const themeButtons = document.querySelectorAll("[data-set-theme]");
-  themeButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const theme = button.getAttribute("data-set-theme");
-      handleThemeClick(theme);
-    });
-  });
+// Listen for system theme changes when auto is selected
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (localStorage.getItem("theme") === "auto") {
+    applyTheme("auto");
+    window.dispatchEvent(new CustomEvent("themeChanged"));
+  }
 });
 
 console.log("Creating LiveSocket with hooks:", Object.keys(Hooks));
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: { _csrf_token: csrfToken },
+  params: { _csrf_token: csrfToken, viewport_width: window.innerWidth },
   hooks: Hooks,
   timeout: 60000, // 60 second timeout for slow initial loads
 });
