@@ -20,6 +20,15 @@ defmodule Aprsme.Cluster.LeaderElection do
     GenServer.call(__MODULE__, :leader?)
   end
 
+  @doc """
+  Fast cached leadership check using :persistent_term.
+  No GenServer.call overhead — suitable for hot paths like packet distribution.
+  """
+  @spec leader_cached?() :: boolean()
+  def leader_cached? do
+    :persistent_term.get({__MODULE__, :is_leader}, false)
+  end
+
   def current_leader do
     GenServer.call(__MODULE__, :current_leader)
   end
@@ -59,6 +68,9 @@ defmodule Aprsme.Cluster.LeaderElection do
 
     # Schedule periodic checks
     Process.send_after(self(), :check_leadership, @check_interval)
+
+    # Initialize cached leadership state
+    :persistent_term.put({__MODULE__, :is_leader}, false)
 
     {:ok, %{is_leader: false, leader_node: nil, cluster_enabled: cluster_enabled, election_forced: false}}
   end
@@ -117,6 +129,7 @@ defmodule Aprsme.Cluster.LeaderElection do
     case :global.register_name(@election_key, self(), &resolve_conflict/3) do
       :yes ->
         Logger.info("Elected as APRS-IS connection leader on node #{node()}")
+        :persistent_term.put({__MODULE__, :is_leader}, true)
         notify_leadership_change(true)
         {:noreply, %{state | is_leader: true, leader_node: node()}}
 
@@ -124,6 +137,7 @@ defmodule Aprsme.Cluster.LeaderElection do
         leader_pid = :global.whereis_name(@election_key)
         leader_node = if leader_pid != :undefined and is_pid(leader_pid), do: node(leader_pid)
         Logger.info("Not elected as leader. Current leader is on node #{inspect(leader_node)}")
+        :persistent_term.put({__MODULE__, :is_leader}, false)
         {:noreply, %{state | is_leader: false, leader_node: leader_node}}
     end
   end
@@ -161,6 +175,7 @@ defmodule Aprsme.Cluster.LeaderElection do
   def terminate(reason, state) do
     if state.is_leader do
       Logger.info("Leader stepping down due to: #{inspect(reason)}")
+      :persistent_term.put({__MODULE__, :is_leader}, false)
       :global.unregister_name(@election_key)
       notify_leadership_change(false)
     end

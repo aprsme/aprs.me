@@ -96,7 +96,6 @@ defmodule Aprsme.MixProject do
       {:floki, ">= 0.30.0", only: :test},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:mix_test_watch, "~> 1.1", only: [:dev, :test]},
-      {:sobelow, "~> 0.8", only: :dev},
       {:stream_data, "~> 1.2.0", only: [:dev, :test]},
       {:igniter, "~> 0.7.0", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},

@@ -78,6 +78,22 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
     test "returns leadership status" do
       assert is_boolean(LeaderElection.leader?())
     end
+
+    test "cached check matches GenServer state" do
+      # leader_cached?/0 reads from :persistent_term — no GenServer.call
+      assert LeaderElection.leader_cached?() == LeaderElection.leader?()
+    end
+
+    test "cached check returns false before election" do
+      # Stop current instance
+      GenServer.stop(LeaderElection)
+      :global.unregister_name({:aprs_is_leader, LeaderElection})
+
+      # Clear the persistent_term
+      :persistent_term.put({LeaderElection, :is_leader}, false)
+
+      assert LeaderElection.leader_cached?() == false
+    end
   end
 
   describe "current_leader/0" do

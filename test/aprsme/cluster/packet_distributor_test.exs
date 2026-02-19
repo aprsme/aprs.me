@@ -84,7 +84,7 @@ defmodule Aprsme.Cluster.PacketDistributorTest do
       # StreamingPacketsPubSub and PacketStore are already running in test
       result = PacketDistributor.handle_distributed_packet({:distributed_packet, @test_packet})
 
-      # The function logs and returns :ok from Logger.debug
+      # Broadcasts to local clients and stores in PacketStore
       assert result == :ok
     end
   end

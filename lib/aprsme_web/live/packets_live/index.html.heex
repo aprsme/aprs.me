@@ -64,72 +64,12 @@
                 </td>
                 <td>
                   <span class="text-xs font-mono">
-                    <% lat =
-                      Map.get(packet, :lat) ||
-                        if(
-                          Map.has_key?(packet, :location) and not is_nil(packet.location) and
-                            function_exported?(Aprsme.Packet, :lat, 1),
-                          do: Aprsme.Packet.lat(packet),
-                          else: nil
-                        ) ||
-                        case Map.get(packet, :data_extended) do
-                          %{} = data_ext ->
-                            case Map.get(data_ext, :latitude) || Map.get(data_ext, "latitude") do
-                              {:ok, value} -> value
-                              value -> value
-                            end
-
-                          _ ->
-                            nil
-                        end %>
-                    <%= if not is_nil(lat) do %>
-                      <%= if is_float(lat) do %>
-                        {:io_lib.format("~.6f", [lat]) |> List.to_string()}
-                      <% else %>
-                        <%= if is_binary(lat) do %>
-                          {Regex.replace(~r/(\d+\.\d{1,6})\d*/, lat, "\\1")}
-                        <% else %>
-                          {lat}
-                        <% end %>
-                      <% end %>
-                    <% else %>
-                      ""
-                    <% end %>
+                    {format_coordinate(extract_coordinate(packet, :lat))}
                   </span>
                 </td>
                 <td>
                   <span class="text-xs font-mono">
-                    <% lon =
-                      Map.get(packet, :lon) ||
-                        if(
-                          Map.has_key?(packet, :location) and not is_nil(packet.location) and
-                            function_exported?(Aprsme.Packet, :lon, 1),
-                          do: Aprsme.Packet.lon(packet),
-                          else: nil
-                        ) ||
-                        case Map.get(packet, :data_extended) do
-                          %{} = data_ext ->
-                            case Map.get(data_ext, :longitude) || Map.get(data_ext, "longitude") do
-                              {:ok, value} -> value
-                              value -> value
-                            end
-
-                          _ ->
-                            nil
-                        end %>
-                    <%= if not is_nil(lon) do %>
-                      <%= if is_float(lon) do %>
-                        {:io_lib.format("~.6f", [lon]) |> List.to_string()}
-                      <% else %>
-                        <%= if is_binary(lon) do %>
-                          {Regex.replace(~r/(\d+\.\d{1,6})\d*/, lon, "\\1")}
-                        <% else %>
-                          {lon}
-                        <% end %>
-                      <% end %>
-                    <% else %>
-                      ""
-                    <% end %>
+                    {format_coordinate(extract_coordinate(packet, :lon))}
                   </span>
                 </td>
                 <td>

@@ -32,4 +32,45 @@ defmodule AprsmeWeb.PacketsLive.Index do
     socket = assign(socket, :packets, packets)
     {:noreply, socket}
   end
+
+  @doc """
+  Extract a coordinate (:lat or :lon) from a packet, checking multiple sources:
+  1. Direct :lat/:lon keys
+  2. Packet struct with PostGIS location
+  3. data_extended map with :latitude/:longitude keys
+  """
+  def extract_coordinate(packet, which) when which in [:lat, :lon] do
+    direct_key = which
+    extended_key = if which == :lat, do: :latitude, else: :longitude
+
+    Map.get(packet, direct_key) ||
+      extract_from_location(packet, which) ||
+      extract_from_data_extended(packet, extended_key)
+  end
+
+  @doc """
+  Format a coordinate value for display with up to 6 decimal places.
+  """
+  def format_coordinate(nil), do: ""
+
+  def format_coordinate(value) when is_float(value) do
+    "~.6f" |> :io_lib.format([value]) |> List.to_string()
+  end
+
+  def format_coordinate(value) when is_binary(value) do
+    Regex.replace(~r/(\d+\.\d{1,6})\d*/, value, "\\1")
+  end
+
+  def format_coordinate(value), do: to_string(value)
+
+  defp extract_from_location(%Aprsme.Packet{location: %Geo.Point{coordinates: {_lon, lat}}}, :lat), do: lat
+  defp extract_from_location(%Aprsme.Packet{location: %Geo.Point{coordinates: {lon, _lat}}}, :lon), do: lon
+  defp extract_from_location(_, _), do: nil
+
+  defp extract_from_data_extended(packet, key) do
+    case Map.get(packet, :data_extended) do
+      %{} = data -> Map.get(data, key) || Map.get(data, to_string(key))
+      _ -> nil
+    end
+  end
 end

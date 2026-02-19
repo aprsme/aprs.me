@@ -7,23 +7,19 @@ defmodule Aprsme.Cluster.PacketDistributor do
   alias Aprsme.Cluster.LeaderElection
   alias AprsmeWeb.MapLive.PacketStore
 
-  require Logger
-
   @pubsub_topic "cluster:packets"
 
   def distribute_packet(packet) do
     # Only distribute if clustering is enabled and we're the leader
     cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
 
-    if cluster_enabled and LeaderElection.leader?() do
+    if cluster_enabled and LeaderElection.leader_cached?() do
       # Broadcast to all nodes including self
       Phoenix.PubSub.broadcast(
         Aprsme.PubSub,
         @pubsub_topic,
         {:distributed_packet, packet}
       )
-
-      Logger.debug("Distributed packet #{packet.raw} to cluster")
     end
   end
 
@@ -38,6 +34,6 @@ defmodule Aprsme.Cluster.PacketDistributor do
     # Update packet store for LiveView
     PacketStore.store_packet(packet)
 
-    Logger.debug("Received distributed packet on node #{node()}")
+    :ok
   end
 end

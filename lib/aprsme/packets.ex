@@ -225,13 +225,6 @@ defmodule Aprsme.Packets do
     # Ensure data_extended is properly sanitized before insertion
     attrs = sanitize_data_extended_attr(attrs)
 
-    # Debug log to see what we're trying to insert
-    if attrs[:data_extended] do
-      require Logger
-
-      Logger.debug("Final data_extended before insert: #{inspect(attrs[:data_extended], binaries: :as_binaries)}")
-    end
-
     case %Packet{} |> Packet.changeset(attrs) |> Repo.insert() do
       {:ok, packet} ->
         # Invalidate cache for this packet's callsign
@@ -502,8 +495,6 @@ defmodule Aprsme.Packets do
   def get_recent_packets(opts \\ %{}) do
     require Logger
 
-    Logger.debug("Packets.get_recent_packets called with opts: #{inspect(opts)}")
-
     # Use hours_back from opts if provided, otherwise default to 24 hours
     hours_back = Map.get(opts, :hours_back, 24)
     time_ago = DateTime.add(DateTime.utc_now(), -hours_back * 3600, :second)
@@ -544,9 +535,7 @@ defmodule Aprsme.Packets do
       |> offset(^offset)
       |> QueryBuilder.with_coordinates()
 
-    result = Repo.all(query)
-    Logger.debug("Packets.get_recent_packets returning #{length(result)} packets")
-    result
+    Repo.all(query)
   end
 
   @doc """

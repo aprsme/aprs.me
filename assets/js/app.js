@@ -1,5 +1,3 @@
-console.log("app.js loading...");
-
 // If you want to use Phoenix channels, run `mix help phx.gen.channel`
 // to get started and then uncomment the line below.
 // import "./user_socket.js"
@@ -86,10 +84,8 @@ const originalMapMounted = MapAPRSMap.mounted;
 Hooks.APRSMap = {
   ...MapAPRSMap,
   mounted() {
-    console.log("APRSMap wrapper mounted() called");
     const self = this;
     loadMapBundle(() => {
-      console.log("Map bundle ready, calling original mounted");
       if (originalMapMounted) {
         originalMapMounted.call(self);
       }
@@ -180,7 +176,6 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () 
   }
 });
 
-console.log("Creating LiveSocket with hooks:", Object.keys(Hooks));
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken, viewport_width: window.innerWidth },
@@ -196,7 +191,6 @@ window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 // Handle connection draining reconnect events
 window.addEventListener("phx:reconnect", (e) => {
   const delay = e.detail.delay || 1000;
-  console.log(`[LiveSocket] Reconnecting in ${delay}ms due to connection draining...`);
   setTimeout(() => {
     // Disconnect and reconnect to potentially land on a different server
     liveSocket.disconnect();
@@ -216,7 +210,6 @@ window.addEventListener("phx:live_socket:connect", (info) => {
   if (socket && socket.fallbackTimer) {
     clearTimeout(socket.fallbackTimer);
     socket.fallbackTimer = null;
-    console.log("[LiveSocket] Cleared fallback timer after successful connection");
   }
 });
 
@@ -226,7 +219,6 @@ setTimeout(() => {
   if (socket && socket.isConnected() && socket.fallbackTimer) {
     clearTimeout(socket.fallbackTimer);
     socket.fallbackTimer = null;
-    console.log("[LiveSocket] Cleared lingering fallback timer");
   }
 }, 5000);
 
