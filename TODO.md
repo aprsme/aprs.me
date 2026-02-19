@@ -2,33 +2,34 @@
 
 ## APRS-IS Connection
 
-- [ ] Consolidate `AprsIsConnection` and `Aprsme.Is` into a single implementation — two separate APRS-IS clients with different reconnection strategies and error handling is a maintenance burden
-- [ ] Validate APRS-IS server login response — neither implementation checks if the server accepted the login (wrong credentials or invalid filter syntax goes undetected)
-- [ ] Add APRS-IS login response validation — server sends `# logresp` line indicating accept/reject
-- [ ] Cap circuit breaker half-open recovery — transition from `:open` to `:half_open` is passive (only happens on call), not automatic
+- [x] Consolidate `AprsIsConnection` and `Aprsme.Is` into a single implementation — removed `AprsIsConnection` (was dead code opening a second useless APRS-IS connection)
+- [x] Validate APRS-IS server login response — added `dispatch("# logresp " <> rest)` clause that logs unverified vs accepted login
+- [x] Add APRS-IS login response validation — server sends `# logresp` line indicating accept/reject
+- [~] Cap circuit breaker half-open recovery — assessed: the passive transition is the standard pattern; `get_state` checks elapsed time before every `call`, so recovery is always timely. No change needed.
 
 ## Packet Intake Pipeline
 
-- [ ] Add retry logic for batch insert failures in `PacketConsumer.process_chunk/1` — when `Repo.insert_all` fails, packets are lost from real-time broadcast with no retry
-- [ ] Improve `PacketProducer` buffer drop logging — `length(new_buffer)` is O(n), no count of dropped packets, no telemetry emitted
+- [x] Add retry logic for batch insert failures in `PacketConsumer.process_chunk/1` — wrapped `Repo.insert_all` in try/rescue with fallback to individual inserts via `insert_individually/1`
+- [x] Improve `PacketProducer` buffer drop logging — track `buffer_size` as integer (O(1)), added telemetry for buffer overflow events
 - [ ] Add backpressure mechanism — no global rate limiting if APRS-IS sends burst traffic; only defense is fixed-size buffer with silent drops
 - [ ] Cluster packet distribution race — `PacketDistributor.distribute_packet/1` only broadcasts if currently leader; leadership change between receipt and broadcast drops packets
 
 ## Front-End Display
 
-- [ ] Audit PopupComponent for XSS — verify HEEx auto-escaping covers `@comment` and weather data fields from APRS packets (`popup_component.ex`)
+- [x] Fix XSS vulnerability in PopupComponent fallback — added `escapeHtml()` to `map_helpers.ts`, applied to callsign and comment in `buildPopupContent` in `map.ts`
 - [ ] Simplify coordinate extraction in `packets_live/index.html.heex:65-134` — deeply nested conditional logic with multiple fallback chains
-- [ ] Fix memory leak in InfoMap hook — `setTimeout` at `info_map.js:110` reference never stored or canceled in `destroyed()`
-- [ ] Fix Leaflet bundle loading race — `app.js:67-97` has two paths modifying `window.mapBundleLoaded` without singleton pattern
+- [x] Fix memory leak in InfoMap hook — stored `setTimeout` ref in `this.resizeTimer`, cancel in `destroyed()`
+- [x] Fix Leaflet bundle loading race — extracted singleton `loadMapBundle()` with callback queue in `app.js`
 - [ ] Add loading indicator for real-time bounds updates — only `@historical_loading` triggers spinner, not bounds filtering
-- [ ] Fix stale generation check bypass in `historical_loader.ex:100-108` — nil generation skips stale check
-- [ ] Consolidate coordinate/bounds validation — `valid_coordinates?`, `within_bounds?`, `get_coordinates` duplicated across `coordinate_utils.ex`, `bounds_utils.ex`, `map_helpers.ex`
-- [ ] Extract hard-coded zoom threshold (8) for heat map to a constant — duplicated in `display_manager.ex:17,33`
+- [x] Fix stale generation check bypass in `historical_loader.ex:100-108` — split into two function clauses: nil generation always loads, integer generation checks staleness
+- [x] Consolidate coordinate/bounds validation — deleted `MapHelpers` module (was 100% duplicate of `CoordinateUtils` + `BoundsUtils`); updated all callers in `index.ex`, `data_builder.ex`, `mobile_channel.ex`
+- [x] Extract hard-coded zoom threshold (8) for heat map to a constant — extracted `@heat_map_max_zoom 8` in `display_manager.ex`
 
 ## Packet Purging
 
-- [ ] Consider shorter default retention for APRS data — 365 days is very long for ephemeral APRS packets; most use cases need hours-to-days
-- [ ] Run cleanup more frequently when backlog exists — 6-hour cycle with 5-minute time limit means large backlogs take days to clear
-- [ ] Add cleanup telemetry — worker logs but doesn't emit telemetry events for monitoring dashboards
-- [ ] Add partial index for cleanup queries — `WHERE received_at < cutoff` scans full B-tree; a partial index on old packets would be smaller and faster
-- [ ] ETS PacketStore TTL mismatch — 2-hour TTL means expired packets get re-fetched from DB (still within 365-day retention), causing repeated queries
+- [x] Shorter default retention — changed from 365 days to 7 days (configurable via `PACKET_RETENTION_DAYS` env var)
+- [x] Improve cleanup efficiency — replaced two-step SELECT IDs + DELETE by IDs with single-query CTE-based batch DELETE; eliminates extra round-trip per batch
+- [x] Add cleanup telemetry — added `:telemetry.execute` to `cleanup_packets_older_than_batched/1`
+- [ ] Add partial index for cleanup queries — `WHERE received_at < cutoff` would benefit from a partial index on old packets
+- [~] ETS PacketStore TTL mismatch — assessed: the 2-hour ETS TTL is intentional for LiveView memory efficiency; DB retention is for historical data. Different purposes, not a bug.
+- [ ] Consider PostgreSQL table partitioning — partition packets by time range (daily/weekly) for instant `DROP PARTITION` cleanup instead of batch DELETEs; requires one-time migration

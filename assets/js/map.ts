@@ -64,6 +64,7 @@ import {
   saveMapState,
   safePushEvent,
   getLiveSocket,
+  escapeHtml,
 } from "./map_helpers";
 
 // APRS Map Hook - handles only basic map interaction
@@ -2126,16 +2127,11 @@ let MapAPRSMap = {
   },
 
   buildPopupContent(data: MarkerData): string {
-    const callsign = data.callsign || data.id || "Unknown";
-    const comment = data.comment || "";
-    // const symbolTableId = data.symbol_table_id || "/";
-    // const symbolCode = data.symbol_code || ">";
-    // const symbolDesc = data.symbol_description || `Symbol: ${symbolTableId}${symbolCode}`;
+    const callsign = escapeHtml(String(data.callsign || data.id || "Unknown"));
+    const comment = data.comment ? escapeHtml(String(data.comment)) : "";
 
     let content = `<div class="aprs-popup">
       <div class="aprs-callsign"><strong><a href="/${callsign}" class="aprs-lv-link">${callsign}</a></strong> <a href="/info/${callsign}" class="aprs-lv-link aprs-info-link">info</a></div>`;
-    // Removed symbol info from popup
-    // content += `<div class="aprs-symbol-info">${symbolDesc}</div>`;
 
     if (comment) {
       content += `<div class="aprs-comment">${comment}</div>`;

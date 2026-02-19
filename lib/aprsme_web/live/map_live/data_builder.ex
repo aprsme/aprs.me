@@ -20,7 +20,6 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   alias AprsmeWeb.Live.Shared.CoordinateUtils
   alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
   alias AprsmeWeb.Live.Shared.ParamUtils
-  alias AprsmeWeb.MapLive.MapHelpers
   alias AprsmeWeb.MapLive.PopupComponent
   alias AprsmeWeb.TimeHelpers
   alias Phoenix.HTML.Safe
@@ -47,7 +46,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   """
   @spec build_packet_data(map(), boolean(), String.t()) :: map() | nil
   def build_packet_data(packet, is_most_recent_for_callsign, locale) when is_boolean(is_most_recent_for_callsign) do
-    {lat, lon, data_extended} = MapHelpers.get_coordinates(packet)
+    {lat, lon, data_extended} = CoordinateUtils.get_coordinates(packet)
     callsign = generate_callsign(packet)
 
     # Validate coordinates and callsign before building packet data

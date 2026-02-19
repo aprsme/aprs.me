@@ -1,19 +1,20 @@
-defmodule AprsmeWeb.MapLive.MapHelpersTest do
+defmodule AprsmeWeb.Live.Shared.CoordinateUtilsTest do
   use ExUnit.Case, async: true
 
   alias Aprs.Types.MicE
-  alias AprsmeWeb.MapLive.MapHelpers
+  alias AprsmeWeb.Live.Shared.BoundsUtils
+  alias AprsmeWeb.Live.Shared.CoordinateUtils
 
   describe "get_coordinates/1" do
     test "returns lat/lon/data_extended for map with lat/lon" do
       packet = %{lat: 10.0, lon: 20.0, data_extended: %{foo: :bar}}
-      assert MapHelpers.get_coordinates(packet) == {10.0, 20.0, %{foo: :bar}}
+      assert CoordinateUtils.get_coordinates(packet) == {10.0, 20.0, %{foo: :bar}}
     end
 
     test "returns lat/lon/data_extended for map with latitude/longitude in data_extended" do
       packet = %{data_extended: %{latitude: 11.1, longitude: 22.2}}
 
-      assert MapHelpers.get_coordinates(packet) ==
+      assert CoordinateUtils.get_coordinates(packet) ==
                {11.1, 22.2, %{latitude: 11.1, longitude: 22.2}}
     end
 
@@ -30,13 +31,13 @@ defmodule AprsmeWeb.MapLive.MapHelpersTest do
       }
 
       packet = %{data_extended: mic_e}
-      {lat, lon, ext} = MapHelpers.get_coordinates(packet)
+      {lat, lon, ext} = CoordinateUtils.get_coordinates(packet)
       assert is_number(lat) and is_number(lon)
       assert ext == mic_e
     end
 
     test "returns {nil, nil, nil} for missing data" do
-      assert MapHelpers.get_coordinates(%{}) == {nil, nil, nil}
+      assert CoordinateUtils.get_coordinates(%{}) == {nil, nil, nil}
     end
   end
 
@@ -53,7 +54,7 @@ defmodule AprsmeWeb.MapLive.MapHelpersTest do
         lon_direction: :east
       }
 
-      {lat, lon} = MapHelpers.get_coordinates_from_mic_e(mic_e)
+      {lat, lon} = CoordinateUtils.get_coordinates_from_mic_e(mic_e)
       assert_in_delta lat, 10.5, 0.0001
       assert_in_delta lon, 20.6667, 0.0001
     end
@@ -70,7 +71,7 @@ defmodule AprsmeWeb.MapLive.MapHelpersTest do
         lon_direction: :east
       }
 
-      assert MapHelpers.get_coordinates_from_mic_e(mic_e) == {nil, nil}
+      assert CoordinateUtils.get_coordinates_from_mic_e(mic_e) == {nil, nil}
     end
   end
 
@@ -87,41 +88,41 @@ defmodule AprsmeWeb.MapLive.MapHelpersTest do
         lon_direction: :east
       }
 
-      assert MapHelpers.has_position_data?(%{data_extended: mic_e})
+      assert CoordinateUtils.has_position_data?(%{data_extended: mic_e})
     end
 
     test "true for latitude/longitude in data_extended" do
-      assert MapHelpers.has_position_data?(%{data_extended: %{latitude: 1, longitude: 2}})
+      assert CoordinateUtils.has_position_data?(%{data_extended: %{latitude: 1, longitude: 2}})
     end
 
     test "true for lat/lon at top level" do
-      assert MapHelpers.has_position_data?(%{lat: 1, lon: 2})
+      assert CoordinateUtils.has_position_data?(%{lat: 1, lon: 2})
     end
 
     test "false for missing position" do
-      refute MapHelpers.has_position_data?(%{})
+      refute CoordinateUtils.has_position_data?(%{})
     end
   end
 
   describe "within_bounds?/2" do
     test "true for point in bounds" do
       bounds = %{north: 10, south: 0, east: 10, west: 0}
-      assert MapHelpers.within_bounds?(%{lat: 5, lon: 5}, bounds)
+      assert BoundsUtils.within_bounds?(%{lat: 5, lon: 5}, bounds)
     end
 
     test "false for point out of bounds" do
       bounds = %{north: 10, south: 0, east: 10, west: 0}
-      refute MapHelpers.within_bounds?(%{lat: 15, lon: 5}, bounds)
+      refute BoundsUtils.within_bounds?(%{lat: 15, lon: 5}, bounds)
     end
 
     test "true for tuple input" do
       bounds = %{north: 10, south: 0, east: 10, west: 0}
-      assert MapHelpers.within_bounds?({5, 5}, bounds)
+      assert BoundsUtils.within_bounds?({5, 5}, bounds)
     end
 
     test "false for nil input" do
       bounds = %{north: 10, south: 0, east: 10, west: 0}
-      refute MapHelpers.within_bounds?(%{}, bounds)
+      refute BoundsUtils.within_bounds?(%{}, bounds)
     end
   end
 end

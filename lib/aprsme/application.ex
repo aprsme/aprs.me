@@ -73,7 +73,6 @@ defmodule Aprsme.Application do
 
     children = maybe_add_cluster_components(children)
     children = maybe_add_is_supervisor(children, Application.get_env(:aprsme, :env))
-    children = maybe_add_aprs_connection(children, Application.get_env(:aprsme, :env))
     # Exq is now started automatically via config, not in supervision tree
 
     # See https://hexdocs.pm/elixir/Supervisor.html
@@ -166,18 +165,6 @@ defmodule Aprsme.Application do
       children ++ [Aprsme.Is.IsSupervisor]
     else
       children
-    end
-  end
-
-  defp maybe_add_aprs_connection(children, _env) do
-    disable_connection = Application.get_env(:aprsme, :disable_aprs_connection, false)
-    cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
-
-    # Don't add AprsIsConnection if clustering is enabled or connection is disabled
-    if disable_connection or cluster_enabled do
-      children
-    else
-      children ++ [Aprsme.AprsIsConnection]
     end
   end
 

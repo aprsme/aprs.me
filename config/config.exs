@@ -54,8 +54,8 @@ config :aprsme,
   aprs_is_password: System.get_env("APRS_PASSCODE"),
   auto_migrate: true,
   env: config_env(),
-  # Packet retention period in days (default: 365 days = 1 year)
-  packet_retention_days: String.to_integer(System.get_env("PACKET_RETENTION_DAYS", "365")),
+  # Packet retention period in days (default: 7 days)
+  packet_retention_days: String.to_integer(System.get_env("PACKET_RETENTION_DAYS", "7")),
   # GenStage packet processing configuration
   # Optimized for PostgreSQL with work_mem=16MB and synchronous_commit=off
   packet_pipeline: [

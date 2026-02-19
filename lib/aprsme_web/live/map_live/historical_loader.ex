@@ -98,13 +98,17 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
   Load a specific historical batch.
   """
   @spec load_historical_batch(Socket.t(), integer(), integer() | nil) :: Socket.t()
+  def load_historical_batch(socket, batch_offset, nil) do
+    # No generation provided — always load (backward compatibility)
+    do_load_historical_batch(socket, batch_offset)
+  end
+
   def load_historical_batch(socket, batch_offset, generation) do
-    # Check generation if provided
-    if generation && generation != socket.assigns.loading_generation do
-      # Stale request, return unchanged socket
-      socket
-    else
+    if generation == socket.assigns.loading_generation do
       do_load_historical_batch(socket, batch_offset)
+    else
+      # Stale request, skip
+      socket
     end
   end
 

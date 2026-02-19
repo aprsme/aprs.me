@@ -62,14 +62,46 @@ defmodule Aprsme.IsTest do
   end
 
   describe "dispatch/1" do
-    test "handles comment lines" do
+    test "handles unverified login response" do
+      Logger.configure(level: :warning)
+
       log =
         capture_log(fn ->
           result = Aprsme.Is.dispatch("# logresp TEST unverified, server T2TEXAS")
           assert result == :ok
         end)
 
-      assert log =~ "COMMENT" || true
+      Logger.configure(level: :error)
+
+      assert log =~ "APRS-IS login unverified"
+    end
+
+    test "handles accepted login response" do
+      Logger.configure(level: :info)
+
+      log =
+        capture_log(fn ->
+          result = Aprsme.Is.dispatch("# logresp TEST verified, server T2TEXAS")
+          assert result == :ok
+        end)
+
+      Logger.configure(level: :error)
+
+      assert log =~ "APRS-IS login accepted"
+    end
+
+    test "handles comment lines" do
+      Logger.configure(level: :debug)
+
+      log =
+        capture_log(fn ->
+          result = Aprsme.Is.dispatch("# some server comment")
+          assert result == :ok
+        end)
+
+      Logger.configure(level: :error)
+
+      assert log =~ "COMMENT"
     end
 
     test "handles empty string" do

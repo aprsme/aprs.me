@@ -496,6 +496,14 @@ defmodule Aprsme.Is do
   end
 
   @spec dispatch(binary) :: nil | :ok
+  def dispatch("# logresp " <> rest) do
+    if String.contains?(rest, "unverified") do
+      Logger.warning("APRS-IS login unverified: #{String.trim(rest)}")
+    else
+      Logger.info("APRS-IS login accepted: #{String.trim(rest)}")
+    end
+  end
+
   def dispatch("#" <> comment_text) do
     Logger.debug("COMMENT: " <> String.trim(comment_text))
   end

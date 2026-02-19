@@ -703,7 +703,7 @@ defmodule Aprsme.Packets do
   """
   @impl true
   def clean_old_packets do
-    retention_days = Application.get_env(:aprsme, :packet_retention_days, 365)
+    retention_days = Application.get_env(:aprsme, :packet_retention_days, 7)
     cutoff_time = DateTime.add(DateTime.utc_now(), -retention_days * 86_400, :second)
 
     {deleted_count, _} = Repo.delete_all(from(p in Packet, where: p.received_at < ^cutoff_time))

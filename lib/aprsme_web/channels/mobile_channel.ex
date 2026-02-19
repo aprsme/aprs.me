@@ -53,7 +53,7 @@ defmodule AprsmeWeb.MobileChannel do
   """
   use AprsmeWeb, :channel
 
-  alias AprsmeWeb.MapLive.MapHelpers
+  alias AprsmeWeb.Live.Shared.CoordinateUtils
 
   require Logger
 
@@ -280,7 +280,7 @@ defmodule AprsmeWeb.MobileChannel do
 
   defp build_mobile_packet(packet) do
     # Extract coordinates
-    {lat, lon, _data_extended} = MapHelpers.get_coordinates(packet)
+    {lat, lon, _data_extended} = CoordinateUtils.get_coordinates(packet)
 
     # Build minimal packet data for mobile
     %{

@@ -107,10 +107,11 @@ export const InfoMap = {
         .bindPopup(`<strong>${callsign}</strong><br/>Lat: ${lat.toFixed(6)}<br/>Lon: ${lon.toFixed(6)}`);
 
       // Invalidate size after a short delay to ensure proper rendering
-      setTimeout(() => {
+      this.resizeTimer = setTimeout(() => {
         if (this.map) {
           this.map.invalidateSize();
         }
+        this.resizeTimer = null;
       }, 250);
 
       // Mark initialization as complete
@@ -150,6 +151,11 @@ export const InfoMap = {
   },
 
   destroyed() {
+    // Cancel pending resize timer
+    if (this.resizeTimer) {
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer = null;
+    }
     // Clean up map and reset state
     if (this.map) {
       this.map.remove();

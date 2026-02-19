@@ -17,30 +17,43 @@ defmodule Aprsme.PacketProducer do
 
   @impl true
   def init(opts) do
-    {:producer, %{demand: 0, buffer: [], max_buffer_size: opts[:max_buffer_size] || 1000}}
+    {:producer, %{demand: 0, buffer: [], buffer_size: 0, max_buffer_size: opts[:max_buffer_size] || 1000}}
   end
 
   @impl true
   def handle_demand(incoming_demand, %{demand: demand, buffer: buffer} = state) do
     {events, remaining_buffer, remaining_demand} = dispatch_events(buffer, demand + incoming_demand)
-    {:noreply, events, %{state | demand: remaining_demand, buffer: remaining_buffer}}
+    remaining_size = state.buffer_size - length(events)
+    {:noreply, events, %{state | demand: remaining_demand, buffer: remaining_buffer, buffer_size: remaining_size}}
   end
 
   @impl true
-  def handle_cast({:packet, packet_data}, %{demand: demand, buffer: buffer, max_buffer_size: max_size} = state) do
+  def handle_cast(
+        {:packet, packet_data},
+        %{demand: demand, buffer: buffer, buffer_size: size, max_buffer_size: max_size} = state
+      ) do
     if demand > 0 do
-      # We have demand, send immediately
       {:noreply, [packet_data], %{state | demand: demand - 1}}
     else
-      # No demand, buffer the packet
-      new_buffer = [packet_data | buffer]
+      new_size = size + 1
 
-      if length(new_buffer) > max_size do
-        # Buffer is full, drop oldest packet
-        Logger.warning("Packet buffer full, dropping oldest packet")
-        {:noreply, [], %{state | buffer: Enum.take(new_buffer, max_size)}}
+      if new_size > max_size do
+        dropped = new_size - max_size
+
+        Logger.warning("Packet buffer full, dropping #{dropped} oldest packet(s)",
+          buffer_size: max_size,
+          dropped: dropped
+        )
+
+        :telemetry.execute(
+          [:aprsme, :packet_producer, :buffer_overflow],
+          %{dropped: dropped, buffer_size: max_size},
+          %{}
+        )
+
+        {:noreply, [], %{state | buffer: [packet_data | Enum.take(buffer, max_size - 1)], buffer_size: max_size}}
       else
-        {:noreply, [], %{state | buffer: new_buffer}}
+        {:noreply, [], %{state | buffer: [packet_data | buffer], buffer_size: new_size}}
       end
     end
   end

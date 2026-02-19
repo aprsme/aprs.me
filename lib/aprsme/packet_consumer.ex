@@ -304,25 +304,50 @@ defmodule Aprsme.PacketConsumer do
       placeholders: length(valid_packets) > 100
     ]
 
-    case Repo.insert_all(Aprsme.Packet, valid_packets, insert_opts) do
-      {:error, error} ->
-        Logger.error("Batch insert failed: #{inspect(error)}")
+    try do
+      {inserted_count, _} = Repo.insert_all(Aprsme.Packet, valid_packets, insert_opts)
 
-        # Log sample packet to help debug field issues
-        if valid_packets != [] do
-          sample_packet = List.first(valid_packets)
-          Logger.error("Sample packet fields: #{inspect(Map.keys(sample_packet))}")
-          Logger.error("Sample packet data: #{inspect(sample_packet)}")
+      # Broadcast successfully inserted packets to StreamingPacketsPubSub
+      broadcast_packets_async(valid_packets)
+
+      {inserted_count, invalid_count}
+    rescue
+      error ->
+        Logger.error("Batch insert failed: #{inspect(error)}, falling back to individual inserts")
+
+        # Fall back to individual inserts so partial success is possible
+        {fallback_inserted, fallback_packets} = insert_individually(valid_packets)
+
+        # Broadcast whatever was successfully inserted
+        if fallback_packets != [] do
+          broadcast_packets_async(fallback_packets)
         end
 
-        {0, length(packets)}
-
-      {inserted_count, _} ->
-        # Broadcast successfully inserted packets to StreamingPacketsPubSub
-        broadcast_packets_async(valid_packets)
-
-        {inserted_count, invalid_count}
+        {fallback_inserted, invalid_count + length(valid_packets) - fallback_inserted}
     end
+  end
+
+  # Fall back to inserting packets one at a time when batch insert fails.
+  # Returns {inserted_count, list_of_successfully_inserted_packet_attrs}.
+  @spec insert_individually(list(map())) :: {non_neg_integer(), list(map())}
+  defp insert_individually(packets) do
+    Enum.reduce(packets, {0, []}, fn packet_attrs, {count, inserted} ->
+      try do
+        changeset = Aprsme.Packet.changeset(%Aprsme.Packet{}, packet_attrs)
+
+        case Repo.insert(changeset, on_conflict: :nothing) do
+          {:ok, _record} ->
+            {count + 1, [packet_attrs | inserted]}
+
+          {:error, _changeset} ->
+            {count, inserted}
+        end
+      rescue
+        error ->
+          Logger.error("Individual insert failed: #{inspect(error)}")
+          {count, inserted}
+      end
+    end)
   end
 
   # Broadcast packets asynchronously using supervised task pool

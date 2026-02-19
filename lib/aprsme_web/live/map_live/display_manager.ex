@@ -9,12 +9,15 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
   alias Phoenix.LiveView
   alias Phoenix.LiveView.Socket
 
+  # Zoom level at or below which the map switches to heat map mode
+  @heat_map_max_zoom 8
+
   @doc """
   Handle zoom threshold crossing between heat map and marker modes.
   """
   @spec handle_zoom_threshold_crossing(Socket.t(), integer()) :: Socket.t()
   def handle_zoom_threshold_crossing(socket, zoom) do
-    if zoom <= 8 do
+    if zoom <= @heat_map_max_zoom do
       # Switching to heat map
       socket
       |> LiveView.push_event("clear_all_markers", %{})
@@ -30,7 +33,8 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
   """
   @spec crossing_zoom_threshold?(integer(), integer()) :: boolean()
   def crossing_zoom_threshold?(old_zoom, new_zoom) do
-    (old_zoom <= 8 and new_zoom > 8) or (old_zoom > 8 and new_zoom <= 8)
+    (old_zoom <= @heat_map_max_zoom and new_zoom > @heat_map_max_zoom) or
+      (old_zoom > @heat_map_max_zoom and new_zoom <= @heat_map_max_zoom)
   end
 
   @doc """

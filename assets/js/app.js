@@ -43,38 +43,57 @@ import TimeAgoHook from "./hooks/time_ago_hook";
 // APRS MapAPRSMap Hook
 let Hooks = {};
 
+// Singleton map bundle loader — ensures the script is only appended once
+let mapBundleCallbacks = [];
+let mapBundleLoading = false;
+
+function loadMapBundle(callback) {
+  if (window.mapBundleLoaded) {
+    callback();
+    return;
+  }
+
+  mapBundleCallbacks.push(callback);
+
+  if (mapBundleLoading) {
+    return; // Already loading, callback will fire when ready
+  }
+
+  if (window.VendorLoader) {
+    mapBundleLoading = true;
+    const script = document.createElement('script');
+    script.src = window.VendorLoader.mapBundleUrl;
+    script.onload = () => {
+      window.mapBundleLoaded = true;
+      mapBundleLoading = false;
+      const cbs = mapBundleCallbacks;
+      mapBundleCallbacks = [];
+      cbs.forEach(cb => cb());
+    };
+    script.onerror = () => {
+      console.error("Failed to load map bundle");
+      mapBundleLoading = false;
+      mapBundleCallbacks = [];
+    };
+    document.head.appendChild(script);
+  } else {
+    callback();
+  }
+}
+
 // Map hooks - load map bundle when needed
-// Store original mounted function before creating wrapper
 const originalMapMounted = MapAPRSMap.mounted;
 Hooks.APRSMap = {
   ...MapAPRSMap,
   mounted() {
     console.log("APRSMap wrapper mounted() called");
     const self = this;
-    if (window.VendorLoader && !window.mapBundleLoaded) {
-      console.log("Loading map bundle...");
-      // Load map bundle and wait for it to complete
-      const script = document.createElement('script');
-      script.src = window.VendorLoader.mapBundleUrl;
-      script.onload = () => {
-        console.log("Map bundle loaded, calling original mounted");
-        window.mapBundleLoaded = true;
-        // Now call the original mounted function
-        if (originalMapMounted) {
-          originalMapMounted.call(self);
-        }
-      };
-      script.onerror = () => {
-        console.error("Failed to load map bundle");
-      };
-      document.head.appendChild(script);
-    } else {
-      console.log("Map bundle already loaded, calling original mounted");
-      // Map bundle already loaded, proceed immediately
+    loadMapBundle(() => {
+      console.log("Map bundle ready, calling original mounted");
       if (originalMapMounted) {
-        originalMapMounted.call(this);
+        originalMapMounted.call(self);
       }
-    }
+    });
   }
 };
 
@@ -82,27 +101,11 @@ Hooks.InfoMap = {
   ...InfoMap,
   mounted() {
     const self = this;
-    if (window.VendorLoader && !window.mapBundleLoaded) {
-      // Load map bundle and wait for it to complete
-      const script = document.createElement('script');
-      script.src = window.VendorLoader.mapBundleUrl;
-      script.onload = () => {
-        window.mapBundleLoaded = true;
-        // Now call the original mounted function
-        if (InfoMap.mounted) {
-          InfoMap.mounted.call(self);
-        }
-      };
-      script.onerror = () => {
-        console.error("Failed to load map bundle");
-      };
-      document.head.appendChild(script);
-    } else {
-      // MapAPRSMap bundle already loaded, proceed immediately
+    loadMapBundle(() => {
       if (InfoMap.mounted) {
-        InfoMap.mounted.call(this);
+        InfoMap.mounted.call(self);
       }
-    }
+    });
   }
 };
 

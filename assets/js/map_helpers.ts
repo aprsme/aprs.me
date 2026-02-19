@@ -18,6 +18,18 @@ export interface BoundsData {
 }
 
 /**
+ * Escape HTML special characters to prevent XSS when building DOM strings.
+ */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
  * Parse timestamp to milliseconds
  */
 export function parseTimestamp(timestamp: string | number | Date | undefined): number {

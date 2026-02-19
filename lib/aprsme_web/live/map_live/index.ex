@@ -23,7 +23,6 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.MapLive.DataBuilder
   alias AprsmeWeb.MapLive.DisplayManager
   alias AprsmeWeb.MapLive.HistoricalLoader
-  alias AprsmeWeb.MapLive.MapHelpers
   alias AprsmeWeb.MapLive.Navigation
   alias AprsmeWeb.MapLive.PacketBatcher
   alias AprsmeWeb.MapLive.PacketManager
@@ -1811,63 +1810,11 @@ defmodule AprsmeWeb.MapLive.Index do
 
   # Select the best packet to display for a callsign - prioritize position over weather
 
-  @spec within_bounds?(map() | struct(), map()) :: boolean()
-  defp within_bounds?(packet, bounds) do
-    {lat, lon, _data_extended} = MapHelpers.get_coordinates(packet)
-
-    # Basic validation
-    check_coordinate_bounds(lat, lon, bounds)
-  end
-
-  defp check_coordinate_bounds(nil, _, _), do: false
-  defp check_coordinate_bounds(_, nil, _), do: false
-
-  defp check_coordinate_bounds(lat, lon, bounds) do
-    # Check latitude bounds (straightforward)
-    lat_in_bounds = lat >= bounds.south && lat <= bounds.north
-
-    # Check longitude bounds (handle potential wrapping)
-    lng_in_bounds = check_longitude_bounds(lon, bounds.west, bounds.east)
-
-    lat_in_bounds && lng_in_bounds
-  end
-
-  defp check_longitude_bounds(lon, west, east) when west <= east do
-    # Normal case: bounds don't cross antimeridian
-    lon >= west && lon <= east
-  end
-
-  defp check_longitude_bounds(lon, west, east) do
-    # Bounds cross antimeridian (e.g., west=170, east=-170)
-    lon >= west || lon <= east
-  end
-
-  # Helper functions to reduce duplicate filtering logic
-
-  @spec filter_packets_by_bounds(map(), map()) :: map()
-  defp filter_packets_by_bounds(packets_map, bounds) when is_map(packets_map) do
-    packets_map
-    |> Enum.filter(fn {_k, packet} -> within_bounds?(packet, bounds) end)
-    |> Map.new()
-  end
-
-  @spec filter_packets_by_bounds(list(), map()) :: list()
-  defp filter_packets_by_bounds(packets_list, bounds) when is_list(packets_list) do
-    Enum.filter(packets_list, &within_bounds?(&1, bounds))
-  end
-
-  @spec reject_packets_by_bounds(map(), map()) :: list()
-  defp reject_packets_by_bounds(packets_map, bounds) when is_map(packets_map) do
-    packets_map
-    |> Enum.reject(fn {_k, packet} -> within_bounds?(packet, bounds) end)
-    |> Enum.map(fn {k, _} -> k end)
-  end
-
   @spec filter_packets_by_time_and_bounds(map(), map(), DateTime.t()) :: map()
   defp filter_packets_by_time_and_bounds(packets, bounds, time_threshold) do
     packets
     |> Enum.filter(fn {_callsign, packet} ->
-      within_bounds?(packet, bounds) &&
+      BoundsUtils.within_bounds?(packet, bounds) &&
         SharedPacketUtils.packet_within_time_threshold?(packet, time_threshold)
     end)
     |> Map.new()
@@ -1951,7 +1898,7 @@ defmodule AprsmeWeb.MapLive.Index do
       {:noreply, assign(socket, pending_bounds: bounds)}
     else
       # Update the map bounds from the client, converting to atom keys
-      map_bounds = MapHelpers.normalize_bounds(bounds)
+      map_bounds = BoundsUtils.normalize_bounds(bounds)
 
       # Validate bounds to prevent invalid coordinates
       if valid_bounds?(map_bounds) do
@@ -2063,8 +2010,8 @@ defmodule AprsmeWeb.MapLive.Index do
     current_packets = PacketManager.get_visible_packets(socket.assigns.packet_state)
     current_packets_map = Map.new(current_packets, fn packet -> {get_callsign_key(packet), packet} end)
 
-    new_visible_packets = filter_packets_by_bounds(current_packets_map, map_bounds)
-    packets_to_remove = reject_packets_by_bounds(current_packets_map, map_bounds)
+    new_visible_packets = BoundsUtils.filter_packets_by_bounds(current_packets_map, map_bounds)
+    packets_to_remove = BoundsUtils.reject_packets_by_bounds(current_packets_map, map_bounds)
 
     # Remove markers for out-of-bounds packets
     socket = remove_markers_batch(socket, packets_to_remove)
