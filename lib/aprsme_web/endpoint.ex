@@ -48,6 +48,7 @@ defmodule AprsmeWeb.Endpoint do
     param_key: "request_logger",
     cookie_key: "request_logger"
 
+  plug AprsmeWeb.Plugs.RemoteIp
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint], log: {AprsmeWeb.Plugs.LogFilter, :log_level, []}
 
