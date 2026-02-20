@@ -602,6 +602,30 @@ defmodule Aprsme.PacketsTest do
     end
   end
 
+  describe "weather_callsigns/1" do
+    test "returns callsigns that have weather packets" do
+      PacketsFixtures.packet_fixture(%{sender: "WX-BATCH1", temperature: 72.0})
+      PacketsFixtures.packet_fixture(%{sender: "WX-BATCH2", wind_speed: 10.0})
+      PacketsFixtures.packet_fixture(%{sender: "NOWX-BATCH", comment: "No weather"})
+
+      result = Packets.weather_callsigns(["WX-BATCH1", "WX-BATCH2", "NOWX-BATCH"])
+      assert MapSet.member?(result, "WX-BATCH1")
+      assert MapSet.member?(result, "WX-BATCH2")
+      refute MapSet.member?(result, "NOWX-BATCH")
+    end
+
+    test "returns empty set for empty input" do
+      assert MapSet.new() == Packets.weather_callsigns([])
+    end
+
+    test "is case-insensitive" do
+      PacketsFixtures.packet_fixture(%{sender: "WX-CASE", temperature: 72.0})
+
+      result = Packets.weather_callsigns(["wx-case"])
+      assert MapSet.member?(result, "WX-CASE")
+    end
+  end
+
   describe "get_packets_for_replay/1" do
     setup do
       now = DateTime.utc_now()

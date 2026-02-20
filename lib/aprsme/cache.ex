@@ -1,26 +1,55 @@
 defmodule Aprsme.Cache do
   @moduledoc """
   Cache abstraction layer using ETS (Erlang Term Storage).
-  Provides a unified API for in-memory caching.
+  Provides a unified API for in-memory caching with optional TTL support.
+
+  Entries are stored as `{key, value, expires_at}` tuples where `expires_at`
+  is a monotonic time in milliseconds, or `:infinity` for no expiration.
+  Expired entries are lazily evicted on read.
   """
 
   @doc """
-  Get a value from cache
+  Get a value from cache. Returns `{:ok, nil}` for expired entries.
   """
   def get(cache_name, key) do
     case :ets.lookup(cache_name, key) do
-      [{^key, value}] -> {:ok, value}
-      [] -> {:ok, nil}
+      [{^key, value, :infinity}] ->
+        {:ok, value}
+
+      [{^key, value, expires_at}] ->
+        if System.monotonic_time(:millisecond) < expires_at do
+          {:ok, value}
+        else
+          :ets.delete(cache_name, key)
+          {:ok, nil}
+        end
+
+      # Support legacy {key, value} tuples during transition
+      [{^key, value}] ->
+        {:ok, value}
+
+      [] ->
+        {:ok, nil}
     end
   rescue
     ArgumentError -> {:error, :no_cache}
   end
 
   @doc """
-  Put a value in cache with optional TTL (TTL not implemented for ETS)
+  Put a value in cache with optional TTL.
+
+  ## Options
+    * `:ttl` - Time to live in milliseconds. Use `Cache.to_timeout/1` for convenience.
   """
-  def put(cache_name, key, value, _opts \\ []) do
-    :ets.insert(cache_name, {key, value})
+  def put(cache_name, key, value, opts \\ []) do
+    expires_at =
+      case Keyword.get(opts, :ttl) do
+        nil -> :infinity
+        ttl when is_integer(ttl) and ttl > 0 -> System.monotonic_time(:millisecond) + ttl
+        _ -> :infinity
+      end
+
+    :ets.insert(cache_name, {key, value, expires_at})
     {:ok, true}
   rescue
     ArgumentError -> {:error, :no_cache}
@@ -57,28 +86,34 @@ defmodule Aprsme.Cache do
   end
 
   @doc """
-  Check if key exists
+  Check if key exists and is not expired.
   """
   def exists?(cache_name, key) do
-    :ets.member(cache_name, key)
-  rescue
-    ArgumentError -> false
+    case get(cache_name, key) do
+      {:ok, nil} -> false
+      {:ok, _} -> true
+      _ -> false
+    end
   end
 
   @doc """
-  Get TTL for a key (not supported in ETS, always returns nil)
+  Get TTL for a key. Returns remaining milliseconds or nil if no TTL.
   """
-  def ttl(_cache_name, _key) do
-    {:ok, nil}
+  def ttl(cache_name, key) do
+    case :ets.lookup(cache_name, key) do
+      [{^key, _value, :infinity}] -> {:ok, nil}
+      [{^key, _value, expires_at}] -> {:ok, max(0, expires_at - System.monotonic_time(:millisecond))}
+      [{^key, _value}] -> {:ok, nil}
+      [] -> {:ok, nil}
+    end
+  rescue
+    ArgumentError -> {:ok, nil}
   end
 
-  # Helper functions - no longer needed as we only use Cachex
-
   @doc """
-  Convert timeout keyword list to milliseconds
+  Convert timeout keyword list to milliseconds.
   """
   def to_timeout(opts) do
-    # Cachex's to_timeout is private, so we implement our own
     Enum.reduce(opts, 0, fn
       {:second, n}, acc -> acc + n * 1000
       {:seconds, n}, acc -> acc + n * 1000

@@ -70,6 +70,29 @@ defmodule Aprsme.Packets.PreparedQueries do
   end
 
   @doc """
+  Check which callsigns from a list have weather packets.
+  Returns a MapSet of callsigns (uppercased) that have weather data.
+  Single query replaces N individual has_weather_packets? calls.
+  """
+  @spec weather_callsigns(list(String.t())) :: MapSet.t(String.t())
+  def weather_callsigns(callsigns) when is_list(callsigns) do
+    if callsigns == [] do
+      MapSet.new()
+    else
+      normalized = Enum.map(callsigns, &String.upcase(String.trim(&1)))
+
+      from(p in Packet,
+        where: fragment("upper(?)", p.sender) in ^normalized,
+        where: p.has_weather == true,
+        distinct: fragment("upper(?)", p.sender),
+        select: fragment("upper(?)", p.sender)
+      )
+      |> Repo.all()
+      |> MapSet.new()
+    end
+  end
+
+  @doc """
   Get nearby stations using KNN (K-nearest neighbors) search.
   Uses the <-> operator for efficient spatial queries.
   """

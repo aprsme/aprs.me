@@ -109,15 +109,8 @@ defmodule Aprsme.StreamingPacketsPubSub do
     lon = packet[:longitude] || packet[:lon] || packet[:lng]
 
     if lat && lon do
-      # Find all subscribers whose bounds contain this packet
-      subscribers =
-        :ets.select(@table_name, [
-          {
-            {:"$1", :"$2"},
-            [],
-            [{{:"$1", :"$2"}}]
-          }
-        ])
+      # Get all subscribers — table is small (one entry per LiveView client)
+      subscribers = :ets.tab2list(@table_name)
 
       # Send to matching subscribers using BroadcastTaskSupervisor
       # Collect dead pids to clean up

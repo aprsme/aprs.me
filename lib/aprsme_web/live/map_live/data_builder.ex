@@ -33,11 +33,25 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   def build_packet_data_list_from_map(packets_map, is_most_recent, socket) do
     locale = get_locale(socket)
 
-    packets_map
-    |> Enum.map(fn {_callsign, packet} ->
-      build_packet_data(packet, is_most_recent, locale)
-    end)
-    |> Enum.filter(& &1)
+    # Preload weather callsigns in one batch query instead of N+1 individual queries
+    callsigns =
+      packets_map
+      |> Map.values()
+      |> Enum.map(&display_name/1)
+      |> Enum.uniq()
+
+    weather_set = Aprsme.Packets.weather_callsigns(callsigns)
+    Process.put(:weather_callsigns_cache, weather_set)
+
+    result =
+      packets_map
+      |> Enum.map(fn {_callsign, packet} ->
+        build_packet_data(packet, is_most_recent, locale)
+      end)
+      |> Enum.filter(& &1)
+
+    Process.delete(:weather_callsigns_cache)
+    result
   end
 
   @doc """
@@ -474,7 +488,10 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
 
   @spec has_weather_packets?(String.t()) :: boolean()
   defp has_weather_packets?(callsign) when is_binary(callsign) do
-    Aprsme.Packets.has_weather_packets?(callsign)
+    case Process.get(:weather_callsigns_cache) do
+      nil -> Aprsme.Packets.has_weather_packets?(callsign)
+      weather_set -> MapSet.member?(weather_set, String.upcase(String.trim(callsign)))
+    end
   rescue
     _ -> false
   end

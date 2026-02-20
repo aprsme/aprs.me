@@ -36,6 +36,23 @@ defmodule Aprsme.SpatialPubSubTest do
     end
   end
 
+  describe "duplicate packet prevention" do
+    test "does not subscribe to postgres PubSub topic" do
+      # SpatialPubSub used to subscribe to "postgres:aprsme_packets" causing
+      # duplicate broadcasts (once from PacketConsumer direct cast, once from PubSub).
+      # Verify it no longer subscribes.
+      # The SpatialPubSub process should NOT be in the subscriber list for postgres topic
+      spatial_pid = Process.whereis(SpatialPubSub)
+
+      subscribed? =
+        Aprsme.PubSub
+        |> Registry.lookup("postgres:aprsme_packets")
+        |> Enum.any?(fn {pid, _} -> pid == spatial_pid end)
+
+      refute subscribed?, "SpatialPubSub should not subscribe to postgres:aprsme_packets"
+    end
+  end
+
   describe "stats" do
     test "get_stats returns expected keys" do
       stats = SpatialPubSub.get_stats()

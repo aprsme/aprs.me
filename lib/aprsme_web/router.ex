@@ -42,9 +42,13 @@ defmodule AprsmeWeb.Router do
   end
 
   scope "/", AprsmeWeb do
-    pipe_through [:browser]
+    pipe_through [:browser, :require_authenticated_user]
     live_dashboard "/dashboard", metrics: AprsmeWeb.Telemetry
     error_tracker_dashboard("/errors")
+  end
+
+  scope "/", AprsmeWeb do
+    pipe_through [:browser]
 
     delete "/users/log_out", UserSessionController, :delete
 

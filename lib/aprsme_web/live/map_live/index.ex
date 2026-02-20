@@ -1762,12 +1762,12 @@ defmodule AprsmeWeb.MapLive.Index do
     current_packets = PacketManager.get_visible_packets(socket.assigns.packet_state)
     remaining_packets = PacketManager.get_visible_packets(updated_packet_state)
 
+    remaining_keys = MapSet.new(remaining_packets, &get_callsign_key/1)
+
     expired_keys =
       current_packets
       |> Enum.reject(fn current_packet ->
-        Enum.any?(remaining_packets, fn remaining_packet ->
-          get_callsign_key(current_packet) == get_callsign_key(remaining_packet)
-        end)
+        MapSet.member?(remaining_keys, get_callsign_key(current_packet))
       end)
       |> Enum.map(&get_callsign_key/1)
 

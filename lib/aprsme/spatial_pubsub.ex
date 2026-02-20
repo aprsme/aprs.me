@@ -5,8 +5,6 @@ defmodule Aprsme.SpatialPubSub do
   """
   use GenServer
 
-  alias Phoenix.PubSub
-
   require Logger
 
   # Grid size in degrees for spatial indexing
@@ -62,9 +60,6 @@ defmodule Aprsme.SpatialPubSub do
 
   @impl true
   def init(_opts) do
-    # Subscribe to packet notifications
-    PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
-
     # Start telemetry reporting
     Process.send_after(self(), :report_telemetry, 5_000)
 
@@ -185,12 +180,6 @@ defmodule Aprsme.SpatialPubSub do
         # No valid location, skip broadcasting
         {:noreply, state}
     end
-  end
-
-  @impl true
-  def handle_info({:postgres_packet, packet}, state) do
-    # Handle packets from Postgres notifications
-    handle_cast({:broadcast_packet, packet}, state)
   end
 
   @impl true

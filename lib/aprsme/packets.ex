@@ -849,6 +849,15 @@ defmodule Aprsme.Packets do
   end
 
   @doc """
+  Check which callsigns from a list have weather packets.
+  Returns a MapSet of uppercased callsigns with weather data.
+  """
+  @spec weather_callsigns(list(String.t())) :: MapSet.t(String.t())
+  def weather_callsigns(callsigns) when is_list(callsigns) do
+    PreparedQueries.weather_callsigns(callsigns)
+  end
+
+  @doc """
   Gets other SSIDs for a given callsign's base callsign.
   Returns a list of maps with callsign, ssid, received_at, and packet info.
   Only returns SSIDs active within the last hour.
