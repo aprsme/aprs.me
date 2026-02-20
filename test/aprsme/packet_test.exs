@@ -91,4 +91,122 @@ defmodule Aprsme.PacketTest do
       assert get_in(result, [:data, "telemetry_bits"]) == nil
     end
   end
+
+  describe "comment cleaning" do
+    test "strips weather data from weather packet comments" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "weather",
+        data_extended: %{
+          comment: "007/000g000t054r000p001P001b10052h90eMB61",
+          data_type: :weather,
+          wx: %{temperature: 54, humidity: 90, wind_speed: 0},
+          latitude: 36.124,
+          longitude: -75.723
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "eMB61"
+    end
+
+    test "strips weather data with luminosity and preserves trailing comment" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "weather",
+        data_extended: %{
+          comment: "225/004g009t075r000p000h61b10206Plano, TX weather",
+          data_type: :weather,
+          wx: %{temperature: 75, humidity: 61, wind_speed: 4},
+          latitude: 32.0,
+          longitude: -96.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "Plano, TX weather"
+    end
+
+    test "strips weather data with snow and luminosity fields" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "weather",
+        data_extended: %{
+          comment: "082/002g005t074r000p000P000b10099h58L708eMB63",
+          data_type: :weather,
+          wx: %{temperature: 74, humidity: 58, wind_speed: 2},
+          latitude: 30.0,
+          longitude: -90.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "eMB63"
+    end
+
+    test "handles weather comment that is all weather data" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "weather",
+        data_extended: %{
+          comment: "_180/010g015t072r000p000h45b10132s005",
+          data_type: :weather,
+          wx: %{temperature: 72, humidity: 45, wind_speed: 10},
+          latitude: 32.0,
+          longitude: -96.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] in [nil, ""]
+    end
+
+    test "strips positionless weather format (cXXXsXXX)" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "weather",
+        data_extended: %{
+          comment: "c011s000g000t077r000P000L000h95b10080GW2000C MaxGust:1.1mph",
+          data_type: :weather,
+          wx: %{temperature: 77, humidity: 95},
+          latitude: 6.0,
+          longitude: 79.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "GW2000C MaxGust:1.1mph"
+    end
+
+    test "strips RNG data from comments" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "RNG0050 2m Voice 145.57500MHz",
+          latitude: 61.0,
+          longitude: 14.0,
+          radiorange: "0050"
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "2m Voice 145.57500MHz"
+    end
+
+    test "does not modify non-weather, non-RNG comments" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "70cm Voice (D-Star) 447.12500MHz -3.0000MHz",
+          latitude: 46.0,
+          longitude: -94.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "70cm Voice (D-Star) 447.12500MHz -3.0000MHz"
+    end
+  end
 end

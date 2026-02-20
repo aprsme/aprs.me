@@ -750,14 +750,65 @@ defmodule Aprsme.Packet do
 
   defp clean_comment(comment) when is_binary(comment) do
     comment
+    |> strip_weather_data()
     # Remove altitude
-    |> String.replace(~r/\s*\/A=\d{6}/, "")
+    |> String.replace(~r/\s*\/A=-?\d{5,6}/, "")
     # Remove PHG
     |> String.replace(~r/PHG\d{4}\s*/, "")
+    # Remove RNG
+    |> String.replace(~r/RNG\d{4}\s*/, "")
     |> String.trim()
+    |> case do
+      "" -> nil
+      cleaned -> cleaned
+    end
   end
 
   defp clean_comment(comment), do: comment
+
+  # APRS weather fields: each is a letter prefix + fixed number of digits/spaces
+  @wx_field_patterns [
+    ~r/^g[\d .]{3}/,
+    ~r/^t[\d .-]{3}/,
+    ~r/^r[\d .]{3}/,
+    ~r/^p[\d .]{3}/,
+    ~r/^P[\d .]{3}/,
+    ~r/^h[\d .]{2}/,
+    ~r/^b[\d .]{5}/,
+    ~r/^s[\d .]{3}/,
+    ~r/^[Ll][\d .]{3}/
+  ]
+
+  # Matches position-included format (XXX/XXX) and positionless format (cXXXsXXX)
+  @wx_preamble_pattern ~r/^_?(?:[\d .]{3}\/[\d .]{3}|c[\d .]{3}s[\d .]{3})/
+
+  defp strip_weather_data(comment) do
+    case Regex.run(@wx_preamble_pattern, comment) do
+      [match] ->
+        comment
+        |> String.slice(String.length(match)..-1//1)
+        |> strip_wx_fields()
+
+      nil ->
+        comment
+    end
+  end
+
+  defp strip_wx_fields(str) do
+    case match_wx_field(str) do
+      nil -> str
+      match -> str |> String.slice(String.length(match)..-1//1) |> strip_wx_fields()
+    end
+  end
+
+  defp match_wx_field(str) do
+    Enum.find_value(@wx_field_patterns, fn pat ->
+      case Regex.run(pat, str) do
+        [match] -> match
+        nil -> nil
+      end
+    end)
+  end
 
   # Extract altitude from APRS comment field (e.g., "/A=000680" means 680 feet)
   defp extract_altitude_from_comment(nil), do: nil
