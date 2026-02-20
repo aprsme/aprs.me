@@ -1050,10 +1050,13 @@ let MapAPRSMap = {
 
           self.markerStates.forEach((state, id) => {
             const stateCallsign = state.callsign_group || state.callsign;
-            // Only convert non-historical markers for the same callsign, but exclude the incoming packet's ID
+            // Convert markers for the same callsign that are either live or were the
+            // most-recent marker (historical loading marks all packets as historical,
+            // so is_most_recent_for_callsign catches the "current" marker that was
+            // loaded from history)
             if (
               stateCallsign === incomingCallsign &&
-              !state.historical &&
+              (!state.historical || state.is_most_recent_for_callsign) &&
               String(id) !== String(data.id)
             ) {
               markersToConvert.push(String(id));
