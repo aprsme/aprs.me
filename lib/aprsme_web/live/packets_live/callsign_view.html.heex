@@ -60,7 +60,7 @@
                   </td>
                   <td>
                     <span class="text-sm font-mono">
-                      <% info_field = (packet.data || %{})["information_field"] || "" %>
+                      <% info_field = (Map.get(packet, :data) || %{})["information_field"] || "" %>
                       <%= if String.length(info_field) > 50 do %>
                         <span title={info_field}>
                           {String.slice(info_field, 0, 50)}...
