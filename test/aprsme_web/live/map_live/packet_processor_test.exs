@@ -44,7 +44,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
       socket = build_socket()
       packet = build_packet()
 
-      {updated_socket, marker_data} = PacketProcessor.process_packet_for_marker_data(packet, socket)
+      {updated_socket, marker_data, _removed} = PacketProcessor.process_packet_for_marker_data(packet, socket)
 
       assert marker_data
       assert is_map(marker_data)
@@ -57,7 +57,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
       # Packet outside the bounds (north: 34, south: 32, east: -95, west: -97)
       packet = build_packet(%{lat: 40.0, lon: -80.0})
 
-      {updated_socket, marker_data} = PacketProcessor.process_packet_for_marker_data(packet, socket)
+      {updated_socket, marker_data, _removed} = PacketProcessor.process_packet_for_marker_data(packet, socket)
 
       assert marker_data == nil
       assert map_size(updated_socket.assigns.visible_packets) == 0
@@ -67,7 +67,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
       socket = build_socket()
       packet = build_packet(%{lat: nil, lon: nil})
 
-      {updated_socket, marker_data} = PacketProcessor.process_packet_for_marker_data(packet, socket)
+      {updated_socket, marker_data, _removed} = PacketProcessor.process_packet_for_marker_data(packet, socket)
 
       assert marker_data == nil
       assert map_size(updated_socket.assigns.visible_packets) == 0
@@ -77,7 +77,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
       socket = build_socket(%{map_zoom: 7})
       packet = build_packet()
 
-      {_updated_socket, marker_data} = PacketProcessor.process_packet_for_marker_data(packet, socket)
+      {_updated_socket, marker_data, _removed} = PacketProcessor.process_packet_for_marker_data(packet, socket)
 
       assert marker_data == nil
     end
@@ -86,7 +86,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
       socket = build_socket()
       packet = build_packet()
 
-      {updated_socket, _marker_data} = PacketProcessor.process_packet_for_marker_data(packet, socket)
+      {updated_socket, _marker_data, _removed} = PacketProcessor.process_packet_for_marker_data(packet, socket)
 
       # Socket should not have any push_events queued
       # In LiveView, push_event adds to socket.private[:push_events]
@@ -104,7 +104,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
       # Second packet for same callsign (also no :id so key = sender)
       second_packet = %{lat: 33.2, lon: -96.4} |> build_packet() |> Map.delete(:id)
 
-      {_updated_socket, marker_data} = PacketProcessor.process_packet_for_marker_data(second_packet, socket)
+      {_updated_socket, marker_data, _removed} = PacketProcessor.process_packet_for_marker_data(second_packet, socket)
 
       assert marker_data
       assert marker_data["convert_from"] == "K5GVL-10"
@@ -114,10 +114,37 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
       socket = build_socket()
       packet = build_packet()
 
-      {_updated_socket, marker_data} = PacketProcessor.process_packet_for_marker_data(packet, socket)
+      {_updated_socket, marker_data, _removed} = PacketProcessor.process_packet_for_marker_data(packet, socket)
 
       assert marker_data
       refute Map.has_key?(marker_data, "convert_from")
+    end
+
+    test "returns removed callsign key when out-of-bounds packet had existing marker" do
+      # Set up socket with an existing visible packet
+      existing_packet = %{lat: 33.1, lon: -96.5} |> build_packet() |> Map.delete(:id)
+      socket = build_socket(%{visible_packets: %{"K5GVL-10" => existing_packet}})
+
+      # New packet from same callsign is out of bounds
+      out_of_bounds_packet = %{lat: 40.0, lon: -80.0} |> build_packet() |> Map.delete(:id)
+
+      {updated_socket, marker_data, removed_id} =
+        PacketProcessor.process_packet_for_marker_data(out_of_bounds_packet, socket)
+
+      assert marker_data == nil
+      assert removed_id == "K5GVL-10"
+      # The marker should be removed from visible_packets
+      refute Map.has_key?(updated_socket.assigns.visible_packets, "K5GVL-10")
+    end
+
+    test "returns nil removed_id for normal in-bounds packets" do
+      socket = build_socket()
+      packet = build_packet()
+
+      {_updated_socket, _marker_data, removed_id} =
+        PacketProcessor.process_packet_for_marker_data(packet, socket)
+
+      assert removed_id == nil
     end
   end
 end

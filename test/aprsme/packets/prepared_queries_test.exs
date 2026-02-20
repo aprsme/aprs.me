@@ -24,6 +24,82 @@ defmodule Aprsme.Packets.PreparedQueriesTest do
     |> Repo.insert()
   end
 
+  describe "get_latest_packets_for_callsigns/1" do
+    test "returns full packet structs for multiple callsigns" do
+      {:ok, _} =
+        create_positioned_packet(%{
+          sender: "K5GVL-10",
+          base_callsign: "K5GVL",
+          ssid: "10",
+          lat: Decimal.new("33.1000"),
+          lon: Decimal.new("-96.6000"),
+          comment: "Digi TX"
+        })
+
+      {:ok, _} =
+        create_positioned_packet(%{
+          sender: "N5TXZ-10",
+          base_callsign: "N5TXZ",
+          ssid: "10",
+          lat: Decimal.new("33.2000"),
+          lon: Decimal.new("-96.5000"),
+          comment: "iGate"
+        })
+
+      result = PreparedQueries.get_latest_packets_for_callsigns(["K5GVL-10", "N5TXZ-10"])
+
+      assert length(result) == 2
+      assert Enum.all?(result, &is_struct(&1, Packet))
+
+      senders = Enum.map(result, & &1.sender)
+      assert "K5GVL-10" in senders
+      assert "N5TXZ-10" in senders
+
+      k5gvl = Enum.find(result, &(&1.sender == "K5GVL-10"))
+      assert_in_delta k5gvl.lat, 33.1, 0.01
+      assert_in_delta k5gvl.lon, -96.6, 0.01
+    end
+
+    test "returns empty list for empty input" do
+      assert PreparedQueries.get_latest_packets_for_callsigns([]) == []
+    end
+
+    test "returns empty list for nonexistent callsigns" do
+      result = PreparedQueries.get_latest_packets_for_callsigns(["NONEXIST-1", "FAKE-2"])
+      assert result == []
+    end
+
+    test "returns latest packet when multiple exist for a callsign" do
+      {:ok, _} =
+        create_positioned_packet(%{
+          sender: "K5GVL-10",
+          base_callsign: "K5GVL",
+          ssid: "10",
+          lat: Decimal.new("33.1000"),
+          lon: Decimal.new("-96.6000"),
+          received_at: DateTime.add(DateTime.utc_now(), -3600, :second)
+        })
+
+      {:ok, _} =
+        create_positioned_packet(%{
+          sender: "K5GVL-10",
+          base_callsign: "K5GVL",
+          ssid: "10",
+          lat: Decimal.new("34.0000"),
+          lon: Decimal.new("-97.0000"),
+          received_at: DateTime.truncate(DateTime.utc_now(), :second)
+        })
+
+      result = PreparedQueries.get_latest_packets_for_callsigns(["K5GVL-10"])
+
+      assert length(result) == 1
+      packet = hd(result)
+      assert is_struct(packet, Packet)
+      assert_in_delta packet.lat, 34.0, 0.01
+      assert_in_delta packet.lon, -97.0, 0.01
+    end
+  end
+
   describe "get_latest_positions_for_callsigns/1" do
     test "returns positions for multiple callsigns" do
       {:ok, _} =

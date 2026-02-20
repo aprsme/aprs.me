@@ -36,10 +36,12 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
 
   @doc """
   Process a packet for batch display. Updates socket state but does NOT push
-  events. Returns `{socket, marker_data | nil}` where marker_data is the data
-  that should be included in a batched push_event, or nil if no marker needed.
+  events. Returns `{socket, marker_data | nil, removed_id | nil}` where
+  marker_data is the data that should be included in a batched push_event,
+  and removed_id is a callsign key that was removed from visible_packets
+  (for batched remove_markers_batch events).
   """
-  @spec process_packet_for_marker_data(map(), Socket.t()) :: {Socket.t(), map() | nil}
+  @spec process_packet_for_marker_data(map(), Socket.t()) :: {Socket.t(), map() | nil, String.t() | nil}
   def process_packet_for_marker_data(packet, socket) do
     {lat, lon, _data_extended} = CoordinateUtils.get_coordinates(packet)
     callsign_key = SharedPacketUtils.get_callsign_key(packet)
@@ -116,7 +118,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   end
 
   # Batch-mode visibility: same logic as visibility_action but returns
-  # {socket, marker_data | nil} without pushing events
+  # {socket, marker_data | nil, removed_id | nil} without pushing events
   defp batch_visibility_action(packet, lat, lon, callsign_key, socket) when not is_nil(lat) and not is_nil(lon) do
     in_bounds = within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
     has_marker = Map.has_key?(socket.assigns.visible_packets, callsign_key)
@@ -124,19 +126,21 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   end
 
   defp batch_visibility_action(_packet, _lat, _lon, _callsign_key, socket) do
-    {socket, nil}
+    {socket, nil, nil}
   end
 
-  # Out of bounds but has marker — remove it (still pushes remove_marker since
-  # removals are rare and don't benefit from batching)
+  # Out of bounds but has marker — remove state only, return the removed key
+  # so the caller can batch all removals into one push_event
   defp batch_dispatch({false, true}, _packet, _lat, _lon, callsign_key, socket) do
-    socket = remove_marker_from_map(callsign_key, socket)
-    {socket, nil}
+    new_visible_packets = Map.delete(socket.assigns.visible_packets, callsign_key)
+    socket = assign(socket, :visible_packets, new_visible_packets)
+    {socket, nil, callsign_key}
   end
 
   # In bounds, no existing marker — add it
   defp batch_dispatch({true, false}, packet, _lat, _lon, _callsign_key, socket) do
-    prepare_packet_state(packet, socket)
+    {socket, marker_data} = prepare_packet_state(packet, socket)
+    {socket, marker_data, nil}
   end
 
   # In bounds, existing marker — update if significant movement
@@ -146,15 +150,16 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
 
     if is_number(existing_lat) and is_number(existing_lon) and
          GeoUtils.significant_movement?(existing_lat, existing_lon, lat, lon, 50) do
-      prepare_packet_state(packet, socket)
+      {socket, marker_data} = prepare_packet_state(packet, socket)
+      {socket, marker_data, nil}
     else
       new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
-      {assign(socket, :visible_packets, new_visible_packets), nil}
+      {assign(socket, :visible_packets, new_visible_packets), nil, nil}
     end
   end
 
   defp batch_dispatch(_, _packet, _lat, _lon, _callsign_key, socket) do
-    {socket, nil}
+    {socket, nil, nil}
   end
 
   # Shared: updates visible_packets state and builds marker data.

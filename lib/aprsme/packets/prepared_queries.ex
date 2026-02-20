@@ -28,6 +28,27 @@ defmodule Aprsme.Packets.PreparedQueries do
   end
 
   @doc """
+  Get the latest full packet for each callsign in a single query.
+  Returns a list of `Packet` structs with lat/lon populated.
+  Uses DISTINCT ON to get only the most recent packet per callsign.
+  """
+  @spec get_latest_packets_for_callsigns(list(String.t())) :: [Packet.t()]
+  def get_latest_packets_for_callsigns([]), do: []
+
+  def get_latest_packets_for_callsigns(callsigns) when is_list(callsigns) do
+    normalized = Enum.map(callsigns, &String.upcase(String.trim(&1)))
+
+    Repo.all(
+      from(p in Packet,
+        where: fragment("upper(?)", p.sender) in ^normalized,
+        distinct: fragment("upper(?)", p.sender),
+        order_by: [asc: fragment("upper(?)", p.sender), desc: p.received_at],
+        select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
+      )
+    )
+  end
+
+  @doc """
   Get latest positions for multiple callsigns in a single query.
   Returns a list of `%{callsign: String.t(), lat: float(), lng: float()}` maps.
   Uses DISTINCT ON to get only the most recent packet per callsign.

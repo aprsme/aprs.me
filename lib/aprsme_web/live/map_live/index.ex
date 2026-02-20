@@ -850,13 +850,22 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   def handle_info({:packet_batch, packets}, socket) do
-    # Process batch: collect marker data without pushing events, then send one batch push
-    {socket, marker_data_list} =
-      Enum.reduce(packets, {socket, []}, fn packet, {acc_socket, markers} ->
-        {new_socket, marker_data} = process_packet_for_batch(packet, acc_socket)
+    # Process batch: collect marker data and removal IDs without pushing events
+    {socket, marker_data_list, removal_ids} =
+      Enum.reduce(packets, {socket, [], []}, fn packet, {acc_socket, markers, removals} ->
+        {new_socket, marker_data, removed_id} = process_packet_for_batch(packet, acc_socket)
         markers = if marker_data, do: [marker_data | markers], else: markers
-        {new_socket, markers}
+        removals = if removed_id, do: [removed_id | removals], else: removals
+        {new_socket, markers, removals}
       end)
+
+    # Push a single batched remove event for all removals
+    socket =
+      if removal_ids == [] do
+        socket
+      else
+        DisplayManager.remove_markers_batch(socket, removal_ids)
+      end
 
     socket = assign(socket, :last_update_at, DateTime.utc_now())
 
@@ -930,13 +939,8 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   def handle_info({:load_rf_path_station_packets, stations}, socket) do
-    # Load the most recent packet for each RF path station
-    station_packets =
-      stations
-      |> Enum.map(fn callsign ->
-        Packets.get_latest_packet_for_callsign(callsign)
-      end)
-      |> Enum.filter(& &1)
+    # Load the most recent packet for each RF path station in a single batch query
+    station_packets = Packets.get_latest_packets_for_callsigns(stations)
 
     socket =
       if Enum.any?(station_packets) do
@@ -1094,7 +1098,7 @@ defmodule AprsmeWeb.MapLive.Index do
         socket = assign(socket, :tracked_callsign_latest_packet, packet)
         PacketProcessor.process_packet_for_marker_data(packet, socket)
       else
-        {socket, nil}
+        {socket, nil, nil}
       end
     end
   end

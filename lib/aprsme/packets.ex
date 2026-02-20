@@ -876,6 +876,15 @@ defmodule Aprsme.Packets do
   end
 
   @doc """
+  Gets the latest full packet for each callsign in a single batch query.
+  Returns a list of `Packet` structs with lat/lon populated.
+  """
+  @spec get_latest_packets_for_callsigns(list(String.t())) :: [Packet.t()]
+  def get_latest_packets_for_callsigns(callsigns) when is_list(callsigns) do
+    PreparedQueries.get_latest_packets_for_callsigns(callsigns)
+  end
+
+  @doc """
   Gets the most recent weather packet for a callsign.
   Looks for any packet containing weather data fields.
   """

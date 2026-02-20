@@ -12,6 +12,7 @@ export interface LiveViewHookContext {
   map?: LeafletMap;
   markers?: Map<string, Marker>;
   markerStates?: Map<string, MarkerState>;
+  callsignIndex?: Map<string, Set<string>>;
   markerLayer?: LayerGroup;
   heatLayer?: HeatLayer;
   trailManager?: TrailManager;

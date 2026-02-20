@@ -454,6 +454,9 @@ let MapAPRSMap = {
     // Track marker states to prevent unnecessary operations
     self.markerStates = new Map<string, MarkerState>();
 
+    // Reverse index: callsign_group → Set of marker IDs for O(1) lookup
+    self.callsignIndex = new Map<string, Set<string>>();
+
     // Store RF path lines for hover visualization
     self.rfPathLines = [];
 
@@ -1043,7 +1046,7 @@ let MapAPRSMap = {
           data.callsign_group || data.callsign || data.id;
 
         if (incomingCallsign) {
-          // Find existing live markers for this callsign and convert them to historical dots
+          // Find existing live markers for this callsign using reverse index for O(1) lookup
           const markersToConvert: string[] = [];
 
           // Ensure markerStates exists
@@ -1052,20 +1055,19 @@ let MapAPRSMap = {
             return;
           }
 
-          self.markerStates.forEach((state, id) => {
-            const stateCallsign = state.callsign_group || state.callsign;
-            // Convert markers for the same callsign that are either live or were the
-            // most-recent marker (historical loading marks all packets as historical,
-            // so is_most_recent_for_callsign catches the "current" marker that was
-            // loaded from history)
-            if (
-              stateCallsign === incomingCallsign &&
-              (!state.historical || state.is_most_recent_for_callsign) &&
-              String(id) !== String(data.id)
-            ) {
-              markersToConvert.push(String(id));
+          const existingIds = self.callsignIndex?.get(incomingCallsign);
+          if (existingIds) {
+            for (const id of existingIds) {
+              const state = self.markerStates.get(id);
+              if (
+                state &&
+                (!state.historical || state.is_most_recent_for_callsign) &&
+                String(id) !== String(data.id)
+              ) {
+                markersToConvert.push(String(id));
+              }
             }
-          });
+          }
 
           // Convert existing live markers to historical dots by updating their icon
           markersToConvert.forEach((id) => {
@@ -1146,46 +1148,39 @@ let MapAPRSMap = {
           const serverConvertKeys = payload.convert_to_historical;
           let markersToConvert: string[] = [];
 
+          // Build set of new packet IDs to avoid converting a marker we're about to add
+          const allNewIds = new Set<string>();
+          for (const data of packets) {
+            if (data.id) allNewIds.add(String(data.id));
+          }
+
+          // Determine which callsigns need conversion
+          const callsignsToConvert: Set<string> = new Set();
           if (serverConvertKeys && serverConvertKeys.length > 0) {
-            // Server told us which callsigns have replacements — find their
-            // current marker IDs by scanning only the provided callsigns
-            const convertSet = new Set(serverConvertKeys);
-            const allNewIds = new Set<string>();
-            for (const data of packets) {
-              if (data.id) allNewIds.add(String(data.id));
-            }
-            self.markerStates.forEach((state, id) => {
-              const stateCallsign = state.callsign_group || state.callsign;
-              if (
-                stateCallsign &&
-                convertSet.has(stateCallsign) &&
-                (!state.historical || state.is_most_recent_for_callsign) &&
-                !allNewIds.has(String(id))
-              ) {
-                markersToConvert.push(String(id));
-              }
-            });
+            for (const cs of serverConvertKeys) callsignsToConvert.add(cs);
           } else {
-            // Fallback: scan all markerStates (e.g. for batches with no replacements)
-            const allNewCallsigns = new Set<string>();
-            const allNewIds = new Set<string>();
             for (const data of packets) {
               const cs = data.callsign_group || data.callsign || data.id;
-              if (cs) allNewCallsigns.add(cs);
-              if (data.id) allNewIds.add(String(data.id));
+              if (cs) callsignsToConvert.add(cs);
             }
+          }
 
-            self.markerStates.forEach((state, id) => {
-              const stateCallsign = state.callsign_group || state.callsign;
-              if (
-                stateCallsign &&
-                allNewCallsigns.has(stateCallsign) &&
-                (!state.historical || state.is_most_recent_for_callsign) &&
-                !allNewIds.has(String(id))
-              ) {
-                markersToConvert.push(String(id));
+          // Use callsignIndex for O(1) lookup per callsign instead of scanning all markerStates
+          if (self.callsignIndex) {
+            for (const cs of callsignsToConvert) {
+              const ids = self.callsignIndex.get(cs);
+              if (!ids) continue;
+              for (const id of ids) {
+                if (allNewIds.has(String(id))) continue;
+                const state = self.markerStates.get(id);
+                if (
+                  state &&
+                  (!state.historical || state.is_most_recent_for_callsign)
+                ) {
+                  markersToConvert.push(String(id));
+                }
               }
-            });
+            }
           }
 
           // Phase 2: Convert all existing live markers to historical dots
@@ -1871,6 +1866,17 @@ let MapAPRSMap = {
       callsign: data.callsign,
     });
 
+    // Update callsign reverse index
+    const csGroup = data.callsign_group || data.callsign;
+    if (csGroup && self.callsignIndex) {
+      let ids = self.callsignIndex.get(csGroup);
+      if (!ids) {
+        ids = new Set<string>();
+        self.callsignIndex.set(csGroup, ids);
+      }
+      ids.add(data.id);
+    }
+
     // Initialize trail for new marker - always add to trail for line drawing
     if (self.trailManager) {
       const isHistoricalDot =
@@ -1949,6 +1955,18 @@ let MapAPRSMap = {
         // Still clean up tracking maps even if layer removal failed
         self.markers!.delete(markerId);
         self.markerStates!.delete(markerId);
+      }
+    }
+
+    // Update callsign reverse index
+    if (markerState && self.callsignIndex) {
+      const csGroup = markerState.callsign_group || markerState.callsign;
+      if (csGroup) {
+        const ids = self.callsignIndex.get(csGroup);
+        if (ids) {
+          ids.delete(markerId);
+          if (ids.size === 0) self.callsignIndex.delete(csGroup);
+        }
       }
     }
 
@@ -2052,6 +2070,7 @@ let MapAPRSMap = {
     // Replace the markers and states with just the preserved ones
     self.markers!.clear();
     self.markerStates!.clear();
+    if (self.callsignIndex) self.callsignIndex.clear();
 
     markersToPreserve.forEach((marker, id) => {
       self.markers!.set(id, marker);
@@ -2059,6 +2078,19 @@ let MapAPRSMap = {
 
     statesToPreserve.forEach((state, id) => {
       self.markerStates!.set(id, state);
+
+      // Rebuild callsign index from preserved markers
+      if (self.callsignIndex) {
+        const csGroup = state.callsign_group || state.callsign;
+        if (csGroup) {
+          let ids = self.callsignIndex.get(csGroup);
+          if (!ids) {
+            ids = new Set<string>();
+            self.callsignIndex.set(csGroup, ids);
+          }
+          ids.add(id);
+        }
+      }
     });
 
     // Don't clear trails - keep them visible
@@ -2143,6 +2175,9 @@ let MapAPRSMap = {
     const marker = self.markers!.get(markerId);
 
     if (marker) {
+      // Get state before deletion for index cleanup
+      const state = self.markerStates!.get(markerId);
+
       try {
         // Remove marker from appropriate layer with safety checks
         if (
@@ -2174,6 +2209,18 @@ let MapAPRSMap = {
         // Still clean up tracking maps even if layer removal failed
         self.markers!.delete(markerId);
         self.markerStates!.delete(markerId);
+      }
+
+      // Update callsign reverse index
+      if (state && self.callsignIndex) {
+        const csGroup = state.callsign_group || state.callsign;
+        if (csGroup) {
+          const ids = self.callsignIndex.get(csGroup);
+          if (ids) {
+            ids.delete(markerId);
+            if (ids.size === 0) self.callsignIndex.delete(csGroup);
+          }
+        }
       }
     }
   },
@@ -2380,6 +2427,9 @@ let MapAPRSMap = {
     }
     if (self.markerStates !== undefined) {
       self.markerStates!.clear();
+    }
+    if (self.callsignIndex !== undefined) {
+      self.callsignIndex!.clear();
     }
     if (self.map !== undefined) {
       self.map!.remove();
