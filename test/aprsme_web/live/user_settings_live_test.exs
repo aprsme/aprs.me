@@ -21,6 +21,14 @@ defmodule AprsmeWeb.UserSettingsLiveTest do
       assert html =~ "Change Password"
     end
 
+    test "does not show validation errors on initial load", %{conn: conn} do
+      {:ok, _lv, html} = live(conn, ~p"/users/settings", on_error: :warn)
+
+      refute html =~ "did not change"
+      refute html =~ "can&#39;t be blank"
+      refute html =~ "can&apos;t be blank"
+    end
+
     test "redirects if user is not logged in" do
       conn = build_conn()
 

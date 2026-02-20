@@ -42,7 +42,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     value={Phoenix.HTML.Form.input_value(f, :email) || ""}
                     class={[
                       "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
-                      if(Keyword.has_key?(@email_changeset.errors, :email),
+                      if(@email_changeset.action && Keyword.has_key?(@email_changeset.errors, :email),
                         do: "outline-red-500 dark:outline-red-400",
                         else: "outline-gray-300 dark:outline-white/10"
                       )
@@ -52,7 +52,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                   />
                 </div>
                 <p
-                  :if={Keyword.has_key?(@email_changeset.errors, :email)}
+                  :if={@email_changeset.action && Keyword.has_key?(@email_changeset.errors, :email)}
                   class="mt-1 text-sm text-red-600 dark:text-red-400"
                 >
                   {translate_error(Keyword.get(@email_changeset.errors, :email))}
@@ -69,7 +69,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     value={@email_form_current_password || ""}
                     class={[
                       "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
-                      if(Keyword.has_key?(@email_changeset.errors, :current_password),
+                      if(@email_changeset.action && Keyword.has_key?(@email_changeset.errors, :current_password),
                         do: "outline-red-500 dark:outline-red-400",
                         else: "outline-gray-300 dark:outline-white/10"
                       )
@@ -79,7 +79,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                   />
                 </div>
                 <p
-                  :if={Keyword.has_key?(@email_changeset.errors, :current_password)}
+                  :if={@email_changeset.action && Keyword.has_key?(@email_changeset.errors, :current_password)}
                   class="mt-1 text-sm text-red-600 dark:text-red-400"
                 >
                   {translate_error(Keyword.get(@email_changeset.errors, :current_password))}
@@ -124,7 +124,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     value={Phoenix.HTML.Form.input_value(f, :callsign) || ""}
                     class={[
                       "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
-                      if(Keyword.has_key?(@callsign_changeset.errors, :callsign),
+                      if(@callsign_changeset.action && Keyword.has_key?(@callsign_changeset.errors, :callsign),
                         do: "outline-red-500 dark:outline-red-400",
                         else: "outline-gray-300 dark:outline-white/10"
                       )
@@ -134,7 +134,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                   />
                 </div>
                 <p
-                  :if={Keyword.has_key?(@callsign_changeset.errors, :callsign)}
+                  :if={@callsign_changeset.action && Keyword.has_key?(@callsign_changeset.errors, :callsign)}
                   class="mt-1 text-sm text-red-600 dark:text-red-400"
                 >
                   {translate_error(Keyword.get(@callsign_changeset.errors, :callsign))}
@@ -151,7 +151,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     value={@callsign_form_current_password || ""}
                     class={[
                       "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
-                      if(Keyword.has_key?(@callsign_changeset.errors, :current_password),
+                      if(@callsign_changeset.action && Keyword.has_key?(@callsign_changeset.errors, :current_password),
                         do: "outline-red-500 dark:outline-red-400",
                         else: "outline-gray-300 dark:outline-white/10"
                       )
@@ -161,7 +161,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                   />
                 </div>
                 <p
-                  :if={Keyword.has_key?(@callsign_changeset.errors, :current_password)}
+                  :if={@callsign_changeset.action && Keyword.has_key?(@callsign_changeset.errors, :current_password)}
                   class="mt-1 text-sm text-red-600 dark:text-red-400"
                 >
                   {translate_error(Keyword.get(@callsign_changeset.errors, :current_password))}
@@ -211,7 +211,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     value={Phoenix.HTML.Form.input_value(f, :password) || ""}
                     class={[
                       "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
-                      if(Keyword.has_key?(@password_changeset.errors, :password),
+                      if(@password_changeset.action && Keyword.has_key?(@password_changeset.errors, :password),
                         do: "outline-red-500 dark:outline-red-400",
                         else: "outline-gray-300 dark:outline-white/10"
                       )
@@ -221,7 +221,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                   />
                 </div>
                 <p
-                  :if={Keyword.has_key?(@password_changeset.errors, :password)}
+                  :if={@password_changeset.action && Keyword.has_key?(@password_changeset.errors, :password)}
                   class="mt-1 text-sm text-red-600 dark:text-red-400"
                 >
                   {translate_error(Keyword.get(@password_changeset.errors, :password))}
@@ -237,7 +237,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     value={Phoenix.HTML.Form.input_value(f, :password_confirmation) || ""}
                     class={[
                       "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
-                      if(Keyword.has_key?(@password_changeset.errors, :password_confirmation),
+                      if(@password_changeset.action && Keyword.has_key?(@password_changeset.errors, :password_confirmation),
                         do: "outline-red-500 dark:outline-red-400",
                         else: "outline-gray-300 dark:outline-white/10"
                       )
@@ -247,7 +247,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                   />
                 </div>
                 <p
-                  :if={Keyword.has_key?(@password_changeset.errors, :password_confirmation)}
+                  :if={@password_changeset.action && Keyword.has_key?(@password_changeset.errors, :password_confirmation)}
                   class="mt-1 text-sm text-red-600 dark:text-red-400"
                 >
                   {translate_error(Keyword.get(@password_changeset.errors, :password_confirmation))}
@@ -264,7 +264,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                     value={@current_password || ""}
                     class={[
                       "block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:focus:outline-indigo-500",
-                      if(Keyword.has_key?(@password_changeset.errors, :current_password),
+                      if(@password_changeset.action && Keyword.has_key?(@password_changeset.errors, :current_password),
                         do: "outline-red-500 dark:outline-red-400",
                         else: "outline-gray-300 dark:outline-white/10"
                       )
@@ -274,7 +274,7 @@ defmodule AprsmeWeb.UserSettingsLive do
                   />
                 </div>
                 <p
-                  :if={Keyword.has_key?(@password_changeset.errors, :current_password)}
+                  :if={@password_changeset.action && Keyword.has_key?(@password_changeset.errors, :current_password)}
                   class="mt-1 text-sm text-red-600 dark:text-red-400"
                 >
                   {translate_error(Keyword.get(@password_changeset.errors, :current_password))}
