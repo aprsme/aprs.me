@@ -208,5 +208,148 @@ defmodule Aprsme.PacketTest do
       result = Packet.extract_additional_data(attrs, "test_packet")
       assert result[:comment] == "70cm Voice (D-Star) 447.12500MHz -3.0000MHz"
     end
+
+    test "handles weather data with spaces for missing values" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "weather",
+        data_extended: %{
+          comment: "215/004g012t046r   p   P000h  b10052KU2k",
+          data_type: :weather,
+          wx: %{temperature: 46, wind_speed: 4},
+          latitude: 39.0,
+          longitude: -84.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "KU2k"
+    end
+
+    test "handles weather data with dots for missing values" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "weather",
+        data_extended: %{
+          comment: ".../...g...t...r...p...P...h..b.....My Station",
+          data_type: :weather,
+          wx: %{},
+          latitude: 43.0,
+          longitude: -79.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "My Station"
+    end
+
+    test "handles negative temperature in weather data" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "weather",
+        data_extended: %{
+          comment: "000/000g005t-12r000p000h95b10200Cold Weather Station",
+          data_type: :weather,
+          wx: %{temperature: -12, humidity: 95, wind_speed: 0},
+          latitude: 60.0,
+          longitude: 25.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "Cold Weather Station"
+    end
+
+    test "strips negative altitude from comments" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "290/054/146.520MHz/A=-00043 https://aprsdroid.org/",
+          latitude: 29.0,
+          longitude: -83.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "290/054/146.520MHz https://aprsdroid.org/"
+    end
+
+    test "strips combined PHG, altitude, and RNG from comment" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "RNG0062/A=004756 2m Voice (D-Star) 145.68750MHz",
+          latitude: 43.0,
+          longitude: 11.0,
+          radiorange: "0062"
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "2m Voice (D-Star) 145.68750MHz"
+    end
+
+    test "does not false-match comment starting with P as weather field" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "Please QSL via bureau",
+          latitude: 40.0,
+          longitude: -74.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "Please QSL via bureau"
+    end
+
+    test "does not false-match comment starting with h as weather field" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "https://aprs.fi",
+          latitude: 40.0,
+          longitude: -74.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert result[:comment] == "https://aprs.fi"
+    end
+
+    test "returns nil for nil comment" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: nil,
+          latitude: 40.0,
+          longitude: -74.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert is_nil(result[:comment])
+    end
+
+    test "returns nil for comment that becomes empty after stripping" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "PHG5530/A=000680",
+          latitude: 33.0,
+          longitude: -96.0,
+          phg: %{power: 25, height: 320, gain: 3, directivity: 0}
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+      assert is_nil(result[:comment])
+    end
   end
 end

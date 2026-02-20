@@ -785,9 +785,14 @@ defmodule Aprsme.Packet do
   defp strip_weather_data(comment) do
     case Regex.run(@wx_preamble_pattern, comment) do
       [match] ->
-        comment
-        |> String.slice(String.length(match)..-1//1)
-        |> strip_wx_fields()
+        rest = String.slice(comment, String.length(match)..-1//1)
+
+        # Only strip if at least one weather field follows the preamble
+        if match_wx_field(rest) do
+          strip_wx_fields(rest)
+        else
+          comment
+        end
 
       nil ->
         comment
