@@ -352,4 +352,210 @@ defmodule Aprsme.PacketTest do
       assert is_nil(result[:comment])
     end
   end
+
+  describe "PHG extraction" do
+    test "extracts PHG from comment string" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "PHG5530 Some comment",
+          latitude: 33.0,
+          longitude: -96.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      # PHG5530: power=5^2=25, height=10*2^5=320, gain=3, dir=0*45=0
+      assert result.data["phg_power"] == 25
+      assert result.data["phg_height"] == 320
+      assert result.data["phg_gain"] == 3
+      assert result.data["phg_directivity"] == 0
+    end
+
+    test "calculates omnidirectional antenna (digit 9 = 360 degrees)" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "PHG2369 My station",
+          latitude: 40.0,
+          longitude: -74.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      # PHG2369: power=2^2=4, height=10*2^3=80, gain=6, dir=9→360
+      assert result.data["phg_power"] == 4
+      assert result.data["phg_height"] == 80
+      assert result.data["phg_gain"] == 6
+      assert result.data["phg_directivity"] == 360
+    end
+
+    test "calculates directional antenna" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "PHG1064 Directional",
+          latitude: 35.0,
+          longitude: -80.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      # PHG1064: power=1^2=1, height=10*2^0=10, gain=6, dir=4*45=180
+      assert result.data["phg_power"] == 1
+      assert result.data["phg_height"] == 10
+      assert result.data["phg_gain"] == 6
+      assert result.data["phg_directivity"] == 180
+    end
+
+    test "extracts PHG from data_extended map" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "My station",
+          latitude: 33.0,
+          longitude: -96.0,
+          phg: %{power: 25, height: 320, gain: 3, directivity: 0}
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      assert result.data["phg_power"] == 25
+      assert result.data["phg_height"] == 320
+      assert result.data["phg_gain"] == 3
+      assert result.data["phg_directivity"] == 0
+    end
+
+    test "extracts PHG from data_extended string format" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "My station",
+          latitude: 33.0,
+          longitude: -96.0,
+          phg: "5530"
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      assert result.data["phg_power"] == 25
+      assert result.data["phg_height"] == 320
+      assert result.data["phg_gain"] == 3
+      assert result.data["phg_directivity"] == 0
+    end
+
+    test "handles zero PHG values" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "PHG0000 Minimal",
+          latitude: 33.0,
+          longitude: -96.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      # PHG0000: power=0^2=0, height=10*2^0=10, gain=0, dir=0*45=0
+      assert result.data["phg_power"] == 0
+      assert result.data["phg_height"] == 10
+      assert result.data["phg_gain"] == 0
+      assert result.data["phg_directivity"] == 0
+    end
+  end
+
+  describe "altitude extraction" do
+    test "extracts standard altitude from comment" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "Some info /A=001234 more info",
+          latitude: 33.0,
+          longitude: -96.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      assert result[:altitude] == 1234.0
+    end
+
+    test "extracts altitude from data_extended map" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "My station",
+          latitude: 33.0,
+          longitude: -96.0,
+          altitude: 5280.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      assert result[:altitude] == 5280.0
+    end
+
+    test "extracts zero altitude" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "/A=000000 ground level",
+          latitude: 33.0,
+          longitude: -96.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      assert result[:altitude] == 0.0
+    end
+
+    test "returns nil when no altitude present" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "Just a plain comment",
+          latitude: 33.0,
+          longitude: -96.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      assert is_nil(result[:altitude])
+    end
+
+    test "prefers data_extended altitude over comment-extracted altitude" do
+      attrs = %{
+        sender: "TEST",
+        data_type: "position",
+        data_extended: %{
+          comment: "/A=001000 info",
+          latitude: 33.0,
+          longitude: -96.0,
+          altitude: 9999.0
+        }
+      }
+
+      result = Packet.extract_additional_data(attrs, "test_packet")
+
+      assert result[:altitude] == 9999.0
+    end
+  end
 end
