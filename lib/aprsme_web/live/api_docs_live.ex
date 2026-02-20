@@ -686,54 +686,54 @@ defmodule AprsmeWeb.ApiDocsLive do
                   </div>
                 </div>
               </form>
-              
+            </div>
+            
     <!-- Error Display -->
-              <%= if @error do %>
-                <div class="rounded-md bg-red-50 p-4 dark:bg-red-500/10 mt-4">
-                  <div class="flex">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="shrink-0 h-6 w-6 text-red-700 dark:text-red-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
+            <%= if @error do %>
+              <div class="rounded-md bg-red-50 p-4 dark:bg-red-500/10 mt-4 max-w-md">
+                <div class="flex">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="shrink-0 h-6 w-6 text-red-700 dark:text-red-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span class="ml-3 text-sm text-red-700 dark:text-red-400">{@error}</span>
+                </div>
+              </div>
+            <% end %>
+            
+    <!-- Results Display -->
+            <%= if @api_result do %>
+              <div class="mt-4">
+                <h4 class="text-lg font-medium mb-2">API Response</h4>
+
+                <div class="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                  <div class="flex items-center mb-3">
+                    <svg class="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
                       <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        fill-rule="evenodd"
+                        d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"
+                        clip-rule="evenodd"
                       />
                     </svg>
-                    <span class="ml-3 text-sm text-red-700 dark:text-red-400">{@error}</span>
+                    <span class="font-medium">JSON Response</span>
+                  </div>
+
+                  <div class="bg-gray-900 text-gray-100 dark:bg-gray-950 p-4 rounded text-sm overflow-x-auto">
+                    <pre><%= @api_result %></pre>
                   </div>
                 </div>
-              <% end %>
-              
-    <!-- Results Display -->
-              <%= if @api_result do %>
-                <div class="mt-4">
-                  <h4 class="text-lg font-medium mb-2">API Response</h4>
-
-                  <div class="bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div class="flex items-center mb-3">
-                      <svg class="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path
-                          fill-rule="evenodd"
-                          d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                      <span class="font-medium">JSON Response</span>
-                    </div>
-
-                    <div class="bg-gray-900 text-gray-100 dark:bg-gray-950 p-4 rounded text-sm overflow-x-auto">
-                      <pre><%= @api_result %></pre>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
-            </div>
+              </div>
+            <% end %>
           </div>
         </div>
         
