@@ -12,7 +12,7 @@
                 {@callsign}
               </span>
               <% {symbol_table_id, symbol_code} =
-                AprsmeWeb.MapLive.PacketUtils.get_symbol_info(@weather_packet) %>
+                AprsmeWeb.Live.Shared.PacketUtils.get_symbol_info(@weather_packet) %>
               <% symbol_table =
                 if symbol_table_id in ["/", "\\", "]"], do: symbol_table_id, else: "/" %>
               <% symbol_code = (symbol_code || ">") |> to_string() %>

@@ -18,7 +18,6 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.Live.Shared.CoordinateUtils
   alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
   alias AprsmeWeb.Live.Shared.ParamUtils
-  alias AprsmeWeb.MapLive.BoundsManager
   alias AprsmeWeb.MapLive.DataBuilder
   alias AprsmeWeb.MapLive.DisplayManager
   alias AprsmeWeb.MapLive.HistoricalLoader
@@ -83,7 +82,7 @@ defmodule AprsmeWeb.MapLive.Index do
       )
 
     # Calculate initial bounds
-    initial_bounds = BoundsManager.calculate_bounds_from_center_and_zoom(final_map_center, final_map_zoom)
+    initial_bounds = BoundsUtils.calculate_bounds_from_center_and_zoom(final_map_center, final_map_zoom)
 
     # Final socket assignment
     {:ok,

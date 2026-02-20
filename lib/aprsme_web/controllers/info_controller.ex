@@ -2,7 +2,7 @@ defmodule AprsmeWeb.InfoController do
   use AprsmeWeb, :controller
 
   alias Aprsme.Packets
-  alias AprsmeWeb.MapLive.PacketUtils
+  alias AprsmeWeb.Live.Shared.PacketUtils
 
   @neighbor_radius_km 10
   @neighbor_limit 10

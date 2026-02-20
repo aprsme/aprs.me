@@ -151,7 +151,7 @@ defmodule Aprsme.Packets do
   defp to_decimal_safe(nil), do: {:error, :nil_value}
 
   defp to_decimal_safe(value) do
-    case to_decimal(value) do
+    case Aprsme.EncodingUtils.to_decimal(value) do
       nil -> {:error, :conversion_failed}
       decimal -> {:ok, decimal}
     end
@@ -329,7 +329,7 @@ defmodule Aprsme.Packets do
   defp extract_position(packet_data) do
     # Check for lat/lon at top level
     if not is_nil(packet_data[:lat]) and not is_nil(packet_data[:lon]) do
-      {to_float(packet_data.lat), to_float(packet_data.lon)}
+      {Aprsme.EncodingUtils.to_float(packet_data.lat), Aprsme.EncodingUtils.to_float(packet_data.lon)}
     else
       extract_position_from_data_extended(packet_data[:data_extended])
     end
@@ -354,7 +354,7 @@ defmodule Aprsme.Packets do
   defp has_standard_position?(_), do: false
 
   defp extract_standard_position(data_extended) when is_map(data_extended) and not is_struct(data_extended) do
-    {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
+    {Aprsme.EncodingUtils.to_float(data_extended[:latitude]), Aprsme.EncodingUtils.to_float(data_extended[:longitude])}
   end
 
   defp extract_standard_position(_), do: {nil, nil}
@@ -761,12 +761,6 @@ defmodule Aprsme.Packets do
     {:ok, deleted_count}
   end
 
-  # Helper to convert various types to float
-  defp to_float(value), do: Aprsme.EncodingUtils.to_float(value)
-
-  # Helper to convert various types to Decimal
-  defp to_decimal(value), do: Aprsme.EncodingUtils.to_decimal(value)
-
   # Get packets from last hour only - used to initialize the map
   @spec get_last_hour_packets() :: [struct()]
   def get_last_hour_packets do
@@ -779,82 +773,6 @@ defmodule Aprsme.Packets do
       Logger.error("Failed to get last hour packets: #{inspect(error)}")
       []
   end
-
-  # @doc """
-  # Spatial query functions for efficient location-based searches using PostGIS
-  # """
-
-  # Temporarily commented out PostGIS functions until PostGIS is properly configured
-
-  # @doc """
-  # Find packets within a given radius (in meters) of a point.
-  # Uses PostGIS spatial indexes for efficient querying.
-  # """
-  # def find_packets_within_radius(lat, lon, radius_meters, opts \\ %{}) do
-  #   point = %Geo.Point{coordinates: {lon, lat}, srid: 4326}
-
-  #   base_query =
-  #     Packet
-  #     |> where([p], not is_nil(p.location))
-  #     |> where([p], st_dwithin_in_meters(p.location, ^point, ^radius_meters))
-  #     |> order_by([p], st_distance(p.location, ^point))
-
-  #   base_query
-  #   |> apply_common_filters(opts)
-  #   |> maybe_limit(opts)
-  #   |> Repo.all()
-  # end
-
-  # Additional PostGIS functions commented out for now...
-
-  # Helper functions for spatial queries - commented out for now
-
-  # defp apply_common_filters(query, opts) do
-  #   query
-  #   |> filter_by_time_range(opts)
-  #   |> filter_by_callsign(opts)
-  #   |> filter_by_data_type(opts)
-  # end
-
-  # defp filter_by_time_range(query, %{start_time: start_time, end_time: end_time}) do
-  #   from p in query,
-  #     where: p.received_at >= ^start_time and p.received_at <= ^end_time
-  # end
-
-  # defp filter_by_time_range(query, %{start_time: start_time}) do
-  #   from p in query, where: p.received_at >= ^start_time
-  # end
-
-  # defp filter_by_time_range(query, %{end_time: end_time}) do
-  #   from p in query, where: p.received_at <= ^end_time
-  # end
-
-  # defp filter_by_time_range(query, %{hours_back: hours}) do
-  #   cutoff_time = DateTime.utc_now() |> DateTime.add(-hours, :hour)
-  #   from p in query, where: p.received_at >= ^cutoff_time
-  # end
-
-  # defp filter_by_time_range(query, _), do: query
-
-  # defp filter_by_data_type(query, %{data_type: data_type}) do
-  #   from p in query, where: p.data_type == ^data_type
-  # end
-
-  # defp filter_by_data_type(query, _), do: query
-
-  # defp maybe_limit(query, %{limit: limit}) when is_integer(limit) and limit > 0 do
-  #   from p in query, limit: ^limit
-  # end
-
-  # defp maybe_limit(query, _), do: query
-
-  # Calculate clustering distance based on zoom level
-  # Higher zoom levels need smaller clustering distances
-  # defp calculate_cluster_distance(zoom_level) when zoom_level >= 15, do: 100    # 100m
-  # defp calculate_cluster_distance(zoom_level) when zoom_level >= 12, do: 500    # 500m
-  # defp calculate_cluster_distance(zoom_level) when zoom_level >= 9, do: 2000    # 2km
-  # defp calculate_cluster_distance(zoom_level) when zoom_level >= 6, do: 10000   # 10km
-  # defp calculate_cluster_distance(_), do: 50000                                 # 50km
 
   @doc """
   Gets the most recent packet for a callsign regardless of type or age.

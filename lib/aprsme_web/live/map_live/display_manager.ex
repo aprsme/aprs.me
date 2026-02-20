@@ -4,7 +4,7 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
   """
 
   alias Aprsme.Packets.Clustering
-  alias AprsmeWeb.MapLive.BoundsManager
+  alias AprsmeWeb.Live.Shared.BoundsUtils
   alias AprsmeWeb.MapLive.DataBuilder
   alias Phoenix.LiveView
   alias Phoenix.LiveView.Socket
@@ -50,7 +50,7 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
     # Filter by bounds
     filtered_packets =
       all_packets
-      |> BoundsManager.filter_packets_by_bounds(socket.assigns.map_bounds)
+      |> BoundsUtils.filter_packets_by_bounds(socket.assigns.map_bounds)
       |> Enum.uniq_by(fn packet ->
         Map.get(packet, :id) || Map.get(packet, "id")
       end)

@@ -1,66 +1,22 @@
 defmodule AprsmeWeb.MapLive.PacketUtils do
   @moduledoc """
-  Shared utilities for extracting and processing packet data in map views.
+  Map-specific packet utilities. Provides weather-check queries against the
+  database and a convenience wrapper for weather field display.
+
+  For general packet field access, symbol info, timestamps, callsign
+  generation, and weather-packet detection, use
+  `AprsmeWeb.Live.Shared.PacketUtils` directly.
+
+  For building marker/popup data, use `AprsmeWeb.MapLive.DataBuilder` directly.
   """
 
   alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
-  alias AprsmeWeb.Live.Shared.ParamUtils
   alias AprsmeWeb.MapLive.DataBuilder
-
-  @doc """
-  Safely extracts a value from a packet or data_extended map with fallback support.
-  Checks both atom and string keys, and provides a default value.
-  """
-  @spec get_packet_field(map(), atom() | String.t(), any()) :: any()
-  def get_packet_field(packet, field, default \\ nil) do
-    SharedPacketUtils.get_packet_field(packet, field, default)
-  end
-
-  @doc """
-  Extracts symbol information from a packet with fallbacks.
-  """
-  @spec get_symbol_info(map()) :: {String.t(), String.t()}
-  def get_symbol_info(packet) do
-    SharedPacketUtils.get_symbol_info(packet)
-  end
-
-  @doc """
-  Extracts timestamp from a packet in ISO8601 format.
-  """
-  @spec get_timestamp(map()) :: String.t()
-  def get_timestamp(packet) do
-    SharedPacketUtils.get_timestamp(packet)
-  end
-
-  @doc """
-  Converts various numeric types to float for consistent display.
-  """
-  @spec to_float(any()) :: float()
-  def to_float(value) do
-    ParamUtils.to_float(value)
-  end
-
-  @doc """
-  Generates a callsign string with SSID if present.
-  """
-  @spec generate_callsign(map()) :: String.t()
-  def generate_callsign(packet) do
-    SharedPacketUtils.generate_callsign(packet)
-  end
-
-  @doc """
-  Determines if a packet is a weather packet.
-  """
-  @spec weather_packet?(map()) :: boolean()
-  def weather_packet?(packet) do
-    SharedPacketUtils.weather_packet?(packet)
-  end
 
   @doc """
   Checks if a station has sent weather packets by looking at recent packets.
   """
   @spec has_weather_packets?(String.t()) :: boolean()
-  # Get recent packets for this callsign and check if any are weather packets
   def has_weather_packets?(callsign) when is_binary(callsign) do
     query = build_weather_check_query(callsign)
     Aprsme.Repo.exists?(query)
@@ -95,7 +51,7 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
   def convert_tuples_to_strings(other), do: other
 
   @doc """
-  Extracts weather field data with fallback support.
+  Extracts weather field data with "N/A" fallback for display.
   """
   @spec get_weather_field(map(), atom()) :: String.t()
   def get_weather_field(packet, key) do
@@ -105,12 +61,10 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
     end
   end
 
-  # These functions have been moved to AprsmeWeb.MapLive.DataBuilder
+  # Keep build_packet_data delegations for backward compatibility with tests
   defdelegate build_packet_data(packet, is_most_recent_for_callsign, locale), to: DataBuilder
   defdelegate build_packet_data(packet, is_most_recent_for_callsign), to: DataBuilder
   defdelegate build_packet_data(packet), to: DataBuilder
-
-  # All packet data building functions have been moved to AprsmeWeb.MapLive.DataBuilder
 
   defp build_weather_check_query(callsign) do
     import Ecto.Query

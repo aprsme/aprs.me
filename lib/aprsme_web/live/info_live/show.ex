@@ -143,10 +143,10 @@ defmodule AprsmeWeb.InfoLive.Show do
 
   defp position_changed?(current_packet, new_packet) do
     # Compare lat/lon to see if position actually changed
-    current_lat = to_float_safe(current_packet.lat)
-    current_lon = to_float_safe(current_packet.lon)
-    new_lat = to_float_safe(new_packet.lat)
-    new_lon = to_float_safe(new_packet.lon)
+    current_lat = EncodingUtils.to_float(current_packet.lat)
+    current_lon = EncodingUtils.to_float(current_packet.lon)
+    new_lat = EncodingUtils.to_float(new_packet.lat)
+    new_lon = EncodingUtils.to_float(new_packet.lon)
 
     # If any coordinate is invalid, consider it a change
     case {current_lat, current_lon, new_lat, new_lon} do
@@ -274,10 +274,6 @@ defmodule AprsmeWeb.InfoLive.Show do
     r * c
   end
 
-  # Safe float conversion that preserves nil for invalid coordinates
-  defp to_float_safe(value), do: EncodingUtils.to_float(value)
-
-  # Legacy float conversion that defaults to 0.0 for backward compatibility
   defp to_float(value), do: EncodingUtils.to_float(value) || 0.0
 
   defp format_timestamp_for_display(packet) do

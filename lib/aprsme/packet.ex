@@ -6,6 +6,7 @@ defmodule Aprsme.Packet do
 
   alias Aprs.Types.MicE
   alias Aprsme.DataExtended
+  alias AprsmeWeb.Live.Shared.CoordinateUtils
 
   schema "packets" do
     field(:base_callsign, :string)
@@ -217,37 +218,14 @@ defmodule Aprsme.Packet do
   end
 
   defp valid_coordinates?(lat, lon) do
-    lat = normalize_coordinate(lat)
-    lon = normalize_coordinate(lon)
-
-    is_number(lat) && is_number(lon) &&
-      lat >= -90 && lat <= 90 &&
-      lon >= -180 && lon <= 180
+    CoordinateUtils.valid_coordinates_any_type?(lat, lon)
   end
 
-  defp normalize_coordinate(%Decimal{} = decimal), do: Decimal.to_float(decimal)
-  defp normalize_coordinate(coord), do: coord
-
-  # Convert atom data_type to string for storage
-  defp normalize_data_type(%{data_type: data_type} = attrs) when is_atom(data_type) do
-    %{attrs | data_type: to_string(data_type)}
+  defp normalize_coordinate(coord) do
+    CoordinateUtils.normalize_coordinate(coord)
   end
 
-  defp normalize_data_type(%{"data_type" => data_type} = attrs) when is_atom(data_type) do
-    %{attrs | "data_type" => to_string(data_type)}
-  end
-
-  defp normalize_data_type(attrs) when is_map(attrs) do
-    case {Map.has_key?(attrs, :data_type), Map.get(attrs, :data_type)} do
-      {true, data_type} when is_atom(data_type) ->
-        %{attrs | data_type: to_string(data_type)}
-
-      _ ->
-        attrs
-    end
-  end
-
-  defp normalize_data_type(attrs), do: attrs
+  defp normalize_data_type(attrs), do: Aprsme.EncodingUtils.normalize_data_type(attrs)
 
   @doc """
   Extracts additional data from the raw packet and data_extended structure
@@ -613,88 +591,6 @@ defmodule Aprsme.Packet do
   defp maybe_put(map, _key, ""), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
-  # @doc """
-  # Spatial query functions for efficient location-based searches
-  # """
-  # Temporarily commented out until PostGIS is properly configured
-
-  # @doc """
-  # Find packets within a given radius (in meters) of a point.
-  # """
-  # def within_radius(query \\ __MODULE__, lat, lon, radius_meters) do
-  #   point = %Geo.Point{coordinates: {lon, lat}, srid: 4326}
-
-  #   from p in query,
-  #     where: st_dwithin_in_meters(p.location, ^point, ^radius_meters),
-  #     where: not is_nil(p.location)
-  # end
-
-  # @doc """
-  # Find packets within a bounding box defined by southwest and northeast corners.
-  # """
-  # def within_bbox(query \\ __MODULE__, sw_lat, sw_lon, ne_lat, ne_lon) do
-  #   # Create a polygon representing the bounding box
-  #   bbox = %Geo.Polygon{
-  #     coordinates: [[
-  #       {sw_lon, sw_lat},
-  #       {ne_lon, sw_lat},
-  #       {ne_lon, ne_lat},
-  #       {sw_lon, ne_lat},
-  #       {sw_lon, sw_lat}
-  #     ]],
-  #     srid: 4326
-  #   }
-
-  #   from p in query,
-  #     where: st_within(p.location, ^bbox),
-  #     where: not is_nil(p.location)
-  # end
-
-  # @doc """
-  # Find packets ordered by distance from a given point.
-  # """
-  # def nearest_to(query \\ __MODULE__, lat, lon, limit \\ 100) do
-  #   point = %Geo.Point{coordinates: {lon, lat}, srid: 4326}
-
-  #   from p in query,
-  #     where: not is_nil(p.location),
-  #     order_by: st_distance(p.location, ^point),
-  #     limit: ^limit,
-  #     select: %{p | distance: st_distance_in_meters(p.location, ^point)}
-  # end
-
-  # @doc """
-  # Find recent packets with location data within the last N hours.
-  # """
-  # def recent_with_location(query \\ __MODULE__, hours_back \\ 24) do
-  #   cutoff_time = DateTime.utc_now() |> DateTime.add(-hours_back, :hour)
-
-  #   from p in query,
-  #     where: p.has_position == true,
-  #     where: not is_nil(p.location),
-  #     where: p.received_at > ^cutoff_time,
-  #     order_by: [desc: p.received_at]
-  # end
-
-  # @doc """
-  # Get statistics for packets in a geographic area.
-  # """
-  # def location_stats(query \\ __MODULE__, lat, lon, radius_meters) do
-  #   point = %Geo.Point{coordinates: {lon, lat}, srid: 4326}
-
-  #   from p in query,
-  #     where: st_dwithin_in_meters(p.location, ^point, ^radius_meters),
-  #     where: not is_nil(p.location),
-  #     group_by: p.base_callsign,
-  #     select: %{
-  #       callsign: p.base_callsign,
-  #       packet_count: count(p.id),
-  #       latest_position: max(p.received_at),
-  #       avg_lat: avg(fragment("ST_Y(?)", p.location)),
-  #       avg_lon: avg(fragment("ST_X(?)", p.location))
-  #     }
-  # end
-
   @doc """
   Create a geometry point from lat/lon coordinates.
   """
@@ -731,19 +627,6 @@ defmodule Aprsme.Packet do
   @spec lon(Aprsme.Packet.t()) :: number() | nil
   def lon(%__MODULE__{location: %Geo.Point{coordinates: {lon, _lat}}}), do: lon
   def lon(_), do: nil
-
-  # @doc """
-  # Calculate distance between two packets in meters.
-  # """
-  # def distance_between(%__MODULE__{location: %Geo.Point{} = p1}, %__MODULE__{location: %Geo.Point{} = p2}) do
-  #   Repo.one(
-  #     from p in "packets",
-  #       select: fragment("ST_Distance_Sphere(?, ?)", ^p1, ^p2),
-  #       limit: 1
-  #   )
-  # end
-
-  # def distance_between(_, _), do: nil
 
   # Clean comment by removing altitude and PHG data
   defp clean_comment(nil), do: nil

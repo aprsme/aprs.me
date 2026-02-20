@@ -9,6 +9,7 @@ defmodule Aprsme.PacketConsumer do
   alias Aprsme.Cluster.PacketDistributor
   alias Aprsme.LogSanitizer
   alias Aprsme.Repo
+  alias AprsmeWeb.Live.Shared.CoordinateUtils
 
   require Logger
 
@@ -449,16 +450,12 @@ defmodule Aprsme.PacketConsumer do
 
   # Helper functions for coordinate validation and point creation
   defp valid_coordinates?(lat, lon) do
-    lat = normalize_coordinate(lat)
-    lon = normalize_coordinate(lon)
-
-    is_number(lat) && is_number(lon) &&
-      lat >= -90 && lat <= 90 &&
-      lon >= -180 && lon <= 180
+    CoordinateUtils.valid_coordinates_any_type?(lat, lon)
   end
 
-  defp normalize_coordinate(%Decimal{} = decimal), do: Decimal.to_float(decimal)
-  defp normalize_coordinate(coord), do: coord
+  defp normalize_coordinate(coord) do
+    CoordinateUtils.normalize_coordinate(coord)
+  end
 
   defp create_point(lat, lon)
        when (is_number(lat) or is_struct(lat, Decimal)) and (is_number(lon) or is_struct(lon, Decimal)) do
@@ -615,7 +612,7 @@ defmodule Aprsme.PacketConsumer do
 
   defp extract_position(packet_data) do
     if not is_nil(packet_data[:lat]) and not is_nil(packet_data[:lon]) do
-      {to_float(packet_data.lat), to_float(packet_data.lon)}
+      {Aprsme.EncodingUtils.to_float(packet_data.lat), Aprsme.EncodingUtils.to_float(packet_data.lon)}
     else
       extract_position_from_data_extended(packet_data[:data_extended])
     end
@@ -640,7 +637,7 @@ defmodule Aprsme.PacketConsumer do
   defp has_standard_position?(_), do: false
 
   defp extract_standard_position(data_extended) when is_map(data_extended) and not is_struct(data_extended) do
-    {to_float(data_extended[:latitude]), to_float(data_extended[:longitude])}
+    {Aprsme.EncodingUtils.to_float(data_extended[:latitude]), Aprsme.EncodingUtils.to_float(data_extended[:longitude])}
   end
 
   defp extract_standard_position(_), do: {nil, nil}
@@ -648,7 +645,7 @@ defmodule Aprsme.PacketConsumer do
   defp extract_position_from_data_extended_case(data_extended) do
     lat = extract_lat_from_ext_map(data_extended)
     lon = extract_lon_from_ext_map(data_extended)
-    {to_float(lat), to_float(lon)}
+    {Aprsme.EncodingUtils.to_float(lat), Aprsme.EncodingUtils.to_float(lon)}
   end
 
   defp extract_lat_from_ext_map(ext_map) do
@@ -690,8 +687,6 @@ defmodule Aprsme.PacketConsumer do
   end
 
   defp sanitize_packet_strings(value), do: Aprsme.EncodingUtils.sanitize_packet_strings(value)
-
-  defp to_float(value), do: Aprsme.EncodingUtils.to_float(value)
 
   defp normalize_data_type(attrs), do: Aprsme.EncodingUtils.normalize_data_type(attrs)
 

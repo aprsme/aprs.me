@@ -66,6 +66,27 @@ defmodule AprsmeWeb.Live.Shared.CoordinateUtils do
   def valid_coordinates?(_, _), do: false
 
   @doc """
+  Validate coordinates that may be Decimals, floats, or integers.
+  Normalizes Decimals to floats before checking range.
+  """
+  @spec valid_coordinates_any_type?(any(), any()) :: boolean()
+  def valid_coordinates_any_type?(lat, lon) do
+    lat = normalize_coordinate(lat)
+    lon = normalize_coordinate(lon)
+
+    is_number(lat) && is_number(lon) &&
+      lat >= -90 && lat <= 90 &&
+      lon >= -180 && lon <= 180
+  end
+
+  @doc """
+  Normalize a coordinate value, converting Decimals to floats.
+  """
+  @spec normalize_coordinate(any()) :: number() | any()
+  def normalize_coordinate(%Decimal{} = decimal), do: Decimal.to_float(decimal)
+  def normalize_coordinate(coord), do: coord
+
+  @doc """
   Calculate distance between two lat/lon points in meters using Haversine formula.
   """
   @spec calculate_distance_meters(number(), number(), number(), number()) :: float()

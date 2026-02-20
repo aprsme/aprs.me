@@ -1,6 +1,7 @@
 defmodule AprsmeWeb.MapLive.PacketUtilsTest do
   use ExUnit.Case, async: true
 
+  alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
   alias AprsmeWeb.MapLive.PacketUtils
 
   describe "weather popup generation" do
@@ -282,7 +283,7 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
         temperature: 75
       }
 
-      assert PacketUtils.weather_packet?(weather_packet)
+      assert SharedPacketUtils.weather_packet?(weather_packet)
     end
 
     test "identifies weather packets with humidity" do
@@ -293,7 +294,7 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
         humidity: 80
       }
 
-      assert PacketUtils.weather_packet?(weather_packet)
+      assert SharedPacketUtils.weather_packet?(weather_packet)
     end
 
     test "does not identify non-weather packets" do
@@ -303,7 +304,7 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
         symbol_code: ">"
       }
 
-      refute PacketUtils.weather_packet?(regular_packet)
+      refute SharedPacketUtils.weather_packet?(regular_packet)
     end
 
     test "has_weather_packets? returns false for non-existent callsign" do
@@ -383,7 +384,7 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
         ssid: "1"
       }
 
-      assert PacketUtils.generate_callsign(packet) == "TEST-1"
+      assert SharedPacketUtils.generate_callsign(packet) == "TEST-1"
     end
 
     test "generates callsign without SSID" do
@@ -392,7 +393,7 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
         ssid: nil
       }
 
-      assert PacketUtils.generate_callsign(packet) == "TEST"
+      assert SharedPacketUtils.generate_callsign(packet) == "TEST"
     end
 
     test "generates callsign with empty SSID" do
@@ -401,7 +402,7 @@ defmodule AprsmeWeb.MapLive.PacketUtilsTest do
         ssid: ""
       }
 
-      assert PacketUtils.generate_callsign(packet) == "TEST"
+      assert SharedPacketUtils.generate_callsign(packet) == "TEST"
     end
   end
 end

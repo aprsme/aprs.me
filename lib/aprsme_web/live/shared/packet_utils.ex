@@ -94,19 +94,7 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
   """
   @spec has_weather_data?(map()) :: boolean()
   def has_weather_data?(packet) do
-    weather_fields = [
-      :temperature,
-      :humidity,
-      :pressure,
-      :wind_speed,
-      :wind_direction,
-      :rain_1h,
-      :rain_24h,
-      :rain_since_midnight,
-      :snow
-    ]
-
-    Enum.any?(weather_fields, fn field ->
+    Enum.any?(Aprsme.EncodingUtils.weather_fields(), fn field ->
       value = get_packet_field(packet, field, nil)
       not is_nil(value)
     end)
