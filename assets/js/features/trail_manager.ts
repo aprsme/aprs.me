@@ -54,6 +54,8 @@ export class TrailManager {
   private minSegmentPoints: number = 3; // minimum points in a segment to draw it
   private onTrailHover?: (lat: number, lng: number, path: string) => void;
   private onTrailHoverEnd?: () => void;
+  private trailHoverDebounceTimer?: ReturnType<typeof setTimeout>;
+  private lastHoveredPath?: string;
 
   constructor(
     trailLayer: LayerGroup,
@@ -423,18 +425,35 @@ export class TrailManager {
             const hoverCb = this.onTrailHover;
             const hoverEndCb = this.onTrailHoverEnd;
 
-            trailState.trail.on("mouseover", (e: L.LeafletMouseEvent) => {
+            trailState.trail.on("mousemove", (e: L.LeafletMouseEvent) => {
               const nearest = this.findNearestPositionWithPath(
                 e.latlng.lat,
                 e.latlng.lng,
                 positions,
               );
-              if (nearest) {
-                hoverCb(nearest.lat, nearest.lng, nearest.path!);
+              if (!nearest) return;
+
+              if (this.trailHoverDebounceTimer) {
+                clearTimeout(this.trailHoverDebounceTimer);
+              }
+              const mouseLat = e.latlng.lat;
+              const mouseLng = e.latlng.lng;
+              const path = nearest.path!;
+              // Only push to server when the path changes; just reposition locally otherwise
+              if (path !== this.lastHoveredPath) {
+                this.lastHoveredPath = path;
+                this.trailHoverDebounceTimer = setTimeout(() => {
+                  hoverCb(mouseLat, mouseLng, path);
+                }, 50);
               }
             });
 
             trailState.trail.on("mouseout", () => {
+              this.lastHoveredPath = undefined;
+              if (this.trailHoverDebounceTimer) {
+                clearTimeout(this.trailHoverDebounceTimer);
+                this.trailHoverDebounceTimer = undefined;
+              }
               hoverEndCb();
             });
           }
