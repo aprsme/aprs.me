@@ -25,3 +25,10 @@ time-bounded queries. This is a significant migration effort.
 Changed `:aprsme` from `write_concurrency` to `read_concurrency`. The only write is
 `:message_number` increment. If message throughput increases significantly, consider using
 `:atomics` or `:counters` instead of ETS for the message counter.
+
+## JS callsign→markerID reverse index
+
+The `new_packets` handler still scans all `markerStates` when converting old markers to
+historical dots. The server now sends `convert_to_historical` callsign keys which narrows
+the search, but the scan is O(markerStates) in the worst case. A `Map<callsign, Set<markerId>>`
+reverse index maintained by `addMarker`/`removeMarker` would make this O(1).
