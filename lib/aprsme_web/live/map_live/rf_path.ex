@@ -4,7 +4,7 @@ defmodule AprsmeWeb.MapLive.RfPath do
   """
 
   alias Aprsme.Packets
-  alias AprsmeWeb.MapLive.Utils
+  alias AprsmeWeb.Live.Shared.ParamUtils
 
   # APRS aliases that are not real stations
   @path_aliases ~w(WIDE WIDE1 WIDE2 WIDE3 WIDE4 WIDE5 WIDE6 WIDE7
@@ -89,7 +89,7 @@ defmodule AprsmeWeb.MapLive.RfPath do
   end
 
   defp validate_path_callsign(callsign) do
-    if Utils.valid_callsign?(callsign) do
+    if ParamUtils.valid_callsign?(callsign) do
       callsign
     else
       ""

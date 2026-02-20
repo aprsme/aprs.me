@@ -37,7 +37,7 @@ defmodule AprsmeWeb.Plugs.RateLimiter do
     limit = opts[:limit]
     error_message = opts[:error_message]
 
-    case Aprsme.RateLimiterWrapper.hit("rate_limit:#{key}", scale, limit) do
+    case Aprsme.RateLimiter.hit("rate_limit:#{key}", scale, limit) do
       {:allow, _count} ->
         conn
 

@@ -6,8 +6,8 @@ defmodule AprsmeWeb.MapLive.Navigation do
   import Phoenix.Component, only: [assign: 3]
 
   alias Aprsme.Packets
+  alias AprsmeWeb.Live.Shared.ParamUtils
   alias AprsmeWeb.MapLive.UrlParams
-  alias AprsmeWeb.MapLive.Utils
   alias Phoenix.LiveView
   alias Phoenix.LiveView.Socket
 
@@ -68,7 +68,7 @@ defmodule AprsmeWeb.MapLive.Navigation do
   def handle_callsign_search("", socket), do: {:noreply, socket}
 
   def handle_callsign_search(callsign, socket) do
-    if Utils.valid_callsign?(callsign) do
+    if ParamUtils.valid_callsign?(callsign) do
       # Navigate to the new URL structure with the callsign as a path param
       {:noreply, LiveView.push_navigate(socket, to: "/#{callsign}")}
     else

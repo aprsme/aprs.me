@@ -100,9 +100,7 @@ defmodule Aprsme.MixProject do
       {:igniter, "~> 0.7.0", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
       {:styler, "~> 1.10", only: :dev, runtime: false},
-      # {:httpoison, "~> 1.8"},
       {:hammer, "~> 7.0"},
-      {:cachex, "~> 4.1"},
       {:gettext_pseudolocalize, "~> 0.1"}
     ]
   end
@@ -136,12 +134,7 @@ defmodule Aprsme.MixProject do
   end
 
   defp aprs_dep do
-    # {:aprs, path: "vendor/aprs"}
-    if Mix.env() in [:dev, :test] do
-      {:aprs, github: "aprsme/aprs", branch: "main"}
-    else
-      {:aprs, github: "aprsme/aprs", branch: "main"}
-    end
+    {:aprs, github: "aprsme/aprs", branch: "main"}
   end
 
   # Copy Gleam BEAM files to the release

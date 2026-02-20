@@ -42,7 +42,6 @@ defmodule Aprsme.Application do
       {Registry, keys: :duplicate, name: Registry.PubSub, partitions: System.schedulers_online()},
       # Start cleanup scheduler for periodic packet cleanup
       Aprsme.CleanupScheduler,
-      Aprsme.Presence,
       Aprsme.PostgresNotifier,
       # Start deployment notifier
       Aprsme.DeploymentNotifier,
@@ -176,40 +175,6 @@ defmodule Aprsme.Application do
   defp pubsub_config do
     {Phoenix.PubSub, name: Aprsme.PubSub}
   end
-
-  # Removed - Exq configuration is now in runtime.exs
-  # defp exq_config do
-  #   redis_url = System.get_env("REDIS_URL", "redis://localhost:6379")
-  #
-  #   {Exq,
-  #    name: Exq,
-  #    host: parse_redis_host(redis_url),
-  #    port: parse_redis_port(redis_url),
-  #    password: parse_redis_password(redis_url),
-  #    database: parse_redis_database(redis_url),
-  #    concurrency: :infinite,
-  #    queues: [
-  #      {"default", 10},
-  #      {"maintenance", 2}
-  #    ],
-  #    scheduler_enable: true,
-  #    scheduler_poll_timeout: 200,
-  #    poll_timeout: 50,
-  #    redis_timeout: 5000}
-  # end
-
-  # Removed - Redis parsing functions no longer needed
-  # Exq configuration is now handled in runtime.exs
-
-  # Removed - Exq is now started automatically via config
-  # defp maybe_add_exq(children) do
-  #   env = Application.get_env(:aprsme, :env)
-  #   if env == :test do
-  #     children
-  #   else
-  #     children ++ [exq_config()]
-  #   end
-  # end
 
   defp redis_children do
     require Logger

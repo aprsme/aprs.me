@@ -182,10 +182,15 @@ defmodule Aprsme.ShutdownHandler do
     Logger.info("Current connections - WebSockets: #{websocket_count}, HTTP: #{http_count}")
   end
 
-  # Count active WebSocket connections through presence tracking
+  # Estimate WebSocket connections via endpoint supervisor children
   defp count_websocket_connections do
-    presences = Aprsme.Presence.list("map:live")
-    map_size(presences)
+    endpoint_pid = Process.whereis(AprsmeWeb.Endpoint)
+
+    if endpoint_pid do
+      Supervisor.count_children(endpoint_pid).active
+    else
+      0
+    end
   rescue
     _ -> 0
   end
