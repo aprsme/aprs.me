@@ -305,6 +305,109 @@ defmodule Aprsme.PacketsTest do
     end
   end
 
+  describe "get_recent_packets_for_map/1" do
+    setup do
+      now = DateTime.utc_now()
+
+      PacketsFixtures.packet_fixture(%{
+        sender: "MAP1",
+        received_at: DateTime.add(now, -1800, :second),
+        lat: 39.8,
+        lon: -98.5,
+        comment: "test comment",
+        symbol_table_id: "/",
+        symbol_code: ">",
+        temperature: 72.0,
+        humidity: 45.0
+      })
+
+      PacketsFixtures.packet_fixture(%{
+        sender: "MAP2",
+        received_at: DateTime.add(now, -3600, :second),
+        lat: 39.9,
+        lon: -98.4,
+        object_name: "TestObj"
+      })
+
+      PacketsFixtures.packet_fixture(%{
+        sender: "OLD_MAP",
+        received_at: DateTime.add(now, -48 * 3600, :second),
+        lat: 40.0,
+        lon: -98.3
+      })
+
+      :ok
+    end
+
+    test "returns maps with only needed fields" do
+      results = Packets.get_recent_packets_for_map(%{hours_back: 24})
+
+      assert length(results) >= 2
+      first = hd(results)
+
+      # Should be a map, not a Packet struct
+      refute is_struct(first, Packet)
+      assert is_map(first)
+
+      # Should have the essential fields
+      assert Map.has_key?(first, :id)
+      assert Map.has_key?(first, :sender)
+      assert Map.has_key?(first, :lat)
+      assert Map.has_key?(first, :lon)
+      assert Map.has_key?(first, :received_at)
+      assert Map.has_key?(first, :symbol_table_id)
+      assert Map.has_key?(first, :symbol_code)
+      assert Map.has_key?(first, :comment)
+      assert Map.has_key?(first, :path)
+      assert Map.has_key?(first, :object_name)
+      assert Map.has_key?(first, :item_name)
+
+      # Should have weather fields
+      assert Map.has_key?(first, :temperature)
+      assert Map.has_key?(first, :humidity)
+
+      # Should NOT have heavy fields
+      refute Map.has_key?(first, :raw_packet)
+      refute Map.has_key?(first, :information_field)
+      refute Map.has_key?(first, :body)
+      refute Map.has_key?(first, :data_extended)
+    end
+
+    test "respects time filtering" do
+      results = Packets.get_recent_packets_for_map(%{hours_back: 1})
+      callsigns = Enum.map(results, & &1.sender)
+
+      assert "MAP1" in callsigns
+      refute "OLD_MAP" in callsigns
+    end
+
+    test "respects bounds filtering" do
+      bounds = [-99.0, 39.5, -98.0, 40.5]
+      results = Packets.get_recent_packets_for_map(%{hours_back: 24, bounds: bounds})
+      callsigns = Enum.map(results, & &1.sender)
+
+      assert "MAP1" in callsigns
+      refute "OLD_MAP" in callsigns
+    end
+
+    test "respects limit and offset" do
+      results = Packets.get_recent_packets_for_map(%{hours_back: 24, limit: 1})
+      assert length(results) == 1
+    end
+
+    test "filters by callsign" do
+      results = Packets.get_recent_packets_for_map(%{hours_back: 24, callsign: "MAP1"})
+      assert length(results) == 1
+      assert hd(results).sender == "MAP1"
+    end
+
+    test "includes object_name for APRS objects" do
+      results = Packets.get_recent_packets_for_map(%{hours_back: 24})
+      map2 = Enum.find(results, &(&1.sender == "MAP2"))
+      assert map2.object_name == "TestObj"
+    end
+  end
+
   describe "get_nearby_stations/4" do
     setup do
       # Create stations at various distances

@@ -97,6 +97,39 @@ defmodule Aprsme.Packets.QueryBuilder do
   end
 
   @doc """
+  Selects only the fields needed for map display as a plain map.
+  Returns ~22 columns instead of all 73, reducing I/O significantly.
+  """
+  @spec select_map_fields(Ecto.Query.t()) :: Ecto.Query.t()
+  def select_map_fields(query) do
+    from p in query,
+      select: %{
+        id: p.id,
+        sender: p.sender,
+        object_name: p.object_name,
+        item_name: p.item_name,
+        lat: fragment("?::float8", p.lat),
+        lon: fragment("?::float8", p.lon),
+        received_at: p.received_at,
+        symbol_table_id: p.symbol_table_id,
+        symbol_code: p.symbol_code,
+        comment: p.comment,
+        path: p.path,
+        temperature: p.temperature,
+        humidity: p.humidity,
+        wind_direction: p.wind_direction,
+        wind_speed: p.wind_speed,
+        wind_gust: p.wind_gust,
+        pressure: p.pressure,
+        rain_1h: p.rain_1h,
+        rain_24h: p.rain_24h,
+        rain_since_midnight: p.rain_since_midnight,
+        snow: p.snow,
+        luminosity: p.luminosity
+      }
+  end
+
+  @doc """
   Filters by region if provided in options.
   """
   @spec maybe_filter_region(Ecto.Query.t(), map() | keyword()) :: Ecto.Query.t()

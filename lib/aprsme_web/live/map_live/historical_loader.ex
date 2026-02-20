@@ -231,7 +231,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
         params = build_query_params(query_params)
         Logger.debug("HistoricalLoader: Querying packets with params: #{inspect(params)}")
 
-        recent_packets = Packets.get_recent_packets(params)
+        recent_packets = Packets.get_recent_packets_for_map(params)
         Logger.debug("HistoricalLoader: Got #{length(recent_packets)} packets")
 
         maybe_include_latest_packet(recent_packets, query_params.callsign, batch_offset)

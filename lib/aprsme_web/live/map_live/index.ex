@@ -259,7 +259,6 @@ defmodule AprsmeWeb.MapLive.Index do
   defp assign_defaults(socket, one_hour_ago) do
     assign(socket,
       packets: [],
-      all_packets: %{},
       visible_packets: %{},
       historical_packets: %{},
       page_title: "APRS Map",
@@ -330,15 +329,10 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_event("clear_and_reload_markers", _params, socket) do
-    # Get current visible packets from PacketManager
-    current_packets = PacketManager.get_visible_packets(socket.assigns.packet_state)
-
     # Filter by time and bounds
     filtered_packets =
       filter_packets_by_time_and_bounds_with_tracked(
-        Map.new(current_packets, fn packet ->
-          {get_callsign_key(packet), packet}
-        end),
+        socket.assigns.visible_packets,
         socket.assigns.map_bounds,
         socket.assigns.packet_age_threshold,
         socket.assigns.tracked_callsign,
@@ -1749,32 +1743,21 @@ defmodule AprsmeWeb.MapLive.Index do
     # Schedule next cleanup
     Process.send_after(self(), :cleanup_old_packets, 60_000)
 
-    # Use the current packet_age_threshold instead of hardcoded one hour
     threshold = socket.assigns.packet_age_threshold
 
-    # Remove expired packets using PacketManager predicate
-    updated_packet_state =
-      PacketManager.remove_packets_where(socket.assigns.packet_state, fn packet ->
-        SharedPacketUtils.packet_within_time_threshold?(packet, threshold)
+    # Partition visible_packets into kept and expired
+    {kept, expired_keys} =
+      Enum.reduce(socket.assigns.visible_packets, {%{}, []}, fn {key, packet}, {kept_acc, expired_acc} ->
+        if SharedPacketUtils.packet_within_time_threshold?(packet, threshold) do
+          {Map.put(kept_acc, key, packet), expired_acc}
+        else
+          {kept_acc, [key | expired_acc]}
+        end
       end)
 
-    # Get expired packet IDs that need to be removed from client
-    current_packets = PacketManager.get_visible_packets(socket.assigns.packet_state)
-    remaining_packets = PacketManager.get_visible_packets(updated_packet_state)
-
-    remaining_keys = MapSet.new(remaining_packets, &get_callsign_key/1)
-
-    expired_keys =
-      current_packets
-      |> Enum.reject(fn current_packet ->
-        MapSet.member?(remaining_keys, get_callsign_key(current_packet))
-      end)
-      |> Enum.map(&get_callsign_key/1)
-
-    # Only update the client if there are expired markers
     socket = DisplayManager.remove_markers_batch(socket, expired_keys)
 
-    {:noreply, assign(socket, packet_state: updated_packet_state)}
+    {:noreply, assign(socket, :visible_packets, kept)}
   end
 
   defp handle_update_time_display(socket) do
@@ -2008,11 +1991,8 @@ defmodule AprsmeWeb.MapLive.Index do
     )
 
     # Remove out-of-bounds packets and markers immediately
-    current_packets = PacketManager.get_visible_packets(socket.assigns.packet_state)
-    current_packets_map = Map.new(current_packets, fn packet -> {get_callsign_key(packet), packet} end)
-
-    new_visible_packets = BoundsUtils.filter_packets_by_bounds(current_packets_map, map_bounds)
-    packets_to_remove = BoundsUtils.reject_packets_by_bounds(current_packets_map, map_bounds)
+    new_visible_packets = BoundsUtils.filter_packets_by_bounds(socket.assigns.visible_packets, map_bounds)
+    packets_to_remove = BoundsUtils.reject_packets_by_bounds(socket.assigns.visible_packets, map_bounds)
 
     # Remove markers for out-of-bounds packets
     socket = remove_markers_batch(socket, packets_to_remove)

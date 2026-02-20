@@ -539,6 +539,45 @@ defmodule Aprsme.Packets do
   end
 
   @doc """
+  Gets recent packets for map display with only the columns needed for rendering.
+  Returns maps (not full Packet structs) to avoid loading all 73 columns.
+  """
+  @spec get_recent_packets_for_map(map()) :: [map()]
+  def get_recent_packets_for_map(opts \\ %{}) do
+    hours_back = Map.get(opts, :hours_back, 24)
+    time_ago = DateTime.add(DateTime.utc_now(), -hours_back * 3600, :second)
+    limit = Map.get(opts, :limit, 200)
+    offset = Map.get(opts, :offset, 0)
+
+    callsign = opts[:callsign]
+    normalized_callsign = if is_binary(callsign), do: String.trim(callsign), else: ""
+
+    base_query =
+      if normalized_callsign == "" do
+        from(p in Packet,
+          where: p.has_position == true,
+          where: p.received_at >= ^time_ago
+        )
+      else
+        from(p in Packet,
+          where: p.received_at >= ^time_ago
+        )
+      end
+
+    bounds = Map.get(opts, :bounds)
+
+    base_query
+    |> QueryBuilder.maybe_filter_region(opts)
+    |> maybe_filter_by_callsign(opts)
+    |> maybe_filter_by_bounds(bounds)
+    |> order_by(desc: :received_at)
+    |> limit(^limit)
+    |> offset(^offset)
+    |> QueryBuilder.select_map_fields()
+    |> Repo.all()
+  end
+
+  @doc """
   Gets the closest stations to a given point.
   Uses PostGIS spatial indexes for efficient querying.
   Returns only the most recent packet per callsign, ordered by distance.

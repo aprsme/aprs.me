@@ -15,7 +15,6 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   alias Phoenix.LiveView.Socket
 
   @max_visible_packets 1000
-  @max_all_packets 2000
 
   @doc """
   Process a packet for display on the map.
@@ -24,18 +23,6 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   def process_packet_for_display(packet, socket) do
     {lat, lon, _data_extended} = CoordinateUtils.get_coordinates(packet)
     callsign_key = SharedPacketUtils.get_callsign_key(packet)
-
-    # Update all_packets with memory limit
-    all_packets = Map.put(socket.assigns.all_packets, callsign_key, packet)
-
-    all_packets =
-      if map_size(all_packets) > @max_all_packets do
-        SharedPacketUtils.prune_oldest_packets(all_packets, @max_all_packets)
-      else
-        all_packets
-      end
-
-    socket = assign(socket, :all_packets, all_packets)
 
     # Handle packet visibility logic
     socket = handle_packet_visibility(packet, lat, lon, callsign_key, socket)
