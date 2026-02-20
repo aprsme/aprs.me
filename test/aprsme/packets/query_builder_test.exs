@@ -5,26 +5,22 @@ defmodule Aprsme.Packets.QueryBuilderTest do
 
   alias Aprsme.Packet
   alias Aprsme.Packets.QueryBuilder
+  alias Aprsme.PacketsFixtures
 
   describe "within_bounds/2" do
     test "filters packets within normal bounds" do
-      # Create test packets
-      {:ok, inside} =
-        Aprsme.Repo.insert(%Packet{
+      inside =
+        PacketsFixtures.packet_fixture(%{
           sender: "TEST-1",
-          lat: 40.5,
-          lon: -73.5,
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lat: Decimal.new("40.5"),
+          lon: Decimal.new("-73.5")
         })
 
-      {:ok, _outside} =
-        Aprsme.Repo.insert(%Packet{
+      _outside =
+        PacketsFixtures.packet_fixture(%{
           sender: "TEST-2",
-          lat: 50.0,
-          lon: -73.5,
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lat: Decimal.new("50.0"),
+          lon: Decimal.new("-73.5")
         })
 
       # Test normal bounds [west, south, east, north]
@@ -36,32 +32,25 @@ defmodule Aprsme.Packets.QueryBuilderTest do
     end
 
     test "handles antimeridian crossing bounds" do
-      # Create test packets
-      {:ok, west_side} =
-        Aprsme.Repo.insert(%Packet{
+      west_side =
+        PacketsFixtures.packet_fixture(%{
           sender: "WEST-1",
-          lat: 0.0,
-          lon: 175.0,
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lat: Decimal.new("0.0"),
+          lon: Decimal.new("175.0")
         })
 
-      {:ok, east_side} =
-        Aprsme.Repo.insert(%Packet{
+      east_side =
+        PacketsFixtures.packet_fixture(%{
           sender: "EAST-1",
-          lat: 0.0,
-          lon: -175.0,
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lat: Decimal.new("0.0"),
+          lon: Decimal.new("-175.0")
         })
 
-      {:ok, _middle} =
-        Aprsme.Repo.insert(%Packet{
+      _middle =
+        PacketsFixtures.packet_fixture(%{
           sender: "MIDDLE-1",
-          lat: 0.0,
-          lon: 0.0,
-          has_position: true,
-          received_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lat: Decimal.new("0.0"),
+          lon: Decimal.new("0.0")
         })
 
       # Test antimeridian crossing bounds [west=170, south=-10, east=-170, north=10]
@@ -85,6 +74,28 @@ defmodule Aprsme.Packets.QueryBuilderTest do
 
       # Test with non-numeric values
       assert QueryBuilder.within_bounds(original_query, ["a", "b", "c", "d"]) == original_query
+    end
+  end
+
+  describe "weather_only/1" do
+    test "filters to weather packets using has_weather column" do
+      _weather =
+        PacketsFixtures.packet_fixture(%{
+          sender: "WX-QBT",
+          temperature: 72.0,
+          has_weather: true
+        })
+
+      _non_weather =
+        PacketsFixtures.packet_fixture(%{
+          sender: "NOWX-QBT",
+          comment: "No weather"
+        })
+
+      query = QueryBuilder.weather_only(Packet)
+      results = Aprsme.Repo.all(query)
+
+      assert Enum.all?(results, fn p -> p.has_weather == true end)
     end
   end
 end

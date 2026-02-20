@@ -121,17 +121,18 @@ defmodule Aprsme.Packets.QueryBuilder do
   @spec within_bounds(Ecto.Query.t(), list(number())) :: Ecto.Query.t()
   def within_bounds(query, [west, south, east, north])
       when is_number(west) and is_number(south) and is_number(east) and is_number(north) do
-    # Handle antimeridian crossing (e.g., west=170, east=-170)
+    # Use ST_MakeEnvelope with && operator to leverage GiST spatial index on location column
     if west > east do
+      # Handle antimeridian crossing with two envelopes: [west, 180] and [-180, east]
       from p in query,
         where: p.has_position == true,
-        where: p.lat >= ^south and p.lat <= ^north,
-        where: p.lon >= ^west or p.lon <= ^east
+        where:
+          fragment("? && ST_MakeEnvelope(?, ?, 180, ?, 4326)", p.location, ^west, ^south, ^north) or
+            fragment("? && ST_MakeEnvelope(-180, ?, ?, ?, 4326)", p.location, ^south, ^east, ^north)
     else
       from p in query,
         where: p.has_position == true,
-        where: p.lat >= ^south and p.lat <= ^north,
-        where: p.lon >= ^west and p.lon <= ^east
+        where: fragment("? && ST_MakeEnvelope(?, ?, ?, ?, 4326)", p.location, ^west, ^south, ^east, ^north)
     end
   end
 
