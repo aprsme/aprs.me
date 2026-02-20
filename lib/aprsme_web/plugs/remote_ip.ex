@@ -11,15 +11,21 @@ defmodule AprsmeWeb.Plugs.RemoteIp do
 
   import Plug.Conn
 
+  require Logger
+
   @impl true
   def init(opts), do: opts
 
   @impl true
   def call(conn, _opts) do
-    case get_client_ip(conn) do
-      {:ok, ip} -> %{conn | remote_ip: ip}
-      :error -> conn
-    end
+    conn =
+      case get_client_ip(conn) do
+        {:ok, ip} -> %{conn | remote_ip: ip}
+        :error -> conn
+      end
+
+    Logger.metadata(remote_ip: conn.remote_ip |> :inet.ntoa() |> to_string())
+    conn
   end
 
   defp get_client_ip(conn) do

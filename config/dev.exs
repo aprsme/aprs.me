@@ -85,7 +85,7 @@ config :hammer,
 # The `http:` config above can be replaced with:
 #
 #     https: [
-config :logger, :console, format: "[$level] $message\n"
+config :logger, :console, format: "[$level] $metadata$message\n", metadata: [:remote_ip]
 
 # Initialize plugs at runtime for faster development compilation
 #       port: 4001,
