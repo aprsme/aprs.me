@@ -42,6 +42,7 @@ RUN mix compile && \
 # Runtime stage
 FROM ${RUNNER_IMAGE}
 
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
     libstdc++6 openssl libncurses6 locales ca-certificates && \
