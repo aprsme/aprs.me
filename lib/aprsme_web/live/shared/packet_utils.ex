@@ -103,8 +103,7 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
       :rain_1h,
       :rain_24h,
       :rain_since_midnight,
-      :snow,
-      :luminosity
+      :snow
     ]
 
     Enum.any?(weather_fields, fn field ->

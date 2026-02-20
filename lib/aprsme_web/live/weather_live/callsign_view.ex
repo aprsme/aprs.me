@@ -193,7 +193,7 @@ defmodule AprsmeWeb.WeatherLive.CallsignView do
         rain_1h: rain_1h_value,
         rain_24h: rain_24h_value,
         rain_since_midnight: rain_since_midnight_value,
-        luminosity: pkt.luminosity
+        luminosity: get_in(pkt.data || %{}, ["luminosity"])
       }
     end)
     |> Jason.encode!()

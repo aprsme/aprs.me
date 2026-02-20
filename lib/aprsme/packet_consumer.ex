@@ -486,9 +486,10 @@ defmodule Aprsme.PacketConsumer do
   end
 
   defp object_packet?(attrs) do
+    info_field = get_in(attrs, [:data, "information_field"])
+
     attrs[:data_type] == "object" or attrs["data_type"] == "object" or
-      (is_binary(attrs[:information_field]) and
-         String.starts_with?(attrs[:information_field], ";"))
+      (is_binary(info_field) and String.starts_with?(info_field, ";"))
   end
 
   defp item_packet?(attrs) do
@@ -496,9 +497,11 @@ defmodule Aprsme.PacketConsumer do
   end
 
   defp apply_object_fields(attrs) do
+    info_field = get_in(attrs, [:data, "information_field"])
+
     object_name =
       extract_object_name(attrs) ||
-        extract_object_name_from_info_field(attrs[:information_field])
+        extract_object_name_from_info_field(info_field)
 
     attrs
     |> Map.put(:object_name, object_name)
@@ -587,7 +590,6 @@ defmodule Aprsme.PacketConsumer do
     |> Map.put_new(:base_callsign, attrs[:sender])
     |> Map.put_new(:data_type, "unknown")
     |> Map.put_new(:destination, "")
-    |> Map.put_new(:information_field, "")
     |> Map.put_new(:path, "")
     |> Map.put_new(:ssid, "")
     |> Map.put_new(:data_extended, %{})
@@ -741,9 +743,7 @@ defmodule Aprsme.PacketConsumer do
       :rain_since_midnight,
       :snow,
       :speed,
-      :altitude,
-      :posresolution,
-      :rain_midnight
+      :altitude
     ]
 
     Enum.reduce(float_fields, attrs, fn field, acc ->

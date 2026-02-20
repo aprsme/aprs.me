@@ -21,7 +21,7 @@ defmodule Aprsme.PacketsEncodingTest do
       }
 
       assert {:ok, stored_packet} = Packets.store_packet(packet_data)
-      assert stored_packet.information_field == "Valid UTF-8: ñ, é, 中文, 🚀"
+      assert stored_packet.data["information_field"] == "Valid UTF-8: ñ, é, 中文, 🚀"
       assert stored_packet.comment == "More UTF-8: αβγ, русский"
     end
 
@@ -68,8 +68,6 @@ defmodule Aprsme.PacketsEncodingTest do
       }
 
       assert {:ok, stored_packet} = Packets.store_packet(packet_data)
-      # Empty strings may be stored as nil or empty string depending on Ecto behavior
-      assert stored_packet.information_field in [nil, ""]
       assert stored_packet.path in [nil, ""]
       assert is_nil(stored_packet.comment)
     end
@@ -90,8 +88,8 @@ defmodule Aprsme.PacketsEncodingTest do
       }
 
       assert {:ok, stored_packet} = Packets.store_packet(packet_data)
-      # Control characters should be filtered out
-      assert stored_packet.information_field == "Control chars:"
+      # Control characters should be filtered out, field is now in data map
+      assert stored_packet.data["information_field"] == "Control chars:"
     end
   end
 

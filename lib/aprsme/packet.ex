@@ -11,7 +11,6 @@ defmodule Aprsme.Packet do
     field(:base_callsign, :string)
     field(:data_type, :string)
     field(:destination, :string)
-    field(:information_field, :string)
     field(:path, :string)
     field(:sender, :string)
     field(:ssid, :string)
@@ -45,54 +44,21 @@ defmodule Aprsme.Packet do
     field(:snow, :float)
 
     # Equipment/status information
-    field(:luminosity, :integer)
     field(:manufacturer, :string)
     field(:equipment_type, :string)
     field(:course, :integer)
     field(:speed, :float)
     field(:altitude, :float)
 
-    # Position ambiguity level (0-4)
-    field(:position_ambiguity, :integer)
-
-    # Position resolution and format
-    field(:posresolution, :float)
-    field(:format, :string)
-
-    # PHG (Power-Height-Gain) fields
-    field(:phg_power, :integer)
-    field(:phg_height, :integer)
-    field(:phg_gain, :integer)
-    field(:phg_directivity, :integer)
-
     # Message-specific fields
     field(:addressee, :string)
     field(:message_text, :string)
     field(:message_number, :string)
 
-    # Telemetry fields
-    field(:telemetry_seq, :integer)
-    field(:telemetry_vals, {:array, :integer})
-    field(:telemetry_bits, :string)
-
-    # Radio range field
-    field(:radiorange, :string)
-
-    # Standard parser compatibility fields
-    field(:srccallsign, :string)
-    field(:dstcallsign, :string)
-    field(:body, :string)
-    field(:origpacket, :string)
-    field(:header, :string)
-    field(:alive, :integer, default: 1)
-    field(:posambiguity, :integer)
-    field(:symboltable, :string)
-    field(:symbolcode, :string)
-    field(:messaging, :integer)
-
-    # Additional weather fields
-    field(:rain_midnight, :float)
     field(:has_weather, :boolean, default: false)
+
+    # JSONB column for display-only fields (PHG, telemetry, radiorange, etc.)
+    field(:data, :map, default: %{})
 
     field(:device_identifier, :string)
 
@@ -123,7 +89,6 @@ defmodule Aprsme.Packet do
       :base_callsign,
       :data_type,
       :destination,
-      :information_field,
       :path,
       :sender,
       :ssid,
@@ -149,38 +114,16 @@ defmodule Aprsme.Packet do
       :rain_24h,
       :rain_since_midnight,
       :snow,
-      :luminosity,
       :manufacturer,
       :equipment_type,
       :course,
       :speed,
       :altitude,
-      :position_ambiguity,
-      :posresolution,
-      :format,
-      :phg_power,
-      :phg_height,
-      :phg_gain,
-      :phg_directivity,
       :addressee,
       :message_text,
       :message_number,
-      :telemetry_seq,
-      :telemetry_vals,
-      :telemetry_bits,
-      :radiorange,
-      :srccallsign,
-      :dstcallsign,
-      :body,
-      :origpacket,
-      :header,
-      :alive,
-      :posambiguity,
-      :symboltable,
-      :symbolcode,
-      :messaging,
-      :rain_midnight,
       :has_weather,
+      :data,
       :device_identifier,
       :item_name,
       :object_name,
@@ -345,8 +288,12 @@ defmodule Aprsme.Packet do
           %{}
       end
 
-    # Merge all extracted data
-    merge_extracted_data(base_attrs, additional_data, attrs)
+    # Merge all extracted data, then sweep display-only fields into data map
+    # and strip dead parser compat fields
+    base_attrs
+    |> merge_extracted_data(additional_data, attrs)
+    |> collect_into_data_map()
+    |> strip_dead_fields()
   end
 
   defp add_symbol_data(base_attrs, attrs) do
@@ -366,16 +313,39 @@ defmodule Aprsme.Packet do
         put_telemetry_fields(%{}, attrs)
       end
 
-    # Process standard parser fields and radio range from top-level attrs
-    parser_data =
-      %{}
-      |> put_standard_parser_fields(attrs)
-      |> put_radio_range_field(attrs)
+    # Process radio range from top-level attrs
+    radio_range_data = put_radio_range_field(%{}, attrs)
 
     base_attrs
     |> Map.merge(additional_data)
     |> Map.merge(telemetry_data)
-    |> Map.merge(parser_data)
+    |> Map.merge(radio_range_data)
+  end
+
+  # Fields that get swept into the JSONB `data` column
+  @data_fields ~w[telemetry_seq telemetry_vals telemetry_bits phg_power phg_height
+    phg_gain phg_directivity radiorange information_field format posresolution
+    position_ambiguity luminosity rain_midnight]a
+
+  defp collect_into_data_map(attrs) do
+    {data_values, remaining} =
+      Enum.reduce(@data_fields, {%{}, attrs}, fn field, {data, rest} ->
+        case Map.pop(rest, field) do
+          {nil, rest} -> {data, rest}
+          {value, rest} -> {Map.put(data, to_string(field), value), rest}
+        end
+      end)
+
+    existing_data = Map.get(remaining, :data, %{}) || %{}
+    Map.put(remaining, :data, Map.merge(existing_data, data_values))
+  end
+
+  # Dead parser compat fields — never read, safe to strip
+  @dead_fields ~w[srccallsign dstcallsign origpacket body header alive
+    posambiguity symboltable symbolcode messaging]a
+
+  defp strip_dead_fields(attrs) do
+    Map.drop(attrs, @dead_fields)
   end
 
   # Extract data from standard map-based data_extended
@@ -407,7 +377,6 @@ defmodule Aprsme.Packet do
     result =
       %{}
       |> put_symbol_fields(combined_data)
-      |> put_standard_parser_fields(combined_data)
       |> extract_weather_data(combined_data)
       |> put_weather_fields(combined_data)
       |> put_equipment_fields(combined_data)
@@ -860,21 +829,6 @@ defmodule Aprsme.Packet do
   defp normalize_format_field(format) when is_atom(format), do: to_string(format)
   defp normalize_format_field(format) when is_binary(format), do: format
   defp normalize_format_field(_), do: nil
-
-  # Extract standard parser compatibility fields
-  defp put_standard_parser_fields(map, data) do
-    map
-    |> maybe_put(:srccallsign, get_field_value(data, :srccallsign))
-    |> maybe_put(:dstcallsign, get_field_value(data, :dstcallsign))
-    |> maybe_put(:body, get_field_value(data, :body))
-    |> maybe_put(:origpacket, get_field_value(data, :origpacket))
-    |> maybe_put(:header, get_field_value(data, :header))
-    |> maybe_put(:alive, get_field_value(data, :alive))
-    |> maybe_put(:posambiguity, get_field_value(data, :posambiguity))
-    |> maybe_put(:symboltable, get_field_value(data, :symboltable))
-    |> maybe_put(:symbolcode, get_field_value(data, :symbolcode))
-    |> maybe_put(:messaging, get_field_value(data, :messaging))
-  end
 
   # Extract radio range field
   defp put_radio_range_field(map, data) do

@@ -31,7 +31,7 @@ defmodule AprsmeWeb.Api.V1.CallsignJSON do
       destination: packet.destination,
       path: packet.path,
       data_type: packet.data_type,
-      information_field: packet.information_field,
+      information_field: get_in(packet.data || %{}, ["information_field"]),
       raw_packet: sanitize_raw_packet(packet.raw_packet),
       received_at: packet.received_at,
       region: packet.region,

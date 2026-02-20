@@ -60,12 +60,13 @@
                   </td>
                   <td>
                     <span class="text-sm font-mono">
-                      <%= if String.length(packet.information_field || "") > 50 do %>
-                        <span title={packet.information_field}>
-                          {String.slice(packet.information_field, 0, 50)}...
+                      <% info_field = (packet.data || %{})["information_field"] || "" %>
+                      <%= if String.length(info_field) > 50 do %>
+                        <span title={info_field}>
+                          {String.slice(info_field, 0, 50)}...
                         </span>
                       <% else %>
-                        {packet.information_field}
+                        {info_field}
                       <% end %>
                     </span>
                   </td>

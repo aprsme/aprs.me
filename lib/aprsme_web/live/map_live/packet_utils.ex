@@ -119,7 +119,7 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
       where: p.sender == ^callsign,
       where:
         fragment(
-          "? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL",
+          "? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ?->>'luminosity' IS NOT NULL OR ?->>'rain_midnight' IS NOT NULL",
           p.temperature,
           p.humidity,
           p.pressure,
@@ -128,9 +128,9 @@ defmodule AprsmeWeb.MapLive.PacketUtils do
           p.wind_gust,
           p.rain_1h,
           p.rain_24h,
-          p.rain_midnight,
-          p.luminosity,
-          p.snow_24h
+          p.snow,
+          p.data,
+          p.data
         ),
       select: fragment("1"),
       limit: 1

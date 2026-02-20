@@ -9,51 +9,34 @@ defmodule Aprsme.PacketFieldWhitelist do
   # Using string list to handle both atom and string keys consistently
   @allowed_fields ~w[
     addressee
-    alive
     altitude
     aprs_messaging
     base_callsign
-    body
     comment
     course
     dao
+    data
     data_type
     destination
     device_identifier
-    dstcallsign
     equipment_type
-    format
     has_position
     has_weather
-    header
     humidity
-    information_field
     is_item
     is_object
     item_name
     lat
     location
     lon
-    luminosity
     manufacturer
     message_number
     message_text
-    messaging
     object_name
-    origpacket
     path
-    phg_directivity
-    phg_gain
-    phg_height
-    phg_power
-    posambiguity
-    position_ambiguity
-    posresolution
     pressure
-    radiorange
     rain_1h
     rain_24h
-    rain_midnight
     rain_since_midnight
     raw_packet
     received_at
@@ -61,15 +44,9 @@ defmodule Aprsme.PacketFieldWhitelist do
     sender
     snow
     speed
-    srccallsign
     ssid
     symbol_code
     symbol_table_id
-    symbolcode
-    symboltable
-    telemetry_bits
-    telemetry_seq
-    telemetry_vals
     temperature
     timestamp
     wind_direction

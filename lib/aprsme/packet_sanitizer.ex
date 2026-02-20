@@ -19,31 +19,27 @@ defmodule Aprsme.PacketSanitizer do
     timestamp: 50,
     message_number: 20,
     addressee: 50,
-    symboltable: 5,
-    symbolcode: 5,
-    srccallsign: 20,
-    dstcallsign: 20,
 
     # These fields can be longer but still have sanity limits
     path: 500,
     manufacturer: 100,
     equipment_type: 100,
-    format: 100,
     device_identifier: 255,
     item_name: 100,
     object_name: 100,
 
-    # Very long fields - these will be TEXT in DB but we still
-    # want to prevent abuse with extremely long data
-    information_field: 5000,
+    # Very long fields
     raw_packet: 5000,
     comment: 2000,
-    message_text: 2000,
-    body: 5000,
-    origpacket: 5000,
-    header: 1000,
-    radiorange: 1000,
-    telemetry_bits: 1000
+    message_text: 2000
+  }
+
+  # Max lengths for string values inside the JSONB `data` map
+  @data_string_max_lengths %{
+    "information_field" => 5000,
+    "radiorange" => 1000,
+    "telemetry_bits" => 1000,
+    "format" => 100
   }
 
   @doc """
@@ -55,6 +51,10 @@ defmodule Aprsme.PacketSanitizer do
       sanitized_value = sanitize_field(key, value)
       Map.put(acc, key, sanitized_value)
     end)
+  end
+
+  defp sanitize_field(:data, value) when is_map(value) do
+    sanitize_data_map(value)
   end
 
   defp sanitize_field(key, value) when is_binary(value) do
@@ -69,6 +69,24 @@ defmodule Aprsme.PacketSanitizer do
   end
 
   defp sanitize_field(_key, value), do: value
+
+  defp sanitize_data_map(data) when is_map(data) do
+    Enum.reduce(data, %{}, fn {key, value}, acc ->
+      sanitized =
+        case {is_binary(value), Map.get(@data_string_max_lengths, key)} do
+          {true, nil} -> strip_null_bytes(value)
+          {true, max_length} -> value |> strip_null_bytes() |> truncate_string(max_length)
+          _ -> value
+        end
+
+      Map.put(acc, key, sanitized)
+    end)
+  end
+
+  # PostgreSQL JSONB does not support \u0000 (null bytes)
+  defp strip_null_bytes(string) when is_binary(string) do
+    String.replace(string, <<0x00>>, "")
+  end
 
   defp truncate_string(string, max_length) when byte_size(string) <= max_length do
     string

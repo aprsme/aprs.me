@@ -19,10 +19,10 @@ defmodule Aprsme.PacketTest do
 
       result = Packet.extract_additional_data(attrs, raw_packet)
 
-      assert result.telemetry_seq == 5
+      assert result.data["telemetry_seq"] == 5
       # 12.80 rounds to 13
-      assert result.telemetry_vals == [13, 0, 0, 0, 0]
-      assert result.telemetry_bits == "00000000"
+      assert result.data["telemetry_vals"] == [13, 0, 0, 0, 0]
+      assert result.data["telemetry_bits"] == "00000000"
     end
 
     test "handles mixed integer and string telemetry_vals" do
@@ -38,10 +38,10 @@ defmodule Aprsme.PacketTest do
 
       result = Packet.extract_additional_data(attrs, "test_packet")
 
-      assert result.telemetry_seq == 10
+      assert result.data["telemetry_seq"] == 10
       # Mixed types converted properly
-      assert result.telemetry_vals == [180, 38, 0, 88, 165]
-      assert result.telemetry_bits == "10101010"
+      assert result.data["telemetry_vals"] == [180, 38, 0, 88, 165]
+      assert result.data["telemetry_bits"] == "10101010"
     end
 
     test "handles float telemetry_vals" do
@@ -56,9 +56,9 @@ defmodule Aprsme.PacketTest do
 
       result = Packet.extract_additional_data(attrs, "test_packet")
 
-      assert result.telemetry_seq == 1
+      assert result.data["telemetry_seq"] == 1
       # Floats rounded to integers
-      assert result.telemetry_vals == [13, 37, 0, 89, 165]
+      assert result.data["telemetry_vals"] == [13, 37, 0, 89, 165]
     end
 
     test "handles invalid telemetry_vals gracefully" do
@@ -73,9 +73,9 @@ defmodule Aprsme.PacketTest do
 
       result = Packet.extract_additional_data(attrs, "test_packet")
 
-      assert result.telemetry_seq == 2
+      assert result.data["telemetry_seq"] == 2
       # Invalid values become 0
-      assert result.telemetry_vals == [0, 0, 0, 13, 0]
+      assert result.data["telemetry_vals"] == [0, 0, 0, 13, 0]
     end
 
     test "handles missing telemetry data" do
@@ -86,9 +86,9 @@ defmodule Aprsme.PacketTest do
 
       result = Packet.extract_additional_data(attrs, "test_packet")
 
-      assert Map.get(result, :telemetry_seq) == nil
-      assert Map.get(result, :telemetry_vals) == nil
-      assert Map.get(result, :telemetry_bits) == nil
+      assert get_in(result, [:data, "telemetry_seq"]) == nil
+      assert get_in(result, [:data, "telemetry_vals"]) == nil
+      assert get_in(result, [:data, "telemetry_bits"]) == nil
     end
   end
 end

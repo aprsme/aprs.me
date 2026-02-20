@@ -41,7 +41,7 @@ defmodule Aprsme.EncodingUtilsTest do
   end
 
   describe "sanitize_packet/1" do
-    test "sanitizes information_field" do
+    test "sanitizes string values in data map" do
       invalid_info = <<72, 101, 108, 108, 111, 211, 87, 111, 114, 108, 100>>
 
       packet = %Packet{
@@ -49,18 +49,20 @@ defmodule Aprsme.EncodingUtilsTest do
         sender: "TEST-1",
         path: "TCPIP*",
         destination: "APX100",
-        information_field: invalid_info,
         data_type: :position,
         base_callsign: "TEST",
         ssid: "1",
+        data: %{"information_field" => invalid_info, "radiorange" => "0050"},
         data_extended: %{comment: "Valid comment"}
       }
 
       sanitized = EncodingUtils.sanitize_packet(packet)
 
-      assert String.valid?(sanitized.information_field)
-      assert String.contains?(sanitized.information_field, "Hello")
-      assert String.contains?(sanitized.information_field, "World")
+      assert String.valid?(sanitized.data["information_field"])
+      assert String.contains?(sanitized.data["information_field"], "Hello")
+      assert String.contains?(sanitized.data["information_field"], "World")
+      # Non-string values in data map are preserved
+      assert sanitized.data["radiorange"] == "0050"
     end
 
     test "sanitizes comment in data_extended" do
@@ -71,7 +73,6 @@ defmodule Aprsme.EncodingUtilsTest do
         sender: "TEST-1",
         path: "TCPIP*",
         destination: "APX100",
-        information_field: "Valid info",
         data_type: :position,
         base_callsign: "TEST",
         ssid: "1",
@@ -90,7 +91,6 @@ defmodule Aprsme.EncodingUtilsTest do
         sender: "TEST-1",
         path: "TCPIP*",
         destination: "APX100",
-        information_field: "Valid info",
         data_type: :position,
         base_callsign: "TEST",
         ssid: "1",
@@ -100,7 +100,6 @@ defmodule Aprsme.EncodingUtilsTest do
       sanitized = EncodingUtils.sanitize_packet(packet)
 
       assert sanitized.data_extended == nil
-      assert sanitized.information_field == "Valid info"
     end
   end
 

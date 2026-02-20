@@ -125,7 +125,7 @@ defmodule Aprsme.Packets.QueryBuilder do
         rain_24h: p.rain_24h,
         rain_since_midnight: p.rain_since_midnight,
         snow: p.snow,
-        luminosity: p.luminosity
+        luminosity: fragment("(?->>'luminosity')::integer", p.data)
       }
   end
 

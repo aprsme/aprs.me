@@ -201,8 +201,7 @@ defmodule Aprsme.EncodingUtils do
       :rain_1h,
       :rain_24h,
       :rain_since_midnight,
-      :snow,
-      :luminosity
+      :snow
     ]
   end
 
@@ -211,71 +210,83 @@ defmodule Aprsme.EncodingUtils do
 
   ## Examples
 
-      iex> result = Aprsme.EncodingUtils.sanitize_packet(%{"information_field" => <<0, 65, 66, 67>>, "data_extended" => %{"comment" => <<0, 68, 69, 70>>}})
-      iex> result["information_field"] == "ABC"
+      iex> result = Aprsme.EncodingUtils.sanitize_packet(%{"comment" => <<0, 65, 66, 67>>, "data_extended" => %{"comment" => <<0, 68, 69, 70>>}})
+      iex> result["comment"] == "ABC"
       true
       iex> result["data_extended"]["comment"] == "DEF"
       true
   """
   @spec sanitize_packet(struct() | map()) :: struct() | map()
   def sanitize_packet(%Aprsme.Packet{} = packet) do
+    sanitized_data =
+      case packet.data do
+        nil -> nil
+        data when is_map(data) -> sanitize_packet_strings(data)
+        other -> other
+      end
+
     %{
       packet
-      | information_field: sanitize_string(packet.information_field),
+      | data: sanitized_data,
         data_extended: sanitize_data_extended(packet.data_extended)
     }
   end
 
   def sanitize_packet(packet) when is_map(packet) do
-    # Handle all known string fields, checking for both atom and string keys
-    string_fields = [
-      :information_field,
-      :comment,
-      :path,
-      :raw_packet,
-      :destination,
-      :sender,
-      :base_callsign,
-      :ssid,
-      :manufacturer,
-      :equipment_type,
-      :message_text,
-      :addressee,
-      :symbol_code,
-      :symbol_table_id,
-      :dao,
-      :timestamp,
-      :device_identifier
-    ]
+    packet
+    |> sanitize_string_fields()
+    |> sanitize_nested_map(:data, &sanitize_packet_strings/1)
+    |> sanitize_nested_map(:data_extended, &sanitize_data_extended/1)
+  end
 
-    # Sanitize all string fields
-    sanitized =
-      Enum.reduce(string_fields, packet, fn field, acc ->
-        atom_key = field
-        string_key = to_string(field)
+  @string_fields [
+    :comment,
+    :path,
+    :raw_packet,
+    :destination,
+    :sender,
+    :base_callsign,
+    :ssid,
+    :manufacturer,
+    :equipment_type,
+    :message_text,
+    :addressee,
+    :symbol_code,
+    :symbol_table_id,
+    :dao,
+    :timestamp,
+    :device_identifier
+  ]
 
-        cond do
-          Map.has_key?(acc, atom_key) ->
-            Map.update(acc, atom_key, nil, &sanitize_string/1)
+  defp sanitize_string_fields(packet) do
+    Enum.reduce(@string_fields, packet, fn field, acc ->
+      string_key = to_string(field)
 
-          Map.has_key?(acc, string_key) ->
-            Map.update(acc, string_key, nil, &sanitize_string/1)
+      cond do
+        Map.has_key?(acc, field) ->
+          Map.update(acc, field, nil, &sanitize_string/1)
 
-          true ->
-            acc
-        end
-      end)
+        Map.has_key?(acc, string_key) ->
+          Map.update(acc, string_key, nil, &sanitize_string/1)
 
-    # Handle data_extended separately
+        true ->
+          acc
+      end
+    end)
+  end
+
+  defp sanitize_nested_map(packet, key, sanitizer) do
+    string_key = to_string(key)
+
     cond do
-      Map.has_key?(sanitized, :data_extended) ->
-        Map.update(sanitized, :data_extended, nil, &sanitize_data_extended/1)
+      Map.has_key?(packet, key) ->
+        Map.update(packet, key, nil, &if(is_nil(&1), do: nil, else: sanitizer.(&1)))
 
-      Map.has_key?(sanitized, "data_extended") ->
-        Map.update(sanitized, "data_extended", nil, &sanitize_data_extended/1)
+      Map.has_key?(packet, string_key) ->
+        Map.update(packet, string_key, nil, &if(is_nil(&1), do: nil, else: sanitizer.(&1)))
 
       true ->
-        sanitized
+        packet
     end
   end
 
