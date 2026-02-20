@@ -27,17 +27,19 @@ COPY mix.exs mix.lock ./
 RUN mix deps.get --only $MIX_ENV && \
     mix deps.compile
 
-# Copy and compile application
+# Copy config and application code, then compile
 COPY config config
 COPY lib lib
+RUN mix compile
+
+# Copy assets and static files, then deploy assets
 COPY assets assets
 COPY priv priv
-COPY rel rel
+RUN mix assets.deploy
 
-# Build application
-RUN mix compile && \
-    mix assets.deploy && \
-    mix release
+# Copy release config and build release
+COPY rel rel
+RUN mix release
 
 # Runtime stage
 FROM ${RUNNER_IMAGE}
