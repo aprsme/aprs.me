@@ -299,9 +299,7 @@ defmodule Aprsme.PacketConsumer do
       # Skip conflicts to avoid blocking
       on_conflict: :nothing,
       # Increased timeout for large batches
-      timeout: 60_000,
-      # Use placeholders for better performance with large batches
-      placeholders: length(valid_packets) > 100
+      timeout: 60_000
     ]
 
     try do

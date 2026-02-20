@@ -223,13 +223,13 @@ defmodule Aprsme.ConnectionMonitor do
   end
 
   defp get_memory_usage do
-    # Get memory usage as a percentage
     mem_data = :erlang.memory()
     total = Keyword.get(mem_data, :total, 0)
-    system = Keyword.get(mem_data, :system, 0)
+    # processes + system = total; report process memory as fraction of total
+    processes = Keyword.get(mem_data, :processes, 0)
 
-    if system > 0 do
-      total / system
+    if total > 0 do
+      processes / total
     else
       0.0
     end

@@ -19,10 +19,10 @@ defmodule Aprsme.PacketPipelineSupervisorTest do
       :ok
     end
 
-    test "returns :one_for_one strategy" do
+    test "returns :rest_for_one strategy" do
       {:ok, {sup_flags, _children}} = PacketPipelineSupervisor.init([])
 
-      assert %{strategy: :one_for_one} = sup_flags
+      assert %{strategy: :rest_for_one} = sup_flags
     end
 
     test "returns two child specs" do

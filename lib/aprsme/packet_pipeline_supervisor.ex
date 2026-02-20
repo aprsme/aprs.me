@@ -20,6 +20,6 @@ defmodule Aprsme.PacketPipelineSupervisor do
 
     children = [producer_spec, consumer_pool_spec]
 
-    Supervisor.init(children, strategy: :one_for_one)
+    Supervisor.init(children, strategy: :rest_for_one)
   end
 end

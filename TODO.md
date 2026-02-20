@@ -2,23 +2,7 @@
 
 ## Critical Bugs
 
-### 1. LiveView: Missing `{:noreply, socket}` in drain handler — crashes LiveView
-**File:** `lib/aprsme_web/live/map_live/index.ex:885-896`
-
-The `true` branch returns a bare socket instead of `{:noreply, socket}`, which will crash the LiveView with a `MatchError` when the drain condition is hit.
-
-```elixir
-# BUG: true branch returns bare socket
-def handle_info({:drain_connections, to_drain}, socket) do
-  if :rand.uniform(100) <= to_drain * 10 do
-    socket  # <-- needs {:noreply, socket |> put_flash(...) |> push_event(...)}
-    |> put_flash(:info, "Server load balancing in progress. Reconnecting...")
-    |> push_event("reconnect", %{delay: :rand.uniform(5000)})
-  else
-    {:noreply, socket}
-  end
-end
-```
+### ~~1. LiveView: Missing `{:noreply, socket}` in drain handler — crashes LiveView~~ FIXED
 
 ### ~~2. ConnectionMonitor: Deadlock via self-RPC every 30 seconds~~ FIXED
 **File:** `lib/aprsme/connection_monitor.ex:126-141`
@@ -27,28 +11,12 @@ end
 
 **Fixed:** Now computes local stats directly from state instead of RPC to self. Remote nodes still use RPC.
 
-### 3. LiveView: `get_callsign_key` generates random keys for Ecto structs — breaks all dedup
-**File:** `lib/aprsme_web/live/shared/packet_utils.ex:13-14`
+### ~~3. LiveView: `get_callsign_key` generates random keys for Ecto structs — breaks all dedup~~ FIXED
+Now matches atom `:id`, string `"id"`, and falls back to `:sender`/`"sender"` before random key.
 
-```elixir
-def get_callsign_key(%{"id" => id}), do: to_string(id)
-def get_callsign_key(_packet), do: [:positive] |> System.unique_integer() |> to_string()
-```
+### ~~4. Cluster: `PacketDistributor` never calls `SpatialPubSub.broadcast_packet`~~ FIXED
 
-Only matches string key `"id"`. Ecto structs with atom key `:id` fall through and get a random integer key every time. This means:
-- Dedup never works (same packet gets different keys each call)
-- `visible_packets` map accumulates duplicates
-- Cleanup comparison (lines 1756-1766) never finds matches — all packets marked as expired
-
-### 4. Cluster: `PacketDistributor` never calls `SpatialPubSub.broadcast_packet`
-**File:** `lib/aprsme/cluster/packet_distributor.ex:30-37`
-
-`handle_distributed_packet` calls `StreamingPacketsPubSub.broadcast_packet` but never calls `SpatialPubSub.broadcast_packet`. Any SpatialPubSub subscriber receives zero packets when clustering is enabled.
-
-### 5. LeaderElection: `pid_alive?/2` treats `{:badrpc, _}` as truthy
-**File:** `lib/aprsme/cluster/leader_election.ex:257-263`
-
-`:rpc.call/4` returns `{:badrpc, reason}` on failure. Since tuples are truthy in Elixir, the function returns `true` when the RPC fails, preventing cleanup of stale leader registrations.
+### ~~5. LeaderElection: `pid_alive?/2` treats `{:badrpc, _}` as truthy~~ FIXED
 
 ### ~~5b. LeaderElection: Loser never detects lost registration after `:global` conflict resolution~~ FIXED
 **File:** `lib/aprsme/cluster/leader_election.ex`
@@ -57,10 +25,8 @@ When two pods start in isolation (before the Erlang cluster forms), both registe
 
 **Fixed:** Added `verify_leadership/1` which checks `:global.whereis_name` on every `check_leadership` tick. If the registration no longer points to `self()`, the node steps down and notifies `ConnectionManager` to stop the APRS-IS connection.
 
-### 6. SpatialPubSub: `ensure_float/1` crashes on integer strings
-**File:** `lib/aprsme/spatial_pubsub.ex:239`
-
-`String.to_float("42")` raises `ArgumentError`. If bounds arrive as integer strings, this crashes the singleton SpatialPubSub GenServer.
+### ~~6. SpatialPubSub: `ensure_float/1` crashes on integer strings~~ FIXED
+Now uses `Float.parse/1` which handles both `"42"` and `"42.5"`.
 
 ---
 
@@ -87,10 +53,8 @@ These are never synchronized:
 
 Every non-weather marker on the map triggers an individual `Repo.exists?` query. With hundreds of visible markers, this is hundreds of DB round-trips per map load. Should batch-query weather callsigns upfront.
 
-### 9. Duplicate packet transformation — every packet processed twice
-**File:** `lib/aprsme/is/is.ex:596-604` and `lib/aprsme/packet_consumer.ex:382-430`
-
-`Is.dispatch/1` runs `struct_to_map`, `extract_additional_data`, and `normalize_data_type`. Then `PacketConsumer.prepare_packet_for_insert/1` runs them all again. Every packet does double work.
+### ~~9. Duplicate packet transformation — every packet processed twice~~ FIXED
+Removed `extract_additional_data` and `normalize_data_type` from `Is.dispatch/1` — `PacketConsumer` already handles these.
 
 ### 10. `batch_length/1` recomputes O(n) list length on every event arrival
 **File:** `lib/aprsme/packet_consumer.ex:64-68, 130`
@@ -175,8 +139,8 @@ Each packet has 100+ columns. 2000 full structs per connected client. Never clea
 
 ## Dead Code
 
-### 25. `handle_info({:ssl, ...})` in Is module — connection uses `:gen_tcp`, not SSL
-**File:** `lib/aprsme/is/is.ex:318-352`
+### ~~25. `handle_info({:ssl, ...})` in Is module — connection uses `:gen_tcp`, not SSL~~ FIXED
+Removed dead SSL handler. Consolidated TCP handler into `handle_socket_data/2` with nil-safe timer cancel.
 
 ### 26. `PacketPipelineSetup` module — not in supervision tree, references unnamed consumers
 **File:** `lib/aprsme/packet_pipeline_setup.ex`
@@ -211,8 +175,8 @@ Both `if cluster_enabled` and `else` return `{Phoenix.PubSub, name: Aprsme.PubSu
 
 Heat map never updates from real-time packets, historical loading at low zoom, or zoom threshold crossing.
 
-### 35. `placeholders` option passed to `Repo.insert_all` — not a valid option
-**Files:** `lib/aprsme/packet_consumer.ex:304`, `lib/aprsme/db_optimizer.ex:64`
+### ~~35. `placeholders` option passed to `Repo.insert_all` — not a valid option~~ FIXED
+Removed from both `packet_consumer.ex` and `db_optimizer.ex`.
 
 ---
 
@@ -223,15 +187,11 @@ Heat map never updates from real-time packets, historical loading at low zoom, o
 
 `calculate_current_state` returns `:half_open` but never writes it back to state. Multiple callers can all enter half-open simultaneously.
 
-### 37. `Process.cancel_timer(nil)` crash risk in Is module
-**File:** `lib/aprsme/is/is.ex:321, 356`
+### ~~37. `Process.cancel_timer(nil)` crash risk in Is module~~ FIXED
+Consolidated into `handle_socket_data/2` with `if state.timer` guard.
 
-If `state.timer` is nil, `Process.cancel_timer(nil)` raises `FunctionClauseError`. Some paths protect with `if state.timer`, but the main data handlers don't.
-
-### 38. `PacketPipelineSupervisor` uses `:one_for_one` — producer restart orphans consumers
-**File:** `lib/aprsme/packet_pipeline_supervisor.ex:23`
-
-If the producer crashes, consumers remain subscribed to the dead PID. Should use `:rest_for_one`.
+### ~~38. `PacketPipelineSupervisor` uses `:one_for_one` — producer restart orphans consumers~~ FIXED
+Changed to `:rest_for_one` so consumer pool restarts when producer restarts.
 
 ### 39. `handle_update_time_display` doesn't trigger re-renders
 **File:** `lib/aprsme_web/live/map_live/index.ex:1774-1781`
@@ -243,10 +203,8 @@ Returns `{:noreply, socket}` with unchanged socket — LiveView diff is empty. T
 
 Different LiveViews can overwrite each other's stored packets. TTL cleanup runs globally.
 
-### 41. ConnectionMonitor memory calculation is inverted
-**File:** `lib/aprsme/connection_monitor.ex:219-232`
-
-`total / system` produces a ratio >1.0 (typically 1.5-3.0), not a percentage.
+### ~~41. ConnectionMonitor memory calculation is inverted~~ FIXED
+Now computes `processes / total` — process memory as fraction of total VM memory.
 
 ### 42. `Callsign.valid?/1` accepts any non-empty string — docstring examples are wrong
 **File:** `lib/aprsme/callsign.ex:40-45`

@@ -315,75 +315,8 @@ defmodule Aprsme.Is do
   end
 
   @impl true
-  @spec handle_info({:ssl, port(), binary()} | any(), state()) :: {:noreply, state()}
-  def handle_info({:ssl, _socket, data}, state) do
-    # Cancel the previous timer
-    Process.cancel_timer(state.timer)
-
-    # Update packet statistics
-    current_time = System.system_time(:second)
-    packet_stats = update_packet_stats(state.packet_stats, current_time)
-
-    # Append new packet data to buffer
-    buffer = state.buffer <> data
-
-    # Process complete lines (ending with \r\n or \n)
-    {complete_lines, remaining_buffer} = extract_complete_lines(buffer)
-
-    # Dispatch each complete line
-    Enum.each(complete_lines, fn line ->
-      trimmed = String.trim(line)
-
-      if trimmed != "" do
-        dispatch(trimmed)
-      end
-    end)
-
-    # Start a new timer
-    timer = Process.send_after(self(), :aprsme_no_message_timeout, @aprs_timeout)
-
-    state =
-      state
-      |> Map.put(:timer, timer)
-      |> Map.put(:packet_stats, packet_stats)
-      |> Map.put(:buffer, remaining_buffer)
-
-    {:noreply, state}
-  end
-
   def handle_info({:tcp, _socket, data}, state) do
-    # Cancel the previous timer
-    Process.cancel_timer(state.timer)
-
-    # Update packet statistics
-    current_time = System.system_time(:second)
-    packet_stats = update_packet_stats(state.packet_stats, current_time)
-
-    # Append new packet data to buffer
-    buffer = state.buffer <> data
-
-    # Process complete lines (ending with \r\n or \n)
-    {complete_lines, remaining_buffer} = extract_complete_lines(buffer)
-
-    # Dispatch each complete line
-    Enum.each(complete_lines, fn line ->
-      trimmed = String.trim(line)
-
-      if trimmed != "" do
-        dispatch(trimmed)
-      end
-    end)
-
-    # Start a new timer
-    timer = Process.send_after(self(), :aprsme_no_message_timeout, @aprs_timeout)
-
-    state =
-      state
-      |> Map.put(:timer, timer)
-      |> Map.put(:packet_stats, packet_stats)
-      |> Map.put(:buffer, remaining_buffer)
-
-    {:noreply, state}
+    handle_socket_data(data, state)
   end
 
   def handle_info({:backpressure, :activate}, %{socket: nil} = state) do
@@ -507,6 +440,25 @@ defmodule Aprsme.Is do
     end
   end
 
+  defp handle_socket_data(data, state) do
+    if state.timer, do: Process.cancel_timer(state.timer)
+
+    current_time = System.system_time(:second)
+    packet_stats = update_packet_stats(state.packet_stats, current_time)
+
+    buffer = state.buffer <> data
+    {complete_lines, remaining_buffer} = extract_complete_lines(buffer)
+
+    Enum.each(complete_lines, fn line ->
+      trimmed = String.trim(line)
+      if trimmed != "", do: dispatch(trimmed)
+    end)
+
+    timer = Process.send_after(self(), :aprsme_no_message_timeout, @aprs_timeout)
+
+    {:noreply, %{state | timer: timer, packet_stats: packet_stats, buffer: remaining_buffer}}
+  end
+
   # Extract complete lines from buffer, returning {complete_lines, remaining_buffer}
   @spec extract_complete_lines(String.t()) :: {[String.t()], String.t()}
   defp extract_complete_lines(buffer) do
@@ -590,20 +542,16 @@ defmodule Aprsme.Is do
         # Store the packet in the database for future replay
         # Use GenStage pipeline for efficient batch processing
         try do
-          # Always set received_at timestamp to ensure consistency
+          # Set received_at and convert struct to map — PacketConsumer.prepare_packet_for_insert
+          # handles extract_additional_data and normalize_data_type, so don't duplicate here.
           current_time = DateTime.truncate(DateTime.utc_now(), :microsecond)
-          packet_data = Map.put(parsed_message, :received_at, current_time)
 
-          # Convert to map before storing to avoid struct conversion issues
-          attrs = struct_to_map(packet_data)
+          attrs =
+            parsed_message
+            |> Map.put(:received_at, current_time)
+            |> Map.put(:raw, message)
+            |> struct_to_map()
 
-          # Extract additional data from the parsed packet including raw packet
-          attrs = Aprsme.Packet.extract_additional_data(attrs, message)
-
-          # Normalize data_type to string if it's an atom
-          attrs = Aprsme.EncodingUtils.normalize_data_type(attrs)
-
-          # Submit to GenStage pipeline for batch processing
           Aprsme.PacketProducer.submit_packet(attrs)
         rescue
           error ->

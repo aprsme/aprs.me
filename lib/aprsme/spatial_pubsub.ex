@@ -236,7 +236,13 @@ defmodule Aprsme.SpatialPubSub do
     }
   end
 
-  defp ensure_float(val) when is_binary(val), do: String.to_float(val)
+  defp ensure_float(val) when is_binary(val) do
+    case Float.parse(val) do
+      {f, _} -> f
+      :error -> 0.0
+    end
+  end
+
   defp ensure_float(val) when is_integer(val), do: val * 1.0
   defp ensure_float(val) when is_float(val), do: val
   defp ensure_float(_), do: 0.0

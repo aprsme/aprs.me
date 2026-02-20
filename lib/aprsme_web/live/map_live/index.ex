@@ -883,13 +883,11 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   def handle_info({:drain_connections, to_drain}, socket) do
-    # Check if this connection should be drained
-    # Use a random selection to determine if this connection should disconnect
     if :rand.uniform(100) <= to_drain * 10 do
-      # Gracefully disconnect this client
-      socket
-      |> put_flash(:info, "Server load balancing in progress. Reconnecting...")
-      |> push_event("reconnect", %{delay: :rand.uniform(5000)})
+      {:noreply,
+       socket
+       |> put_flash(:info, "Server load balancing in progress. Reconnecting...")
+       |> push_event("reconnect", %{delay: :rand.uniform(5000)})}
     else
       {:noreply, socket}
     end

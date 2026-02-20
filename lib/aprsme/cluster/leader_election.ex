@@ -275,10 +275,9 @@ defmodule Aprsme.Cluster.LeaderElection do
   end
 
   defp pid_alive?(pid, pid_node) do
-    if :rpc.call(pid_node, Process, :alive?, [pid]) do
-      true
-    else
-      false
+    case :rpc.call(pid_node, Process, :alive?, [pid]) do
+      {:badrpc, _} -> false
+      result -> result == true
     end
   end
 

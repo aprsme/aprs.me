@@ -28,8 +28,9 @@ defmodule Aprsme.Cluster.PacketDistributor do
   end
 
   def handle_distributed_packet({:distributed_packet, packet}) do
-    # Broadcast to local LiveView clients
+    # Broadcast to local LiveView clients via both PubSub systems
     Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
+    Aprsme.SpatialPubSub.broadcast_packet(packet)
 
     # Update packet store for LiveView
     PacketStore.store_packet(packet)

@@ -60,8 +60,7 @@ defmodule Aprsme.DbOptimizer do
           [
             returning: false,
             on_conflict: :nothing,
-            timeout: 60_000,
-            placeholders: length(batch) > 100
+            timeout: 60_000
           ],
           opts
         )

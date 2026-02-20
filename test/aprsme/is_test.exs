@@ -314,20 +314,7 @@ defmodule Aprsme.IsTest do
     end
   end
 
-  describe "handle_info({:ssl, ...}, ...)" do
-    test "processes SSL data the same as TCP" do
-      state = build_state()
-
-      data = "# ssl comment\r\n"
-
-      capture_log(fn ->
-        {:noreply, new_state} = Aprsme.Is.handle_info({:ssl, :fake_port, data}, state)
-
-        assert new_state.buffer == ""
-        assert new_state.packet_stats.total_packets == 1
-      end)
-    end
-  end
+  # SSL handler was removed — connection uses :gen_tcp, not SSL (TODO #25)
 
   describe "handle_info({:tcp_closed, ...}, ...)" do
     test "schedules reconnect and clears socket" do
