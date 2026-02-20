@@ -118,10 +118,11 @@ defmodule Aprsme.Packets.Clustering do
     end)
     |> Enum.map(fn {{_cluster_lat, _cluster_lon}, cluster} ->
       # Calculate average position for cluster center
+      # Normalize intensity to 0-1 range (capped at 1.0) so JS can use it directly
       %{
         lat: cluster.lat_sum / cluster.intensity,
         lng: cluster.lon_sum / cluster.intensity,
-        intensity: cluster.intensity
+        intensity: min(cluster.intensity / 50.0, 1.0)
       }
     end)
   end

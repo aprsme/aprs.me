@@ -93,5 +93,31 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
       push_events = get_in(updated_socket.private, [:push_events]) || []
       assert push_events == []
     end
+
+    test "returns convert_from when replacing an existing visible packet" do
+      # First packet for K5GVL-10 — get_callsign_key uses :id when present
+      first_packet = build_packet(%{id: "packet-1", lat: 33.1, lon: -96.5})
+      # Use a packet without :id so get_callsign_key falls through to :sender
+      first_packet_no_id = Map.delete(first_packet, :id)
+      socket = build_socket(%{visible_packets: %{"K5GVL-10" => first_packet_no_id}})
+
+      # Second packet for same callsign (also no :id so key = sender)
+      second_packet = %{lat: 33.2, lon: -96.4} |> build_packet() |> Map.delete(:id)
+
+      {_updated_socket, marker_data} = PacketProcessor.process_packet_for_marker_data(second_packet, socket)
+
+      assert marker_data
+      assert marker_data["convert_from"] == "K5GVL-10"
+    end
+
+    test "returns nil convert_from for first packet from a callsign" do
+      socket = build_socket()
+      packet = build_packet()
+
+      {_updated_socket, marker_data} = PacketProcessor.process_packet_for_marker_data(packet, socket)
+
+      assert marker_data
+      refute Map.has_key?(marker_data, "convert_from")
+    end
   end
 end

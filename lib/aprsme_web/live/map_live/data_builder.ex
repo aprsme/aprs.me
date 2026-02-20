@@ -110,22 +110,29 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
       symbol_table_id = get_packet_field(packet, :symbol_table_id, "/")
       symbol_code = get_packet_field(packet, :symbol_code, ">")
 
-      # Generate symbol HTML using the SymbolRenderer
       callsign = display_name(packet)
 
+      # For historical (non-most-recent) packets, use a simple red dot HTML
+      # instead of the full APRS symbol — matches what the JS createMarkerIcon
+      # would generate anyway, saving the client from icon re-creation
       symbol_html =
-        AprsmeWeb.SymbolRenderer.render_marker_symbol(
-          symbol_table_id,
-          symbol_code,
-          callsign,
-          32
-        )
+        if is_most_recent do
+          AprsmeWeb.SymbolRenderer.render_marker_symbol(
+            symbol_table_id,
+            symbol_code,
+            callsign,
+            32
+          )
+        else
+          historical_dot_html(callsign)
+        end
 
       %{
         "id" => if(is_most_recent, do: "current_#{get_packet_id(packet)}", else: "hist_#{get_packet_id(packet)}"),
         "lat" => to_float(lat),
         "lng" => to_float(lon),
         "callsign" => callsign,
+        "callsign_group" => callsign,
         "symbol_table_id" => symbol_table_id,
         "symbol_code" => symbol_code,
         "symbol_html" => symbol_html,
@@ -173,7 +180,9 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
     # Build weather callsign set from packets themselves (no DB query needed)
     weather_callsigns = build_weather_callsign_set(historical_packets)
 
-    # For each callsign group, find the most recent packet and mark it appropriately
+    # For each callsign group, find the most recent packet and mark it appropriately.
+    # Output is grouped by callsign with chronological (oldest first) order within
+    # each group, so the JS can iterate directly for trail drawing without re-sorting.
     grouped_packets
     |> Enum.flat_map(fn {callsign, packets} ->
       # Sort by received_at to find most recent
@@ -202,8 +211,9 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
           # Build data for remaining historical packets
           historical_data = build_historical_packet_data(filtered_historical, has_weather)
 
-          # Combine most recent and filtered historical
-          Enum.filter([most_recent_data | historical_data], & &1)
+          # Sort chronologically (oldest first) within the group for proper trail drawing
+          group_packets = Enum.filter([most_recent_data | historical_data], & &1)
+          Enum.sort_by(group_packets, & &1["timestamp"])
       end
     end)
     |> Enum.filter(& &1)
@@ -437,6 +447,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
     %{
       "id" => packet_id,
       "callsign" => packet_info.callsign,
+      "callsign_group" => packet_info.callsign,
       "base_callsign" => get_packet_field(packet, :base_callsign, ""),
       "ssid" => get_packet_field(packet, :ssid, nil),
       "lat" => to_float(lat),
@@ -648,6 +659,12 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
       # Skip packets without coordinates
       false
     end
+  end
+
+  defp historical_dot_html(callsign) do
+    escaped = callsign |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
+
+    "<div style=\"width: 8px; height: 8px; background-color: #FF6B6B; border: 2px solid #FFFFFF; border-radius: 50%; opacity: 0.8; box-shadow: 0 0 2px rgba(0,0,0,0.3);\" title=\"Historical position for #{escaped}\"></div>"
   end
 
   defp build_historical_packet_data(filtered_historical, has_weather) do

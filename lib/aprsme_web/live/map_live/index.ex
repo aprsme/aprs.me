@@ -867,8 +867,19 @@ defmodule AprsmeWeb.MapLive.Index do
           DisplayManager.send_heat_map_for_current_bounds(socket)
 
         marker_data_list != [] ->
+          reversed = Enum.reverse(marker_data_list)
+
+          # Extract convert_to_historical callsign keys from markers that replaced existing ones
+          convert_to_historical =
+            reversed
+            |> Enum.map(&Map.get(&1, "convert_from"))
+            |> Enum.filter(& &1)
+            |> Enum.uniq()
+
           markers =
-            Enum.map(Enum.reverse(marker_data_list), fn data ->
+            Enum.map(reversed, fn data ->
+              data = Map.delete(data, "convert_from")
+
               if socket.assigns.station_popup_open do
                 Map.put(data, :openPopup, false)
               else
@@ -876,7 +887,10 @@ defmodule AprsmeWeb.MapLive.Index do
               end
             end)
 
-          push_event(socket, "new_packets", %{packets: markers})
+          push_event(socket, "new_packets", %{
+            packets: markers,
+            convert_to_historical: convert_to_historical
+          })
 
         true ->
           socket

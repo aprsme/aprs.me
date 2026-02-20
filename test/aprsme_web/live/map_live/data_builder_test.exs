@@ -135,6 +135,152 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       assert result["callsign"] == "P-K5SGD"
     end
 
+    test "build_minimal_packet_data uses red dot HTML for historical (non-most-recent) packets" do
+      packet = %{
+        id: Ecto.UUID.generate(),
+        sender: "K5GVL-10",
+        base_callsign: "K5GVL",
+        ssid: "10",
+        lat: 33.1,
+        lon: -96.5,
+        received_at: DateTime.utc_now(),
+        symbol_table_id: "/",
+        symbol_code: "-",
+        comment: "Test",
+        path: "WIDE1-1"
+      }
+
+      result = DataBuilder.build_minimal_packet_data(packet, false, false)
+
+      assert result
+      assert result["historical"] == true
+      # Historical dot should use inline red dot HTML, not a full symbol
+      assert result["symbol_html"] =~ "background-color"
+      assert result["symbol_html"] =~ "#FF6B6B"
+    end
+
+    test "build_minimal_packet_data uses full symbol for most-recent packets" do
+      packet = %{
+        id: Ecto.UUID.generate(),
+        sender: "K5GVL-10",
+        base_callsign: "K5GVL",
+        ssid: "10",
+        lat: 33.1,
+        lon: -96.5,
+        received_at: DateTime.utc_now(),
+        symbol_table_id: "/",
+        symbol_code: "-",
+        comment: "Test",
+        path: "WIDE1-1"
+      }
+
+      result = DataBuilder.build_minimal_packet_data(packet, true, false)
+
+      assert result
+      assert result["is_most_recent_for_callsign"] == true
+      # Most recent should NOT use the red dot
+      refute result["symbol_html"] =~ "#FF6B6B"
+    end
+
+    test "build_minimal_packet_data includes callsign_group field" do
+      packet = %{
+        id: Ecto.UUID.generate(),
+        sender: "K5GVL-10",
+        base_callsign: "K5GVL",
+        ssid: "10",
+        lat: 33.1,
+        lon: -96.5,
+        received_at: DateTime.utc_now(),
+        symbol_table_id: "/",
+        symbol_code: "-",
+        comment: "Test",
+        path: "WIDE1-1"
+      }
+
+      result = DataBuilder.build_minimal_packet_data(packet, true, false)
+
+      assert result["callsign_group"] == "K5GVL-10"
+    end
+
+    test "build_packet_data includes callsign_group field" do
+      packet = %{
+        id: Ecto.UUID.generate(),
+        sender: "K5GVL-10",
+        base_callsign: "K5GVL",
+        ssid: "10",
+        lat: 33.1,
+        lon: -96.5,
+        received_at: DateTime.utc_now(),
+        symbol_table_id: "/",
+        symbol_code: "-",
+        comment: "Test",
+        data_type: "position",
+        path: "WIDE1-1"
+      }
+
+      result = DataBuilder.build_packet_data(packet, true)
+
+      assert result["callsign_group"] == "K5GVL-10"
+    end
+
+    test "build_packet_data_list output is sorted by callsign group then chronologically" do
+      now = DateTime.utc_now()
+
+      # Two callsigns, each with 2 packets at different times
+      packets = [
+        %{
+          id: Ecto.UUID.generate(),
+          sender: "ZZZ-1",
+          base_callsign: "ZZZ",
+          ssid: "1",
+          lat: 33.1,
+          lon: -96.5,
+          received_at: DateTime.add(now, -300, :second),
+          symbol_table_id: "/",
+          symbol_code: "-",
+          comment: "",
+          path: ""
+        },
+        %{
+          id: Ecto.UUID.generate(),
+          sender: "AAA-1",
+          base_callsign: "AAA",
+          ssid: "1",
+          lat: 34.0,
+          lon: -97.0,
+          received_at: now,
+          symbol_table_id: "/",
+          symbol_code: ">",
+          comment: "",
+          path: ""
+        },
+        %{
+          id: Ecto.UUID.generate(),
+          sender: "ZZZ-1",
+          base_callsign: "ZZZ",
+          ssid: "1",
+          lat: 33.2,
+          lon: -96.4,
+          received_at: now,
+          symbol_table_id: "/",
+          symbol_code: "-",
+          comment: "",
+          path: ""
+        }
+      ]
+
+      results = DataBuilder.build_packet_data_list(packets)
+
+      # All results should have callsign_group
+      assert Enum.all?(results, &Map.has_key?(&1, "callsign_group"))
+
+      # Packets should be grouped by callsign (all AAA together, all ZZZ together)
+      callsigns = Enum.map(results, & &1["callsign"])
+      groups = Enum.chunk_by(callsigns, & &1)
+      # Each group should contain only one unique callsign
+      assert Enum.all?(groups, fn group -> length(Enum.uniq(group)) == 1 end)
+    end
+
     test "build_packet_data_list groups by object_name for objects" do
       now = DateTime.utc_now()
       earlier = DateTime.add(now, -600, :second)

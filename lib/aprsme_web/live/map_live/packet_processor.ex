@@ -159,8 +159,14 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
 
   # Shared: updates visible_packets state and builds marker data.
   # Returns {socket, marker_data | nil}. Does NOT push events.
+  # When an existing visible packet for the same callsign is replaced,
+  # the marker_data includes a "convert_from" key with the old callsign_key
+  # so the JS can convert the old marker to a historical dot via O(1) lookup.
   defp prepare_packet_state(packet, socket) do
     callsign_key = SharedPacketUtils.get_callsign_key(packet)
+
+    # Check if we're replacing an existing visible packet for this callsign
+    had_existing = Map.has_key?(socket.assigns.visible_packets, callsign_key)
 
     new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
 
@@ -175,7 +181,13 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
 
     marker_data =
       if socket.assigns.map_zoom > 8 do
-        DataBuilder.build_packet_data(packet, true, get_locale(socket))
+        data = DataBuilder.build_packet_data(packet, true, get_locale(socket))
+
+        if data && had_existing do
+          Map.put(data, "convert_from", callsign_key)
+        else
+          data
+        end
       end
 
     {socket, marker_data}
@@ -196,6 +208,9 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   end
 
   defp send_marker_with_popup_check(socket, marker_data) do
+    # Strip convert_from — the single-packet JS handler uses its own scan logic
+    marker_data = Map.delete(marker_data, "convert_from")
+
     if socket.assigns.station_popup_open do
       LiveView.push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
     else

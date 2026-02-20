@@ -46,7 +46,7 @@ defmodule Aprsme.Packets.ClusteringTest do
       assert Map.has_key?(first_cluster, :intensity)
     end
 
-    test "groups nearby packets into single cluster" do
+    test "groups nearby packets into single cluster with normalized intensity" do
       # Two very close packets
       packets = [
         %Packet{id: 1, lat: Decimal.new("40.7128"), lon: Decimal.new("-74.0060")},
@@ -56,7 +56,8 @@ defmodule Aprsme.Packets.ClusteringTest do
       result = Clustering.cluster_packets(packets, 5, %{})
       assert {:heat_map, clusters} = result
       assert length(clusters) == 1
-      assert hd(clusters).intensity == 2
+      # Intensity is normalized: min(count / 50.0, 1.0) => min(2/50, 1.0) = 0.04
+      assert hd(clusters).intensity == 2 / 50.0
     end
 
     test "separates distant packets into different clusters" do
@@ -69,7 +70,20 @@ defmodule Aprsme.Packets.ClusteringTest do
       result = Clustering.cluster_packets(packets, 5, %{})
       assert {:heat_map, clusters} = result
       assert length(clusters) == 2
-      assert Enum.all?(clusters, &(&1.intensity == 1))
+      # Each cluster has 1 packet: min(1/50.0, 1.0) = 0.02
+      assert Enum.all?(clusters, &(&1.intensity == 1 / 50.0))
+    end
+
+    test "intensity is capped at 1.0 for large clusters" do
+      # 100 packets at the same location — intensity should cap at 1.0
+      packets =
+        for i <- 1..100 do
+          %Packet{id: i, lat: Decimal.new("40.7128"), lon: Decimal.new("-74.0060")}
+        end
+
+      result = Clustering.cluster_packets(packets, 5, %{})
+      assert {:heat_map, [cluster]} = result
+      assert cluster.intensity == 1.0
     end
 
     test "handles packets with nil coordinates" do

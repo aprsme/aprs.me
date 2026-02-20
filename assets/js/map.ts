@@ -64,7 +64,6 @@ import {
   saveMapState,
   safePushEvent,
   getLiveSocket,
-  escapeHtml,
 } from "./map_helpers";
 
 // APRS Map Hook - handles only basic map interaction
@@ -1117,7 +1116,7 @@ let MapAPRSMap = {
           is_most_recent_for_callsign: true,
           callsign_group:
             data.callsign_group || data.callsign || incomingCallsign,
-          popup: data.popup || self.buildPopupContent(data),
+          popup: data.popup,
           openPopup: shouldOpenPopup,
         });
       } catch (error) {
@@ -1128,7 +1127,10 @@ let MapAPRSMap = {
     // Handle batched new packets from LiveView (performance optimization)
     self.handleEvent(
       "new_packets",
-      (payload: { packets: MarkerData[] }) => {
+      (payload: {
+        packets: MarkerData[];
+        convert_to_historical?: string[];
+      }) => {
         try {
           if (!self || !self.map || self.isDestroyed) return;
           if (!self.map.hasLayer) return;
@@ -1138,28 +1140,53 @@ let MapAPRSMap = {
           const packets = payload.packets;
           if (!packets || packets.length === 0) return;
 
-          // Phase 1: Collect ALL markers to convert across the entire batch
-          // This prevents converting a marker that was just added by an earlier packet
-          const allNewCallsigns = new Set<string>();
-          const allNewIds = new Set<string>();
-          for (const data of packets) {
-            const cs = data.callsign_group || data.callsign || data.id;
-            if (cs) allNewCallsigns.add(cs);
-            if (data.id) allNewIds.add(String(data.id));
-          }
+          // Phase 1: Find markers to convert to historical dots.
+          // If the server provides convert_to_historical callsign keys, use
+          // those for a targeted lookup instead of scanning all markerStates.
+          const serverConvertKeys = payload.convert_to_historical;
+          let markersToConvert: string[] = [];
 
-          const markersToConvert: string[] = [];
-          self.markerStates.forEach((state, id) => {
-            const stateCallsign = state.callsign_group || state.callsign;
-            if (
-              stateCallsign &&
-              allNewCallsigns.has(stateCallsign) &&
-              (!state.historical || state.is_most_recent_for_callsign) &&
-              !allNewIds.has(String(id))
-            ) {
-              markersToConvert.push(String(id));
+          if (serverConvertKeys && serverConvertKeys.length > 0) {
+            // Server told us which callsigns have replacements — find their
+            // current marker IDs by scanning only the provided callsigns
+            const convertSet = new Set(serverConvertKeys);
+            const allNewIds = new Set<string>();
+            for (const data of packets) {
+              if (data.id) allNewIds.add(String(data.id));
             }
-          });
+            self.markerStates.forEach((state, id) => {
+              const stateCallsign = state.callsign_group || state.callsign;
+              if (
+                stateCallsign &&
+                convertSet.has(stateCallsign) &&
+                (!state.historical || state.is_most_recent_for_callsign) &&
+                !allNewIds.has(String(id))
+              ) {
+                markersToConvert.push(String(id));
+              }
+            });
+          } else {
+            // Fallback: scan all markerStates (e.g. for batches with no replacements)
+            const allNewCallsigns = new Set<string>();
+            const allNewIds = new Set<string>();
+            for (const data of packets) {
+              const cs = data.callsign_group || data.callsign || data.id;
+              if (cs) allNewCallsigns.add(cs);
+              if (data.id) allNewIds.add(String(data.id));
+            }
+
+            self.markerStates.forEach((state, id) => {
+              const stateCallsign = state.callsign_group || state.callsign;
+              if (
+                stateCallsign &&
+                allNewCallsigns.has(stateCallsign) &&
+                (!state.historical || state.is_most_recent_for_callsign) &&
+                !allNewIds.has(String(id))
+              ) {
+                markersToConvert.push(String(id));
+              }
+            });
+          }
 
           // Phase 2: Convert all existing live markers to historical dots
           for (const id of markersToConvert) {
@@ -1198,7 +1225,7 @@ let MapAPRSMap = {
               historical: false,
               is_most_recent_for_callsign: true,
               callsign_group: incomingCallsign,
-              popup: data.popup || self.buildPopupContent(data),
+              popup: data.popup,
               openPopup: shouldOpenPopup,
             });
           }
@@ -1240,54 +1267,33 @@ let MapAPRSMap = {
       self.addMarker({
         ...data,
         historical: true,
-        popup: data.popup || self.buildPopupContent(data),
+        popup: data.popup,
       });
     });
 
     // Handle bulk loading of historical packets
+    // Server pre-sorts by callsign group with chronological order within each group
     self.handleEvent(
       "add_historical_packets",
       (data: { packets: MarkerData[] }) => {
         if (data.packets && Array.isArray(data.packets)) {
-          // Group packets by callsign to process them in chronological order for proper trail drawing
-          const packetsByCallsign = new Map<string, MarkerData[]>();
-
-          data.packets.forEach((packet) => {
-            const callsign =
-              packet.callsign_group || packet.callsign || packet.id;
-            if (!packetsByCallsign.has(callsign)) {
-              packetsByCallsign.set(callsign, []);
+          for (const packet of data.packets) {
+            try {
+              self.addMarker({
+                ...packet,
+                historical: true,
+                popup: packet.popup,
+              });
+            } catch (error) {
+              console.error("Error adding historical packet:", error, packet);
             }
-            packetsByCallsign.get(callsign)!.push(packet);
-          });
-
-          // Process each callsign group in chronological order (oldest first)
-          packetsByCallsign.forEach((packets, callsign) => {
-            // Sort by timestamp (oldest first) to ensure proper trail line drawing
-            const sortedPackets = packets.sort((a, b) => {
-              const timeA = parseTimestamp(a.timestamp);
-              const timeB = parseTimestamp(b.timestamp);
-              return timeA - timeB;
-            });
-
-            // Add markers in chronological order
-            sortedPackets.forEach((packet) => {
-              try {
-                self.addMarker({
-                  ...packet,
-                  historical: true,
-                  popup: packet.popup || self.buildPopupContent(packet),
-                });
-              } catch (error) {
-                console.error("Error adding historical packet:", error, packet);
-              }
-            });
-          });
+          }
         }
       },
     );
 
     // Handle progressive loading of historical packets (batch processing)
+    // Server pre-sorts by callsign group with chronological order within each group
     self.handleEvent(
       "add_historical_packets_batch",
       (data: { packets: MarkerData[]; batch: number; is_final: boolean }) => {
@@ -1298,48 +1304,24 @@ let MapAPRSMap = {
         });
         try {
           if (data.packets && Array.isArray(data.packets)) {
-            // Process all packets immediately for maximum speed
-            const packetsByCallsign = new Map<string, MarkerData[]>();
-
-            data.packets.forEach((packet) => {
-              const callsign =
-                packet.callsign_group || packet.callsign || packet.id;
-              if (!packetsByCallsign.has(callsign)) {
-                packetsByCallsign.set(callsign, []);
+            for (const packet of data.packets) {
+              try {
+                self.addMarker({
+                  ...packet,
+                  historical: true,
+                  popup: packet.popup,
+                });
+              } catch (error) {
+                console.error(
+                  "Error adding historical packet:",
+                  error,
+                  packet,
+                );
               }
-              packetsByCallsign.get(callsign)!.push(packet);
-            });
-
-            // Process each callsign group in chronological order (oldest first)
-            packetsByCallsign.forEach((packets, callsign) => {
-              // Sort by timestamp (oldest first) to ensure proper trail line drawing
-              const sortedPackets = packets.sort((a, b) => {
-                const timeA = parseTimestamp(a.timestamp);
-                const timeB = parseTimestamp(b.timestamp);
-                return timeA - timeB;
-              });
-
-              // Add markers in chronological order
-              sortedPackets.forEach((packet) => {
-                try {
-                  self.addMarker({
-                    ...packet,
-                    historical: true,
-                    popup: packet.popup || self.buildPopupContent(packet),
-                  });
-                } catch (error) {
-                  console.error(
-                    "Error adding historical packet:",
-                    error,
-                    packet,
-                  );
-                }
-              });
-            });
+            }
           }
         } catch (error) {
           console.error("Error processing historical packets batch:", error);
-          // Continue processing other batches even if one fails
         }
       },
     );
@@ -1557,13 +1539,14 @@ let MapAPRSMap = {
         }
 
         // Convert heat points to format expected by Leaflet.heat
+        // Intensity is pre-normalized to 0-1 range by the server
         const heatData = data.heat_points.map(
           (point) =>
-            [
-              point.lat,
-              point.lng,
-              Math.min(point.intensity / 50.0, 1.0), // Normalize intensity to 0-1 range, cap at 1
-            ] as [number, number, number],
+            [point.lat, point.lng, point.intensity] as [
+              number,
+              number,
+              number,
+            ],
         );
 
         // Update heat layer data
@@ -2265,30 +2248,6 @@ let MapAPRSMap = {
       iconSize: [12, 12],
       iconAnchor: [6, 6],
     });
-  },
-
-  buildPopupContent(data: MarkerData): string {
-    const callsign = escapeHtml(String(data.callsign || data.id || "Unknown"));
-    const comment = data.comment ? escapeHtml(String(data.comment)) : "";
-
-    let content = `<div class="aprs-popup">
-      <div class="aprs-callsign"><strong><a href="/${callsign}" class="aprs-lv-link">${callsign}</a></strong> <a href="/info/${callsign}" class="aprs-lv-link aprs-info-link">info</a></div>`;
-
-    if (comment) {
-      content += `<div class="aprs-comment">${comment}</div>`;
-    }
-
-    if (data.timestamp) {
-      const timestamp = parseTimestamp(data.timestamp);
-      const date = new Date(timestamp);
-
-      if (!isNaN(date.getTime())) {
-        content += `<div class="aprs-timestamp">${date.toISOString()}</div>`;
-      }
-    }
-
-    content += "</div>";
-    return content;
   },
 
   destroyed() {
