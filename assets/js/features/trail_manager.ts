@@ -31,22 +31,24 @@ export class TrailManager {
   private trailDuration: number; // in milliseconds
   private maxTrails: number = 500; // Maximum number of trails to keep in memory
   private maxPositionsPerTrail: number = 1000; // Maximum positions per trail
+  // Colors ordered to maximize contrast between consecutive assignments.
+  // Avoids yellows, oranges, and grays that blend with roads on map tiles.
   private colorPalette: string[] = [
+    "#E6194B", // Crimson
+    "#469990", // Teal
+    "#F032E6", // Magenta
+    "#4363D8", // Blue
+    "#D50000", // Red
+    "#3CB44B", // Green
+    "#FF1493", // Deep Pink
+    "#42D4F4", // Cyan
+    "#911EB4", // Purple
+    "#00CC66", // Emerald
+    "#7B68EE", // Slate Blue
+    "#76FF03", // Lime
+    "#E040FB", // Heliotrope
     "#1E90FF", // Dodger Blue
-    "#00CED1", // Dark Turquoise
-    "#32CD32", // Lime Green
-    "#8B008B", // Dark Magenta
-    "#9370DB", // Medium Purple
-    "#FF8C00", // Dark Orange
-    "#4682B4", // Steel Blue
-    "#00FA9A", // Medium Spring Green
-    "#DA70D6", // Orchid
-    "#008B8B", // Dark Cyan
-    "#48D1CC", // Medium Turquoise
-    "#228B22", // Forest Green
-    "#6495ED", // Cornflower Blue
-    "#FF1493", // Deep Pink (distinct from highways)
-    "#20B2AA", // Light Sea Green
+    "#00BFA5", // Aquamarine
   ];
   private proximityThreshold: number = 5.5; // kilometers
   private minMovementThreshold: number = 0.1; // km - minimum total distance to show a trail
@@ -298,24 +300,37 @@ export class TrailManager {
     return nearbyColors;
   }
 
-  // Assign a color to a trail based on nearby trails
+  // Assign a color to a trail, ensuring global uniqueness when possible
   private assignTrailColor(
     baseCallsign: string,
     positions: PositionHistory[],
   ): string {
-    if (positions.length === 0) return this.colorPalette[0];
+    // Collect all colors currently used by other trails
+    const usedColors = new Set<string>();
+    this.trails.forEach((trailState, callsign) => {
+      if (callsign !== baseCallsign && trailState.color) {
+        usedColors.add(trailState.color);
+      }
+    });
 
-    const center = this.getTrailCenter(positions);
-    const nearbyColors = this.getNearbyTrailColors(baseCallsign, center);
-
-    // Find the first available color not used by nearby trails
+    // First priority: pick a color not used by any existing trail
     for (const color of this.colorPalette) {
-      if (!nearbyColors.has(color)) {
+      if (!usedColors.has(color)) {
         return color;
       }
     }
 
-    // If all colors are used, return the first color
+    // All 15 colors in use — pick one not used by nearby trails
+    if (positions.length > 0) {
+      const center = this.getTrailCenter(positions);
+      const nearbyColors = this.getNearbyTrailColors(baseCallsign, center);
+      for (const color of this.colorPalette) {
+        if (!nearbyColors.has(color)) {
+          return color;
+        }
+      }
+    }
+
     return this.colorPalette[0];
   }
 
