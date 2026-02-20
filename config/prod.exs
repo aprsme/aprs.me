@@ -16,10 +16,10 @@ config :aprsme, AprsmeWeb.Endpoint,
   http: [ip: {0, 0, 0, 0}, port: 4000]
 
 config :esbuild,
-  version: "0.24.2",
+  version: "0.25.4",
   default: [
     args:
-      ~w(js/app.js --bundle --target=es2020 --outdir=../priv/static/assets --loader:.ts=ts --loader:.css=css --loader:.png=file --loader:.svg=file --external:/fonts/* --external:/images/*),
+      ~w(js/app.ts --bundle --target=es2020 --outdir=../priv/static/assets --loader:.css=css --loader:.png=file --loader:.svg=file --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]

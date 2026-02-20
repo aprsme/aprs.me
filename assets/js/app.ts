@@ -1,51 +1,59 @@
-// If you want to use Phoenix channels, run `mix help phx.gen.channel`
-// to get started and then uncomment the line below.
-// import "./user_socket.js"
-
-// You can include dependencies in two ways.
-//
-// The simplest option is to put them in assets/vendor and
-// import them using relative paths:
-//
-//     import "../vendor/some-package.js"
-//
-// Alternatively, you can `npm install some-package --prefix assets` and import
-// them using a path starting with the package name:
-//
-//     import "some-package"
-//
-
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html";
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
+
+declare global {
+  interface Window {
+    topbar: {
+      config: (opts: { barColors: Record<number, string>; shadowColor: string }) => void;
+      show: (delay?: number) => void;
+      hide: () => void;
+    };
+    mapBundleLoaded?: boolean;
+    chartBundleLoaded?: boolean;
+    Chart?: unknown;
+    VendorLoader?: {
+      mapBundleUrl: string;
+      loadCharts: () => void;
+    };
+    liveSocket: any;
+    Hooks: Record<string, any>;
+  }
+}
+
 // topbar is loaded globally from vendor bundle
 const topbar = window.topbar;
 
-
-let csrfToken = document.querySelector("meta[name='csrf-token']")?.getAttribute("content") || "";
+const csrfToken =
+  document
+    .querySelector("meta[name='csrf-token']")
+    ?.getAttribute("content") || "";
 if (!csrfToken) {
   console.error("CSRF token not found in meta tags");
 }
 
-// Import minimal APRS map hook
+// Import hooks
 import MapAPRSMap from "./map";
-// Import error boundary hook
 import ErrorBoundary from "./hooks/error_boundary";
-// Import info map hook
 import { InfoMap } from "./hooks/info_map";
-// Import time ago hook
 import TimeAgoHook from "./hooks/time_ago_hook";
 
-// APRS MapAPRSMap Hook
-let Hooks = {};
+interface HookDef {
+  mounted?: () => void;
+  updated?: () => void;
+  destroyed?: () => void;
+  [key: string]: unknown;
+}
+
+const Hooks: Record<string, HookDef> = {};
 
 // Singleton map bundle loader — ensures the script is only appended once
-let mapBundleCallbacks = [];
+let mapBundleCallbacks: Array<() => void> = [];
 let mapBundleLoading = false;
 
-function loadMapBundle(callback) {
+function loadMapBundle(callback: () => void) {
   if (window.mapBundleLoaded) {
     callback();
     return;
@@ -54,19 +62,19 @@ function loadMapBundle(callback) {
   mapBundleCallbacks.push(callback);
 
   if (mapBundleLoading) {
-    return; // Already loading, callback will fire when ready
+    return;
   }
 
   if (window.VendorLoader) {
     mapBundleLoading = true;
-    const script = document.createElement('script');
+    const script = document.createElement("script");
     script.src = window.VendorLoader.mapBundleUrl;
     script.onload = () => {
       window.mapBundleLoaded = true;
       mapBundleLoading = false;
       const cbs = mapBundleCallbacks;
       mapBundleCallbacks = [];
-      cbs.forEach(cb => cb());
+      cbs.forEach((cb) => cb());
     };
     script.onerror = () => {
       console.error("Failed to load map bundle");
@@ -90,7 +98,7 @@ Hooks.APRSMap = {
         originalMapMounted.call(self);
       }
     });
-  }
+  },
 };
 
 Hooks.InfoMap = {
@@ -102,21 +110,19 @@ Hooks.InfoMap = {
         InfoMap.mounted.call(self);
       }
     });
-  }
+  },
 };
 
 // Chart hooks - load chart bundle when needed
 import { WeatherChartHooks } from "./features/weather_charts";
-Object.keys(WeatherChartHooks).forEach(hookName => {
-  const originalHook = WeatherChartHooks[hookName];
+Object.keys(WeatherChartHooks).forEach((hookName) => {
+  const originalHook = (WeatherChartHooks as Record<string, HookDef>)[hookName];
   Hooks[hookName] = {
     ...originalHook,
     mounted() {
       const self = this;
       if (window.VendorLoader && !window.chartBundleLoaded) {
-        // Load chart bundle and wait for it to complete
         window.VendorLoader.loadCharts();
-        // Wait a bit for charts to load, then call mounted
         const checkChartLoaded = () => {
           if (window.Chart) {
             if (originalHook.mounted) {
@@ -128,12 +134,11 @@ Object.keys(WeatherChartHooks).forEach(hookName => {
         };
         setTimeout(checkChartLoaded, 100);
       } else {
-        // Chart bundle already loaded or loading, call mounted
         if (originalHook.mounted) {
           originalHook.mounted.call(this);
         }
       }
-    }
+    },
   };
 });
 
@@ -142,12 +147,15 @@ Hooks.ErrorBoundary = ErrorBoundary;
 Hooks.TimeAgoHook = TimeAgoHook;
 
 // Theme management
-const applyTheme = (theme) => {
+const applyTheme = (theme: string | null) => {
   const element = document.documentElement;
   if (!element) return;
 
-  if (theme === "auto") {
-    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+  if (theme === "auto" || !theme) {
+    if (
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+    ) {
       element.setAttribute("data-theme", "dark");
     } else {
       element.setAttribute("data-theme", "light");
@@ -161,52 +169,56 @@ const applyTheme = (theme) => {
 applyTheme(localStorage.getItem("theme") || "auto");
 
 // Handle theme changes dispatched from LiveView via JS.dispatch
-window.addEventListener("phx:set-theme", (e) => {
+window.addEventListener("phx:set-theme", ((e: CustomEvent<{ theme: string }>) => {
   const theme = e.detail.theme;
   applyTheme(theme);
   localStorage.setItem("theme", theme);
   window.dispatchEvent(new CustomEvent("themeChanged"));
-});
+}) as EventListener);
 
 // Listen for system theme changes when auto is selected
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-  if (localStorage.getItem("theme") === "auto") {
-    applyTheme("auto");
-    window.dispatchEvent(new CustomEvent("themeChanged"));
-  }
-});
+window
+  .matchMedia("(prefers-color-scheme: dark)")
+  .addEventListener("change", () => {
+    if (localStorage.getItem("theme") === "auto") {
+      applyTheme("auto");
+      window.dispatchEvent(new CustomEvent("themeChanged"));
+    }
+  });
 
-let liveSocket = new LiveSocket("/live", Socket, {
+const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: { _csrf_token: csrfToken, viewport_width: window.innerWidth },
   hooks: Hooks,
-  timeout: 60000, // 60 second timeout for slow initial loads
+  timeout: 60000,
 });
 
 // Show progress bar on live navigation and form submits
-topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
+topbar.config({
+  barColors: { 0: "#29d" },
+  shadowColor: "rgba(0, 0, 0, .3)",
+});
 window.addEventListener("phx:page-loading-start", (_info) => topbar.show(100));
 window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
 
 // Handle connection draining reconnect events
-window.addEventListener("phx:reconnect", (e) => {
+window.addEventListener("phx:reconnect", ((e: CustomEvent<{ delay?: number }>) => {
   const delay = e.detail.delay || 1000;
   setTimeout(() => {
-    // Disconnect and reconnect to potentially land on a different server
     liveSocket.disconnect();
     setTimeout(() => {
       liveSocket.connect();
     }, 100);
   }, delay);
-});
+}) as EventListener);
 
 // connect if there are any LiveViews on the page
 liveSocket.connect();
 
 // Workaround for Phoenix LiveView bug where fallback timer isn't cleared
 // after successful WebSocket connection
-window.addEventListener("phx:live_socket:connect", (info) => {
-  const socket = liveSocket.socket;
+window.addEventListener("phx:live_socket:connect", (_info) => {
+  const socket = (liveSocket as any).socket;
   if (socket && socket.fallbackTimer) {
     clearTimeout(socket.fallbackTimer);
     socket.fallbackTimer = null;
@@ -215,7 +227,7 @@ window.addEventListener("phx:live_socket:connect", (info) => {
 
 // Also check periodically in case the event doesn't fire
 setTimeout(() => {
-  const socket = liveSocket.socket;
+  const socket = (liveSocket as any).socket;
   if (socket && socket.isConnected() && socket.fallbackTimer) {
     clearTimeout(socket.fallbackTimer);
     socket.fallbackTimer = null;
