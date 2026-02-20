@@ -146,6 +146,8 @@ defmodule Aprsme.Cluster.LeaderElection do
 
   @impl true
   def handle_info(:check_leadership, state) do
+    state = verify_leadership(state)
+
     # Re-attempt election if we're not leader
     if not state.is_leader do
       Process.send_after(self(), :attempt_election, 100)
@@ -184,6 +186,24 @@ defmodule Aprsme.Cluster.LeaderElection do
 
     :ok
   end
+
+  # Verify that a node which thinks it's leader still holds the :global registration.
+  # After :global conflict resolution (e.g. two partitions merging), the losing PID
+  # is silently unregistered — this detects that and steps down.
+  defp verify_leadership(%{is_leader: true} = state) do
+    case :global.whereis_name(@election_key) do
+      pid when pid == self() ->
+        state
+
+      _ ->
+        Logger.warning("Lost global leadership registration, stepping down")
+        :persistent_term.put({__MODULE__, :is_leader}, false)
+        notify_leadership_change(false)
+        %{state | is_leader: false, leader_node: nil}
+    end
+  end
+
+  defp verify_leadership(state), do: state
 
   defp attempt_registration(state) do
     case :global.register_name(@election_key, self(), &resolve_conflict/3) do

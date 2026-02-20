@@ -124,20 +124,26 @@ defmodule Aprsme.ConnectionMonitor do
   end
 
   defp gather_cluster_stats(state) do
-    # Get stats from all nodes
-    nodes = [Node.self() | Node.list()]
+    # Compute local stats directly to avoid deadlock — calling get_stats via
+    # RPC on Node.self() would GenServer.call back into this process which is
+    # blocked in handle_info(:check_load, ...).
+    local_stats = %{
+      connections: state.local_connections,
+      cpu: get_cpu_usage(),
+      memory: get_memory_usage(),
+      draining: state.draining
+    }
 
-    node_stats =
-      Enum.reduce(nodes, %{}, fn node, acc ->
-        stats = :rpc.call(node, __MODULE__, :get_stats, [])
-
-        case stats do
+    # Get stats from remote nodes via RPC
+    remote_stats =
+      Enum.reduce(Node.list(), %{}, fn remote_node, acc ->
+        case :rpc.call(remote_node, __MODULE__, :get_stats, []) do
           {:badrpc, _} -> acc
-          stats -> Map.put(acc, node, stats)
+          stats -> Map.put(acc, remote_node, stats)
         end
       end)
 
-    %{state | node_stats: node_stats}
+    %{state | node_stats: Map.put(remote_stats, Node.self(), local_stats)}
   end
 
   defp analyze_load(state) do

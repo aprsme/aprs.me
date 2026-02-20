@@ -19,7 +19,11 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
       :global.unregister_name(@election_key)
 
       if Process.whereis(LeaderElection) do
-        GenServer.stop(LeaderElection)
+        try do
+          GenServer.stop(LeaderElection)
+        catch
+          :exit, _ -> :ok
+        end
       end
     end)
 
@@ -249,6 +253,71 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
 
       # Should eventually attempt election
       assert is_boolean(LeaderElection.leader?())
+    end
+  end
+
+  describe "leadership verification" do
+    setup do
+      Application.put_env(:aprsme, :cluster_enabled, false)
+      {:ok, pid} = LeaderElection.start_link([])
+      Process.sleep(200)
+      assert LeaderElection.leader?() == true
+      {:ok, pid: pid}
+    end
+
+    test "steps down when global registration is lost", %{pid: pid} do
+      # Subscribe to leadership change notifications
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, "cluster:leadership")
+
+      # Simulate losing the global registration (as happens during :global conflict resolution)
+      :global.unregister_name(@election_key)
+
+      # Force a leadership check, then use :sys.get_state to synchronously wait
+      # for the message to be processed (before the 100ms re-election timer fires)
+      send(pid, :check_leadership)
+      state = :sys.get_state(pid)
+
+      # Should have detected the loss and stepped down
+      assert state.is_leader == false
+      assert LeaderElection.leader_cached?() == false
+
+      # Should have notified about leadership loss
+      assert_received {:leadership_change, _, false}
+    end
+
+    test "steps down when another process holds the registration", %{pid: pid} do
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, "cluster:leadership")
+
+      # Simulate another node winning the conflict resolution
+      imposter = spawn(fn -> Process.sleep(:infinity) end)
+      :global.re_register_name(@election_key, imposter)
+
+      # Force a leadership check
+      send(pid, :check_leadership)
+      state = :sys.get_state(pid)
+
+      # Should have stepped down
+      assert state.is_leader == false
+      assert LeaderElection.leader_cached?() == false
+      assert_received {:leadership_change, _, false}
+
+      # Clean up
+      Process.exit(imposter, :kill)
+    end
+
+    test "re-elects after stepping down", %{pid: pid} do
+      # Lose the registration
+      :global.unregister_name(@election_key)
+
+      # Force check — should step down
+      send(pid, :check_leadership)
+      state = :sys.get_state(pid)
+      assert state.is_leader == false
+
+      # check_leadership also schedules :attempt_election for non-leaders.
+      # Wait for re-election.
+      Process.sleep(300)
+      assert LeaderElection.leader?() == true
     end
   end
 

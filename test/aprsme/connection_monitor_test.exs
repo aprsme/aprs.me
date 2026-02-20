@@ -129,17 +129,21 @@ defmodule Aprsme.ConnectionMonitorTest do
       assert stats.draining == true
     end
 
-    test "gather_cluster_stats handles local node stats", %{pid: pid} do
+    test "gather_cluster_stats includes local node stats without deadlock", %{pid: pid} do
       ConnectionMonitor.register_connection()
       ConnectionMonitor.register_connection()
 
-      # Trigger check_load which calls gather_cluster_stats internally
+      # Trigger check_load which calls gather_cluster_stats internally.
+      # Before the fix, this would deadlock for 5s because gather_cluster_stats
+      # did an RPC call to Node.self() which GenServer.call'd back into itself.
       send(pid, :check_load)
       Process.sleep(100)
 
       state = :sys.get_state(pid)
-      # node_stats should have been populated
       assert is_map(state.node_stats)
+      # Local node stats must always be present
+      assert Map.has_key?(state.node_stats, Node.self())
+      assert state.node_stats[Node.self()].connections == 2
     end
   end
 end
