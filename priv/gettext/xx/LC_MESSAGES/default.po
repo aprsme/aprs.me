@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Language: xx\n"
-"Plural-Forms: nplurals=2\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: lib/aprsme_web/components/core_components.ex:558
 #, elixir-autogen, elixir-format

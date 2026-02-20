@@ -89,12 +89,7 @@
                 <div>
                   <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Grid Square")}</dt>
                   <dd class="mt-1 text-sm font-semibold">
-                    <%= case Gridsquare.encode(@packet.lon, @packet.lat) do %>
-                      <% %Gridsquare.EncodeResult{grid_reference: grid_ref} -> %>
-                        {grid_ref}
-                      <% _ -> %>
-                        -
-                    <% end %>
+                    {Aprsme.Maidenhead.encode(@packet.lon, @packet.lat) || "-"}
                   </dd>
                 </div>
               <% end %>

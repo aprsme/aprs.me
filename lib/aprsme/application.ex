@@ -35,6 +35,8 @@ defmodule Aprsme.Application do
       Aprsme.SpatialPubSub,
       # Start global streaming packets PubSub
       Aprsme.StreamingPacketsPubSub,
+      # Manage daily partitions for the packets table
+      Aprsme.PartitionManager,
       # Start the Endpoint (http/https)
       AprsmeWeb.Endpoint,
       # Start a worker by calling: Aprsme.Worker.start_link(arg)
@@ -49,10 +51,12 @@ defmodule Aprsme.Application do
       Aprsme.PacketPipelineSupervisor
     ]
 
-    # Skip packet pipeline in test to avoid Sandbox ownership errors
+    # Skip partition manager and packet pipeline in test to avoid Sandbox ownership errors
     children =
       if Application.get_env(:aprsme, :env) == :test do
-        List.delete(children, Aprsme.PacketPipelineSupervisor)
+        children
+        |> List.delete(Aprsme.PartitionManager)
+        |> List.delete(Aprsme.PacketPipelineSupervisor)
       else
         children
       end

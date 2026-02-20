@@ -65,7 +65,6 @@ defmodule Aprsme.MixProject do
       {:ecto_sql, "~> 3.11"},
       {:geo, "~> 4.1"},
       {:geo_postgis, "~> 3.4"},
-      {:geocalc, "~> 0.8"},
       {:gen_stage, "~> 1.2"},
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.4"},
@@ -88,7 +87,6 @@ defmodule Aprsme.MixProject do
        github: "tailwindlabs/heroicons", tag: "v2.1.1", sparse: "optimized", app: false, compile: false, depth: 1},
       {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
-      {:gridsquare, "~> 0.3.1"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
       {:exvcr, "~> 0.15", only: :test},
@@ -100,8 +98,7 @@ defmodule Aprsme.MixProject do
       {:igniter, "~> 0.7.0", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
       {:styler, "~> 1.10", only: :dev, runtime: false},
-      {:hammer, "~> 7.0"},
-      {:gettext_pseudolocalize, "~> 0.1"}
+      {:hammer, "~> 7.0"}
     ]
   end
 

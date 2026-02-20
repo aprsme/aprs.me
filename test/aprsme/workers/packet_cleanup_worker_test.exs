@@ -1,134 +1,79 @@
 defmodule Aprsme.Workers.PacketCleanupWorkerTest do
-  use Aprsme.DataCase, async: true
+  use Aprsme.DataCase, async: false
 
-  alias Aprsme.Packet
+  alias Aprsme.BadPacket
+  alias Aprsme.PartitionManager
   alias Aprsme.Workers.PacketCleanupWorker
 
-  defp insert_packet(attrs) do
-    attrs =
-      Map.merge(
-        %{
-          sender: "TEST-#{System.unique_integer([:positive])}",
-          received_at: DateTime.truncate(DateTime.utc_now(), :second),
-          has_position: false
-        },
-        attrs
+  describe "perform/1 with cleanup_days" do
+    test "drops old partitions via PartitionManager" do
+      # Ensure current partitions exist
+      {:ok, _} = PartitionManager.ensure_partitions_exist()
+
+      # Create an old partition (30 days ago)
+      old_date = Date.add(Date.utc_today(), -30)
+      name = PartitionManager.partition_name(old_date)
+      {from_dt, to_dt} = PartitionManager.partition_range(old_date)
+
+      Repo.query!(
+        "CREATE TABLE IF NOT EXISTS #{name} PARTITION OF packets FOR VALUES FROM ('#{DateTime.to_iso8601(from_dt)}') TO ('#{DateTime.to_iso8601(to_dt)}')"
       )
 
-    {:ok, packet} = %Packet{} |> Map.merge(attrs) |> Repo.insert()
-    packet
-  end
+      # Verify old partition exists
+      assert name in PartitionManager.list_partitions()
 
-  defp insert_packets(count, attrs) do
-    for _ <- 1..count, do: insert_packet(attrs)
-  end
+      assert :ok = PacketCleanupWorker.perform(%{"cleanup_days" => 7})
 
-  describe "perform/1 with cleanup_days" do
-    test "cleans up packets older than the specified number of days" do
-      days = 30
-      job_args = %{"cleanup_days" => days}
+      # Old partition should be dropped
+      refute name in PartitionManager.list_partitions()
+    end
 
-      # Create old packets that should be deleted
-      old_time = DateTime.utc_now() |> DateTime.add(-(days + 1) * 86_400, :second) |> DateTime.truncate(:second)
-      insert_packets(5, %{received_at: old_time})
+    test "does not drop recent partitions" do
+      {:ok, _} = PartitionManager.ensure_partitions_exist()
 
-      # Create recent packets that should NOT be deleted
-      recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
-      insert_packets(3, %{received_at: recent_time})
+      today_name = PartitionManager.partition_name(Date.utc_today())
 
-      assert :ok = PacketCleanupWorker.perform(job_args)
+      assert :ok = PacketCleanupWorker.perform(%{"cleanup_days" => 7})
 
-      # Verify only recent packets remain
-      assert Repo.aggregate(Packet, :count, :id) == 3
+      assert today_name in PartitionManager.list_partitions()
     end
   end
 
   describe "perform/1 without cleanup_days" do
-    test "cleans up packets using the default retention period" do
-      retention_days = Application.get_env(:aprsme, :packet_retention_days, 365)
-      job_args = %{}
+    test "drops old partitions and cleans up bad packets" do
+      {:ok, _} = PartitionManager.ensure_partitions_exist()
 
-      # Create old packets that should be deleted (older than retention period)
+      # Create an old bad packet
+      retention_days = Application.get_env(:aprsme, :packet_retention_days, 7)
+
       old_time =
         DateTime.utc_now()
         |> DateTime.add(-(retention_days + 10) * 86_400, :second)
-        |> DateTime.truncate(:second)
+        |> DateTime.truncate(:microsecond)
 
-      insert_packets(10, %{received_at: old_time})
+      Repo.insert!(%BadPacket{raw_packet: "bad", error_message: "test", attempted_at: old_time})
 
-      # Create recent packets that should NOT be deleted (1 hour ago)
-      recent_time = DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
-      insert_packets(3, %{received_at: recent_time})
+      # Create a recent bad packet
+      recent_time =
+        DateTime.utc_now()
+        |> DateTime.add(-3600, :second)
+        |> DateTime.truncate(:microsecond)
 
-      assert :ok = PacketCleanupWorker.perform(job_args)
+      Repo.insert!(%BadPacket{raw_packet: "recent_bad", error_message: "test", attempted_at: recent_time})
 
-      # Verify only recent packets remain
-      assert Repo.aggregate(Packet, :count, :id) == 3
+      assert :ok = PacketCleanupWorker.perform(%{})
+
+      # Only recent bad packet should remain
+      assert Repo.aggregate(BadPacket, :count) == 1
     end
   end
 
-  describe "cleanup_packets_older_than/1" do
-    test "cleans up packets older than the given number of days" do
-      days = 60
+  describe "perform/1 with negative cleanup_days" do
+    test "falls through to default perform and succeeds" do
+      {:ok, _} = PartitionManager.ensure_partitions_exist()
 
-      # Create old packets that should be deleted
-      old_time = DateTime.utc_now() |> DateTime.add(-(days + 10) * 86_400, :second) |> DateTime.truncate(:second)
-      insert_packets(15, %{received_at: old_time})
-
-      # Create recent packets that should NOT be deleted
-      recent_time = DateTime.utc_now() |> DateTime.add(-30 * 86_400, :second) |> DateTime.truncate(:second)
-      insert_packets(5, %{received_at: recent_time})
-
-      deleted_count = PacketCleanupWorker.cleanup_packets_older_than(days)
-
-      assert deleted_count == 15
-      assert Repo.aggregate(Packet, :count, :id) == 5
-    end
-  end
-
-  describe "cleanup_packets_older_than_batched/1" do
-    test "returns correct tuple format with deleted count and batches" do
-      days = 30
-
-      # Create old packets that should be deleted
-      old_time = DateTime.utc_now() |> DateTime.add(-(days + 1) * 86_400, :second) |> DateTime.truncate(:second)
-      insert_packets(5, %{received_at: old_time})
-
-      # Create recent packets that should NOT be deleted
-      recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
-      insert_packets(3, %{received_at: recent_time})
-
-      {deleted_count, batches} = PacketCleanupWorker.cleanup_packets_older_than_batched(days)
-
-      assert is_integer(deleted_count)
-      assert is_integer(batches)
-      assert deleted_count == 5
-      assert batches >= 1
-      assert Repo.aggregate(Packet, :count, :id) == 3
-    end
-  end
-
-  describe "get_packet_ids_for_deletion/2" do
-    test "returns list of packet IDs within batch size limit" do
-      cutoff_time = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.truncate(:second)
-      batch_size = 10
-
-      # Create old packets that should be included
-      old_time = DateTime.utc_now() |> DateTime.add(-40 * 86_400, :second) |> DateTime.truncate(:second)
-      old_packets = insert_packets(15, %{received_at: old_time})
-
-      # Create recent packets that should NOT be included
-      recent_time = DateTime.utc_now() |> DateTime.add(-5 * 86_400, :second) |> DateTime.truncate(:second)
-      insert_packets(5, %{received_at: recent_time})
-
-      result = PacketCleanupWorker.get_packet_ids_for_deletion(cutoff_time, batch_size)
-
-      assert is_list(result)
-      assert length(result) == batch_size
-
-      # Verify that returned IDs are from old packets
-      old_packet_ids = Enum.map(old_packets, & &1.id)
-      assert Enum.all?(result, &(&1 in old_packet_ids))
+      # Negative days don't match the guard, so falls through to the catch-all
+      assert :ok = PacketCleanupWorker.perform(%{"cleanup_days" => -1})
     end
   end
 end

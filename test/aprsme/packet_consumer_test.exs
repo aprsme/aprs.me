@@ -191,7 +191,7 @@ defmodule Aprsme.PacketConsumerTest do
       valid2_packet = Enum.find(packets, &(&1.sender == "VALID2"))
       assert valid2_packet.location == nil
       # Invalid latitude stored
-      assert valid2_packet.lat == Decimal.new("91.000000")
+      assert Decimal.equal?(valid2_packet.lat, Decimal.new("91.0"))
 
       # Check that VALID1 and VALID3 have valid locations
       valid_location_packets = Enum.filter(packets, &(&1.sender in ["VALID1", "VALID3"]))
