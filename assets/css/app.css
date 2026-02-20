@@ -6,6 +6,15 @@
 /* Import mobile-specific styles */
 @import "./mobile.css";
 
+/*
+ * Z-Index Hierarchy (keep in sync across all CSS files):
+ *   1    - Map container (#aprs-map)
+ *  10-15 - Markers (.leaflet-marker-icon, .historical-dot-marker)
+ *  50    - Slideover panel (.slideover-panel)  — set to 1000 in component
+ * 999    - Slideover toggle (.slideover-toggle)
+ * 1000   - Slideover panel, marker hover states, Leaflet controls
+ */
+
 /* Vendor CSS files are imported via JavaScript/ESBuild */
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.

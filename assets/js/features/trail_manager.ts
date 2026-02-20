@@ -521,6 +521,12 @@ export class TrailManager {
   }
 
   clearAllTrails() {
+    // Clear pending hover timer before removing all trails
+    if (this.trailHoverDebounceTimer) {
+      clearTimeout(this.trailHoverDebounceTimer);
+      this.trailHoverDebounceTimer = undefined;
+    }
+    this.lastHoveredPath = undefined;
     this.trails.forEach((_, markerId) => {
       this.removeTrail(markerId);
     });

@@ -1118,8 +1118,6 @@ defmodule AprsmeWeb.MapLive.Index do
 
     <.locate_button />
 
-    <.toggle_button slideover_open={@slideover_open} />
-
     <.bottom_controls {assigns} />
     """
   end
@@ -1139,21 +1137,6 @@ defmodule AprsmeWeb.MapLive.Index do
     """
   end
 
-  defp toggle_button(assigns) do
-    ~H"""
-    <button
-      phx-click={toggle_slideover_js()}
-      class={[
-        "fixed right-4 top-4 z-40 bg-white rounded-lg shadow-lg p-3",
-        "hover:bg-gray-50 transition-colors lg:hidden",
-        @slideover_open && "hidden"
-      ]}
-    >
-      <.icon name="hero-bars-3" class="w-6 h-6 text-gray-700" />
-    </button>
-    """
-  end
-
   defp toggle_slideover_js do
     "toggle_slideover"
     |> JS.push()
@@ -1166,103 +1149,32 @@ defmodule AprsmeWeb.MapLive.Index do
     ~H"""
     <%!-- Existing bottom controls code will go here --%>
     <style>
-      #aprs-map {
-        position: absolute;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        height: 100vh;
-        z-index: 1;
-        transition: right 0.3s ease-in-out;
-      }
-
-      /* Desktop styles */
-      @media (min-width: 1024px) {
-        #aprs-map.slideover-open {
-          right: 352px;
-        }
-
-        #aprs-map.slideover-closed {
-          right: 0;
-        }
-      }
-
-      /* Slideover panel base styles */
-      .slideover-panel {
-        position: fixed;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        width: 352px;
-        background: white;
-        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
-        z-index: 50;
-        display: flex;
-        flex-direction: column;
-        transition: transform 0.3s ease-in-out;
-        overflow: hidden;
-      }
-
-      .slideover-panel.slideover-open {
-        transform: translateX(0);
-      }
-
-      .slideover-panel.slideover-closed {
-        transform: translateX(100%);
-      }
-
-      /* Mobile styles */
-      @media (max-width: 1023px) {
-        #aprs-map {
-          right: 0 !important;
-        }
-        
-        .slideover-panel {
-          width: 90vw !important;
-          max-width: 400px;
-        }
-        
-        .locate-button {
-          top: 65px;
-          width: 44px;
-          height: 44px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-      }
-
       .locate-button {
         position: absolute;
         left: 10px;
-        top: 80px;
+        top: 100px;
         z-index: 1000;
         background: white;
         border: 2px solid rgba(0,0,0,0.2);
         border-radius: 4px;
         padding: 5px;
         cursor: pointer;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .locate-button {
-          background: rgb(30 41 59); /* slate-800 */
-          border-color: rgba(255, 255, 255, 0.1);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        }
-        
-        .locate-button svg {
-          fill: #e2e8f0; /* slate-200 */
-        }
+        color: #333;
       }
 
       .locate-button:hover {
         background: #f4f4f4;
       }
 
-      @media (prefers-color-scheme: dark) {
-        .locate-button:hover {
-          background: rgb(51 65 85); /* slate-700 */
+      /* Mobile: larger touch targets push zoom controls taller */
+      @media (max-width: 1023px) {
+        .locate-button {
+          top: 110px;
+          width: 44px;
+          height: 44px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
       }
 
@@ -1415,7 +1327,7 @@ defmodule AprsmeWeb.MapLive.Index do
       }
 
       @media (max-width: 1023px) {
-        .slideover-toggle {
+        .slideover-toggle.slideover-open {
           display: none;
         }
       }

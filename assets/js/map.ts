@@ -64,10 +64,16 @@ import {
   saveMapState,
   safePushEvent,
   getLiveSocket,
+  escapeHtml,
 } from "./map_helpers";
 
 // APRS Map Hook - handles only basic map interaction
 // All data logic handled by LiveView
+
+// Zoom level at which marker clustering is disabled and individual markers are shown.
+// Trails are only visible at this zoom level and above to avoid showing trails
+// for markers hidden inside cluster bubbles.
+const DISABLE_CLUSTERING_AT_ZOOM = 11;
 
 let MapAPRSMap = {
   mounted() {
@@ -359,7 +365,7 @@ let MapAPRSMap = {
         zoomToBoundsOnClick: true,
         spiderfyOnMaxZoom: true,
         removeOutsideVisibleBounds: true,
-        disableClusteringAtZoom: 11, // Show individual markers at zoom 11+
+        disableClusteringAtZoom: DISABLE_CLUSTERING_AT_ZOOM,
         maxClusterRadius: 80,
         iconCreateFunction: function (cluster: MarkerCluster) {
           const count = cluster.getChildCount();
@@ -409,7 +415,12 @@ let MapAPRSMap = {
     }
 
     // Create trail layer and manager with RF path hover callbacks
-    const trailLayer = L.layerGroup().addTo(self.map);
+    // Only add to map if zoom is high enough (trails hidden when markers are clustered)
+    const trailLayer = L.layerGroup();
+    if (self.map!.getZoom() >= DISABLE_CLUSTERING_AT_ZOOM) {
+      trailLayer.addTo(self.map!);
+    }
+    self.trailLayer = trailLayer;
     self.trailManager = new TrailManager(
       trailLayer,
       60 * 60 * 1000,
@@ -497,6 +508,7 @@ let MapAPRSMap = {
 
     // Track when map is ready
     self.map!.whenReady(() => {
+      if (self.isDestroyed) return;
       try {
         self.lastZoom = self.map!.getZoom();
         self.sendMapReadyEvents();
@@ -591,6 +603,20 @@ let MapAPRSMap = {
               self.oms.addMarker(marker);
             }
           });
+        }
+
+        // Hide trails when markers are clustered, show when unclustered
+        if (self.trailLayer && self.map) {
+          if (currentZoom >= DISABLE_CLUSTERING_AT_ZOOM) {
+            if (!self.map.hasLayer(self.trailLayer)) {
+              self.trailLayer.addTo(self.map);
+              self.trailLayer.bringToFront();
+            }
+          } else {
+            if (self.map.hasLayer(self.trailLayer)) {
+              self.map.removeLayer(self.trailLayer);
+            }
+          }
         }
 
         // If zoom changed significantly (more than 2 levels), request reload of normal markers
@@ -770,7 +796,9 @@ let MapAPRSMap = {
       startY = touch.clientY;
 
       longPressTimer = setTimeout(() => {
-        handleLongPress(e.originalEvent);
+        if (!self.isDestroyed && self.map) {
+          handleLongPress(e.originalEvent);
+        }
       }, longPressDuration);
     });
 
@@ -1646,7 +1674,7 @@ let MapAPRSMap = {
     // Additional check to ensure map is fully ready
     if (
       !self.map ||
-      !self.map._container ||
+      !self.map.getContainer() ||
       typeof self.map.getZoom !== "function"
     ) {
       console.warn("Map not fully initialized, queueing marker:", data.id);
@@ -2266,7 +2294,7 @@ let MapAPRSMap = {
         border-radius: 50%;
         opacity: 0.8;
         box-shadow: 0 0 2px rgba(0,0,0,0.3);
-      " title="Historical position for ${data.callsign}"></div>`;
+      " title="Historical position for ${escapeHtml(data.callsign || "")}"></div>`;
 
       return createDivIcon(iconHtml, {
         className: "historical-dot-marker",
@@ -2289,7 +2317,7 @@ let MapAPRSMap = {
       border-radius: 50%;
       opacity: 0.8;
       box-shadow: 0 0 2px rgba(0,0,0,0.3);
-    " title="APRS Station: ${data.callsign}"></div>`;
+    " title="APRS Station: ${escapeHtml(data.callsign || "")}"></div>`;
 
     return createDivIcon(iconHtml, {
       iconSize: [12, 12],
