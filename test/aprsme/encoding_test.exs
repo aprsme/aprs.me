@@ -45,10 +45,42 @@ defmodule Aprsme.EncodingTest do
     end
 
     test "handles latin1 encoded binary" do
-      # Latin1 bytes for accented characters
+      # Latin1 bytes for accented characters (>= 160, valid Latin1 printable)
       invalid_binary = <<85, 78, 73, 211, 78, 32, 80, 65, 78, 65, 77, 69, 209, 65>>
       result = Encoding.sanitize_string(invalid_binary)
       assert String.valid?(result)
+      # 211 = Ó, 209 = Ñ — both above 159, so they convert to real characters
+      assert result == "UNIÓN PANAMEÑA"
+    end
+  end
+
+  describe "sanitize_string/1 C1 control range (128-159)" do
+    test "latin1 bytes 128-159 become replacement characters instead of being silently deleted" do
+      input = <<72, 101, 108, 108, 111, 130>>
+      result = Encoding.sanitize_string(input)
+      assert String.valid?(result)
+      assert String.contains?(result, "\uFFFD")
+    end
+
+    test "latin1 byte 128 becomes replacement character" do
+      input = <<65, 128, 66>>
+      result = Encoding.sanitize_string(input)
+      assert String.valid?(result)
+      assert result == "A\uFFFDB"
+    end
+
+    test "latin1 byte 159 becomes replacement character" do
+      input = <<65, 159, 66>>
+      result = Encoding.sanitize_string(input)
+      assert String.valid?(result)
+      assert result == "A\uFFFDB"
+    end
+
+    test "latin1 bytes above 159 still convert to proper characters" do
+      input = <<67, 97, 102, 233>>
+      result = Encoding.sanitize_string(input)
+      assert String.valid?(result)
+      assert result == "Café"
     end
   end
 end

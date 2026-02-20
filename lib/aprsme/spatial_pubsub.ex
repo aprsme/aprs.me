@@ -288,14 +288,22 @@ defmodule Aprsme.SpatialPubSub do
   end
 
   defp get_intersecting_grid_cells(%{north: n, south: s, east: e, west: w}) do
-    # Calculate which grid cells intersect with the bounds
     min_lat_cell = floor(s / @grid_size)
     max_lat_cell = floor(n / @grid_size)
     min_lon_cell = floor(w / @grid_size)
     max_lon_cell = floor(e / @grid_size)
 
+    lon_cells =
+      if min_lon_cell > max_lon_cell do
+        max_positive = floor(180.0 / @grid_size)
+        min_negative = floor(-180.0 / @grid_size)
+        Enum.to_list(min_lon_cell..max_positive) ++ Enum.to_list(min_negative..max_lon_cell)
+      else
+        Enum.to_list(min_lon_cell..max_lon_cell)
+      end
+
     for lat_cell <- min_lat_cell..max_lat_cell,
-        lon_cell <- min_lon_cell..max_lon_cell do
+        lon_cell <- lon_cells do
       {lat_cell, lon_cell}
     end
   end

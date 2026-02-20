@@ -9,6 +9,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
   alias AprsmeWeb.Live.Shared.CoordinateUtils
   alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
   alias AprsmeWeb.MapLive.DataBuilder
+  alias AprsmeWeb.MapLive.DisplayManager
   alias AprsmeWeb.MapLive.RfPath
   alias Phoenix.LiveView
   alias Phoenix.LiveView.Socket
@@ -412,8 +413,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
   end
 
   defp send_heat_map_for_current_bounds(socket) do
-    # This function should be moved to DisplayManager module
-    socket
+    DisplayManager.send_heat_map_for_current_bounds(socket)
   end
 
   defp maybe_load_rf_path_stations(socket, batch_offset, historical_packets) do

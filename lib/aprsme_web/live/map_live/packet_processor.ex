@@ -9,6 +9,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   alias AprsmeWeb.Live.Shared.BoundsUtils
   alias AprsmeWeb.Live.Shared.CoordinateUtils
   alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
+  alias AprsmeWeb.MapLive.DisplayManager
   alias AprsmeWeb.MapLive.PacketUtils
   alias Phoenix.LiveView
   alias Phoenix.LiveView.Socket
@@ -143,10 +144,8 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
     Map.get(socket.assigns, :locale, "en")
   end
 
-  # Placeholder for heat map function - this should be moved to DisplayManager
   defp send_heat_map_for_current_bounds(socket) do
-    # This function should be moved to DisplayManager module
-    socket
+    DisplayManager.send_heat_map_for_current_bounds(socket)
   end
 
   defp send_marker_with_popup_check(socket, marker_data) do

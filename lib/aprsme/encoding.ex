@@ -137,20 +137,42 @@ defmodule Aprsme.Encoding do
     <<byte>>
   end
 
+  defp latin1_char_to_utf8(byte) when byte >= 128 and byte <= 159 do
+    # C1 control range (128-159) has no useful Latin1 characters.
+    # Replace with Unicode replacement character instead of converting
+    # to C1 control codepoints that would just get stripped later.
+    <<0xEF, 0xBF, 0xBD>>
+  end
+
   defp latin1_char_to_utf8(byte) do
-    # For Latin1, values 128-255 map to Unicode U+0080 to U+00FF
+    # For Latin1, values 160-255 map to Unicode U+00A0 to U+00FF
     # In UTF-8, these become 2-byte sequences: 110xxxxx 10xxxxxx
     <<0xC0 + div(byte, 64), 0x80 + rem(byte, 64)>>
   end
 
   @spec clean_control_characters(binary()) :: binary()
   defp clean_control_characters(s) do
-    s
-    |> String.graphemes()
-    |> Enum.filter(&valid_grapheme?/1)
-    |> Enum.join()
-    |> String.trim()
+    if all_bytes_clean?(s) do
+      String.trim(s)
+    else
+      s
+      |> String.graphemes()
+      |> Enum.filter(&valid_grapheme?/1)
+      |> Enum.join()
+      |> String.trim()
+    end
   end
+
+  # Fast-path check: returns true when every byte is safe ASCII
+  # (printable chars 32-126, plus tab/newline/CR). Any byte >= 128
+  # or any control character triggers the slow grapheme-based path.
+  @spec all_bytes_clean?(binary()) :: boolean()
+  defp all_bytes_clean?(<<>>), do: true
+  defp all_bytes_clean?(<<9, rest::binary>>), do: all_bytes_clean?(rest)
+  defp all_bytes_clean?(<<10, rest::binary>>), do: all_bytes_clean?(rest)
+  defp all_bytes_clean?(<<13, rest::binary>>), do: all_bytes_clean?(rest)
+  defp all_bytes_clean?(<<byte, rest::binary>>) when byte >= 32 and byte <= 126, do: all_bytes_clean?(rest)
+  defp all_bytes_clean?(_), do: false
 
   @spec valid_grapheme?(String.grapheme()) :: boolean()
   defp valid_grapheme?(grapheme) do

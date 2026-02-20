@@ -188,11 +188,6 @@ defmodule Aprsme.DeviceIdentification do
     |> Map.put("updated_at", now)
   end
 
-  # Helper to enqueue the job
-  def enqueue_refresh_job do
-    # Oban.insert!(Worker.new(%{}))
-  end
-
   @doc """
   Looks up a device by identifier, using ? as a single-character wildcard.
   Returns the device struct if found, or nil.

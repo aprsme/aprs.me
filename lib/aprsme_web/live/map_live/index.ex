@@ -200,6 +200,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Start packet batcher for efficient updates
     {:ok, batcher_pid} = PacketBatcher.start_link(self())
+    Process.monitor(batcher_pid)
 
     # Determine initial slideover state from client viewport width
     slideover_open = initial_slideover_open?(socket)
@@ -868,6 +869,13 @@ defmodule AprsmeWeb.MapLive.Index do
       end)
 
     {:noreply, socket}
+  end
+
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, socket) when pid == socket.assigns.batcher_pid do
+    # PacketBatcher crashed — restart it
+    {:ok, new_pid} = PacketBatcher.start_link(self())
+    Process.monitor(new_pid)
+    {:noreply, assign(socket, :batcher_pid, new_pid)}
   end
 
   def handle_info(:clear_rf_path, socket) do
@@ -1773,9 +1781,7 @@ defmodule AprsmeWeb.MapLive.Index do
     # Schedule next update
     Process.send_after(self(), :update_time_display, 30_000)
 
-    # Simply triggering a re-render will cause time_ago_in_words to recalculate
-    # No need to update any assigns, just return the socket
-    {:noreply, socket}
+    {:noreply, assign(socket, :time_display_tick, System.monotonic_time())}
   end
 
   defp handle_reload_historical_packets(socket) do

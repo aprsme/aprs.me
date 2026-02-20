@@ -73,18 +73,11 @@ defmodule Aprsme.DeviceCache do
 
   @impl true
   def handle_info(:initial_load, state) do
-    # Load devices on startup
-    case load_devices_into_cache() do
-      :ok ->
-        # Schedule periodic refresh
-        Process.send_after(self(), :refresh_cache, @refresh_interval)
-        {:noreply, %{state | initial_load_done: true}}
+    load_devices_into_cache()
 
-      :error ->
-        # If initial load failed, retry sooner
-        Process.send_after(self(), :initial_load, 5_000)
-        {:noreply, state}
-    end
+    # Schedule periodic refresh
+    Process.send_after(self(), :refresh_cache, @refresh_interval)
+    {:noreply, %{state | initial_load_done: true}}
   end
 
   def handle_info(:refresh_cache, state) do
@@ -101,33 +94,22 @@ defmodule Aprsme.DeviceCache do
   defp load_devices_into_cache do
     require Logger
 
-    # Skip database loading in test environment
     if Application.get_env(:aprsme, :env) == :test do
       Cache.put(@cache_name, :all_devices, [])
       :ok
     else
-      try do
-        devices =
-          try do
-            Repo.all(Devices)
-          rescue
-            error ->
-              Logger.error("Failed to load devices from database: #{inspect(error)}")
-              []
-          end
-
-        # Store all devices in cache
-        case Cache.put(@cache_name, :all_devices, devices) do
-          {:ok, true} -> :ok
-          error -> error
+      devices =
+        try do
+          Repo.all(Devices)
+        rescue
+          error ->
+            Logger.error("Failed to load devices from database: #{inspect(error)}")
+            []
         end
-      rescue
-        error in [Postgrex.Error, DBConnection.ConnectionError] ->
-          # Handle case where database or table doesn't exist yet
-          Logger.warning("Failed to load devices: #{inspect(error)}. Will retry later.")
-          # Store empty list for now
-          Cache.put(@cache_name, :all_devices, [])
-          :error
+
+      case Cache.put(@cache_name, :all_devices, devices) do
+        {:ok, true} -> :ok
+        error -> error
       end
     end
   end

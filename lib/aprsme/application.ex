@@ -177,22 +177,7 @@ defmodule Aprsme.Application do
   end
 
   defp pubsub_config do
-    cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
-
-    if cluster_enabled do
-      require Logger
-
-      Logger.info("Starting distributed PubSub for clustering")
-
-      # Phoenix PubSub automatically uses distributed Erlang clustering when nodes are connected
-      {Phoenix.PubSub, name: Aprsme.PubSub}
-    else
-      require Logger
-
-      Logger.info("Starting local PubSub adapter")
-
-      {Phoenix.PubSub, name: Aprsme.PubSub}
-    end
+    {Phoenix.PubSub, name: Aprsme.PubSub}
   end
 
   # Removed - Exq configuration is now in runtime.exs

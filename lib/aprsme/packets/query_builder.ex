@@ -72,25 +72,11 @@ defmodule Aprsme.Packets.QueryBuilder do
 
   @doc """
   Filters query to only weather packets.
-  Uses SQL to check if any weather field is not null.
+  Uses the indexed `has_weather` boolean column.
   """
   @spec weather_only(Ecto.Query.t()) :: Ecto.Query.t()
   def weather_only(query) do
-    from p in query,
-      where:
-        fragment(
-          "? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL OR ? IS NOT NULL",
-          p.temperature,
-          p.humidity,
-          p.pressure,
-          p.wind_speed,
-          p.wind_direction,
-          p.rain_1h,
-          p.rain_24h,
-          p.rain_since_midnight,
-          p.snow,
-          p.luminosity
-        )
+    from p in query, where: p.has_weather == true
   end
 
   @doc """
