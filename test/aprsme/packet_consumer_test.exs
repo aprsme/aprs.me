@@ -1,9 +1,85 @@
 defmodule Aprsme.PacketConsumerTest do
   use Aprsme.DataCase, async: false
 
+  import Ecto.Query
+
   alias Aprsme.Packet
   alias Aprsme.PacketConsumer
   alias Aprsme.StreamingPacketsPubSub
+
+  describe "object name extraction" do
+    test "extracts object name with hyphens from information_field" do
+      events = [
+        %{
+          sender: "db0sda",
+          lat: 33.169,
+          lon: -96.492,
+          data_type: "object",
+          destination: "APRS",
+          path: "TCPIP*,qAC,SECOND",
+          information_field: ";P-K5SGD  *192200z3310.16NP09629.53W#PHG0-100DAPNET POCSAG Transmitter",
+          raw_packet: "db0sda>APRS,TCPIP*,qAC,SECOND:;P-K5SGD  *192200z3310.16NP09629.53W#"
+        }
+      ]
+
+      state = %{batch: [], batch_length: 0, batch_size: 1, batch_timeout: 1000, max_batch_size: 100, timer: nil}
+
+      {:noreply, [], _} = PacketConsumer.handle_events(events, nil, state)
+      Process.sleep(50)
+
+      packet = Repo.one(from p in Packet, where: p.sender == "db0sda")
+      assert packet
+      assert packet.object_name == "P-K5SGD"
+    end
+
+    test "extracts object name with special characters" do
+      events = [
+        %{
+          sender: "OBJTEST1",
+          lat: 35.0,
+          lon: -75.0,
+          data_type: "object",
+          destination: "APRS",
+          path: "WIDE1-1",
+          information_field: ";#146.760 *192200z3500.00N/07500.00W#Repeater",
+          raw_packet: "OBJTEST1>APRS:;#146.760 *192200z3500.00N/07500.00W#Repeater"
+        }
+      ]
+
+      state = %{batch: [], batch_length: 0, batch_size: 1, batch_timeout: 1000, max_batch_size: 100, timer: nil}
+
+      {:noreply, [], _} = PacketConsumer.handle_events(events, nil, state)
+      Process.sleep(50)
+
+      packet = Repo.one(from p in Packet, where: p.sender == "OBJTEST1")
+      assert packet
+      assert packet.object_name == "#146.760"
+    end
+
+    test "extracts object name for killed objects" do
+      events = [
+        %{
+          sender: "OBJTEST2",
+          lat: 35.0,
+          lon: -75.0,
+          data_type: "object",
+          destination: "APRS",
+          path: "WIDE1-1",
+          information_field: ";P-KILLED _192200z3500.00N/07500.00W#Removed",
+          raw_packet: "OBJTEST2>APRS:;P-KILLED _192200z3500.00N/07500.00W#Removed"
+        }
+      ]
+
+      state = %{batch: [], batch_length: 0, batch_size: 1, batch_timeout: 1000, max_batch_size: 100, timer: nil}
+
+      {:noreply, [], _} = PacketConsumer.handle_events(events, nil, state)
+      Process.sleep(50)
+
+      packet = Repo.one(from p in Packet, where: p.sender == "OBJTEST2")
+      assert packet
+      assert packet.object_name == "P-KILLED"
+    end
+  end
 
   describe "handle_events/3 with stream processing" do
     test "processes packets using streams without memory accumulation" do
@@ -25,6 +101,7 @@ defmodule Aprsme.PacketConsumerTest do
       # Initialize consumer state
       state = %{
         batch: [],
+        batch_length: 0,
         batch_size: 100,
         batch_timeout: 1000,
         max_batch_size: 1000,
@@ -86,6 +163,7 @@ defmodule Aprsme.PacketConsumerTest do
 
       state = %{
         batch: [],
+        batch_length: 0,
         # Set batch size to 5 to trigger immediate processing
         batch_size: 5,
         batch_timeout: 1000,
@@ -139,6 +217,7 @@ defmodule Aprsme.PacketConsumerTest do
 
       state = %{
         batch: [],
+        batch_length: 0,
         batch_size: 1,
         batch_timeout: 1000,
         max_batch_size: 100,
@@ -170,6 +249,7 @@ defmodule Aprsme.PacketConsumerTest do
 
       state = %{
         batch: [],
+        batch_length: 0,
         batch_size: 50,
         batch_timeout: 1000,
         # Only 100 will be processed
@@ -230,6 +310,7 @@ defmodule Aprsme.PacketConsumerTest do
 
       state = %{
         batch: [],
+        batch_length: 0,
         batch_size: 2,
         batch_timeout: 1000,
         max_batch_size: 100,
@@ -264,6 +345,7 @@ defmodule Aprsme.PacketConsumerTest do
 
       state = %{
         batch: [],
+        batch_length: 0,
         batch_size: 1,
         batch_timeout: 1000,
         max_batch_size: 100,
@@ -299,6 +381,7 @@ defmodule Aprsme.PacketConsumerTest do
 
       state = %{
         batch: [],
+        batch_length: 0,
         batch_size: 100,
         batch_timeout: 100,
         max_batch_size: 200,

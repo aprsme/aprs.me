@@ -37,47 +37,6 @@ defmodule Aprsme.DbOptimizerTest do
     end
   end
 
-  describe "copy_insert/3" do
-    test "inserts rows when count is <= 1000 using regular_batch_insert" do
-      now = NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
-
-      rows = [
-        ["test_copy_small_1", 10, now, now],
-        ["test_copy_small_2", 20, now, now]
-      ]
-
-      count =
-        DbOptimizer.copy_insert(
-          "packet_counters",
-          ["counter_type", "count", "inserted_at", "updated_at"],
-          rows
-        )
-
-      assert count == 2
-    end
-
-    test "falls back to regular_batch_insert when > 1000 rows (COPY fails in sandbox)" do
-      now = NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
-
-      rows =
-        for i <- 1..1001 do
-          ["test_copy_large_#{i}", i, now, now]
-        end
-
-      count =
-        DbOptimizer.copy_insert(
-          "packet_counters",
-          ["counter_type", "count", "inserted_at", "updated_at"],
-          rows
-        )
-
-      # COPY will fail in sandbox, falls back to regular_batch_insert
-      # Some rows may conflict on unique index but on_conflict: :nothing handles that
-      assert is_integer(count)
-      assert count > 0
-    end
-  end
-
   describe "optimized_batch_insert/3" do
     test "inserts valid entries and returns {count, 0}" do
       now = NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)

@@ -14,6 +14,7 @@ defmodule Aprsme.PacketConsumer do
 
   @type state :: %{
           batch: list(map()),
+          batch_length: non_neg_integer(),
           batch_size: integer(),
           batch_timeout: integer(),
           max_batch_size: integer(),
@@ -48,6 +49,7 @@ defmodule Aprsme.PacketConsumer do
     {:consumer,
      %{
        batch: [],
+       batch_length: 0,
        batch_size: batch_size,
        batch_timeout: batch_timeout,
        max_batch_size: max_batch_size,
@@ -61,11 +63,11 @@ defmodule Aprsme.PacketConsumer do
   end
 
   # Pattern matching for batch handling with optimized list operations
-  defp handle_batch_update(events, %{batch: batch} = state) do
+  defp handle_batch_update(events, %{batch: batch, batch_length: batch_length} = state) do
     # Optimize: Keep batch in reverse order for O(1) prepending
     # Only reverse when processing
     new_batch = Enum.reverse(events, batch)
-    new_batch_length = batch_length(batch) + length(events)
+    new_batch_length = batch_length + length(events)
 
     handle_batch_by_size(new_batch, new_batch_length, state)
   end
@@ -79,8 +81,8 @@ defmodule Aprsme.PacketConsumer do
     handle_full_batch(batch, state)
   end
 
-  defp handle_batch_by_size(batch, _length, state) do
-    handle_partial_batch(batch, state)
+  defp handle_batch_by_size(batch, new_batch_length, state) do
+    handle_partial_batch(batch, new_batch_length, state)
   end
 
   # Handle oversized batch with pattern matching
@@ -106,28 +108,23 @@ defmodule Aprsme.PacketConsumer do
   end
 
   # Handle partial batch
-  defp handle_partial_batch(batch, state) do
+  defp handle_partial_batch(batch, new_batch_length, state) do
     # Keep batch in reverse order
-    {:noreply, [], %{state | batch: batch}}
+    {:noreply, [], %{state | batch: batch, batch_length: new_batch_length}}
   end
 
   # Helper functions with pattern matching
   @spec reset_batch_timer(state()) :: state()
   defp reset_batch_timer(%{timer: nil} = state) do
     new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
-    %{state | batch: [], timer: new_timer}
+    %{state | batch: [], batch_length: 0, timer: new_timer}
   end
 
   defp reset_batch_timer(%{timer: timer} = state) do
     Process.cancel_timer(timer)
     new_timer = Process.send_after(self(), :process_batch, state.batch_timeout)
-    %{state | batch: [], timer: new_timer}
+    %{state | batch: [], batch_length: 0, timer: new_timer}
   end
-
-  # Efficient batch length calculation (cached if possible)
-  @spec batch_length(list()) :: non_neg_integer()
-  defp batch_length([]), do: 0
-  defp batch_length(batch), do: length(batch)
 
   # Pattern matching for logging
   @spec log_dropped_packets(list(), list()) :: :ok
@@ -153,12 +150,12 @@ defmodule Aprsme.PacketConsumer do
   end
 
   # Pattern matching for non-empty batch
-  def handle_info(:process_batch, %{batch: batch} = state) when is_list(batch) do
-    check_batch_utilization(batch, state.max_batch_size)
+  def handle_info(:process_batch, %{batch: batch, batch_length: batch_length} = state) when is_list(batch) do
+    check_batch_utilization(batch_length, state.max_batch_size)
     # Remember to reverse the batch since we keep it in reverse order
     process_batch(Enum.reverse(batch))
 
-    new_state = start_batch_timer(%{state | batch: []})
+    new_state = start_batch_timer(%{state | batch: [], batch_length: 0})
     {:noreply, [], new_state}
   end
 
@@ -169,20 +166,20 @@ defmodule Aprsme.PacketConsumer do
     %{state | timer: timer}
   end
 
-  # Pattern matching for batch utilization check
-  @spec check_batch_utilization(list(), integer()) :: :ok
-  defp check_batch_utilization(batch, max_size) when length(batch) > max_size * 0.8 do
+  # Batch utilization check using pre-computed length to avoid O(n) traversals
+  @spec check_batch_utilization(non_neg_integer(), integer()) :: :ok
+  defp check_batch_utilization(batch_length, max_size) when batch_length > max_size * 0.8 do
     Logger.warning("Batch size approaching limit",
       batch_status:
         LogSanitizer.log_data(
-          current_size: length(batch),
+          current_size: batch_length,
           max_size: max_size,
-          utilization_percent: trunc(length(batch) / max_size * 100)
+          utilization_percent: trunc(batch_length / max_size * 100)
         )
     )
   end
 
-  defp check_batch_utilization(_, _), do: :ok
+  defp check_batch_utilization(_batch_length, _max_size), do: :ok
 
   @spec process_batch(list(map())) :: :ok
   defp process_batch(packets) do
@@ -272,10 +269,10 @@ defmodule Aprsme.PacketConsumer do
   @spec process_chunk(list(map())) :: {non_neg_integer(), non_neg_integer()}
   defp process_chunk(packets) do
     # Use Stream for memory-efficient packet preparation
+    # Note: truncate_datetimes_to_second is already called inside prepare_packet_for_insert
     packet_stream =
       packets
       |> Stream.map(&prepare_packet_for_insert/1)
-      |> Stream.map(&truncate_datetimes_to_second/1)
       |> Stream.reject(&is_nil/1)
 
     # Separate valid and invalid packets using Stream
@@ -488,19 +485,14 @@ defmodule Aprsme.PacketConsumer do
   # Detect if packet is an item or object and set appropriate fields
   defp detect_item_or_object(attrs) do
     cond do
-      # Check for object data type first (takes priority over itemname)
-      attrs[:data_type] == "object" or attrs["data_type"] == "object" ->
-        object_name = extract_object_name(attrs)
-
-        attrs
-        |> Map.put(:object_name, object_name)
-        |> Map.put(:is_object, true)
-        |> Map.delete(:itemname)
-        |> Map.delete("itemname")
-
-      # Check information field for object format (starts with ;)
-      is_binary(attrs[:information_field]) and String.starts_with?(attrs[:information_field], ";") ->
-        object_name = extract_object_name_from_info_field(attrs[:information_field])
+      # Check for object data type or information field starting with ;
+      attrs[:data_type] == "object" or attrs["data_type"] == "object" or
+          (is_binary(attrs[:information_field]) and
+             String.starts_with?(attrs[:information_field], ";")) ->
+        # Try data_extended first, then fall back to parsing information_field
+        object_name =
+          extract_object_name(attrs) ||
+            extract_object_name_from_info_field(attrs[:information_field])
 
         attrs
         |> Map.put(:object_name, object_name)
@@ -531,9 +523,12 @@ defmodule Aprsme.PacketConsumer do
     end
   end
 
+  defp extract_object_name_from_info_field(nil), do: nil
+
   defp extract_object_name_from_info_field(info_field) do
-    # Object format: ;OBJECTNAM*DDHHMMz...
-    case Regex.run(~r/^;([A-Z0-9 ]{9})\*/, info_field) do
+    # Object format: ;OBJECTNAM*DDHHMMz... or ;OBJECTNAM_DDHHMMz... (killed)
+    # Object names are 9 printable ASCII characters followed by * (alive) or _ (killed)
+    case Regex.run(~r/^;(.{9})[*_]/, info_field) do
       [_, name] -> String.trim(name)
       _ -> nil
     end
