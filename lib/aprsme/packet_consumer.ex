@@ -232,12 +232,6 @@ defmodule Aprsme.PacketConsumer do
       )
     end
 
-    # Only do minor GC after very large batches to prevent memory accumulation
-    # This should rarely trigger with batch_size of 100
-    if length(packets) > 1000 do
-      :erlang.garbage_collect(self(), type: :minor)
-    end
-
     :telemetry.execute(
       [
         :aprsme,

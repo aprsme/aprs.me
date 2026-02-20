@@ -46,12 +46,9 @@ defmodule AprsmeWeb.MapLive.RfPath do
   """
   @spec get_path_station_positions(list(binary()), Phoenix.LiveView.Socket.t()) :: list(map())
   def get_path_station_positions(path_stations, _socket) do
-    # Limit to prevent excessive database queries
-    limited_stations = Enum.take(path_stations, 10)
-
-    limited_stations
-    |> Enum.map(&get_station_position/1)
-    |> Enum.filter(& &1)
+    path_stations
+    |> Enum.take(10)
+    |> Packets.get_latest_positions_for_callsigns()
   end
 
   defp split_at_q_construct(elements) do
@@ -93,20 +90,6 @@ defmodule AprsmeWeb.MapLive.RfPath do
       callsign
     else
       ""
-    end
-  end
-
-  defp get_station_position(callsign) do
-    case Packets.get_latest_packet_for_callsign(callsign) do
-      %{lat: lat, lon: lon} when is_number(lat) and is_number(lon) ->
-        %{
-          callsign: callsign,
-          lat: lat,
-          lng: lon
-        }
-
-      _ ->
-        nil
     end
   end
 end

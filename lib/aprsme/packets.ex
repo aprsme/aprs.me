@@ -867,6 +867,15 @@ defmodule Aprsme.Packets do
   end
 
   @doc """
+  Gets latest positions for multiple callsigns in a single batch query.
+  Returns a list of `%{callsign: String.t(), lat: float(), lng: float()}` maps.
+  """
+  @spec get_latest_positions_for_callsigns(list(String.t())) :: [map()]
+  def get_latest_positions_for_callsigns(callsigns) when is_list(callsigns) do
+    PreparedQueries.get_latest_positions_for_callsigns(callsigns)
+  end
+
+  @doc """
   Gets the most recent weather packet for a callsign.
   Looks for any packet containing weather data fields.
   """

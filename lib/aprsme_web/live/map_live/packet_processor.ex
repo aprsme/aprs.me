@@ -9,8 +9,8 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   alias AprsmeWeb.Live.Shared.BoundsUtils
   alias AprsmeWeb.Live.Shared.CoordinateUtils
   alias AprsmeWeb.Live.Shared.PacketUtils, as: SharedPacketUtils
+  alias AprsmeWeb.MapLive.DataBuilder
   alias AprsmeWeb.MapLive.DisplayManager
-  alias AprsmeWeb.MapLive.PacketUtils
   alias Phoenix.LiveView
   alias Phoenix.LiveView.Socket
 
@@ -18,6 +18,7 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
 
   @doc """
   Process a packet for display on the map.
+  Pushes events directly to the socket (used for single-packet path).
   """
   @spec process_packet_for_display(map(), Socket.t()) :: {:noreply, Socket.t()}
   def process_packet_for_display(packet, socket) do
@@ -28,10 +29,22 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
     socket = handle_packet_visibility(packet, lat, lon, callsign_key, socket)
 
     # Update last update timestamp for real-time display in map sidebar
-    # This timestamp is shown to users to indicate when data was last refreshed
     socket = assign(socket, :last_update_at, DateTime.utc_now())
 
     {:noreply, socket}
+  end
+
+  @doc """
+  Process a packet for batch display. Updates socket state but does NOT push
+  events. Returns `{socket, marker_data | nil}` where marker_data is the data
+  that should be included in a batched push_event, or nil if no marker needed.
+  """
+  @spec process_packet_for_marker_data(map(), Socket.t()) :: {Socket.t(), map() | nil}
+  def process_packet_for_marker_data(packet, socket) do
+    {lat, lon, _data_extended} = CoordinateUtils.get_coordinates(packet)
+    callsign_key = SharedPacketUtils.get_callsign_key(packet)
+
+    batch_visibility_action(packet, lat, lon, callsign_key, socket)
   end
 
   @doc """
@@ -78,34 +91,17 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
   """
   @spec handle_valid_postgres_packet(map(), number() | nil, number() | nil, Socket.t()) :: Socket.t()
   def handle_valid_postgres_packet(packet, _lat, _lon, socket) do
-    # Add the packet to visible_packets and push a marker immediately
-    callsign_key = SharedPacketUtils.get_callsign_key(packet)
+    {socket, marker_data} = prepare_packet_state(packet, socket)
 
-    new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
+    cond do
+      socket.assigns.map_zoom <= 8 ->
+        send_heat_map_for_current_bounds(socket)
 
-    # Enforce memory limits
-    new_visible_packets =
-      if map_size(new_visible_packets) > @max_visible_packets do
-        SharedPacketUtils.prune_oldest_packets(new_visible_packets, @max_visible_packets)
-      else
-        new_visible_packets
-      end
-
-    socket = assign(socket, :visible_packets, new_visible_packets)
-
-    # Check zoom level to decide how to display the packet
-    if socket.assigns.map_zoom <= 8 do
-      # We're in heat map mode - update the heat map with all current data
-      send_heat_map_for_current_bounds(socket)
-    else
-      # We're in marker mode - send individual marker
-      marker_data = PacketUtils.build_packet_data(packet, true, get_locale(socket))
-
-      if marker_data do
+      marker_data ->
         send_marker_with_popup_check(socket, marker_data)
-      else
+
+      true ->
         socket
-      end
     end
   end
 
@@ -119,14 +115,78 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
     assign(socket, :visible_packets, new_visible_packets)
   end
 
+  # Batch-mode visibility: same logic as visibility_action but returns
+  # {socket, marker_data | nil} without pushing events
+  defp batch_visibility_action(packet, lat, lon, callsign_key, socket) when not is_nil(lat) and not is_nil(lon) do
+    in_bounds = within_bounds?(%{lat: lat, lon: lon}, socket.assigns.map_bounds)
+    has_marker = Map.has_key?(socket.assigns.visible_packets, callsign_key)
+    batch_dispatch({in_bounds, has_marker}, packet, lat, lon, callsign_key, socket)
+  end
+
+  defp batch_visibility_action(_packet, _lat, _lon, _callsign_key, socket) do
+    {socket, nil}
+  end
+
+  # Out of bounds but has marker — remove it (still pushes remove_marker since
+  # removals are rare and don't benefit from batching)
+  defp batch_dispatch({false, true}, _packet, _lat, _lon, callsign_key, socket) do
+    socket = remove_marker_from_map(callsign_key, socket)
+    {socket, nil}
+  end
+
+  # In bounds, no existing marker — add it
+  defp batch_dispatch({true, false}, packet, _lat, _lon, _callsign_key, socket) do
+    prepare_packet_state(packet, socket)
+  end
+
+  # In bounds, existing marker — update if significant movement
+  defp batch_dispatch({true, true}, packet, lat, lon, callsign_key, socket) do
+    existing_packet = socket.assigns.visible_packets[callsign_key]
+    {existing_lat, existing_lon, _} = CoordinateUtils.get_coordinates(existing_packet)
+
+    if is_number(existing_lat) and is_number(existing_lon) and
+         GeoUtils.significant_movement?(existing_lat, existing_lon, lat, lon, 50) do
+      prepare_packet_state(packet, socket)
+    else
+      new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
+      {assign(socket, :visible_packets, new_visible_packets), nil}
+    end
+  end
+
+  defp batch_dispatch(_, _packet, _lat, _lon, _callsign_key, socket) do
+    {socket, nil}
+  end
+
+  # Shared: updates visible_packets state and builds marker data.
+  # Returns {socket, marker_data | nil}. Does NOT push events.
+  defp prepare_packet_state(packet, socket) do
+    callsign_key = SharedPacketUtils.get_callsign_key(packet)
+
+    new_visible_packets = Map.put(socket.assigns.visible_packets, callsign_key, packet)
+
+    new_visible_packets =
+      if map_size(new_visible_packets) > @max_visible_packets do
+        SharedPacketUtils.prune_oldest_packets(new_visible_packets, @max_visible_packets)
+      else
+        new_visible_packets
+      end
+
+    socket = assign(socket, :visible_packets, new_visible_packets)
+
+    marker_data =
+      if socket.assigns.map_zoom > 8 do
+        DataBuilder.build_packet_data(packet, true, get_locale(socket))
+      end
+
+    {socket, marker_data}
+  end
+
   # Private helper functions
 
-  # Use shared bounds utility
   defp within_bounds?(coords, bounds) do
     BoundsUtils.within_bounds?(coords, bounds)
   end
 
-  # Helper to get locale from socket
   defp get_locale(socket) do
     Map.get(socket.assigns, :locale, "en")
   end
@@ -137,7 +197,6 @@ defmodule AprsmeWeb.MapLive.PacketProcessor do
 
   defp send_marker_with_popup_check(socket, marker_data) do
     if socket.assigns.station_popup_open do
-      # Send without opening popup to avoid interrupting user
       LiveView.push_event(socket, "new_packet", Map.put(marker_data, :openPopup, false))
     else
       LiveView.push_event(socket, "new_packet", marker_data)

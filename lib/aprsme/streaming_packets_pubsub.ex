@@ -61,7 +61,7 @@ defmodule Aprsme.StreamingPacketsPubSub do
   @impl true
   def init(_opts) do
     # Create ETS table for fast lookups
-    :ets.new(@table_name, [:set, :protected, :named_table])
+    :ets.new(@table_name, [:set, :protected, :named_table, read_concurrency: true])
 
     # Monitor subscribers for cleanup
     Process.flag(:trap_exit, true)

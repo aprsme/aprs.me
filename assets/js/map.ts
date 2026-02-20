@@ -1125,6 +1125,89 @@ let MapAPRSMap = {
       }
     });
 
+    // Handle batched new packets from LiveView (performance optimization)
+    self.handleEvent(
+      "new_packets",
+      (payload: { packets: MarkerData[] }) => {
+        try {
+          if (!self || !self.map || self.isDestroyed) return;
+          if (!self.map.hasLayer) return;
+          if (self.heatLayer && self.map.hasLayer(self.heatLayer)) return;
+          if (!self.markerStates || !self.markers) return;
+
+          const packets = payload.packets;
+          if (!packets || packets.length === 0) return;
+
+          // Phase 1: Collect ALL markers to convert across the entire batch
+          // This prevents converting a marker that was just added by an earlier packet
+          const allNewCallsigns = new Set<string>();
+          const allNewIds = new Set<string>();
+          for (const data of packets) {
+            const cs = data.callsign_group || data.callsign || data.id;
+            if (cs) allNewCallsigns.add(cs);
+            if (data.id) allNewIds.add(String(data.id));
+          }
+
+          const markersToConvert: string[] = [];
+          self.markerStates.forEach((state, id) => {
+            const stateCallsign = state.callsign_group || state.callsign;
+            if (
+              stateCallsign &&
+              allNewCallsigns.has(stateCallsign) &&
+              (!state.historical || state.is_most_recent_for_callsign) &&
+              !allNewIds.has(String(id))
+            ) {
+              markersToConvert.push(String(id));
+            }
+          });
+
+          // Phase 2: Convert all existing live markers to historical dots
+          for (const id of markersToConvert) {
+            const existingMarker = self.markers.get(id);
+            const existingState = self.markerStates.get(id);
+            if (existingMarker && existingState) {
+              existingState.historical = true;
+              existingState.is_most_recent_for_callsign = false;
+              const incomingCallsign =
+                existingState.callsign_group || existingState.callsign;
+              const historicalIconData = {
+                id: String(id),
+                lat: existingState.lat,
+                lng: existingState.lng,
+                callsign: existingState.callsign || incomingCallsign,
+                callsign_group:
+                  existingState.callsign_group || incomingCallsign,
+                symbol_table_id: existingState.symbol_table,
+                symbol_code: existingState.symbol_code,
+                historical: true,
+                is_most_recent_for_callsign: false,
+                popup: existingState.popup,
+              };
+              existingMarker.setIcon(self.createMarkerIcon(historicalIconData));
+              (existingMarker as APRSMarker)._isHistorical = true;
+            }
+          }
+
+          // Phase 3: Add all new markers
+          for (const data of packets) {
+            const shouldOpenPopup = data.openPopup !== false;
+            const incomingCallsign =
+              data.callsign_group || data.callsign || data.id;
+            self.addMarker({
+              ...data,
+              historical: false,
+              is_most_recent_for_callsign: true,
+              callsign_group: incomingCallsign,
+              popup: data.popup || self.buildPopupContent(data),
+              openPopup: shouldOpenPopup,
+            });
+          }
+        } catch (error) {
+          console.error("Error in new_packets handler:", error);
+        }
+      },
+    );
+
     // Handle highlighting the latest packet (open its popup)
     self.currentPopupMarkerId = null;
     self.handleEvent("highlight_packet", (data: { id: string }) => {

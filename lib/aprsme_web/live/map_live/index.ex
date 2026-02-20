@@ -850,14 +850,37 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   def handle_info({:packet_batch, packets}, socket) do
-    # Process batch of packets efficiently
-    socket =
-      Enum.reduce(packets, socket, fn packet, acc_socket ->
-        case handle_info_postgres_packet(packet, acc_socket) do
-          {:noreply, new_socket} -> new_socket
-          _ -> acc_socket
-        end
+    # Process batch: collect marker data without pushing events, then send one batch push
+    {socket, marker_data_list} =
+      Enum.reduce(packets, {socket, []}, fn packet, {acc_socket, markers} ->
+        {new_socket, marker_data} = process_packet_for_batch(packet, acc_socket)
+        markers = if marker_data, do: [marker_data | markers], else: markers
+        {new_socket, markers}
       end)
+
+    socket = assign(socket, :last_update_at, DateTime.utc_now())
+
+    # Send heat map update once if in heat map mode, otherwise batch markers
+    socket =
+      cond do
+        socket.assigns.map_zoom <= 8 and marker_data_list != [] ->
+          DisplayManager.send_heat_map_for_current_bounds(socket)
+
+        marker_data_list != [] ->
+          markers =
+            Enum.map(Enum.reverse(marker_data_list), fn data ->
+              if socket.assigns.station_popup_open do
+                Map.put(data, :openPopup, false)
+              else
+                data
+              end
+            end)
+
+          push_event(socket, "new_packets", %{packets: markers})
+
+        true ->
+          socket
+      end
 
     {:noreply, socket}
   end
@@ -1045,6 +1068,21 @@ defmodule AprsmeWeb.MapLive.Index do
 
   defp process_packet_for_display(packet, socket) do
     PacketProcessor.process_packet_for_display(packet, socket)
+  end
+
+  defp process_packet_for_batch(packet, socket) do
+    if socket.assigns.tracked_callsign == "" do
+      PacketProcessor.process_packet_for_marker_data(packet, socket)
+    else
+      packet_sender = Map.get(packet, :sender, Map.get(packet, "sender", ""))
+
+      if String.upcase(packet_sender) == String.upcase(socket.assigns.tracked_callsign) do
+        socket = assign(socket, :tracked_callsign_latest_packet, packet)
+        PacketProcessor.process_packet_for_marker_data(packet, socket)
+      else
+        {socket, nil}
+      end
+    end
   end
 
   # Handle replaying the next historical packet
