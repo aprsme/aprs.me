@@ -130,7 +130,7 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
   defp collect_database_size do
     case Aprsme.Repo.query("SELECT pg_database_size(current_database()) as size") do
       {:ok, %{rows: [[size]]}} ->
-        :telemetry.execute([:aprsme, :postgres, :database], %{size_bytes: size}, %{})
+        :telemetry.execute([:aprsme, :postgres, :database], %{size_bytes: to_number(size)}, %{})
 
       _ ->
         :ok
@@ -152,11 +152,11 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
         :telemetry.execute(
           [:aprsme, :postgres, :connections],
           %{
-            total: total || 0,
-            active: active || 0,
-            idle: idle || 0,
-            idle_in_transaction: idle_in_tx || 0,
-            waiting: waiting || 0
+            total: to_number(total),
+            active: to_number(active),
+            idle: to_number(idle),
+            idle_in_transaction: to_number(idle_in_tx),
+            waiting: to_number(waiting)
           },
           %{}
         )
@@ -202,10 +202,10 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
         :telemetry.execute(
           [:aprsme, :postgres, :query_stats],
           %{
-            total_calls: trunc(calls || 0),
-            total_time_ms: total_time || 0,
-            avg_time_ms: avg_time || 0,
-            max_time_ms: max_time || 0
+            total_calls: to_number(calls, :integer),
+            total_time_ms: to_number(total_time),
+            avg_time_ms: to_number(avg_time),
+            max_time_ms: to_number(max_time)
           },
           %{}
         )
@@ -239,15 +239,26 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
     :telemetry.execute(
       [:aprsme, :postgres, :packets_table],
       %{
-        live_tuples: live || 0,
-        dead_tuples: dead || 0,
-        total_inserts: ins || 0,
-        total_updates: upd || 0,
-        total_deletes: del || 0,
-        table_size_bytes: table_size || 0,
-        indexes_size_bytes: idx_size || 0
+        live_tuples: to_number(live),
+        dead_tuples: to_number(dead),
+        total_inserts: to_number(ins),
+        total_updates: to_number(upd),
+        total_deletes: to_number(del),
+        table_size_bytes: to_number(table_size),
+        indexes_size_bytes: to_number(idx_size)
       },
       %{}
     )
   end
+
+  # Coerce Decimal/nil values to native Erlang numbers for :telemetry.execute
+  defp to_number(nil), do: 0
+  defp to_number(%Decimal{} = d), do: Decimal.to_float(d)
+  defp to_number(n) when is_number(n), do: n
+  defp to_number(_), do: 0
+
+  defp to_number(nil, :integer), do: 0
+  defp to_number(%Decimal{} = d, :integer), do: d |> Decimal.to_float() |> trunc()
+  defp to_number(n, :integer) when is_number(n), do: trunc(n)
+  defp to_number(_, :integer), do: 0
 end

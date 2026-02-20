@@ -885,16 +885,7 @@ defmodule AprsmeWeb.MapLive.Index do
             |> Enum.filter(& &1)
             |> Enum.uniq()
 
-          markers =
-            Enum.map(reversed, fn data ->
-              data = Map.delete(data, "convert_from")
-
-              if socket.assigns.station_popup_open do
-                Map.put(data, :openPopup, false)
-              else
-                data
-              end
-            end)
+          markers = prepare_markers_for_push(reversed, socket.assigns.station_popup_open)
 
           push_event(socket, "new_packets", %{
             packets: markers,
@@ -1012,6 +1003,13 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   # Private handler functions for each message type
+
+  defp prepare_markers_for_push(markers, popup_open?) do
+    Enum.map(markers, fn data ->
+      data = Map.delete(data, "convert_from")
+      if popup_open?, do: Map.put(data, :openPopup, false), else: data
+    end)
+  end
 
   defp handle_info_process_bounds_update(map_bounds, socket) do
     require Logger
@@ -1151,7 +1149,7 @@ defmodule AprsmeWeb.MapLive.Index do
     <style>
       .locate-button {
         position: absolute;
-        left: 10px;
+        left: 12px;
         top: 100px;
         z-index: 1000;
         background: white;
