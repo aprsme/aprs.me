@@ -2,9 +2,9 @@
 
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
   <!-- Page header -->
-  <div class="bg-white shadow-sm dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+  <div class="bg-white shadow-xs ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="py-4 md:flex md:items-center md:justify-between">
+      <div class="py-5 md:flex md:items-center md:justify-between">
         <div class="min-w-0 flex-1">
           <div class="flex items-center">
             <h1 class="text-xl font-bold leading-7 sm:truncate sm:text-2xl">
@@ -22,7 +22,7 @@
                   {render_symbol_html(@packet)}
                 </div>
               <% end %>
-              <span class="inline-flex items-center rounded-md bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-400">
+              <span class="inline-flex items-center rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10 dark:bg-indigo-400/10 dark:text-indigo-400 dark:ring-indigo-400/30">
                 {@callsign}
               </span>
             </div>
@@ -32,7 +32,7 @@
           <div class="flex space-x-2">
             <.link
               navigate={~p"/packets/#{@callsign}"}
-              class="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 dark:bg-white/10 dark:text-white dark:ring-white/10 dark:hover:bg-white/20"
+              class="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-white/10 dark:text-white dark:ring-white/10 dark:hover:bg-white/20"
             >
               {gettext("View packets")}
             </.link>
@@ -55,7 +55,7 @@
       <!-- Station details -->
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 mb-6 lg:grid-rows-1">
         <!-- Position information -->
-        <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 h-full">
+        <div class="bg-white shadow-xs sm:rounded-lg ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10 h-full">
           <div class="px-6 py-6">
             <div class="flex items-center mb-3">
               <div class="flex-shrink-0">
@@ -188,7 +188,7 @@
         
 <!-- Map showing station location -->
         <%= if @packet && @packet.lat && @packet.lon do %>
-          <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 h-full">
+          <div class="bg-white shadow-xs sm:rounded-lg ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10 h-full">
             <% {symbol_table, symbol_code} = AprsmeWeb.AprsSymbol.extract_from_packet(@packet) %>
             <% symbol_html = AprsmeWeb.AprsSymbol.render_marker_html(symbol_table, symbol_code, @callsign, 32) %>
             <.info_map
@@ -206,7 +206,7 @@
 <!-- Row for Device Information and Other SSIDs -->
         <div class="lg:col-span-2 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <!-- Device information -->
-          <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+          <div class="bg-white shadow-xs sm:rounded-lg ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10">
             <div class="px-6 py-6">
               <div class="flex items-center mb-3">
                 <div class="flex-shrink-0">
@@ -296,7 +296,7 @@
           
 <!-- Other SSIDs -->
           <%= if length(@other_ssids) > 0 do %>
-            <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+            <div class="bg-white shadow-xs sm:rounded-lg ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10">
               <div class="px-6 py-6">
                 <div class="flex items-center mb-3">
                   <div class="flex-shrink-0">
@@ -319,7 +319,7 @@
                   </div>
                 </div>
                 <div class="overflow-x-auto">
-                  <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700 text-sm">
+                  <table class="min-w-full divide-y divide-gray-200 dark:divide-white/10 text-sm">
                     <thead>
                       <tr>
                         <th class="text-left text-xs font-medium uppercase tracking-wider">
@@ -409,7 +409,7 @@
       </div>
       
 <!-- Neighboring stations -->
-      <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+      <div class="bg-white shadow-xs sm:rounded-lg ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10">
         <div class="px-6 py-6">
           <div class="flex items-center mb-3">
             <div class="flex-shrink-0">
@@ -432,7 +432,7 @@
             </div>
           </div>
           <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-white/10">
               <thead>
                 <tr>
                   <th class="text-left text-xs font-medium uppercase tracking-wider">
@@ -505,7 +505,7 @@
       
 <!-- Stations that heard this callsign on RF -->
       <%= if length(@heard_by_stations) > 0 do %>
-        <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 mt-6">
+        <div class="bg-white shadow-xs sm:rounded-lg ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10 mt-6">
           <div class="px-6 py-6">
             <div class="flex items-center mb-3">
               <div class="flex-shrink-0">
@@ -532,7 +532,7 @@
               </div>
             </div>
             <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+              <table class="min-w-full divide-y divide-gray-200 dark:divide-white/10">
                 <thead>
                   <tr>
                     <th class="text-left text-xs font-medium uppercase tracking-wider">
@@ -610,7 +610,7 @@
       
 <!-- Stations heard directly by this callsign -->
       <%= if length(@stations_heard_by) > 0 do %>
-        <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 mt-6">
+        <div class="bg-white shadow-xs sm:rounded-lg ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10 mt-6">
           <div class="px-6 py-6">
             <div class="flex items-center mb-3">
               <div class="flex-shrink-0">
@@ -637,7 +637,7 @@
               </div>
             </div>
             <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+              <table class="min-w-full divide-y divide-gray-200 dark:divide-white/10">
                 <thead>
                   <tr>
                     <th class="text-left text-xs font-medium uppercase tracking-wider">

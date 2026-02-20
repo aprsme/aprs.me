@@ -1,25 +1,43 @@
 <div class="container mx-auto max-w-7xl py-8">
-  <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+  <div class="bg-white shadow-xs sm:rounded-lg ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10">
     <div class="px-6 py-6">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-white/10">
           <thead>
             <tr>
-              <th>{gettext("Sender")}</th>
-              <th>{gettext("SSID")}</th>
-              <th>{gettext("Base Callsign")}</th>
-              <th>{gettext("Data Type")}</th>
-              <th>{gettext("Symbol")}</th>
-              <th>{gettext("Path")}</th>
-              <th>{gettext("Latitude")}</th>
-              <th>{gettext("Longitude")}</th>
-              <th>{gettext("Device")}</th>
+              <th class="sticky top-0 bg-white py-3 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                {gettext("Sender")}
+              </th>
+              <th class="sticky top-0 bg-white py-3 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                {gettext("SSID")}
+              </th>
+              <th class="sticky top-0 bg-white py-3 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                {gettext("Base Callsign")}
+              </th>
+              <th class="sticky top-0 bg-white py-3 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                {gettext("Data Type")}
+              </th>
+              <th class="sticky top-0 bg-white py-3 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                {gettext("Symbol")}
+              </th>
+              <th class="sticky top-0 bg-white py-3 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                {gettext("Path")}
+              </th>
+              <th class="sticky top-0 bg-white py-3 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                {gettext("Latitude")}
+              </th>
+              <th class="sticky top-0 bg-white py-3 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                {gettext("Longitude")}
+              </th>
+              <th class="sticky top-0 bg-white py-3 pr-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
+                {gettext("Device")}
+              </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-gray-100 dark:divide-white/5">
             <%= for packet <- @packets do %>
-              <tr>
-                <td>
+              <tr class="even:bg-gray-50 dark:even:bg-white/[0.025]">
+                <td class="whitespace-nowrap py-3 pr-3">
                   <.link
                     navigate={~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"}
                     class="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
@@ -27,12 +45,10 @@
                     {Map.get(packet, :sender, Map.get(packet, "sender", ""))}
                   </.link>
                 </td>
-                <td>
-                  <span class="text-sm">
-                    {Map.get(packet, :ssid, Map.get(packet, "ssid", ""))}
-                  </span>
+                <td class="whitespace-nowrap py-3 pr-3 text-sm text-gray-500 dark:text-gray-400">
+                  {Map.get(packet, :ssid, Map.get(packet, "ssid", ""))}
                 </td>
-                <td>
+                <td class="whitespace-nowrap py-3 pr-3">
                   <.link
                     navigate={~p"/packets/#{Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}"}
                     class="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
@@ -40,13 +56,13 @@
                     {Map.get(packet, :base_callsign, Map.get(packet, "base_callsign", ""))}
                   </.link>
                 </td>
-                <td>
-                  <span class="inline-flex items-center rounded-md bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-400">
+                <td class="whitespace-nowrap py-3 pr-3">
+                  <span class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10 dark:bg-indigo-400/10 dark:text-indigo-400 dark:ring-indigo-400/30">
                     {Map.get(packet, :data_type, Map.get(packet, "data_type", ""))}
                   </span>
                 </td>
-                <td>
-                  <span class="text-xs font-mono">
+                <td class="whitespace-nowrap py-3 pr-3">
+                  <span class="text-xs font-mono text-gray-700 dark:text-gray-300">
                     <% data = Map.get(packet, :data_extended) || %{}
 
                     raw_table =
@@ -57,23 +73,23 @@
                     {table}{code}
                   </span>
                 </td>
-                <td>
+                <td class="whitespace-nowrap py-3 pr-3">
                   <span class="text-xs font-mono text-gray-500 dark:text-gray-400">
                     {Map.get(packet, :path, Map.get(packet, "path", ""))}
                   </span>
                 </td>
-                <td>
-                  <span class="text-xs font-mono">
+                <td class="whitespace-nowrap py-3 pr-3">
+                  <span class="text-xs font-mono text-gray-700 dark:text-gray-300">
                     {format_coordinate(extract_coordinate(packet, :lat))}
                   </span>
                 </td>
-                <td>
-                  <span class="text-xs font-mono">
+                <td class="whitespace-nowrap py-3 pr-3">
+                  <span class="text-xs font-mono text-gray-700 dark:text-gray-300">
                     {format_coordinate(extract_coordinate(packet, :lon))}
                   </span>
                 </td>
-                <td>
-                  <span class="text-xs font-mono">
+                <td class="whitespace-nowrap py-3 pr-3">
+                  <span class="text-xs font-mono text-gray-500 dark:text-gray-400">
                     {Map.get(packet, :device_identifier, Map.get(packet, "device_identifier", ""))}
                   </span>
                 </td>

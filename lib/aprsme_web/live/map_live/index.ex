@@ -1404,294 +1404,265 @@ defmodule AprsmeWeb.MapLive.Index do
       ]}
     >
       <!-- Header -->
-      <div class="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-        <div class="flex items-center space-x-2">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-            />
-          </svg>
-          <h2 class="text-xl font-bold">APRS.me</h2>
-        </div>
-        
-    <!-- Close button for mobile -->
-        <button
-          class="lg:hidden text-white hover:text-slate-200 transition-colors"
-          phx-click={toggle_slideover_js()}
-          title={Gettext.gettext(AprsmeWeb.Gettext, "Close controls")}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="m18 6-12 12" />
-            <path d="m6 6 12 12" />
-          </svg>
-        </button>
-      </div>
-      
-    <!-- Content -->
-      <div class="p-6 space-y-6 bg-slate-50 dark:bg-slate-900 flex-1 overflow-y-auto">
-        <!-- Callsign Search -->
-        <div class="space-y-4">
-          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-2">
-            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="bg-indigo-700 px-5 py-5 dark:bg-indigo-800">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <svg class="h-5 w-5 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 0a3.75 3.75 0 010 5.303m-7.425 2.122a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.98 0-13.789m13.788 0c3.808 3.808 3.808 9.981 0 13.79M12 12h.008v.007H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
               />
             </svg>
-            <span>{gettext("Search Callsign")}</span>
-          </label>
-          <form phx-submit="track_callsign" class="flex flex-col space-y-2">
-            <div class="flex space-x-2 w-full">
-              <input
-                type="text"
-                name="callsign"
-                value={@tracked_callsign || @overlay_callsign}
-                phx-change="update_callsign"
-                placeholder={gettext("Enter callsign...")}
-                class="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm uppercase placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-200 hover:border-slate-400 dark:hover:border-slate-500 bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
-              />
-              <button
-                type="submit"
-                class="px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl whitespace-nowrap flex-shrink-0"
-              >
-                {gettext("Track")}
-              </button>
-            </div>
-            <%= if @tracked_callsign != "" do %>
-              <div class="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-lg">
-                <span class="text-sm text-blue-700 font-medium">
-                  {gettext("Tracking:")} <span class="font-bold">{@tracked_callsign}</span>
-                </span>
-                <button
-                  type="button"
-                  phx-click="clear_tracking"
-                  class="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                >
-                  {gettext("Clear")}
-                </button>
-              </div>
-            <% end %>
-          </form>
+            <h2 class="text-base font-semibold text-white">APRS.me</h2>
+          </div>
+          <button
+            class="relative rounded-md text-indigo-200 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white lg:hidden"
+            phx-click={toggle_slideover_js()}
+            title={Gettext.gettext(AprsmeWeb.Gettext, "Close controls")}
+          >
+            <span class="absolute -inset-2.5"></span>
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
         </div>
-        
-    <!-- Other SSIDs -->
-        <%= if @tracked_callsign != "" and @other_ssids != [] do %>
-          <div class="space-y-3">
-            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-2">
-              <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <p class="mt-1 text-sm text-indigo-300 dark:text-indigo-200">
+          {gettext("Real-time APRS packet tracking")}
+        </p>
+      </div>
+      
+    <!-- Content -->
+      <div class="relative flex-1 overflow-y-auto bg-white px-5 py-5 dark:bg-gray-800 dark:after:absolute dark:after:inset-y-0 dark:after:left-0 dark:after:w-px dark:after:bg-white/10">
+        <div class="space-y-5">
+          <!-- Callsign Search -->
+          <div class="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-950/5 dark:bg-gray-900/50 dark:ring-white/10">
+            <label class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <svg class="h-3.5 w-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
-              <span>{gettext("Other SSIDs")}</span>
+              {gettext("Search Callsign")}
             </label>
-            <div class="space-y-1">
-              <%= for ssid_info <- @other_ssids do %>
-                <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all duration-200 text-sm group">
+            <form phx-submit="track_callsign" class="space-y-2">
+              <div class="flex gap-2">
+                <input
+                  type="text"
+                  name="callsign"
+                  value={@tracked_callsign || @overlay_callsign}
+                  phx-change="update_callsign"
+                  placeholder={gettext("Enter callsign...")}
+                  class="block w-full rounded-md bg-white px-3 py-2 text-sm text-gray-900 shadow-xs outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 uppercase dark:bg-gray-800 dark:text-white dark:outline-white/10 dark:placeholder:text-gray-500 dark:focus:outline-indigo-500"
+                />
+                <button
+                  type="submit"
+                  class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 whitespace-nowrap flex-shrink-0 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                >
+                  {gettext("Track")}
+                </button>
+              </div>
+              <%= if @tracked_callsign != "" do %>
+                <div class="flex items-center justify-between rounded-md bg-indigo-50 px-3 py-2 dark:bg-indigo-500/10">
+                  <span class="text-sm text-indigo-700 font-medium dark:text-indigo-300">
+                    {gettext("Tracking:")} <span class="font-bold font-mono">{@tracked_callsign}</span>
+                  </span>
                   <button
-                    phx-click="track_callsign"
-                    phx-value-callsign={ssid_info.callsign}
-                    class="font-semibold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-800 dark:group-hover:text-indigo-300 cursor-pointer"
+                    type="button"
+                    phx-click="clear_tracking"
+                    class="rounded-md bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
                   >
-                    {ssid_info.callsign}
+                    {gettext("Clear")}
                   </button>
-                  <div class="flex items-center space-x-2">
-                    <%= if ssid_info.received_at do %>
-                      <span class="text-xs text-slate-500 dark:text-slate-400">
-                        {time_ago_in_words(ssid_info.received_at)}
-                      </span>
-                    <% end %>
-                    <.link
-                      navigate={~p"/info/#{ssid_info.callsign}"}
-                      class="text-xs text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                      title={gettext("Station info")}
-                    >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    </.link>
-                  </div>
                 </div>
               <% end %>
-            </div>
+            </form>
           </div>
-        <% end %>
-        
-    <!-- Trail Duration -->
-        <div class="space-y-4">
-          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-2">
-            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>{gettext("Trail Duration")}</span>
-          </label>
-          <form phx-change="update_trail_duration" class="relative">
-            <select
-              name="trail_duration"
-              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white appearance-none transition-all duration-200 hover:border-slate-400 dark:hover:border-slate-500"
-            >
-              <option value="1" selected={@trail_duration == "1"}>
-                {ngettext("1 Hour", "%{count} Hours", 1)}
-              </option>
-              <option value="6" selected={@trail_duration == "6"}>
-                {ngettext("1 Hour", "%{count} Hours", 6)}
-              </option>
-              <option value="12" selected={@trail_duration == "12"}>
-                {ngettext("1 Hour", "%{count} Hours", 12)}
-              </option>
-              <option value="24" selected={@trail_duration == "24"}>
-                {ngettext("1 Hour", "%{count} Hours", 24)}
-              </option>
-              <option value="48" selected={@trail_duration == "48"}>
-                {ngettext("1 Hour", "%{count} Hours", 48)}
-              </option>
-              <option value="168" selected={@trail_duration == "168"}>
-                {gettext("1 Week")}
-              </option>
-            </select>
-            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </form>
-        </div>
-        
-    <!-- Historical Data -->
-        <div class="space-y-4">
-          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-2">
-            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>{gettext("Historical Data")}</span>
-          </label>
-          <form phx-change="update_historical_hours" class="relative">
-            <select
-              name="historical_hours"
-              class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white appearance-none transition-all duration-200 hover:border-slate-400 dark:hover:border-slate-500"
-            >
-              <option value="1" selected={@historical_hours == "1"}>
-                {ngettext("1 Hour", "%{count} Hours", 1)}
-              </option>
-              <option value="3" selected={@historical_hours == "3"}>
-                {ngettext("1 Hour", "%{count} Hours", 3)}
-              </option>
-              <option value="6" selected={@historical_hours == "6"}>
-                {ngettext("1 Hour", "%{count} Hours", 6)}
-              </option>
-              <option value="12" selected={@historical_hours == "12"}>
-                {ngettext("1 Hour", "%{count} Hours", 12)}
-              </option>
-              <option value="24" selected={@historical_hours == "24"}>
-                {ngettext("1 Hour", "%{count} Hours", 24)}
-              </option>
-            </select>
-            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </form>
-        </div>
-        
-    <!-- Navigation -->
-        <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
-          <div class="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400 mb-3">
-            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"
-              />
-            </svg>
-            <span class="font-medium">{gettext("Navigation")}</span>
-          </div>
-          <div class="text-sm">
-            <.navigation
-              variant={:vertical}
-              current_user={@current_user}
-              map_state={%{lat: @map_center.lat, lng: @map_center.lng, zoom: @map_zoom}}
-              tracked_callsign={@tracked_callsign}
-            />
-          </div>
-        </div>
-        
-    <!-- Last Update -->
-        <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
-          <div class="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400">
-            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            <span class="font-medium">{gettext("Last Update")}</span>
-          </div>
-          <div class="text-xs text-slate-500 dark:text-slate-400">
-            <%= if @last_update_at do %>
-              <div class="font-mono">{time_ago_in_words(@last_update_at)}</div>
-              <div class="font-mono text-slate-400 dark:text-slate-500">
-                {Calendar.strftime(@last_update_at, "%Y-%m-%d %H:%M UTC")}
+          
+    <!-- Other SSIDs -->
+          <%= if @tracked_callsign != "" and @other_ssids != [] do %>
+            <div class="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-950/5 dark:bg-gray-900/50 dark:ring-white/10">
+              <label class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <svg class="h-3.5 w-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                  />
+                </svg>
+                {gettext("Other SSIDs")}
+              </label>
+              <div class="space-y-1">
+                <%= for ssid_info <- @other_ssids do %>
+                  <div class="group flex items-center justify-between rounded-md bg-white px-3 py-2 text-sm ring-1 ring-gray-950/5 hover:ring-indigo-300 dark:bg-gray-800 dark:ring-white/10 dark:hover:ring-indigo-500/50">
+                    <button
+                      phx-click="track_callsign"
+                      phx-value-callsign={ssid_info.callsign}
+                      class="font-semibold font-mono text-indigo-600 group-hover:text-indigo-500 cursor-pointer dark:text-indigo-400 dark:group-hover:text-indigo-300"
+                    >
+                      {ssid_info.callsign}
+                    </button>
+                    <div class="flex items-center gap-2">
+                      <%= if ssid_info.received_at do %>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                          {time_ago_in_words(ssid_info.received_at)}
+                        </span>
+                      <% end %>
+                      <.link
+                        navigate={~p"/info/#{ssid_info.callsign}"}
+                        class="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                        title={gettext("Station info")}
+                      >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                      </.link>
+                    </div>
+                  </div>
+                <% end %>
               </div>
-            <% else %>
-              <div class="font-mono text-slate-500 dark:text-slate-400">No updates yet</div>
-            <% end %>
+            </div>
+          <% end %>
+          
+    <!-- Trail Duration -->
+          <div class="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-950/5 dark:bg-gray-900/50 dark:ring-white/10">
+            <label class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <svg class="h-3.5 w-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              {gettext("Trail Duration")}
+            </label>
+            <form phx-change="update_trail_duration">
+              <select
+                name="trail_duration"
+                class="block w-full rounded-md bg-white px-3 py-2 text-sm text-gray-900 shadow-xs outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-gray-800 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
+              >
+                <option value="1" selected={@trail_duration == "1"}>
+                  {ngettext("1 Hour", "%{count} Hours", 1)}
+                </option>
+                <option value="6" selected={@trail_duration == "6"}>
+                  {ngettext("1 Hour", "%{count} Hours", 6)}
+                </option>
+                <option value="12" selected={@trail_duration == "12"}>
+                  {ngettext("1 Hour", "%{count} Hours", 12)}
+                </option>
+                <option value="24" selected={@trail_duration == "24"}>
+                  {ngettext("1 Hour", "%{count} Hours", 24)}
+                </option>
+                <option value="48" selected={@trail_duration == "48"}>
+                  {ngettext("1 Hour", "%{count} Hours", 48)}
+                </option>
+                <option value="168" selected={@trail_duration == "168"}>
+                  {gettext("1 Week")}
+                </option>
+              </select>
+            </form>
           </div>
-        </div>
-        
-    <!-- Deployment Information -->
-        <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
-          <div class="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400">
-            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          
+    <!-- Historical Data -->
+          <div class="rounded-lg bg-gray-50 p-4 ring-1 ring-gray-950/5 dark:bg-gray-900/50 dark:ring-white/10">
+            <label class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <svg class="h-3.5 w-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              {gettext("Historical Data")}
+            </label>
+            <form phx-change="update_historical_hours">
+              <select
+                name="historical_hours"
+                class="block w-full rounded-md bg-white px-3 py-2 text-sm text-gray-900 shadow-xs outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 dark:bg-gray-800 dark:text-white dark:outline-white/10 dark:focus:outline-indigo-500"
+              >
+                <option value="1" selected={@historical_hours == "1"}>
+                  {ngettext("1 Hour", "%{count} Hours", 1)}
+                </option>
+                <option value="3" selected={@historical_hours == "3"}>
+                  {ngettext("1 Hour", "%{count} Hours", 3)}
+                </option>
+                <option value="6" selected={@historical_hours == "6"}>
+                  {ngettext("1 Hour", "%{count} Hours", 6)}
+                </option>
+                <option value="12" selected={@historical_hours == "12"}>
+                  {ngettext("1 Hour", "%{count} Hours", 12)}
+                </option>
+                <option value="24" selected={@historical_hours == "24"}>
+                  {ngettext("1 Hour", "%{count} Hours", 24)}
+                </option>
+              </select>
+            </form>
+          </div>
+          
+    <!-- Navigation -->
+          <div class="border-t border-gray-200 pt-4 dark:border-white/10">
+            <label class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
+              </svg>
+              {gettext("Navigation")}
+            </label>
+            <nav class="space-y-1">
+              <.navigation
+                variant={:sidebar}
+                current_user={@current_user}
+                map_state={%{lat: @map_center.lat, lng: @map_center.lng, zoom: @map_zoom}}
+                tracked_callsign={@tracked_callsign}
               />
-            </svg>
-            <span class="font-medium">{gettext("Last Deploy")}</span>
+            </nav>
           </div>
-          <div class="text-xs text-slate-500 dark:text-slate-400">
-            <div class="font-mono">{time_ago_in_words(@deployed_at)}</div>
-            <div class="font-mono text-slate-400">
-              {Calendar.strftime(@deployed_at, "%Y-%m-%d %H:%M UTC")}
+          
+    <!-- Status Footer -->
+          <div class="border-t border-gray-200 pt-4 dark:border-white/10">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  {gettext("Last Update")}
+                </div>
+                <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  <%= if @last_update_at do %>
+                    <div class="font-mono font-medium">{time_ago_in_words(@last_update_at)}</div>
+                    <div class="font-mono text-gray-400 dark:text-gray-500">
+                      {Calendar.strftime(@last_update_at, "%H:%M UTC")}
+                    </div>
+                  <% else %>
+                    <div class="font-mono text-gray-400">--</div>
+                  <% end %>
+                </div>
+              </div>
+              <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  {gettext("Last Deploy")}
+                </div>
+                <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  <div class="font-mono font-medium">{time_ago_in_words(@deployed_at)}</div>
+                  <div class="font-mono text-gray-400 dark:text-gray-500">
+                    {Calendar.strftime(@deployed_at, "%H:%M UTC")}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

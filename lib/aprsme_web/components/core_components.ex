@@ -433,22 +433,30 @@ defmodule AprsmeWeb.CoreComponents do
 
   def header(assigns) do
     ~H"""
-    <header class="site-header bg-white shadow-sm dark:bg-gray-800/50 dark:shadow-none dark:border-b dark:border-white/10">
+    <header class="site-header relative bg-gray-800 dark:bg-gray-800/50 dark:after:pointer-events-none dark:after:absolute dark:after:inset-x-0 dark:after:bottom-0 dark:after:h-px dark:after:bg-white/10">
       <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <div class="flex items-center">
           <.link
             navigate="/"
-            class="text-xl font-bold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300"
+            class="flex items-center gap-2 text-xl font-bold text-white hover:text-gray-200"
           >
+            <svg class="h-6 w-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 0a3.75 3.75 0 010 5.303m-7.425 2.122a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.98 0-13.789m13.788 0c3.808 3.808 3.808 9.981 0 13.79M12 12h.008v.007H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+              />
+            </svg>
             aprs.me
             <%= if @dev_mode do %>
-              <span class="ml-2 inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-400/10 dark:text-yellow-500">
+              <span class="ml-1 inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-0.5 text-xs font-medium text-yellow-500 ring-1 ring-inset ring-yellow-400/20">
                 DEV
               </span>
             <% end %>
           </.link>
         </div>
-        <div class="hidden lg:flex lg:items-center lg:gap-x-8">
+        <div class="hidden lg:flex lg:items-center lg:gap-x-1">
           <.navigation variant={:horizontal} current_user={@current_user} />
         </div>
         <div class="flex items-center gap-2">
@@ -458,15 +466,20 @@ defmodule AprsmeWeb.CoreComponents do
               phx-click={
                 JS.toggle(to: "#mobile-menu", in: "transition ease-out duration-100", out: "transition ease-in duration-75")
               }
-              class="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+              class="relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-white/5 hover:text-white focus:outline-2 focus:-outline-offset-1 focus:outline-indigo-500"
             >
               <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
               </svg>
             </button>
             <div
               id="mobile-menu"
-              class="hidden absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10"
+              class="hidden absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-gray-800 py-2 shadow-lg ring-1 ring-white/10"
             >
               <.navigation variant={:vertical} current_user={@current_user} />
             </div>
@@ -487,7 +500,7 @@ defmodule AprsmeWeb.CoreComponents do
         phx-click={
           JS.toggle(to: "#theme-menu", in: "transition ease-out duration-100", out: "transition ease-in duration-75")
         }
-        class="rounded-full p-2 text-gray-400 hover:text-gray-500 dark:text-gray-300 dark:hover:text-white"
+        class="relative rounded-full p-1.5 text-gray-400 hover:text-white focus:outline-2 focus:outline-offset-2 focus:outline-indigo-500"
       >
         <svg class="h-5 w-5 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
           <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
@@ -496,11 +509,11 @@ defmodule AprsmeWeb.CoreComponents do
       <div
         id="theme-menu"
         phx-click-away={JS.hide(to: "#theme-menu")}
-        class="hidden absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10"
+        class="hidden absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-gray-800 py-1 shadow-lg ring-1 ring-white/10"
       >
         <button
           phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "light"}) |> JS.hide(to: "#theme-menu")}
-          class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-200 hover:bg-white/5"
         >
           <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
             <path
@@ -513,7 +526,7 @@ defmodule AprsmeWeb.CoreComponents do
         </button>
         <button
           phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "dark"}) |> JS.hide(to: "#theme-menu")}
-          class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-200 hover:bg-white/5"
         >
           <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
             <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
@@ -522,7 +535,7 @@ defmodule AprsmeWeb.CoreComponents do
         </button>
         <button
           phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "auto"}) |> JS.hide(to: "#theme-menu")}
-          class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          class="flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-200 hover:bg-white/5"
         >
           <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
             <path
@@ -749,7 +762,7 @@ defmodule AprsmeWeb.CoreComponents do
   Renders a navigation menu component that can be used in both regular pages and map sidebars.
   """
   attr :class, :string, default: ""
-  attr :variant, :atom, values: [:horizontal, :vertical], default: :horizontal
+  attr :variant, :atom, values: [:horizontal, :vertical, :sidebar], default: :horizontal
   attr :current_user, :any, default: nil
   attr :map_state, :map, default: nil
   attr :tracked_callsign, :string, default: ""
@@ -775,93 +788,142 @@ defmodule AprsmeWeb.CoreComponents do
     <%= if @variant == :horizontal do %>
       <.link
         navigate={@home_url}
-        class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+        class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
       >
         {gettext("Home")}
       </.link>
       <.link
         navigate="/api"
-        class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+        class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
       >
         API
       </.link>
       <.link
         navigate="/about"
-        class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+        class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
       >
         {gettext("About")}
       </.link>
       <%= if @current_user do %>
         <.link
           navigate="/users/settings"
-          class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+          class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
         >
           {gettext("Settings")}
         </.link>
         <.link
           href="/users/log_out"
           method="delete"
-          class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+          class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
         >
           {gettext("Log out")}
         </.link>
       <% else %>
         <.link
           navigate="/users/register"
-          class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+          class="rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
         >
           {gettext("Register")}
         </.link>
         <.link
           navigate="/users/log_in"
-          class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
+          class="rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-400"
         >
           {gettext("Log in")}
         </.link>
       <% end %>
-    <% else %>
+    <% end %>
+    <%= if @variant == :vertical do %>
       <.link
         navigate={@home_url}
-        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        class="block rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
       >
         {gettext("Home")}
       </.link>
       <.link
         navigate="/api"
-        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        class="block rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
       >
         API
       </.link>
       <.link
         navigate="/about"
-        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+        class="block rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
       >
         {gettext("About")}
       </.link>
       <%= if @current_user do %>
         <.link
           navigate="/users/settings"
-          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          class="block rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
         >
           {gettext("Settings")}
         </.link>
         <.link
           href="/users/log_out"
           method="delete"
-          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          class="block rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
         >
           {gettext("Log out")}
         </.link>
       <% else %>
         <.link
           navigate="/users/register"
-          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          class="block rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
         >
           {gettext("Register")}
         </.link>
         <.link
           navigate="/users/log_in"
-          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+          class="block rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-400"
+        >
+          {gettext("Log in")}
+        </.link>
+      <% end %>
+    <% end %>
+    <%= if @variant == :sidebar do %>
+      <.link
+        navigate={@home_url}
+        class="block rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
+      >
+        {gettext("Home")}
+      </.link>
+      <.link
+        navigate="/api"
+        class="block rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
+      >
+        API
+      </.link>
+      <.link
+        navigate="/about"
+        class="block rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
+      >
+        {gettext("About")}
+      </.link>
+      <%= if @current_user do %>
+        <.link
+          navigate="/users/settings"
+          class="block rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
+        >
+          {gettext("Settings")}
+        </.link>
+        <.link
+          href="/users/log_out"
+          method="delete"
+          class="block rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
+        >
+          {gettext("Log out")}
+        </.link>
+      <% else %>
+        <.link
+          navigate="/users/register"
+          class="block rounded-md px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white"
+        >
+          {gettext("Register")}
+        </.link>
+        <.link
+          navigate="/users/log_in"
+          class="block rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500"
         >
           {gettext("Log in")}
         </.link>

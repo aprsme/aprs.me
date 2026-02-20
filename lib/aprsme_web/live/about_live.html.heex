@@ -1,40 +1,62 @@
 <div class="mx-auto max-w-2xl py-12 px-4 sm:px-6 lg:px-8">
-  <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 mb-8">
-    <div class="px-6 py-8 prose max-w-none dark:prose-invert">
-      <h2 class="text-3xl font-bold text-gray-900 dark:text-white">{gettext("Under heavy construction")}</h2>
-      <p class="text-gray-600 dark:text-gray-300">
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
-      </p>
-      <p class="text-gray-600 dark:text-gray-300">
-        Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
-      </p>
-      <div class="bg-gray-50 p-6 rounded-lg mb-8 dark:bg-gray-700/50">
-        <h4 class="text-lg font-semibold mb-3 text-gray-900 dark:text-white">
+  <div class="bg-white shadow-xs sm:rounded-lg ring-1 ring-gray-950/5 dark:bg-gray-800/50 dark:shadow-none dark:ring-white/10 mb-8">
+    <div class="px-6 py-8 sm:px-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600">
+          <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 0a3.75 3.75 0 010 5.303m-7.425 2.122a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.98 0-13.789m13.788 0c3.808 3.808 3.808 9.981 0 13.79M12 12h.008v.007H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+            />
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white">APRS.me</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400">{gettext("Real-time APRS packet tracking")}</p>
+        </div>
+      </div>
+
+      <div class="prose max-w-none dark:prose-invert">
+        <p class="text-gray-600 dark:text-gray-300">
+          APRS.me is a real-time Automatic Packet Reporting System (APRS) viewer built for amateur radio operators. Track stations, view position reports, weather data, and telemetry from the APRS-IS network on an interactive map.
+        </p>
+      </div>
+
+      <div class="mt-8 rounded-lg bg-gray-50 p-5 ring-1 ring-gray-950/5 dark:bg-gray-900/50 dark:ring-white/10">
+        <h4 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
           {gettext("Built with Modern Technologies")}
         </h4>
         <div class="flex flex-wrap gap-2">
-          <span class="inline-flex items-center rounded-md bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-400">
+          <span class="inline-flex items-center rounded-md bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10 dark:bg-indigo-400/10 dark:text-indigo-400 dark:ring-indigo-400/30">
             Elixir
           </span>
-          <span class="inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-400/10 dark:text-green-400">
+          <span class="inline-flex items-center rounded-md bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-700/10 dark:bg-green-400/10 dark:text-green-400 dark:ring-green-400/30">
             Phoenix
           </span>
-          <span class="inline-flex items-center rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700 dark:bg-purple-400/10 dark:text-purple-400">
+          <span class="inline-flex items-center rounded-md bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 ring-1 ring-inset ring-purple-700/10 dark:bg-purple-400/10 dark:text-purple-400 dark:ring-purple-400/30">
             LiveView
           </span>
-          <span class="inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 dark:bg-yellow-400/10 dark:text-yellow-500">
+          <span class="inline-flex items-center rounded-md bg-yellow-50 px-2.5 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-700/10 dark:bg-yellow-400/10 dark:text-yellow-500 dark:ring-yellow-400/30">
             PostgreSQL
           </span>
-          <span class="inline-flex items-center rounded-md bg-red-100 px-2 py-1 text-xs font-medium text-red-700 dark:bg-red-400/10 dark:text-red-400">
+          <span class="inline-flex items-center rounded-md bg-cyan-50 px-2.5 py-1 text-xs font-medium text-cyan-700 ring-1 ring-inset ring-cyan-700/10 dark:bg-cyan-400/10 dark:text-cyan-400 dark:ring-cyan-400/30">
+            PostGIS
+          </span>
+          <span class="inline-flex items-center rounded-md bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-700/10 dark:bg-red-400/10 dark:text-red-400 dark:ring-red-400/30">
             Tailwind CSS
+          </span>
+          <span class="inline-flex items-center rounded-md bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-400/10 dark:text-blue-400 dark:ring-blue-400/30">
+            Leaflet.js
           </span>
         </div>
       </div>
     </div>
   </div>
-  <div class="text-center text-gray-500 dark:text-gray-400">
-    <p class="text-sm">
-      &copy; 2026 aprs.me.
+  <div class="text-center text-gray-400 dark:text-gray-500">
+    <p class="text-xs">
+      &copy; 2026 aprs.me
     </p>
   </div>
 </div>
