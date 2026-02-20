@@ -31,6 +31,10 @@ defmodule AprsmeWeb.Router do
     plug RateLimiter, scale: 60_000, limit: 100
   end
 
+  pipeline :accepts_json do
+    plug :accepts, ["json"]
+  end
+
   pipeline :api do
     plug :accepts, ["json"]
     plug RateLimiter, scale: 60_000, limit: 100
@@ -51,9 +55,9 @@ defmodule AprsmeWeb.Router do
     end
   end
 
+  # Health/readiness routes — no rate limiting to avoid false K8s probe failures
   scope "/", AprsmeWeb do
-    pipe_through :public_api
-    get "/health", PageController, :health
+    pipe_through :accepts_json
     get "/ready", PageController, :ready
     get "/status.json", PageController, :status_json
   end

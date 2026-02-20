@@ -118,9 +118,7 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
   def remove_markers_batch(socket, []), do: socket
 
   def remove_markers_batch(socket, marker_ids) do
-    Enum.reduce(marker_ids, socket, fn id, acc ->
-      LiveView.push_event(acc, "remove_marker", %{id: id})
-    end)
+    LiveView.push_event(socket, "remove_markers_batch", %{ids: marker_ids})
   end
 
   # Placeholder for historical loading function - this should be moved to HistoricalLoader

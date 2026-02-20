@@ -114,8 +114,6 @@ defmodule AprsmeWeb.Telemetry do
         description: "Backpressure state changes"
       ),
 
-      # Note: SystemMonitor and InsertOptimizer metrics removed after reverting performance optimizations
-
       # Spatial PubSub Metrics
       last_value("aprsme.spatial_pubsub.clients.count", description: "Number of connected clients"),
       last_value("aprsme.spatial_pubsub.clients.grid_cells", description: "Number of active grid cells"),

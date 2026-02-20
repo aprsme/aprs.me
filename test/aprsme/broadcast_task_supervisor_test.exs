@@ -15,6 +15,14 @@ defmodule Aprsme.BroadcastTaskSupervisorTest do
   end
 
   describe "broadcast_async/3" do
+    test "returns {:ok, pid} for fire-and-forget execution", %{test_topic: test_topic} do
+      topics = [test_topic]
+      message = {:test_message, "Hello from broadcast"}
+
+      assert {:ok, pid} = BroadcastTaskSupervisor.broadcast_async(topics, message)
+      assert is_pid(pid)
+    end
+
     test "broadcasts messages to multiple topics asynchronously", %{test_topic: test_topic} do
       # Create additional test topics
       topic2 = "test_topic_2_#{System.unique_integer()}"
@@ -26,16 +34,27 @@ defmodule Aprsme.BroadcastTaskSupervisorTest do
       topics = [test_topic, topic2, topic3]
       message = {:test_message, "Hello from broadcast"}
 
-      # Broadcast to all topics
-      {:ok, task} = BroadcastTaskSupervisor.broadcast_async(topics, message)
-
-      # Wait for the task to complete
-      Task.await(task)
+      # Broadcast to all topics (fire-and-forget)
+      {:ok, _pid} = BroadcastTaskSupervisor.broadcast_async(topics, message)
 
       # Should receive the message on all topics
-      assert_receive {:test_message, "Hello from broadcast"}
-      assert_receive {:test_message, "Hello from broadcast"}
-      assert_receive {:test_message, "Hello from broadcast"}
+      assert_receive {:test_message, "Hello from broadcast"}, 1000
+      assert_receive {:test_message, "Hello from broadcast"}, 1000
+      assert_receive {:test_message, "Hello from broadcast"}, 1000
+    end
+
+    test "does not send task ref or DOWN messages to calling process", %{test_topic: test_topic} do
+      topics = [test_topic]
+      message = {:test_ref_check, "checking refs"}
+
+      {:ok, _pid} = BroadcastTaskSupervisor.broadcast_async(topics, message)
+
+      # Wait for the broadcast to complete
+      assert_receive {:test_ref_check, "checking refs"}, 1000
+
+      # Ensure no {ref, result} or {:DOWN, ...} messages leaked into our mailbox
+      refute_receive {_ref, _result}, 100
+      refute_receive {:DOWN, _ref, :process, _pid, _reason}, 100
     end
 
     test "handles large topic lists efficiently", %{test_topic: test_topic} do
@@ -54,16 +73,14 @@ defmodule Aprsme.BroadcastTaskSupervisorTest do
 
       # Measure time
       start_time = System.monotonic_time(:millisecond)
-      {:ok, task} = BroadcastTaskSupervisor.broadcast_async(topics, message)
-      Task.await(task, 5000)
+      {:ok, _pid} = BroadcastTaskSupervisor.broadcast_async(topics, message)
+
+      # Wait for delivery to our subscribed topic
+      assert_receive {:bulk_test, "Bulk broadcast"}, 5000
       end_time = System.monotonic_time(:millisecond)
 
       # Should complete in a reasonable time (under 1 second for 101 topics)
-      # Using a more lenient timeout to avoid failures on slower systems or CI
       assert end_time - start_time < 1000
-
-      # Verify we received the message
-      assert_receive {:bulk_test, "Bulk broadcast"}
     end
   end
 
@@ -141,16 +158,11 @@ defmodule Aprsme.BroadcastTaskSupervisorTest do
       # Subscribe to only the first topic
       Phoenix.PubSub.subscribe(Aprsme.PubSub, List.first(topics))
 
-      # Launch 100 concurrent broadcasts
-      tasks =
-        for i <- 1..100 do
-          message = {:perf_test, i}
-          {:ok, task} = BroadcastTaskSupervisor.broadcast_async(topics, message)
-          task
-        end
-
-      # Wait for all tasks to complete
-      Enum.each(tasks, &Task.await(&1, 5000))
+      # Launch 100 concurrent broadcasts (fire-and-forget)
+      for i <- 1..100 do
+        message = {:perf_test, i}
+        {:ok, _pid} = BroadcastTaskSupervisor.broadcast_async(topics, message)
+      end
 
       # Each topic should receive 100 messages
       message_count = receive_all_messages()

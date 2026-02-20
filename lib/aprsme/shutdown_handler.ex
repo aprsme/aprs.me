@@ -83,8 +83,12 @@ defmodule Aprsme.ShutdownHandler do
       end
 
     if should_graceful_shutdown and not state.shutting_down do
-      initiate_shutdown(state)
-      # Give some time for the shutdown process
+      # Mark unhealthy so load balancer stops sending traffic, then
+      # block for drain_timeout to let existing connections finish.
+      # Note: Process.send_after is pointless here since no messages
+      # are processed during terminate — we just sleep directly.
+      mark_unhealthy()
+      stop_accepting_connections()
       Process.sleep(state.drain_timeout)
     end
 

@@ -75,14 +75,9 @@ defmodule Aprsme.Telemetry.DatabaseMetrics do
   end
 
   defp report_pool_metrics_estimated(pool_size) do
-    emit_pool_metrics(%{
-      size: pool_size,
-      idle: max(0, pool_size - 2),
-      busy: 2,
-      available: max(0, pool_size - 2),
-      queue_length: 0,
-      total: pool_size
-    })
+    # Cannot reliably introspect DBConnection pool state, so report
+    # pool_size as total without guessing busy/idle breakdown.
+    report_pool_metrics_idle(pool_size)
   end
 
   defp report_pool_metrics_error do

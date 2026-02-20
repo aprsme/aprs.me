@@ -35,27 +35,29 @@ defmodule Aprsme.BroadcastTaskSupervisor do
   @doc """
   Broadcasts a message to multiple topics asynchronously using the task pool.
 
+  Uses `Task.Supervisor.start_child/2` for fire-and-forget execution.
+  The spawned task is not linked to the caller and does not send reply
+  messages back, avoiding orphaned `{ref, result}` and `:DOWN` messages
+  in the calling process mailbox.
+
   ## Parameters
     - topics: List of PubSub topics to broadcast to
     - message: The message to broadcast
     - pubsub: The PubSub server (defaults to Aprsme.PubSub)
 
   ## Returns
-    - {:ok, task_ref} where task_ref can be used to await results if needed
+    - {:ok, pid} of the spawned task
   """
   def broadcast_async(topics, message, pubsub \\ Aprsme.PubSub) do
-    task =
-      Task.Supervisor.async_nolink(@pool_name, fn ->
-        # Use Stream for memory efficiency with large topic lists
-        topics
-        # Process in chunks to balance load
-        |> Stream.chunk_every(10)
-        |> Enum.each(fn topic_chunk ->
-          broadcast_to_topics(topic_chunk, message, pubsub)
-        end)
+    Task.Supervisor.start_child(@pool_name, fn ->
+      # Use Stream for memory efficiency with large topic lists
+      topics
+      # Process in chunks to balance load
+      |> Stream.chunk_every(10)
+      |> Enum.each(fn topic_chunk ->
+        broadcast_to_topics(topic_chunk, message, pubsub)
       end)
-
-    {:ok, task}
+    end)
   end
 
   @doc """

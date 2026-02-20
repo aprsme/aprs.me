@@ -869,6 +869,11 @@ let MapAPRSMap = {
       self.removeMarker(data.id);
     });
 
+    // Remove markers in batch
+    self.handleEvent("remove_markers_batch", (data: { ids: string[] }) => {
+      data.ids.forEach((id) => self.removeMarker(id));
+    });
+
     // Clear all markers
     self.handleEvent("clear_markers", () => {
       self.clearAllMarkers();

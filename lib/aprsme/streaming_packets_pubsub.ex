@@ -66,20 +66,24 @@ defmodule Aprsme.StreamingPacketsPubSub do
     # Monitor subscribers for cleanup
     Process.flag(:trap_exit, true)
 
-    {:ok, %{}}
+    # pid => monitor_ref — track monitors to demonitor on unsubscribe/update
+    {:ok, %{monitors: %{}}}
   end
 
   @impl true
   def handle_call({:subscribe, pid, bounds}, _from, state) do
     # Validate bounds
     if valid_bounds?(bounds) do
+      # Demonitor old ref if this pid was already subscribed (bounds update)
+      state = demonitor_if_exists(state, pid)
+
       # Monitor the subscriber
-      Process.monitor(pid)
+      ref = Process.monitor(pid)
 
       # Store in ETS for fast lookup
       :ets.insert(@table_name, {pid, bounds})
 
-      {:reply, :ok, state}
+      {:reply, :ok, put_in(state.monitors[pid], ref)}
     else
       {:reply, {:error, :invalid_bounds}, state}
     end
@@ -87,6 +91,7 @@ defmodule Aprsme.StreamingPacketsPubSub do
 
   @impl true
   def handle_call({:unsubscribe, pid}, _from, state) do
+    state = demonitor_if_exists(state, pid)
     :ets.delete(@table_name, pid)
     {:reply, :ok, state}
   end
@@ -130,10 +135,21 @@ defmodule Aprsme.StreamingPacketsPubSub do
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     # Clean up subscriber when process dies
     :ets.delete(@table_name, pid)
-    {:noreply, state}
+    {:noreply, %{state | monitors: Map.delete(state.monitors, pid)}}
   end
 
   # Private functions
+
+  defp demonitor_if_exists(state, pid) do
+    case Map.pop(state.monitors, pid) do
+      {nil, _monitors} ->
+        state
+
+      {ref, monitors} ->
+        Process.demonitor(ref, [:flush])
+        %{state | monitors: monitors}
+    end
+  end
 
   defp valid_bounds?(%{north: n, south: s, east: e, west: w}) do
     all_bounds_numeric?(n, s, e, w) and

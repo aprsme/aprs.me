@@ -18,20 +18,28 @@ defmodule Aprsme.Callsign do
   def normalize(_), do: ""
 
   @doc """
-  Validates if a callsign format is reasonable for amateur radio use.
+  Checks whether a callsign is a non-empty string.
+
+  APRS uses a wide variety of identifiers beyond standard amateur radio
+  callsigns, including tactical callsigns, object names, and item names.
+  This function intentionally accepts any non-empty, non-whitespace-only
+  string to accommodate that variety.
 
   ## Examples
-      
+
       iex> Aprsme.Callsign.valid?("W5ABC")
       true
-      
+
       iex> Aprsme.Callsign.valid?("W5ABC-15")
       true
-      
+
+      iex> Aprsme.Callsign.valid?("TACTICAL1")
+      true
+
       iex> Aprsme.Callsign.valid?("")
       false
-      
-      iex> Aprsme.Callsign.valid?("A")
+
+      iex> Aprsme.Callsign.valid?(nil)
       false
   """
   @spec valid?(String.t() | nil) :: boolean()
@@ -40,7 +48,8 @@ defmodule Aprsme.Callsign do
   def valid?(callsign) when is_binary(callsign) do
     trimmed = String.trim(callsign)
 
-    # Accept any non-empty callsign
+    # Accept any non-empty callsign — APRS uses tactical callsigns,
+    # object names, and other non-standard identifiers
     trimmed != ""
   end
 

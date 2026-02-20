@@ -17,34 +17,6 @@ defmodule Aprsme.DbOptimizer do
   require Logger
 
   @doc """
-  Execute a large batch insert using PostgreSQL COPY command for maximum performance.
-  This is significantly faster than INSERT for large datasets.
-  """
-  def copy_insert(table_name, columns, rows) when length(rows) > 1000 do
-    # Convert rows to CSV format for COPY
-    csv_data = rows_to_csv(rows, columns)
-
-    # Use COPY command which bypasses much of the overhead of INSERT
-    query = """
-    COPY #{table_name} (#{Enum.join(columns, ", ")})
-    FROM STDIN WITH (FORMAT csv, HEADER false)
-    """
-
-    SQL.query!(Repo, query, [csv_data])
-    length(rows)
-  rescue
-    error ->
-      Logger.error("COPY insert failed: #{inspect(error)}")
-      # Fall back to regular insert
-      regular_batch_insert(table_name, columns, rows)
-  end
-
-  def copy_insert(table_name, columns, rows) do
-    # For smaller batches, use regular insert
-    regular_batch_insert(table_name, columns, rows)
-  end
-
-  @doc """
   Optimized batch insert that leverages PostgreSQL configuration
   """
   def optimized_batch_insert(schema, entries, opts \\ []) do
@@ -103,6 +75,7 @@ defmodule Aprsme.DbOptimizer do
   This helps PostgreSQL make better query plans
   """
   def analyze_table(table_name) do
+    validate_identifier!(table_name)
     SQL.query!(Repo, "ANALYZE #{table_name}", [])
     :ok
   rescue
@@ -116,6 +89,7 @@ defmodule Aprsme.DbOptimizer do
   Use this after large delete operations
   """
   def vacuum_table(table_name, opts \\ []) do
+    validate_identifier!(table_name)
     full = Keyword.get(opts, :full, false)
     analyze = Keyword.get(opts, :analyze, true)
 
@@ -165,40 +139,13 @@ defmodule Aprsme.DbOptimizer do
 
   # Private functions
 
-  defp regular_batch_insert(table_name, columns, rows) do
-    # Convert to maps for Ecto.insert_all
-    entries =
-      Enum.map(rows, fn row ->
-        columns |> Enum.zip(row) |> Map.new()
-      end)
-
-    {count, _} =
-      Repo.insert_all(table_name, entries,
-        returning: false,
-        on_conflict: :nothing,
-        timeout: 60_000
-      )
-
-    count
-  end
-
-  defp rows_to_csv(rows, _columns) do
-    Enum.map_join(rows, "\n", fn row ->
-      Enum.map_join(row, ",", &escape_csv_value/1)
-    end)
-  end
-
-  defp escape_csv_value(nil), do: ""
-
-  defp escape_csv_value(value) when is_binary(value) do
-    if String.contains?(value, [",", "\"", "\n"]) do
-      "\"#{String.replace(value, "\"", "\"\"")}\""
-    else
-      value
+  defp validate_identifier!(name) when is_binary(name) do
+    if !Regex.match?(~r/\A[a-zA-Z_][a-zA-Z0-9_]*\z/, name) do
+      raise ArgumentError, "invalid SQL identifier: #{inspect(name)}"
     end
   end
 
-  defp escape_csv_value(value), do: to_string(value)
+  defp validate_identifier!(name) when is_atom(name), do: validate_identifier!(Atom.to_string(name))
 
   # Default 1KB
   defp estimate_entry_size(nil), do: 1024

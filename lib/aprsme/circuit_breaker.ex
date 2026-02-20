@@ -89,6 +89,18 @@ defmodule Aprsme.CircuitBreaker do
   def handle_call({:get_state, service_name}, _from, services) do
     service_state = get_service_state(services, service_name)
     current_state = calculate_current_state(service_state)
+
+    # Persist state transitions (e.g., :open -> :half_open) so that
+    # concurrent callers see the same state and don't all independently
+    # enter half_open.
+    services =
+      if current_state == service_state.state do
+        services
+      else
+        updated_state = %{service_state | state: current_state}
+        Map.put(services, service_name, updated_state)
+      end
+
     {:reply, current_state, services}
   end
 
