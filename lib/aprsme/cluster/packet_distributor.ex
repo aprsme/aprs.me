@@ -5,7 +5,6 @@ defmodule Aprsme.Cluster.PacketDistributor do
   only the leader maintains the APRS-IS connection.
   """
   alias Aprsme.Cluster.LeaderElection
-  alias AprsmeWeb.MapLive.PacketStore
 
   @pubsub_topic "cluster:packets"
 
@@ -31,9 +30,6 @@ defmodule Aprsme.Cluster.PacketDistributor do
     # Broadcast to local LiveView clients via both PubSub systems
     Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
     Aprsme.SpatialPubSub.broadcast_packet(packet)
-
-    # Update packet store for LiveView
-    PacketStore.store_packet(packet)
 
     :ok
   end

@@ -35,9 +35,6 @@ defmodule Aprsme.Application do
       Aprsme.SpatialPubSub,
       # Start global streaming packets PubSub
       Aprsme.StreamingPacketsPubSub,
-      # Start packet store for efficient LiveView memory usage
-      AprsmeWeb.MapLive.PacketStore,
-
       # Start the Endpoint (http/https)
       AprsmeWeb.Endpoint,
       # Start a worker by calling: Aprsme.Worker.start_link(arg)

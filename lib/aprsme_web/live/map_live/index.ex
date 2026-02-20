@@ -24,7 +24,6 @@ defmodule AprsmeWeb.MapLive.Index do
   alias AprsmeWeb.MapLive.HistoricalLoader
   alias AprsmeWeb.MapLive.Navigation
   alias AprsmeWeb.MapLive.PacketBatcher
-  alias AprsmeWeb.MapLive.PacketManager
   alias AprsmeWeb.MapLive.PacketProcessor
   alias AprsmeWeb.MapLive.RfPath
   alias AprsmeWeb.MapLive.UrlParams
@@ -211,7 +210,6 @@ defmodule AprsmeWeb.MapLive.Index do
       map_center: final_map_center,
       map_zoom: final_map_zoom,
       should_skip_initial_url_update: should_skip_initial_url_update,
-      packet_state: PacketManager.init_packet_state(),
       overlay_callsign: "",
       tracked_callsign: tracked_callsign,
       tracked_callsign_latest_packet: tracked_callsign_latest_packet,
@@ -262,7 +260,6 @@ defmodule AprsmeWeb.MapLive.Index do
       visible_packets: %{},
       historical_packets: %{},
       page_title: "APRS Map",
-      packet_state: PacketManager.init_packet_state(),
       station_popup_open: false,
       map_bounds: %{
         north: 49.0,
@@ -2013,14 +2010,10 @@ defmodule AprsmeWeb.MapLive.Index do
     # Always filter markers by bounds
     socket = push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
 
-    # Update packet state to keep only packets within bounds
-    filtered_packets = Map.values(new_visible_packets)
-    {updated_packet_state, _} = PacketManager.add_visible_packets(socket.assigns.packet_state, filtered_packets)
-
-    # Update map bounds FIRST so progressive loading uses the correct bounds
+    # Update map bounds and visible_packets with bounds-filtered result
     socket =
       socket
-      |> assign(map_bounds: map_bounds, packet_state: updated_packet_state)
+      |> assign(map_bounds: map_bounds, visible_packets: new_visible_packets)
       |> assign(needs_initial_historical_load: false)
 
     # Load historical packets for the new bounds (now socket.assigns.map_bounds is correct)

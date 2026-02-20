@@ -1,41 +1,12 @@
 # Code Review Findings
 
-## Dual Packet State System (Architectural Bug)
-
-### 7. LiveView maintains two unsynchronized packet tracking systems
-**Files:** `lib/aprsme_web/live/map_live/index.ex`, `packet_processor.ex`, `display_manager.ex`
-
-**System A:** `packet_state` wrapping `PacketManager`/`PacketStore` (ETS-backed).
-**System B:** `all_packets`, `visible_packets`, `historical_packets` as plain maps in assigns.
-
-These are never synchronized:
-- Real-time packets update System B but never touch System A
-- Cleanup runs on System A but never touches System B
-- Bounds filtering reads System A but display reads System B
-- `PacketManager.extract_packet_ids` uses different ID generation than `PacketStore.generate_packet_id` — stored packets can never be found through the manager API
-
----
-
-## Memory Issues
-
-### 23. `all_packets` map in LiveView assigns holds 2000 full Ecto structs
-**File:** `lib/aprsme_web/live/map_live/packet_processor.ex:27-37`
-
-Each packet has 100+ columns. 2000 full structs per connected client. Never cleaned by `handle_cleanup_old_packets` (which only touches `packet_state`). Appears to be dead state — written to but never read.
-
----
-
-## Correctness Issues
-
-### 40. `PacketStore` uses global named ETS table shared across all LiveViews
-**File:** `lib/aprsme_web/live/map_live/packet_store.ex:12, 114`
-
-Different LiveViews can overwrite each other's stored packets. TTL cleanup runs globally.
-
----
+All 50 items addressed.
 
 ## Completed
 
+### 7. Dual packet state system — deleted broken PacketManager/PacketStore, unified on visible_packets
+### 23. `all_packets` dead state — removed write-only map from LiveView assigns
+### 40. `PacketStore` global ETS table — deleted along with PacketManager
 ### 1. LiveView: Missing `{:noreply, socket}` in drain handler — crashes LiveView
 ### 2. ConnectionMonitor: Deadlock via self-RPC every 30 seconds
 ### 3. LiveView: `get_callsign_key` generates random keys for Ecto structs — breaks all dedup
