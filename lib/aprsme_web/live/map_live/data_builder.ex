@@ -64,7 +64,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
     callsign = generate_callsign(packet)
 
     # Validate coordinates and callsign before building packet data
-    if valid_coordinates?(lat, lon) && callsign != "" && callsign != nil do
+    if valid_coordinates?(lat, lon) && callsign != "" do
       packet_data = build_packet_map(packet, to_float(lat), to_float(lon), data_extended, locale)
       Map.put(packet_data, "is_most_recent_for_callsign", is_most_recent_for_callsign)
     else
@@ -161,14 +161,11 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   # Validate coordinates are numeric and within valid ranges
   @spec valid_coordinates?(any(), any()) :: boolean()
   defp valid_coordinates?(lat, lon) when is_number(lat) and is_number(lon) do
-    lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 and
-      is_finite(lat) and is_finite(lon)
+    # Range checks ensure finite values; infinity would be outside these ranges
+    lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180
   end
 
   defp valid_coordinates?(_, _), do: false
-
-  defp is_finite(n) when is_float(n), do: n != :infinity and n != :neg_infinity
-  defp is_finite(n) when is_integer(n), do: true
 
   @doc """
   Build packet data list for historical display.
@@ -524,8 +521,6 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   rescue
     _ -> false
   end
-
-  defp has_weather_packets?(_), do: false
 
   @spec convert_tuples_to_strings(any()) :: any()
   defp convert_tuples_to_strings(map) when is_map(map) do

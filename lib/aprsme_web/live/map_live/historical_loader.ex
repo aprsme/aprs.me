@@ -445,14 +445,11 @@ defmodule AprsmeWeb.MapLive.HistoricalLoader do
     socket
   end
 
-  defp is_finite(n) when is_float(n), do: n != :infinity and n != :neg_infinity
-  defp is_finite(n) when is_integer(n), do: true
-
   defp packet_has_valid_coordinates?(packet) do
     {lat, lon, _} = CoordinateUtils.get_coordinates(packet)
 
+    # Range checks ensure finite values; infinity would be outside these ranges
     is_number(lat) and is_number(lon) and
-      lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180 and
-      is_finite(lat) and is_finite(lon)
+      lat >= -90 and lat <= 90 and lon >= -180 and lon <= 180
   end
 end
