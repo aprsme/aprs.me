@@ -20,6 +20,21 @@ defmodule Aprsme.Encoding do
   def sanitize_string(_), do: ""
 
   @doc """
+  Removes Mic-E telemetry data from APRS comments.
+  Mic-E telemetry appears as sequences like !w>`! at the start of comments.
+  The pattern is: ! followed by 3 characters followed by !
+  """
+  @spec strip_mice_telemetry(binary()) :: binary()
+  def strip_mice_telemetry(comment) when is_binary(comment) do
+    # Pattern: one or more sequences of !...! (5 chars each) at the start
+    # Examples: !w>`!, !w_'!, !w_P!, !w;i!, !w;D!
+    String.replace(comment, ~r/^(?:![^!]{3}!)+/, "")
+  end
+
+  def strip_mice_telemetry(nil), do: nil
+  def strip_mice_telemetry(other), do: other
+
+  @doc """
   Type-safe float conversion with validation
   """
   @spec to_float_safe(binary()) :: {:ok, float()} | nil

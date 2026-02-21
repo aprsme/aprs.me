@@ -4,7 +4,7 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
   alias AprsmeWeb.MapLive.DataBuilder
 
   describe "display name for APRS objects and items" do
-    test "uses object_name when packet is an object" do
+    test "uses sender for map label but object_name for grouping when packet is an object" do
       packet = %{
         id: Ecto.UUID.generate(),
         sender: "DB0SDA",
@@ -27,10 +27,13 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       result = DataBuilder.build_packet_data(packet, true)
 
       assert result
-      assert result["callsign"] == "P-K5SGD"
+      # Map label shows sender for clarity
+      assert result["callsign"] == "DB0SDA"
+      # But grouping uses object name
+      assert result["callsign_group"] == "P-K5SGD"
     end
 
-    test "uses item_name when packet is an item" do
+    test "uses sender for map label but item_name for grouping when packet is an item" do
       packet = %{
         id: Ecto.UUID.generate(),
         sender: "N0CALL",
@@ -53,7 +56,10 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       result = DataBuilder.build_packet_data(packet, true)
 
       assert result
-      assert result["callsign"] == "REPEATER1"
+      # Map label shows sender for clarity
+      assert result["callsign"] == "N0CALL"
+      # But grouping uses item name
+      assert result["callsign_group"] == "REPEATER1"
     end
 
     test "falls back to sender when no object_name or item_name" do
@@ -83,7 +89,7 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       assert result["callsign"] == "K5SGD-Y"
     end
 
-    test "uses object_name in popup for object packets" do
+    test "uses sender in popup for object packets" do
       packet = %{
         id: Ecto.UUID.generate(),
         sender: "DB0SDA",
@@ -105,11 +111,12 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
 
       result = DataBuilder.build_packet_data(packet, true)
 
-      assert result["popup"] =~ "P-K5SGD"
-      refute result["popup"] =~ ">DB0SDA<"
+      # Popup now shows sender for consistency with map label
+      assert result["popup"] =~ "DB0SDA"
+      refute result["popup"] =~ "P-K5SGD"
     end
 
-    test "build_minimal_packet_data uses object_name for objects" do
+    test "build_minimal_packet_data uses sender for map label but object_name for grouping" do
       packet = %{
         id: Ecto.UUID.generate(),
         sender: "DB0SDA",
@@ -132,7 +139,10 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       result = DataBuilder.build_minimal_packet_data(packet, true, false)
 
       assert result
-      assert result["callsign"] == "P-K5SGD"
+      # Map label shows sender for clarity
+      assert result["callsign"] == "DB0SDA"
+      # But grouping uses object name
+      assert result["callsign_group"] == "P-K5SGD"
     end
 
     test "build_minimal_packet_data uses red dot HTML for historical (non-most-recent) packets" do
@@ -325,9 +335,13 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
 
       results = DataBuilder.build_packet_data_list([object_packet_1, object_packet_2])
 
-      # Both packets should be grouped under P-K5SGD, not DB0SDA
+      # Map labels should show sender
       callsigns = Enum.map(results, & &1["callsign"])
-      assert Enum.all?(callsigns, &(&1 == "P-K5SGD"))
+      assert Enum.all?(callsigns, &(&1 == "DB0SDA"))
+
+      # But grouping should be by object name
+      groups = Enum.map(results, & &1["callsign_group"])
+      assert Enum.all?(groups, &(&1 == "P-K5SGD"))
     end
   end
 end

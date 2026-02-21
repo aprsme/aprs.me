@@ -169,4 +169,36 @@ defmodule Aprsme.EncodingTest do
       assert Encoding.to_hex(<<255>>) == "FF"
     end
   end
+
+  describe "strip_mice_telemetry/1" do
+    test "removes Mic-E telemetry prefix from comment" do
+      assert Encoding.strip_mice_telemetry("!w>`!Clb=6.4m/s t=-66.7C") == "Clb=6.4m/s t=-66.7C"
+      assert Encoding.strip_mice_telemetry("!w_'!Clb=4.6m/s t=-3.8C") == "Clb=4.6m/s t=-3.8C"
+      assert Encoding.strip_mice_telemetry("!w_P!Clb=4.8m/s t=-65.7C") == "Clb=4.8m/s t=-65.7C"
+      assert Encoding.strip_mice_telemetry("!w;i!Clb=2.5m/s t=-66.4C") == "Clb=2.5m/s t=-66.4C"
+      assert Encoding.strip_mice_telemetry("!w;D!Clb=2.8m/s t=-65.3C") == "Clb=2.8m/s t=-65.3C"
+    end
+
+    test "removes multiple consecutive Mic-E telemetry sequences" do
+      assert Encoding.strip_mice_telemetry("!w>`!!abc!Normal comment") == "Normal comment"
+    end
+
+    test "does not remove exclamation marks from middle of comment" do
+      assert Encoding.strip_mice_telemetry("Normal! comment!") == "Normal! comment!"
+    end
+
+    test "leaves normal comments unchanged" do
+      assert Encoding.strip_mice_telemetry("Normal comment") == "Normal comment"
+      assert Encoding.strip_mice_telemetry("Hello World") == "Hello World"
+      assert Encoding.strip_mice_telemetry("") == ""
+    end
+
+    test "handles nil input" do
+      assert Encoding.strip_mice_telemetry(nil) == nil
+    end
+
+    test "handles non-binary input" do
+      assert Encoding.strip_mice_telemetry(123) == 123
+    end
+  end
 end

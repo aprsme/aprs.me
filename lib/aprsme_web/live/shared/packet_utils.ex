@@ -232,6 +232,23 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
     end
   end
 
+  @doc """
+  Get the map label for a packet.
+
+  For map display, always show the sender callsign regardless of whether
+  it's an object or item packet. This avoids confusion where the map label
+  shows something different from what the user expects (like a balloon ID
+  instead of the station callsign).
+
+  If the packet is an object or item, you can append the object/item name
+  in the popup or detail view.
+  """
+  @spec map_label(map()) :: String.t()
+  def map_label(packet) do
+    # Always return the sender for map labels
+    get_packet_field(packet, :sender, "")
+  end
+
   defp non_empty_string?(value) when is_binary(value), do: String.trim(value) != ""
   defp non_empty_string?(_), do: false
 

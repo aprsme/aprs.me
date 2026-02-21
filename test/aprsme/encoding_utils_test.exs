@@ -371,4 +371,35 @@ defmodule Aprsme.EncodingUtilsTest do
       assert info.char_count == 4
     end
   end
+
+  describe "sanitize_comment/1" do
+    test "removes Mic-E telemetry from comment" do
+      assert EncodingUtils.sanitize_comment("!w>`!Clb=6.4m/s t=-66.7C") == "Clb=6.4m/s t=-66.7C"
+      assert EncodingUtils.sanitize_comment("!w_'!Clb=4.6m/s t=-3.8C") == "Clb=4.6m/s t=-3.8C"
+    end
+
+    test "sanitizes both Mic-E telemetry and control characters" do
+      # Comment with both Mic-E prefix and invalid UTF-8
+      invalid_binary = "!w>`!" <> <<72, 101, 211, 108, 111>>
+      result = EncodingUtils.sanitize_comment(invalid_binary)
+
+      assert String.valid?(result)
+      refute String.starts_with?(result, "!")
+      assert String.contains?(result, "He")
+      assert String.contains?(result, "lo")
+    end
+
+    test "handles normal comments without Mic-E telemetry" do
+      assert EncodingUtils.sanitize_comment("Normal comment") == "Normal comment"
+      assert EncodingUtils.sanitize_comment("Hello World") == "Hello World"
+    end
+
+    test "handles nil input" do
+      assert EncodingUtils.sanitize_comment(nil) == nil
+    end
+
+    test "handles non-binary input" do
+      assert EncodingUtils.sanitize_comment(123) == 123
+    end
+  end
 end

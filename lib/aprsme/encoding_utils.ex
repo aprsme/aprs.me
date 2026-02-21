@@ -32,6 +32,27 @@ defmodule Aprsme.EncodingUtils do
   def sanitize_string(other), do: other
 
   @doc """
+  Sanitizes a comment string by removing Mic-E telemetry and control characters.
+
+  ## Examples
+
+      iex> Aprsme.EncodingUtils.sanitize_comment("!w>`!Clb=6.4m/s t=-66.7C")
+      "Clb=6.4m/s t=-66.7C"
+
+      iex> Aprsme.EncodingUtils.sanitize_comment("Normal comment")
+      "Normal comment"
+  """
+  @spec sanitize_comment(binary() | nil | any()) :: binary() | nil | any()
+  def sanitize_comment(comment) when is_binary(comment) do
+    comment
+    |> Encoding.strip_mice_telemetry()
+    |> Encoding.sanitize_string()
+  end
+
+  def sanitize_comment(nil), do: nil
+  def sanitize_comment(other), do: other
+
+  @doc """
   Converts various types to float with validation for safety.
 
   ## Examples
@@ -261,13 +282,15 @@ defmodule Aprsme.EncodingUtils do
   defp sanitize_string_fields(packet) do
     Enum.reduce(@string_fields, packet, fn field, acc ->
       string_key = to_string(field)
+      # Use sanitize_comment for comment field to strip Mic-E telemetry
+      sanitizer = if field == :comment, do: &sanitize_comment/1, else: &sanitize_string/1
 
       cond do
         Map.has_key?(acc, field) ->
-          Map.update(acc, field, nil, &sanitize_string/1)
+          Map.update(acc, field, nil, sanitizer)
 
         Map.has_key?(acc, string_key) ->
-          Map.update(acc, string_key, nil, &sanitize_string/1)
+          Map.update(acc, string_key, nil, sanitizer)
 
         true ->
           acc

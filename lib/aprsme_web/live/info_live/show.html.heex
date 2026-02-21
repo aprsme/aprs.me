@@ -136,7 +136,7 @@
                   <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{gettext("Comment")}</dt>
                   <dd class="mt-1 text-sm">
                     <%= if is_binary(@packet.comment) do %>
-                      {Aprsme.EncodingUtils.sanitize_string(@packet.comment)}
+                      {Aprsme.EncodingUtils.sanitize_comment(@packet.comment)}
                     <% else %>
                       {@packet.comment}
                     <% end %>

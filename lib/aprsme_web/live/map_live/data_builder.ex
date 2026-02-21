@@ -127,16 +127,22 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
           historical_dot_html(callsign)
         end
 
+      raw_comment = get_packet_field(packet, :comment, "")
+      clean_comment = Aprsme.EncodingUtils.sanitize_comment(raw_comment)
+
+      # Use map_label for display, but keep display_name for grouping
+      label = map_label(packet)
+
       %{
         "id" => if(is_most_recent, do: "current_#{get_packet_id(packet)}", else: "hist_#{get_packet_id(packet)}"),
         "lat" => to_float(lat),
         "lng" => to_float(lon),
-        "callsign" => callsign,
+        "callsign" => label,
         "callsign_group" => callsign,
         "symbol_table_id" => symbol_table_id,
         "symbol_code" => symbol_code,
         "symbol_html" => symbol_html,
-        "comment" => get_packet_field(packet, :comment, ""),
+        "comment" => clean_comment,
         "timestamp" => get_packet_timestamp_unix(packet),
         "historical" => !is_most_recent,
         "is_most_recent_for_callsign" => is_most_recent,
@@ -263,9 +269,12 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
       |> IO.iodata_to_binary()
     else
       # Build standard popup
+      raw_comment = get_packet_field(packet, :comment, "")
+      clean_comment = Aprsme.EncodingUtils.sanitize_comment(raw_comment)
+
       %{
         callsign: callsign,
-        comment: get_packet_field(packet, :comment, ""),
+        comment: clean_comment,
         timestamp_dt: timestamp_dt,
         cache_buster: cache_buster,
         weather: false,
@@ -331,12 +340,16 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
 
   @spec extract_packet_info(map(), map()) :: map()
   defp extract_packet_info(packet, data_extended) do
+    raw_comment = get_packet_field(packet, :comment, "")
+    clean_comment = Aprsme.EncodingUtils.sanitize_comment(raw_comment)
+
     %{
-      callsign: display_name(packet),
+      callsign: map_label(packet),
+      callsign_group: display_name(packet),
       symbol_table_id: get_packet_field(packet, :symbol_table_id, "/"),
       symbol_code: get_packet_field(packet, :symbol_code, ">"),
       timestamp: get_timestamp(packet),
-      comment: get_packet_field(packet, :comment, ""),
+      comment: clean_comment,
       safe_data_extended: convert_tuples_to_strings(data_extended),
       is_weather_packet: weather_packet?(packet)
     }
@@ -447,7 +460,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
     %{
       "id" => packet_id,
       "callsign" => packet_info.callsign,
-      "callsign_group" => packet_info.callsign,
+      "callsign_group" => packet_info.callsign_group,
       "base_callsign" => get_packet_field(packet, :base_callsign, ""),
       "ssid" => get_packet_field(packet, :ssid, nil),
       "lat" => to_float(lat),
@@ -490,6 +503,11 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   @spec display_name(map()) :: String.t()
   defp display_name(packet) do
     SharedPacketUtils.display_name(packet)
+  end
+
+  @spec map_label(map()) :: String.t()
+  defp map_label(packet) do
+    SharedPacketUtils.map_label(packet)
   end
 
   @spec weather_packet?(map()) :: boolean()
