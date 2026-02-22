@@ -49,6 +49,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
         build_packet_data(packet, is_most_recent, locale)
       end)
       |> Enum.filter(& &1)
+      |> deduplicate_by_callsign_group()
 
     Process.delete(:weather_callsigns_cache)
     result
@@ -111,6 +112,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
       symbol_code = get_packet_field(packet, :symbol_code, ">")
 
       callsign = display_name(packet)
+      label = map_label(packet)
 
       # For historical (non-most-recent) packets, use a simple red dot HTML
       # instead of the full APRS symbol — matches what the JS createMarkerIcon
@@ -120,18 +122,15 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
           AprsmeWeb.SymbolRenderer.render_marker_symbol(
             symbol_table_id,
             symbol_code,
-            callsign,
+            label,
             32
           )
         else
-          historical_dot_html(callsign)
+          historical_dot_html(label)
         end
 
       raw_comment = get_packet_field(packet, :comment, "")
       clean_comment = Aprsme.EncodingUtils.sanitize_comment(raw_comment)
-
-      # Use map_label for display, but keep display_name for grouping
-      label = map_label(packet)
 
       %{
         "id" => if(is_most_recent, do: "current_#{get_packet_id(packet)}", else: "hist_#{get_packet_id(packet)}"),
@@ -229,7 +228,7 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   @spec build_simple_popup(map(), boolean()) :: String.t()
   def build_simple_popup(packet, has_weather) do
     # Build popup HTML directly without database queries
-    callsign = display_name(packet)
+    callsign = map_label(packet)
     timestamp_dt = get_packet_received_at(packet)
     cache_buster = System.system_time(:millisecond)
 
@@ -684,5 +683,16 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
     filtered_historical
     |> Enum.map(fn packet -> build_minimal_packet_data(packet, false, has_weather) end)
     |> Enum.filter(& &1)
+  end
+
+  # When multiple senders track the same object, keep only one "current" marker
+  # per callsign_group to avoid duplicate labels on the map.
+  defp deduplicate_by_callsign_group(marker_list) do
+    marker_list
+    |> Enum.reduce(%{}, fn marker, acc ->
+      group = marker["callsign_group"] || marker["callsign"]
+      Map.put(acc, group, marker)
+    end)
+    |> Map.values()
   end
 end

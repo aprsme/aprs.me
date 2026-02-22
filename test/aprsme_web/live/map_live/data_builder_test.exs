@@ -143,6 +143,9 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       assert result["callsign"] == "DB0SDA"
       # But grouping uses object name
       assert result["callsign_group"] == "P-K5SGD"
+      # Symbol HTML should show sender, not object name
+      assert result["symbol_html"] =~ "DB0SDA"
+      refute result["symbol_html"] =~ "P-K5SGD"
     end
 
     test "build_minimal_packet_data uses red dot HTML for historical (non-most-recent) packets" do
@@ -342,6 +345,32 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       # But grouping should be by object name
       groups = Enum.map(results, & &1["callsign_group"])
       assert Enum.all?(groups, &(&1 == "P-K5SGD"))
+    end
+
+    test "build_simple_popup shows sender for object packets" do
+      packet = %{
+        id: Ecto.UUID.generate(),
+        sender: "WA0YMH-2",
+        base_callsign: "WA0YMH",
+        ssid: "2",
+        object_name: "X3234025",
+        is_object: true,
+        is_item: false,
+        lat: 33.251833,
+        lon: -95.719833,
+        data_type: "object",
+        received_at: DateTime.utc_now(),
+        symbol_table_id: "/",
+        symbol_code: "O",
+        comment: "Clb=5.9m/s t=-58.5C 404.800MHz Type=RS41-NG rdzTTGOsonde",
+        has_position: true,
+        path: "TCPIP*,qAR,WA0YMH-2"
+      }
+
+      popup = DataBuilder.build_simple_popup(packet, false)
+
+      assert popup =~ "WA0YMH-2"
+      refute popup =~ "X3234025"
     end
   end
 end

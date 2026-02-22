@@ -1748,6 +1748,46 @@ let MapAPRSMap = {
     // Remove existing marker if it exists (without affecting trails since we're just replacing it)
     self.removeMarkerWithoutTrail(data.id);
 
+    // When adding a "most recent" marker, convert any existing "current" markers
+    // for the same callsign_group to historical dots. This prevents duplicate labels
+    // when multiple senders report the same object (e.g. two stations tracking one radiosonde).
+    if (data.is_most_recent_for_callsign && self.callsignIndex) {
+      const csGroup = data.callsign_group || data.callsign;
+      if (csGroup) {
+        const existingIds = self.callsignIndex.get(csGroup);
+        if (existingIds) {
+          for (const eid of existingIds) {
+            if (String(eid) === String(data.id)) continue;
+            const eState = self.markerStates.get(eid);
+            const eMarker = self.markers.get(eid);
+            if (
+              eState &&
+              eMarker &&
+              eState.is_most_recent_for_callsign
+            ) {
+              eState.historical = true;
+              eState.is_most_recent_for_callsign = false;
+              eMarker.setIcon(
+                self.createMarkerIcon({
+                  id: String(eid),
+                  lat: eState.lat,
+                  lng: eState.lng,
+                  callsign: eState.callsign || csGroup,
+                  callsign_group: eState.callsign_group || csGroup,
+                  symbol_table_id: eState.symbol_table,
+                  symbol_code: eState.symbol_code,
+                  historical: true,
+                  is_most_recent_for_callsign: false,
+                  popup: eState.popup,
+                }),
+              );
+              (eMarker as APRSMarker)._isHistorical = true;
+            }
+          }
+        }
+      }
+    }
+
     // Create marker - use simple dot for older historical positions, APRS icon for most recent
     const marker = L.marker([lat, lng], {
       icon: self.createMarkerIcon(data),

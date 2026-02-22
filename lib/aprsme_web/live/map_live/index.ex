@@ -849,51 +849,13 @@ defmodule AprsmeWeb.MapLive.Index do
   end
 
   def handle_info({:packet_batch, packets}, socket) do
-    # Process batch: collect marker data and removal IDs without pushing events
-    {socket, marker_data_list, removal_ids} =
-      Enum.reduce(packets, {socket, [], []}, fn packet, {acc_socket, markers, removals} ->
-        {new_socket, marker_data, removed_id} = process_packet_for_batch(packet, acc_socket)
-        markers = if marker_data, do: [marker_data | markers], else: markers
-        removals = if removed_id, do: [removed_id | removals], else: removals
-        {new_socket, markers, removals}
-      end)
+    {socket, marker_data_list, removal_ids} = process_packet_batch(packets, socket)
 
-    # Push a single batched remove event for all removals
     socket =
-      if removal_ids == [] do
-        socket
-      else
-        DisplayManager.remove_markers_batch(socket, removal_ids)
-      end
-
-    socket = assign(socket, :last_update_at, DateTime.utc_now())
-
-    # Send heat map update once if in heat map mode, otherwise batch markers
-    socket =
-      cond do
-        socket.assigns.map_zoom <= 8 and marker_data_list != [] ->
-          DisplayManager.send_heat_map_for_current_bounds(socket)
-
-        marker_data_list != [] ->
-          reversed = Enum.reverse(marker_data_list)
-
-          # Extract convert_to_historical callsign keys from markers that replaced existing ones
-          convert_to_historical =
-            reversed
-            |> Enum.map(&Map.get(&1, "convert_from"))
-            |> Enum.filter(& &1)
-            |> Enum.uniq()
-
-          markers = prepare_markers_for_push(reversed, socket.assigns.station_popup_open)
-
-          push_event(socket, "new_packets", %{
-            packets: markers,
-            convert_to_historical: convert_to_historical
-          })
-
-        true ->
-          socket
-      end
+      socket
+      |> remove_markers_if_needed(removal_ids)
+      |> assign(:last_update_at, DateTime.utc_now())
+      |> update_display_for_batch(marker_data_list)
 
     {:noreply, socket}
   end
@@ -1098,6 +1060,61 @@ defmodule AprsmeWeb.MapLive.Index do
         {socket, nil, nil}
       end
     end
+  end
+
+  defp process_packet_batch(packets, socket) do
+    Enum.reduce(packets, {socket, [], []}, fn packet, {acc_socket, markers, removals} ->
+      {new_socket, marker_data, removed_id} = process_packet_for_batch(packet, acc_socket)
+      markers = if marker_data, do: [marker_data | markers], else: markers
+      removals = if removed_id, do: [removed_id | removals], else: removals
+      {new_socket, markers, removals}
+    end)
+  end
+
+  defp remove_markers_if_needed(socket, []), do: socket
+
+  defp remove_markers_if_needed(socket, removal_ids) do
+    DisplayManager.remove_markers_batch(socket, removal_ids)
+  end
+
+  defp update_display_for_batch(socket, []), do: socket
+
+  defp update_display_for_batch(socket, marker_data_list) do
+    if socket.assigns.map_zoom <= 8 do
+      DisplayManager.send_heat_map_for_current_bounds(socket)
+    else
+      send_marker_batch(socket, marker_data_list)
+    end
+  end
+
+  defp send_marker_batch(socket, marker_data_list) do
+    reversed = Enum.reverse(marker_data_list)
+
+    # Deduplicate by callsign_group — when multiple senders track the same
+    # object (e.g. two stations reporting the same radiosonde), keep only
+    # the most recent packet per group to avoid duplicate "current" markers.
+    deduped =
+      reversed
+      |> Enum.reduce(%{}, fn marker, acc ->
+        group = marker["callsign_group"] || marker["callsign"]
+        Map.put(acc, group, marker)
+      end)
+      |> Map.values()
+
+    # Send callsign_groups so the frontend can look up existing markers
+    # via its callsignIndex (keyed by callsign_group, not by packet UUID)
+    convert_to_historical =
+      deduped
+      |> Enum.map(fn m -> m["callsign_group"] || m["callsign"] end)
+      |> Enum.filter(& &1)
+      |> Enum.uniq()
+
+    markers = prepare_markers_for_push(deduped, socket.assigns.station_popup_open)
+
+    push_event(socket, "new_packets", %{
+      packets: markers,
+      convert_to_historical: convert_to_historical
+    })
   end
 
   # Handle replaying the next historical packet
