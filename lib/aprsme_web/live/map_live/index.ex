@@ -308,17 +308,14 @@ defmodule AprsmeWeb.MapLive.Index do
 
   @impl true
   def handle_event("set_location", %{"lat" => lat, "lng" => lng}, socket) do
-    # Update map center and zoom when location is received
-    # Parse and validate coordinates
-    lat_float = UrlParams.parse_latitude(lat)
-    lng_float = UrlParams.parse_longitude(lng)
+    # Geolocation sends numeric values; coerce strings to floats if needed
+    lat_float = to_float(lat)
+    lng_float = to_float(lng)
 
-    # Additional validation - ensure we got valid coordinates
     if UrlParams.valid_coordinates?(lat_float, lng_float) do
       socket = Navigation.update_and_zoom_to_location(socket, lat_float, lng_float, 12)
       {:noreply, socket}
     else
-      # Invalid coordinates - ignore the event
       {:noreply, socket}
     end
   end
@@ -802,6 +799,18 @@ defmodule AprsmeWeb.MapLive.Index do
 
   # Parse historical hours with validation
   defp parse_historical_hours(hours), do: SharedPacketUtils.parse_historical_hours(hours)
+
+  defp to_float(val) when is_float(val), do: val
+  defp to_float(val) when is_integer(val), do: val / 1
+
+  defp to_float(val) when is_binary(val) do
+    case Float.parse(val) do
+      {f, _} -> f
+      :error -> nil
+    end
+  end
+
+  defp to_float(_), do: nil
 
   @impl true
   def handle_info({:process_bounds_update, map_bounds}, socket),
