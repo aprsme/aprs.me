@@ -278,9 +278,9 @@ defmodule AprsmeWeb.MapLive.Components do
         transition: right 0.3s ease-in-out;
       }
 
-      /* Desktop styles */
+      /* Desktop styles - default to sidebar open */
       @media (min-width: 1024px) {
-        #aprs-map.slideover-open {
+        #aprs-map {
           right: 352px;
         }
 
@@ -305,8 +305,11 @@ defmodule AprsmeWeb.MapLive.Components do
         overflow: hidden;
       }
 
-      .slideover-panel.slideover-open {
-        transform: translateX(0);
+      /* Desktop: default to visible, only hide when explicitly closed */
+      @media (min-width: 1024px) {
+        .slideover-panel {
+          transform: translateX(0);
+        }
       }
 
       .slideover-panel.slideover-closed {
