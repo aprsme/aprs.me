@@ -31,7 +31,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: migrate
-          image: git.mcintire.me/graham/aprs.me:main-1771796036-f5049a6
+          image: git.mcintire.me/graham/aprs.me:main-1772043977-d385d1e
           imagePullPolicy: IfNotPresent
           command: ["/app/bin/migrate"]
           securityContext:
@@ -82,7 +82,7 @@ spec:
               cpu: "500m"
       containers:
         - name: aprs
-          image: git.mcintire.me/graham/aprs.me:main-1771796036-f5049a6
+          image: git.mcintire.me/graham/aprs.me:main-1772043977-d385d1e
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
