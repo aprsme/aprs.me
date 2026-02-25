@@ -144,6 +144,8 @@ if config_env() == :prod do
     aprs_is_default_filter: System.get_env("APRS_FILTER"),
     aprs_is_login_id: System.get_env("APRS_CALLSIGN"),
     aprs_is_password: System.get_env("APRS_PASSWORD") || System.get_env("APRS_PASSCODE"),
+    # Packet retention period in days (default: 7 days)
+    packet_retention_days: String.to_integer(System.get_env("PACKET_RETENTION_DAYS") || "7"),
     env: :prod
 
   # Configure Hammer for production environment
