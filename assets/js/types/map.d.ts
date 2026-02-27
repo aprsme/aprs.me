@@ -34,6 +34,7 @@ export interface LiveViewHookContext {
   zoomEndHandler?: () => void;
   rfPathLines?: Array<Polyline | Marker>; // Array of Leaflet polylines and markers for RF path visualization
   trailLayer?: LayerGroup;
+  trailLine?: Polyline; // Polyline for callsign trail display at low zoom
   markerClusterGroup?: MarkerClusterGroup;
   cleanupTimeouts?: ReturnType<typeof setTimeout>[];
   pendingMarkers?: MarkerData[];

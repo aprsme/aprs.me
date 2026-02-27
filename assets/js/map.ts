@@ -1520,6 +1520,12 @@ let MapAPRSMap = {
 
     // Handle clear_all_markers event
     self.handleEvent("clear_all_markers", () => {
+      // Clear trail line if present
+      if (self.trailLine) {
+        self.map?.removeLayer(self.trailLine);
+        self.trailLine = undefined;
+      }
+
       // Modified to preserve historical trails - only removes non-historical markers
       self.clearAllMarkers();
 
@@ -1535,6 +1541,12 @@ let MapAPRSMap = {
         if (!self.map || self.isDestroyed) {
           console.warn("Map not ready or destroyed, skipping heat map update");
           return;
+        }
+
+        // Clear trail line if present
+        if (self.trailLine) {
+          self.map.removeLayer(self.trailLine);
+          self.trailLine = undefined;
         }
 
         if (!L.heatLayer) {
@@ -1595,6 +1607,12 @@ let MapAPRSMap = {
           return;
         }
 
+        // Clear trail line if present
+        if (self.trailLine) {
+          self.map.removeLayer(self.trailLine);
+          self.trailLine = undefined;
+        }
+
         // Hide heat layer and show marker layer
         if (self.heatLayer && self.map.hasLayer(self.heatLayer)) {
           self.map.removeLayer(self.heatLayer);
@@ -1604,6 +1622,69 @@ let MapAPRSMap = {
         }
       } catch (error) {
         console.error("Error in show_markers handler:", error);
+      }
+    });
+
+    // Handle trail line display for tracked callsigns at low zoom
+    self.handleEvent("show_trail_line", (payload: BaseEventPayload) => {
+      const data = payload as { callsign: string; points: Array<{ lat: number; lng: number; timestamp: string }> };
+
+      if (!self.map) {
+        console.warn("Map not initialized, cannot show trail line");
+        return;
+      }
+
+      // Clear existing trail line if present
+      if (self.trailLine) {
+        self.map.removeLayer(self.trailLine);
+        self.trailLine = undefined;
+      }
+
+      // Clear heat map if present (switching from heat map to trail line)
+      if (self.heatLayer) {
+        self.map.removeLayer(self.heatLayer);
+        self.heatLayer = undefined;
+      }
+
+      // If we have less than 2 points, don't draw a line
+      if (data.points.length < 2) {
+        console.debug(`Not enough points for trail line: ${data.points.length}`);
+        return;
+      }
+
+      // Extract coordinates for polyline
+      const latlngs = data.points.map(point => [point.lat, point.lng] as [number, number]);
+
+      // Access Leaflet from window
+      const L = (window as any).L;
+
+      // Create polyline
+      self.trailLine = L.polyline(latlngs, {
+        color: '#3B82F6',      // blue-500
+        weight: 3,
+        opacity: 0.8,
+        lineCap: 'round',
+        lineJoin: 'round',
+        interactive: true
+      });
+
+      // Add to map
+      self.trailLine.addTo(self.map);
+
+      console.debug(`Trail line added for ${data.callsign} with ${data.points.length} points`);
+    });
+
+    // Handle clearing trail line
+    self.handleEvent("clear_trail_line", (_payload: BaseEventPayload) => {
+      if (!self.map) {
+        return;
+      }
+
+      // Remove trail line if present
+      if (self.trailLine) {
+        self.map.removeLayer(self.trailLine);
+        self.trailLine = undefined;
+        console.debug("Trail line cleared");
       }
     });
   },
