@@ -75,6 +75,56 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
   end
 
   @doc """
+  Send trail line data for tracked callsign.
+  Connects all position points chronologically, regardless of distance.
+  """
+  @spec send_trail_line_for_tracked_callsign(Socket.t()) :: Socket.t()
+  def send_trail_line_for_tracked_callsign(socket) do
+    callsign = socket.assigns.tracked_callsign
+    threshold = socket.assigns.packet_age_threshold
+
+    packets =
+      socket.assigns.visible_packets
+      |> Map.values()
+      |> Enum.filter(fn packet ->
+        sender = Map.get(packet, :sender) || Map.get(packet, "sender")
+        received_at = Map.get(packet, :received_at) || Map.get(packet, "received_at")
+
+        String.upcase(sender) == String.upcase(callsign) &&
+          DateTime.compare(received_at, threshold) != :lt
+      end)
+      |> Enum.sort_by(
+        fn packet ->
+          received_at = Map.get(packet, :received_at) || Map.get(packet, "received_at")
+          DateTime.to_unix(received_at, :microsecond)
+        end,
+        :asc
+      )
+
+    if Enum.empty?(packets) do
+      socket
+    else
+      points =
+        Enum.map(packets, fn packet ->
+          lat = Map.get(packet, :lat) || Map.get(packet, "lat")
+          lon = Map.get(packet, :lon) || Map.get(packet, "lon")
+          received_at = Map.get(packet, :received_at) || Map.get(packet, "received_at")
+
+          %{
+            lat: Aprsme.EncodingUtils.to_float(lat) || 0.0,
+            lng: Aprsme.EncodingUtils.to_float(lon) || 0.0,
+            timestamp: DateTime.to_iso8601(received_at)
+          }
+        end)
+
+      LiveView.push_event(socket, "show_trail_line", %{
+        callsign: callsign,
+        points: points
+      })
+    end
+  end
+
+  @doc """
   Send heat map data for filtered packets.
   """
   @spec send_heat_map_data(Socket.t(), map()) :: Socket.t()
