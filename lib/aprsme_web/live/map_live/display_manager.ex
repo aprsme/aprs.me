@@ -14,14 +14,22 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
 
   @doc """
   Handle zoom threshold crossing between heat map and marker modes.
+  When tracking a callsign at low zoom, show trail line instead of heat map.
   """
   @spec handle_zoom_threshold_crossing(Socket.t(), integer()) :: Socket.t()
   def handle_zoom_threshold_crossing(socket, zoom) do
+    tracked_callsign = socket.assigns.tracked_callsign || ""
+
     if zoom <= @heat_map_max_zoom do
-      # Switching to heat map
-      socket
-      |> LiveView.push_event("clear_all_markers", %{})
-      |> send_heat_map_for_current_bounds()
+      # Switching to low zoom mode
+      socket = LiveView.push_event(socket, "clear_all_markers", %{})
+
+      # If tracking a callsign, show trail line; otherwise show heat map
+      if tracked_callsign == "" do
+        send_heat_map_for_current_bounds(socket)
+      else
+        send_trail_line_for_tracked_callsign(socket)
+      end
     else
       # Switching to markers
       trigger_marker_display(socket)

@@ -20,6 +20,101 @@ defmodule AprsmeWeb.MapLive.DisplayManagerTest do
     {:ok, socket: socket}
   end
 
+  # Helper function to assert push events
+  defp assert_push_event(socket, event_name, expected_data) do
+    push_events = get_in(socket.private, [:live_temp, :push_events]) || []
+
+    matching_event = Enum.find(push_events, fn [name, _data] -> name == event_name end)
+
+    assert matching_event != nil, "Expected to find event '#{event_name}' in push_events"
+
+    [_name, data] = matching_event
+
+    # For partial matching, check if all expected keys are present
+    Enum.each(expected_data, fn {key, value} ->
+      assert Map.get(data, key) == value,
+             "Expected #{key} to be #{inspect(value)}, got #{inspect(Map.get(data, key))}"
+    end)
+
+    socket
+  end
+
+  describe "handle_zoom_threshold_crossing/2" do
+    test "shows trail line for tracked callsign at low zoom", %{socket: socket} do
+      packet1 = %{
+        id: "1",
+        sender: "W5ISP-9",
+        lat: 30.123,
+        lon: -97.456,
+        received_at: ~U[2024-01-01 10:00:00Z]
+      }
+
+      visible_packets = %{"W5ISP-9:1" => packet1}
+
+      socket =
+        Map.put(socket, :assigns, %{
+          socket.assigns
+          | visible_packets: visible_packets,
+            tracked_callsign: "W5ISP-9",
+            packet_age_threshold: ~U[2024-01-01 09:00:00Z],
+            map_zoom: 8
+        })
+
+      # Zoom from 9 to 8 (crossing threshold) - socket already has new zoom
+      result_socket = DisplayManager.handle_zoom_threshold_crossing(socket, 8)
+
+      # Should clear markers and show trail line
+      assert_push_event(result_socket, "clear_all_markers", %{})
+      assert_push_event(result_socket, "show_trail_line", %{callsign: "W5ISP-9"})
+    end
+
+    test "shows heat map when no tracked callsign at low zoom", %{socket: socket} do
+      socket =
+        Map.put(socket, :assigns, %{
+          socket.assigns
+          | visible_packets: %{},
+            tracked_callsign: "",
+            historical_packets: %{},
+            map_bounds: %{north: 90, south: -90, east: 180, west: -180},
+            map_zoom: 8
+        })
+
+      # Zoom from 9 to 8 (crossing threshold) - socket already has new zoom
+      result_socket = DisplayManager.handle_zoom_threshold_crossing(socket, 8)
+
+      # Should clear markers and show heat map
+      assert_push_event(result_socket, "clear_all_markers", %{})
+      assert_push_event(result_socket, "show_heat_map", %{heat_points: []})
+    end
+
+    test "shows markers for tracked callsign at high zoom", %{socket: socket} do
+      packet1 = %{
+        id: "1",
+        sender: "W5ISP-9",
+        lat: 30.123,
+        lon: -97.456,
+        received_at: ~U[2024-01-01 10:00:00Z]
+      }
+
+      visible_packets = %{"W5ISP-9:1" => packet1}
+
+      socket =
+        Map.put(socket, :assigns, %{
+          socket.assigns
+          | visible_packets: visible_packets,
+            tracked_callsign: "W5ISP-9",
+            packet_age_threshold: ~U[2024-01-01 09:00:00Z],
+            map_zoom: 9
+        })
+
+      # Zoom from 8 to 9 (crossing threshold) - socket already has new zoom
+      result_socket = DisplayManager.handle_zoom_threshold_crossing(socket, 9)
+
+      # Should show markers
+      assert_push_event(result_socket, "show_markers", %{})
+    end
+  end
+
   describe "send_trail_line_for_tracked_callsign/1" do
     test "pushes trail line event with sorted points", %{socket: socket} do
       packet1 = %{
