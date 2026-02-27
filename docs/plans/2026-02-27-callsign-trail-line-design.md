@@ -106,6 +106,15 @@ Implement a trail line visualization that displays when tracking a specific call
 
 ## Implementation Notes
 
+### Continuous Path Connection
+- **Connect all points regardless of distance**: The trail line should connect all position points in chronological order, even if there are large gaps between positions
+- This is important for tracking stations that:
+  - Travel long distances (aircraft, vehicles on highways)
+  - Have intermittent coverage (gaps in digipeater/igate range)
+  - Cross large geographic areas
+- Do NOT apply distance-based filtering or gap detection
+- The continuous line shows the complete journey path for the tracked callsign
+
 ### Time Threshold Handling
 - Use existing `socket.assigns.packet_age_threshold` for filtering
 - Trail line respects the "Trail Duration" setting (1 hour, 6 hours, etc.)
@@ -122,6 +131,8 @@ Implement a trail line visualization that displays when tracking a specific call
 - Single point: Don't draw line (show marker instead)
 - Zoom threshold crossing: Smoothly transition between trail and markers
 - Callsign tracking cleared: Remove trail line immediately
+- **International date line crossing**: Trail line should wrap correctly around the date line (Leaflet handles this automatically with proper coordinate ordering)
+- **Large distance gaps**: Continue drawing line even with large geographic gaps between consecutive points
 
 ## Testing Strategy
 
