@@ -535,6 +535,14 @@ defmodule AprsmeWeb.MapLive.Index do
     # Trigger cleanup to remove packets that are now outside the new duration
     send(self(), :cleanup_old_packets)
 
+    # If tracking a callsign at low zoom, refresh the trail line with new duration
+    socket =
+      if socket.assigns.tracked_callsign != "" and socket.assigns.map_zoom <= 8 do
+        DisplayManager.send_trail_line_for_tracked_callsign(socket)
+      else
+        socket
+      end
+
     {:noreply, socket}
   end
 
