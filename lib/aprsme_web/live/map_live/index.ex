@@ -510,6 +510,7 @@ defmodule AprsmeWeb.MapLive.Index do
     socket =
       socket
       |> assign(tracked_callsign: "", overlay_callsign: "", other_ssids: [])
+      |> push_event("clear_trail_line", %{})
       |> update_url_with_current_state()
 
     {:noreply, socket}
@@ -533,6 +534,14 @@ defmodule AprsmeWeb.MapLive.Index do
 
     # Trigger cleanup to remove packets that are now outside the new duration
     send(self(), :cleanup_old_packets)
+
+    # If tracking a callsign at low zoom, refresh the trail line with new duration
+    socket =
+      if socket.assigns.tracked_callsign != "" and socket.assigns.map_zoom <= 8 do
+        DisplayManager.send_trail_line_for_tracked_callsign(socket)
+      else
+        socket
+      end
 
     {:noreply, socket}
   end
@@ -1089,8 +1098,15 @@ defmodule AprsmeWeb.MapLive.Index do
   defp update_display_for_batch(socket, []), do: socket
 
   defp update_display_for_batch(socket, marker_data_list) do
+    tracked_callsign = socket.assigns.tracked_callsign || ""
+
     if socket.assigns.map_zoom <= 8 do
-      DisplayManager.send_heat_map_for_current_bounds(socket)
+      # If tracking a callsign, send trail line instead of heat map
+      if tracked_callsign == "" do
+        DisplayManager.send_heat_map_for_current_bounds(socket)
+      else
+        DisplayManager.send_trail_line_for_tracked_callsign(socket)
+      end
     else
       send_marker_batch(socket, marker_data_list)
     end
@@ -1986,6 +2002,15 @@ defmodule AprsmeWeb.MapLive.Index do
     )
 
     socket = HistoricalLoader.start_progressive_historical_loading(socket)
+
+    # If tracking a callsign and at low zoom, send trail line instead of letting
+    # historical loader send heat map
+    socket =
+      if socket.assigns.tracked_callsign != "" and socket.assigns.map_zoom <= 8 do
+        DisplayManager.send_trail_line_for_tracked_callsign(socket)
+      else
+        socket
+      end
 
     # Mark initial historical as completed if this was the initial load
     if is_initial_load do
