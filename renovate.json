@@ -1,12 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:base"],
+  "extends": [
+    "config:recommended"
+  ],
   "gitAuthor": "Renovate Bot <bot@renovateapp.com>",
   "branchPrefix": "renovate/",
   "semanticCommits": "enabled",
   "dependencyDashboard": true,
-  "labels": ["dependencies"],
-  "schedule": ["at any time"],
+  "labels": [
+    "dependencies"
+  ],
+  "schedule": [
+    "at any time"
+  ],
   "timezone": "UTC",
   "prConcurrentLimit": 10,
   "prCreation": "immediate",
@@ -17,22 +23,40 @@
   "packageRules": [
     {
       "description": "Elixir dependencies",
-      "matchManagers": ["mix"],
-      "matchUpdateTypes": ["major", "minor", "patch"],
+      "matchManagers": [
+        "mix"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
       "groupName": null,
       "commitMessagePrefix": "chore(deps):"
     },
     {
       "description": "Docker dependencies",
-      "matchManagers": ["dockerfile"],
-      "matchUpdateTypes": ["major", "minor", "patch"],
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
       "groupName": null,
       "commitMessagePrefix": "chore(deps):"
     },
     {
       "description": "GitHub Actions",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["major", "minor", "patch"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
       "groupName": null,
       "commitMessagePrefix": "chore(deps):"
     }
