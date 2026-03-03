@@ -6,7 +6,7 @@
   "semanticCommits": "enabled",
   "dependencyDashboard": true,
   "labels": ["dependencies"],
-  "schedule": ["before 5am"],
+  "schedule": ["at any time"],
   "timezone": "UTC",
   "prConcurrentLimit": 10,
   "prCreation": "immediate",
