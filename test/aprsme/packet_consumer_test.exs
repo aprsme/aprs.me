@@ -225,6 +225,8 @@ defmodule Aprsme.PacketConsumerTest do
       }
 
       PacketConsumer.handle_events(events, nil, state)
+      # Wait for async broadcast task to complete
+      Process.sleep(50)
 
       # Should receive the packet via PubSub
       assert_receive {:streaming_packet, packet}, 1000
@@ -353,6 +355,8 @@ defmodule Aprsme.PacketConsumerTest do
       }
 
       PacketConsumer.handle_events(events, nil, state)
+      # Wait for async broadcast task to complete
+      Process.sleep(50)
 
       assert_receive {:streaming_packet, packet}, 1000
       assert packet.sender == "FALLBACK1"
