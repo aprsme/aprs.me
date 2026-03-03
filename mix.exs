@@ -58,15 +58,15 @@ defmodule Aprsme.MixProject do
   defp deps do
     [
       {:tidewave, "~> 0.5", only: :dev},
-      {:error_tracker, "~> 0.6"},
+      {:error_tracker, "~> 0.8"},
       {:bcrypt_elixir, "~> 3.0"},
       {:certifi, "~> 2.9"},
       {:ecto_psql_extras, "~> 0.8.8"},
-      {:ecto_sql, "~> 3.11"},
+      {:ecto_sql, "~> 3.13"},
       {:geo, "~> 4.1"},
       {:geo_postgis, "~> 3.4"},
       {:gen_stage, "~> 1.2"},
-      {:gettext, "~> 0.26"},
+      {:gettext, "~> 1.0"},
       {:jason, "~> 1.4"},
       {:libcluster, "~> 3.3"},
       {:phoenix, "~> 1.8", override: true},
