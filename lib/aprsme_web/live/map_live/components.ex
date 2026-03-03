@@ -60,7 +60,7 @@ defmodule AprsmeWeb.MapLive.Components do
         phx-click="toggle_slideover"
         class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
       >
-        <.icon name="hero-x-mark" class="w-5 h-5" />
+        <.icon name="x-mark" class="w-5 h-5" />
       </button>
     </div>
     """
@@ -190,7 +190,7 @@ defmodule AprsmeWeb.MapLive.Components do
             phx-click="clear_callsign_filter"
             class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
           >
-            <.icon name="hero-x-mark" class="w-4 h-4" />
+            <.icon name="x-mark" class="w-4 h-4" />
           </button>
         <% end %>
       </form>
@@ -249,7 +249,7 @@ defmodule AprsmeWeb.MapLive.Components do
             class="ml-2 p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
             title="Center map on this location"
           >
-            <.icon name="hero-map-pin" class="w-5 h-5" />
+            <.icon name="map-pin" class="w-5 h-5" />
           </button>
         <% end %>
       </div>

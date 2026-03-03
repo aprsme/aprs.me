@@ -6,8 +6,7 @@ defmodule AprsmeWeb.CoreComponents do
   See the [Tailwind CSS documentation](https://tailwindcss.com) to learn how to
   customize the generated components in this module.
 
-  Icons are provided by [heroicons](https://heroicons.com), using the
-  [heroicons_elixir](https://github.com/mveytsman/heroicons_elixir) project.
+  Icons are provided by [heroicons](https://heroicons.com), vendored in priv/heroicons/.
   """
   use Phoenix.Component
   use Gettext, backend: AprsmeWeb.Gettext
@@ -16,7 +15,7 @@ defmodule AprsmeWeb.CoreComponents do
   alias Phoenix.LiveView.JS
 
   @doc """
-  Renders a Heroicon SVG inline from deps/heroicons/optimized.
+  Renders a Heroicon SVG inline from priv/heroicons/.
   Usage: <.icon name="arrow-left" outline={true} class="h-5 w-5" />
   """
   attr :name, :string, required: true
@@ -28,7 +27,8 @@ defmodule AprsmeWeb.CoreComponents do
 
     path =
       Path.join([
-        :aprsme |> :code.priv_dir() |> to_string() |> Path.dirname() |> Path.join("deps/heroicons/optimized"),
+        :aprsme |> :code.priv_dir() |> to_string(),
+        "heroicons/24",
         style,
         name <> ".svg"
       ])
