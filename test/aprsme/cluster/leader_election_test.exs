@@ -316,7 +316,7 @@ defmodule Aprsme.Cluster.LeaderElectionTest do
 
       # check_leadership also schedules :attempt_election for non-leaders.
       # Wait for re-election.
-      Process.sleep(300)
+      Process.sleep(100)
       assert LeaderElection.leader?() == true
     end
   end

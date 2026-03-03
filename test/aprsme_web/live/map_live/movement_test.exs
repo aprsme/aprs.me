@@ -100,8 +100,8 @@ defmodule AprsmeWeb.MapLive.MovementTest do
 
       assert render_hook(view, "bounds_changed", bounds_params)
 
-      # Wait for initial load to complete - increased to 100ms for reliability
-      Process.sleep(100)
+      # Wait for initial load to complete
+      Process.sleep(50)
 
       # Clear any events from initial load
       flush_push_events(view)
@@ -120,18 +120,18 @@ defmodule AprsmeWeb.MapLive.MovementTest do
       send(view.pid, {:postgres_packet, initial_packet})
 
       # Wait for the initial packet to be processed
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Should receive new_packet for the initial packet
       # First flush any other events
       flush_push_events(view)
 
-      # Try receiving with longer timeout
+      # Try receiving with shorter timeout
       receive do
         {ref, {:push_event, "new_packet", _}} when ref == view.ref ->
           :ok
       after
-        500 ->
+        100 ->
           # If no new_packet event, the test should pass anyway since the main
           # goal is to test marker updates, not event timing
           :ok
@@ -153,7 +153,7 @@ defmodule AprsmeWeb.MapLive.MovementTest do
       send(view.pid, {:postgres_packet, moved_packet})
 
       # Wait a bit for processing
-      Process.sleep(100)
+      Process.sleep(50)
 
       # The view should push a new_packet event for significant movement
       # Using receive directly since push events seem unreliable in test env
@@ -161,7 +161,7 @@ defmodule AprsmeWeb.MapLive.MovementTest do
         {ref, {:push_event, "new_packet", _}} when ref == view.ref ->
           :ok
       after
-        500 ->
+        100 ->
           # If the event isn't received, it's okay - the main test is about movement filtering
           :ok
       end

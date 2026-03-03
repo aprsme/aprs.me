@@ -66,7 +66,7 @@ defmodule Aprsme.Cluster.PacketReceiverTest do
       send(pid, {:distributed_packet, packet})
 
       # Give it time to process
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Process should still be alive (no crash)
       assert Process.alive?(pid)
@@ -86,7 +86,7 @@ defmodule Aprsme.Cluster.PacketReceiverTest do
       send(pid, {:distributed_packet, packet})
 
       # Give it time to process
-      Process.sleep(100)
+      Process.sleep(50)
 
       # Process should still be alive (no crash)
       assert Process.alive?(pid)

@@ -369,7 +369,7 @@ defmodule AprsmeWeb.MapLive.HistoricalLoadingTest do
       assert render_hook(view, "bounds_changed", %{"bounds" => bounds})
 
       # Allow time for progressive loading batches
-      Process.sleep(300)
+      Process.sleep(100)
 
       # The loading should have completed in multiple batches
       # This tests that the progressive loading mechanism works

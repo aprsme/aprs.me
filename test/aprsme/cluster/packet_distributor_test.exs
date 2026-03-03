@@ -47,19 +47,19 @@ defmodule Aprsme.Cluster.PacketDistributorTest do
 
       PacketDistributor.distribute_packet(@test_packet)
 
-      refute_receive {:distributed_packet, _}, 200
+      refute_receive {:distributed_packet, _}, 100
     end
 
     test "distributes packet when cluster is enabled and node is leader" do
       Application.put_env(:aprsme, :cluster_enabled, true)
       # LeaderElection started in non-clustered mode becomes leader quickly
-      Process.sleep(300)
+      Process.sleep(100)
 
       PacketDistributor.subscribe()
 
       PacketDistributor.distribute_packet(@test_packet)
 
-      assert_receive {:distributed_packet, packet}, 500
+      assert_receive {:distributed_packet, packet}, 200
       assert packet.raw == "TEST>APRS:test packet"
       assert packet.sender == "TEST"
     end

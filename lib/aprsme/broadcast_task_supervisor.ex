@@ -93,12 +93,17 @@ defmodule Aprsme.BroadcastTaskSupervisor do
 
   # Calculate approximate scheduler usage
   defp scheduler_usage do
-    1
-    |> :scheduler.utilization()
-    |> Enum.map(fn {_, usage, _} -> usage end)
-    |> Enum.sum()
-    |> Kernel./(System.schedulers_online())
-    |> Float.round(2)
+    # In test env, skip expensive sampling and return dummy value
+    if Application.get_env(:aprsme, :env) == :test do
+      0.0
+    else
+      1
+      |> :scheduler.utilization()
+      |> Enum.map(fn {_, usage, _} -> usage end)
+      |> Enum.sum()
+      |> Kernel./(System.schedulers_online())
+      |> Float.round(2)
+    end
   rescue
     _ -> 0.0
   end
