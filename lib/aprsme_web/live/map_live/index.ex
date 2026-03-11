@@ -1433,8 +1433,7 @@ defmodule AprsmeWeb.MapLive.Index do
 
     <!-- Mobile Backdrop -->
     <%= if @slideover_open do %>
-      <div class="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden backdrop-blur-sm" phx-click={toggle_slideover_js()}>
-      </div>
+      <div class="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden" phx-click={toggle_slideover_js()}></div>
     <% end %>
 
     <!-- Control Panel Overlay -->

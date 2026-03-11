@@ -187,7 +187,7 @@ window
   });
 
 const liveSocket = new LiveSocket("/live", Socket, {
-  longPollFallbackMs: 2500,
+  longPollFallbackMs: 5000,
   params: { _csrf_token: csrfToken, viewport_width: window.innerWidth },
   hooks: Hooks,
   timeout: 60000,
@@ -214,6 +214,17 @@ window.addEventListener("phx:reconnect", ((e: CustomEvent<{ delay?: number }>) =
 
 // connect if there are any LiveViews on the page
 liveSocket.connect();
+
+// Handle visibility change to ensure reconnection when page becomes visible
+// This helps with iOS Safari background/foreground transitions
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    const socket = (liveSocket as any).socket;
+    if (socket && socket.connectionState() !== "open") {
+      socket.disconnect(() => socket.connect());
+    }
+  }
+});
 
 // Workaround for Phoenix LiveView bug where fallback timer isn't cleared
 // after successful WebSocket connection
