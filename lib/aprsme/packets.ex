@@ -227,11 +227,6 @@ defmodule Aprsme.Packets do
 
     case %Packet{} |> Packet.changeset(attrs) |> Repo.insert() do
       {:ok, packet} ->
-        # Invalidate cache for this packet's callsign
-        if Map.has_key?(attrs, :sender) do
-          # Cache invalidation removed - no longer using CachedQueries
-        end
-
         {:ok, packet}
 
       {:error, changeset} ->
@@ -808,11 +803,16 @@ defmodule Aprsme.Packets do
   """
   @spec get_latest_weather_packet(String.t()) :: struct() | nil
   def get_latest_weather_packet(callsign) when is_binary(callsign) do
-    # Use proper index with short time window first
-    case get_latest_weather_in_window(callsign, 24) do
-      nil -> get_latest_weather_in_window(callsign, 168)
-      packet -> packet
-    end
+    import Ecto.Query
+
+    query =
+      from p in Packet,
+        where: p.sender == ^callsign,
+        where: p.has_weather == true,
+        order_by: [desc: p.received_at],
+        limit: 1
+
+    Repo.one(query)
   end
 
   @doc """
@@ -878,23 +878,5 @@ defmodule Aprsme.Packets do
         packet: packet
       }
     end)
-  end
-
-  defp get_latest_weather_in_window(callsign, hours) do
-    import Ecto.Query
-
-    since = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
-
-    query =
-      from p in Packet,
-        where: p.sender == ^callsign,
-        where: p.received_at > ^since,
-        where:
-          not is_nil(p.temperature) or not is_nil(p.humidity) or not is_nil(p.pressure) or
-            not is_nil(p.wind_speed) or not is_nil(p.wind_direction) or not is_nil(p.rain_1h),
-        order_by: [desc: p.received_at],
-        limit: 1
-
-    Repo.one(query)
   end
 end

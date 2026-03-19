@@ -88,15 +88,6 @@ export function saveMapState(map: L.Map, pushEvent: PushEventFunction) {
     const truncatedLat = Math.round(center.lat * 100000) / 100000;
     const truncatedLng = Math.round(center.lng * 100000) / 100000;
     
-    // Always save to localStorage, even if LiveView is disconnected
-    // Temporarily disabled - using server-side geolocation instead
-    /*
-    localStorage.setItem(
-      "aprs_map_state",
-      JSON.stringify({ lat: truncatedLat, lng: truncatedLng, zoom }),
-    );
-    */
-    
     // Send combined map state update to server for URL and bounds updating
     const payload = {
       center: { lat: truncatedLat, lng: truncatedLng },

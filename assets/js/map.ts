@@ -582,14 +582,13 @@ let MapAPRSMap = {
           ? Math.abs(currentZoom - self.lastZoom)
           : 0;
 
-        // Handle OMS markers when crossing zoom threshold
-        if (self.oms) {
-          // Clear and re-add all markers to OMS on zoom change
+        // Only rebuild OMS when crossing the clustering threshold
+        const wasUnclustered = self.lastZoom !== undefined && self.lastZoom >= DISABLE_CLUSTERING_AT_ZOOM;
+        const isUnclustered = currentZoom >= DISABLE_CLUSTERING_AT_ZOOM;
+        if (self.oms && (wasUnclustered !== isUnclustered || self.lastZoom === undefined)) {
           self.oms.clearMarkers();
           self.markers.forEach((marker, id) => {
             const markerState = self.markerStates.get(String(id));
-            // Only add most recent markers (those with icons) to OMS for spidering
-            // Fallback: if is_most_recent_for_callsign is undefined, exclude historical markers as before
             const shouldAddToOms =
               markerState?.is_most_recent_for_callsign === true ||
               (markerState?.is_most_recent_for_callsign == null &&
@@ -1176,18 +1175,17 @@ let MapAPRSMap = {
           const serverConvertKeys = payload.convert_to_historical;
           let markersToConvert: string[] = [];
 
-          // Build set of new packet IDs to avoid converting a marker we're about to add
+          // Single pass: build new IDs set and callsigns to convert
           const allNewIds = new Set<string>();
-          for (const data of packets) {
-            if (data.id) allNewIds.add(String(data.id));
-          }
-
-          // Determine which callsigns need conversion
           const callsignsToConvert: Set<string> = new Set();
           if (serverConvertKeys && serverConvertKeys.length > 0) {
             for (const cs of serverConvertKeys) callsignsToConvert.add(cs);
+            for (const data of packets) {
+              if (data.id) allNewIds.add(String(data.id));
+            }
           } else {
             for (const data of packets) {
+              if (data.id) allNewIds.add(String(data.id));
               const cs = data.callsign_group || data.callsign || data.id;
               if (cs) callsignsToConvert.add(cs);
             }
@@ -1909,22 +1907,12 @@ let MapAPRSMap = {
       }
       // If marker._oms is true but no _omsData, let OMS handle it (will spiderfy)
 
-      // Bring the clicked marker to front
+      // Bring the clicked marker to front using a counter instead of DOM scan
       if (marker.getElement) {
         const element = marker.getElement();
         if (element) {
-          // Find the highest z-index among all markers
-          let maxZIndex = 1000;
-          document.querySelectorAll(".leaflet-marker-icon").forEach((el) => {
-            const zIndex = parseInt(
-              (el as HTMLElement).style.zIndex || "0",
-              10,
-            );
-            if (zIndex > maxZIndex) maxZIndex = zIndex;
-          });
-
-          // Set this marker's z-index higher than all others
-          element.style.zIndex = (maxZIndex + 1).toString();
+          self.markerZIndexCounter = (self.markerZIndexCounter || 1000) + 1;
+          element.style.zIndex = self.markerZIndexCounter.toString();
         }
       }
 
@@ -2380,19 +2368,22 @@ let MapAPRSMap = {
     // If this is the most recent for the callsign, always show the APRS icon
     if (data.is_most_recent_for_callsign) {
       // Remove any historical dot at the same position for this callsign
-      if (self.markers && self.markerStates) {
-        self.markers.forEach((marker: APRSMarker, id: string) => {
-          const state = self.markerStates!.get(String(id));
-          if (
-            state &&
-            state.historical &&
-            state.callsign_group === data.callsign_group &&
-            Math.abs(state.lat - data.lat) < 0.00001 &&
-            Math.abs(state.lng - data.lng) < 0.00001
-          ) {
-            self.removeMarkerWithoutTrail(id);
+      // Use callsignIndex for O(1) lookup instead of scanning all markers
+      if (self.markers && self.markerStates && self.callsignIndex && data.callsign_group) {
+        const ids = self.callsignIndex.get(data.callsign_group);
+        if (ids) {
+          for (const id of ids) {
+            const state = self.markerStates.get(String(id));
+            if (
+              state &&
+              state.historical &&
+              Math.abs(state.lat - data.lat) < 0.00001 &&
+              Math.abs(state.lng - data.lng) < 0.00001
+            ) {
+              self.removeMarkerWithoutTrail(String(id));
+            }
           }
-        });
+        }
       }
       // Use server-generated symbol HTML if available
       if (data.symbol_html) {
@@ -2480,6 +2471,11 @@ let MapAPRSMap = {
         clearTimeout(timeout);
       });
       self.cleanupTimeouts = [];
+    }
+
+    // Clean up trail manager
+    if (self.trailManager) {
+      self.trailManager.destroy();
     }
 
     // Remove popup navigation event listener

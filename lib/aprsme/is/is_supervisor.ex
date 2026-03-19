@@ -12,8 +12,7 @@ defmodule Aprsme.Is.IsSupervisor do
       {Aprsme.Is, []}
     ]
 
-    # Supervisor will restart children max 3 times in 5 seconds
-    # This prevents rapid reconnection attempts
-    Supervisor.init(children, strategy: :one_for_one, max_restarts: 3, max_seconds: 5)
+    # Allow more restarts over a longer window to survive transient network issues
+    Supervisor.init(children, strategy: :one_for_one, max_restarts: 5, max_seconds: 60)
   end
 end

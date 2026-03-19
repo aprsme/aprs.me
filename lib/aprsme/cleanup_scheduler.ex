@@ -37,8 +37,7 @@ defmodule Aprsme.CleanupScheduler do
   def handle_info(:schedule_cleanup, %{interval: interval} = state) when is_integer(interval) do
     Logger.info("Running packet cleanup task")
 
-    # Run cleanup directly in a supervised task
-    Task.start(fn ->
+    Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
       try do
         PacketCleanupWorker.perform(%{})
       rescue

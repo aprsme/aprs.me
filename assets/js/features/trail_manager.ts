@@ -31,6 +31,8 @@ export class TrailManager {
   private trailDuration: number; // in milliseconds
   private maxTrails: number = 500; // Maximum number of trails to keep in memory
   private maxPositionsPerTrail: number = 1000; // Maximum positions per trail
+  private pendingTrailUpdates: Map<string, boolean> = new Map(); // callsign -> isHistorical
+  private trailUpdateRafId: number | null = null;
   // Colors ordered to maximize contrast between consecutive assignments.
   // Avoids yellows, oranges, and grays that blend with roads on map tiles.
   private colorPalette: string[] = [
@@ -207,9 +209,31 @@ export class TrailManager {
       });
     }
 
-    // Always update trail visualization, with immediate=true for historical dots
-    // This ensures historical trails are immediately visible when loaded all at once
-    this.updateTrailVisualization(baseCallsign, trailState, isHistoricalDot);
+    // Defer trail visualization to batch multiple updates into one frame
+    this.scheduleTrailUpdate(baseCallsign, isHistoricalDot);
+  }
+
+  private scheduleTrailUpdate(baseCallsign: string, isHistorical: boolean) {
+    // Track which trails need updating; preserve isHistorical=true if set
+    const existing = this.pendingTrailUpdates.get(baseCallsign);
+    this.pendingTrailUpdates.set(baseCallsign, existing || isHistorical);
+
+    if (this.trailUpdateRafId === null) {
+      this.trailUpdateRafId = requestAnimationFrame(() => {
+        this.flushPendingTrailUpdates();
+      });
+    }
+  }
+
+  private flushPendingTrailUpdates() {
+    this.trailUpdateRafId = null;
+    for (const [callsign, isHistorical] of this.pendingTrailUpdates) {
+      const trailState = this.trails.get(callsign);
+      if (trailState) {
+        this.updateTrailVisualization(callsign, trailState, isHistorical);
+      }
+    }
+    this.pendingTrailUpdates.clear();
   }
 
   private extractBaseCallsign(markerId: string | number): string {
@@ -530,6 +554,14 @@ export class TrailManager {
     this.trails.forEach((_, markerId) => {
       this.removeTrail(markerId);
     });
+  }
+
+  destroy() {
+    if (this.trailUpdateRafId !== null) {
+      cancelAnimationFrame(this.trailUpdateRafId);
+      this.trailUpdateRafId = null;
+    }
+    this.pendingTrailUpdates.clear();
   }
 
   cleanupOldPositions() {

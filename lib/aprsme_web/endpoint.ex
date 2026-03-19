@@ -28,7 +28,7 @@ defmodule AprsmeWeb.Endpoint do
   plug Plug.Static,
     at: "/",
     from: :aprsme,
-    gzip: false,
+    gzip: true,
     only: ~w(assets fonts images aprs-symbols favicon.ico robots.txt)
 
   if Mix.env() == :dev do
