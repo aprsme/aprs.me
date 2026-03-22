@@ -112,13 +112,17 @@ defmodule Aprsme.StreamingPacketsPubSub do
       # Get all subscribers — table is small (one entry per LiveView client)
       subscribers = :ets.tab2list(@table_name)
 
-      # Send to matching subscribers using BroadcastTaskSupervisor
-      # Collect dead pids to clean up
-      server_pid = self()
+      if test_env?() do
+        send_to_matching_subscribers(subscribers, lat, lon, packet, self())
+      else
+        # Send to matching subscribers using BroadcastTaskSupervisor
+        # Collect dead pids to clean up
+        server_pid = self()
 
-      Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
-        send_to_matching_subscribers(subscribers, lat, lon, packet, server_pid)
-      end)
+        Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
+          send_to_matching_subscribers(subscribers, lat, lon, packet, server_pid)
+        end)
+      end
     end
 
     {:noreply, state}
@@ -191,5 +195,9 @@ defmodule Aprsme.StreamingPacketsPubSub do
     |> Enum.each(fn {pid, _bounds} ->
       send(pid, {:streaming_packet, packet})
     end)
+  end
+
+  defp test_env? do
+    Application.get_env(:aprsme, :env) == :test
   end
 end

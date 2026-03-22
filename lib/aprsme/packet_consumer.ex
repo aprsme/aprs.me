@@ -331,10 +331,17 @@ defmodule Aprsme.PacketConsumer do
 
   # Broadcast packets asynchronously using supervised task pool
   defp broadcast_packets_async(packets) do
-    Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
+    fun = fn ->
       cluster_enabled = Application.get_env(:aprsme, :cluster_enabled, false)
       Enum.each(packets, &broadcast_single_packet(&1, cluster_enabled))
-    end)
+    end
+
+    if test_env?() do
+      fun.()
+      {:ok, self()}
+    else
+      Aprsme.BroadcastTaskSupervisor.async_execute(fun)
+    end
   end
 
   defp broadcast_single_packet(packet_attrs, cluster_enabled) do
@@ -365,6 +372,10 @@ defmodule Aprsme.PacketConsumer do
       Aprsme.StreamingPacketsPubSub.broadcast_packet(packet)
       Aprsme.SpatialPubSub.broadcast_packet(packet)
     end
+  end
+
+  defp test_env? do
+    Application.get_env(:aprsme, :env) == :test
   end
 
   defp prepare_packet_for_insert(packet_data) do
