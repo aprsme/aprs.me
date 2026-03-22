@@ -11,6 +11,8 @@ defmodule AprsmeWeb.MapLive.Navigation do
   alias Phoenix.LiveView
   alias Phoenix.LiveView.Socket
 
+  require Logger
+
   @doc """
   Determine map location based on URL parameters and IP geolocation.
   Returns {map_center, zoom, should_skip_initial_url_update}.
@@ -20,15 +22,22 @@ defmodule AprsmeWeb.MapLive.Navigation do
     {url_center, url_zoom} = UrlParams.parse_map_params(params)
     has_explicit_url_params = UrlParams.has_explicit_url_params?(params)
 
+    Logger.info(
+      "determine_map_location: session ip_geolocation=#{inspect(session["ip_geolocation"])}, has_explicit_url_params=#{has_explicit_url_params}"
+    )
+
     case session["ip_geolocation"] do
       %{"lat" => lat, "lng" => lng} when is_number(lat) and is_number(lng) ->
         if has_explicit_url_params do
+          Logger.info("Using URL params over geolocation: center=#{inspect(url_center)}, zoom=#{url_zoom}")
           {url_center, url_zoom, false}
         else
+          Logger.info("Using IP geolocation: lat=#{lat}, lng=#{lng}, zoom=11")
           {%{lat: lat, lng: lng}, 11, true}
         end
 
       _ ->
+        Logger.info("No IP geolocation in session, using defaults")
         {url_center, url_zoom, !has_explicit_url_params}
     end
   end
