@@ -58,6 +58,8 @@ if config_env() == :prod do
 
   config :aprsme, Aprsme.Repo,
     url: database_url,
+    # Disable SSL/TLS for database connections
+    ssl: false,
     # Increased pool size for better concurrency (was 25)
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "45"),
     # Increased timeout for ARM system under load
