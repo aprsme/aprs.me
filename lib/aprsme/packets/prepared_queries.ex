@@ -258,7 +258,10 @@ defmodule Aprsme.Packets.PreparedQueries do
 
     # Convert miles to meters for PostGIS (1 mile = 1609.34 meters)
     radius_meters = radius_miles * 1609.34
-    cutoff_time = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
+    cutoff_time =
+      DateTime.utc_now()
+      |> DateTime.truncate(:second)
+      |> DateTime.add(-hours * 3600, :second)
 
     # Build point for spatial query
     point = %Geo.Point{coordinates: {lon, lat}, srid: 4326}

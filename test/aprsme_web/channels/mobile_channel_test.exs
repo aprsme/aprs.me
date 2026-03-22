@@ -261,6 +261,13 @@ defmodule AprsmeWeb.MobileChannelTest do
       assert is_list(results)
     end
 
+    test "accepts string limit values", %{socket: socket} do
+      ref = push(socket, "search_callsign", %{"query" => "W5ISP", "limit" => "1"})
+
+      assert_reply ref, :ok, %{count: count}
+      assert count <= 1
+    end
+
     test "normalizes callsign to uppercase", %{socket: socket} do
       ref = push(socket, "search_callsign", %{"query" => "w5isp"})
 
@@ -289,6 +296,12 @@ defmodule AprsmeWeb.MobileChannelTest do
 
       assert_reply ref, :ok, %{callsign: "W5ISP-9"}
       # Should not crash even with hours_back > 168
+    end
+
+    test "accepts string hours_back values", %{socket: socket} do
+      ref = push(socket, "subscribe_callsign", %{"callsign" => "W5ISP-9", "hours_back" => "24"})
+
+      assert_reply ref, :ok, %{callsign: "W5ISP-9"}
     end
 
     test "normalizes callsign to uppercase", %{socket: socket} do
@@ -497,6 +510,22 @@ defmodule AprsmeWeb.MobileChannelTest do
       refute Map.has_key?(pushed_packet, :speed)
       refute Map.has_key?(pushed_packet, :course)
       refute Map.has_key?(pushed_packet, :path)
+    end
+  end
+
+  describe "subscribe_bounds with historical options" do
+    test "accepts string limit and hours_back values", %{socket: socket} do
+      ref =
+        push(socket, "subscribe_bounds", %{
+          "north" => 33.2,
+          "south" => 33.0,
+          "east" => -96.0,
+          "west" => -96.2,
+          "limit" => "10",
+          "hours_back" => "2"
+        })
+
+      assert_reply ref, :ok, %{message: "Subscribed to packet stream"}
     end
   end
 end

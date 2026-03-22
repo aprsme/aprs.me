@@ -163,7 +163,7 @@ defmodule AprsmeWeb.MobileChannel do
     # Trim whitespace and control characters from query
     query = String.trim(query)
 
-    limit = Map.get(payload, "limit", 50)
+    limit = payload |> Map.get("limit", 50) |> ensure_integer(50)
     limit = min(limit, 500)
 
     results = search_callsign(query, limit)
@@ -175,7 +175,7 @@ defmodule AprsmeWeb.MobileChannel do
   def handle_in("subscribe_callsign", %{"callsign" => callsign} = payload, socket) do
     Logger.info("Mobile websocket received subscribe_callsign: #{inspect(payload)}")
 
-    hours_back = Map.get(payload, "hours_back", 24)
+    hours_back = payload |> Map.get("hours_back", 24) |> ensure_integer(24)
     # Max 1 week
     hours_back = min(hours_back, 168)
 
@@ -278,6 +278,17 @@ defmodule AprsmeWeb.MobileChannel do
   defp ensure_float(value) when is_binary(value), do: String.to_float(value)
   defp ensure_float(value), do: value
 
+  defp ensure_integer(value, _default) when is_integer(value), do: value
+
+  defp ensure_integer(value, default) when is_binary(value) do
+    case Integer.parse(String.trim(value)) do
+      {int, _} -> int
+      :error -> default
+    end
+  end
+
+  defp ensure_integer(_value, default), do: default
+
   defp build_mobile_packet(packet) do
     # Extract coordinates
     {lat, lon, _data_extended} = CoordinateUtils.get_coordinates(packet)
@@ -335,8 +346,8 @@ defmodule AprsmeWeb.MobileChannel do
 
   defp load_historical_packets(socket, bounds, payload) do
     # Get optional parameters from payload
-    limit = Map.get(payload, "limit", 1000)
-    hours_back = Map.get(payload, "hours_back", 1)
+    limit = payload |> Map.get("limit", 1000) |> ensure_integer(1000)
+    hours_back = payload |> Map.get("hours_back", 1) |> ensure_integer(1)
 
     # Ensure reasonable limits
     limit = min(limit, 5000)

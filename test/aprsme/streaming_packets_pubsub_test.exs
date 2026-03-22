@@ -145,12 +145,12 @@ defmodule Aprsme.StreamingPacketsPubSubTest do
       pid = Process.whereis(StreamingPacketsPubSub)
 
       if pid do
-        GenServer.stop(pid)
+        :erlang.unregister(StreamingPacketsPubSub)
       end
 
       on_exit(fn ->
-        if !Process.whereis(StreamingPacketsPubSub) do
-          start_supervised!({StreamingPacketsPubSub, []})
+        if pid && !Process.whereis(StreamingPacketsPubSub) do
+          true = Process.register(pid, StreamingPacketsPubSub)
         end
       end)
 
