@@ -77,7 +77,7 @@ defmodule Aprsme.ConnectionMonitor do
   Get current node statistics
   """
   def get_stats do
-    if cluster_enabled?() do
+    if cluster_enabled?() and Process.whereis(__MODULE__) != nil do
       GenServer.call(__MODULE__, :get_stats)
     else
       %{connections: 0, cpu: 0.0, memory: 0.0}

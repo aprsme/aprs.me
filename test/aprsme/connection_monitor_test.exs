@@ -17,6 +17,18 @@ defmodule Aprsme.ConnectionMonitorTest do
     end
   end
 
+  describe "cluster enabled without a running monitor" do
+    test "get_stats/0 returns default stats instead of crashing" do
+      Application.put_env(:aprsme, :cluster_enabled, true)
+
+      on_exit(fn ->
+        Application.put_env(:aprsme, :cluster_enabled, false)
+      end)
+
+      assert ConnectionMonitor.get_stats() == %{connections: 0, cpu: 0.0, memory: 0.0}
+    end
+  end
+
   describe "cluster enabled" do
     setup do
       Application.put_env(:aprsme, :cluster_enabled, true)
