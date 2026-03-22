@@ -135,6 +135,7 @@ const chartConfigs: Record<string, ChartConfig> = {
         backgroundColor: "rgba(255, 0, 0, 0.1)",
         tension: 0.1,
         pointRadius: 0,
+        pointHoverRadius: 4,
       },
       {
         label: labels.dew_label || "Dew Point (°F)",
@@ -143,6 +144,7 @@ const chartConfigs: Record<string, ChartConfig> = {
         backgroundColor: "rgba(0, 0, 255, 0.1)",
         tension: 0.1,
         pointRadius: 0,
+        pointHoverRadius: 4,
       },
     ],
     title: (labels) => labels.temp_title || "Temperature & Dew Point (°F)",
@@ -158,6 +160,7 @@ const chartConfigs: Record<string, ChartConfig> = {
         backgroundColor: "rgba(0, 255, 0, 0.1)",
         tension: 0.1,
         pointRadius: 0,
+        pointHoverRadius: 4,
       },
     ],
     title: (labels) => labels.hum_title || "Humidity (%)",
@@ -174,6 +177,7 @@ const chartConfigs: Record<string, ChartConfig> = {
         backgroundColor: "rgba(128, 0, 128, 0.1)",
         tension: 0.1,
         pointRadius: 0,
+        pointHoverRadius: 4,
       },
     ],
     title: (labels) => labels.prs_title || "Barometric Pressure (mb)",
@@ -189,6 +193,7 @@ const chartConfigs: Record<string, ChartConfig> = {
         backgroundColor: "rgba(255, 165, 0, 0.1)",
         tension: 0.1,
         pointRadius: 0,
+        pointHoverRadius: 4,
       },
       {
         label: labels.gst_label || "Wind Gust (mph)",
@@ -197,6 +202,7 @@ const chartConfigs: Record<string, ChartConfig> = {
         backgroundColor: "rgba(255, 0, 0, 0.1)",
         tension: 0.1,
         pointRadius: 0,
+        pointHoverRadius: 4,
       },
     ],
     title: (labels) => labels.wnd_title || "Wind Speed & Gust (mph)",
@@ -235,6 +241,7 @@ const chartConfigs: Record<string, ChartConfig> = {
         backgroundColor: "rgba(255, 215, 0, 0.1)",
         tension: 0.1,
         pointRadius: 0,
+        pointHoverRadius: 4,
       },
     ],
     title: (labels) => labels.lum_title || "Solar Radiation (W/m²)",
@@ -295,6 +302,10 @@ function createChartHook(configKey: string): Hook {
             adapters: { date: { locale: "en-GB" } },
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
             plugins: {
               title: {
                 display: true,
@@ -302,6 +313,19 @@ function createChartHook(configKey: string): Hook {
                 color: colors.text,
               },
               legend: { labels: { color: colors.text } },
+              tooltip: {
+                enabled: true,
+                mode: "index",
+                intersect: false,
+                callbacks: {
+                  label: (context: any) => {
+                    const label = context.dataset.label || "";
+                    const value = context.parsed.y;
+                    if (value === null || value === undefined) return "";
+                    return `${label}: ${Number.isInteger(value) ? value : value.toFixed(1)}`;
+                  },
+                },
+              },
             },
             scales: {
               x: {
