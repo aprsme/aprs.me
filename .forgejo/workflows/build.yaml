@@ -39,7 +39,6 @@ jobs:
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "tag=${IMAGE}:main-${TIMESTAMP}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "latest_tag=${IMAGE}:latest" >> $GITHUB_OUTPUT
-          echo "cache_tag=${IMAGE}:buildcache" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -49,8 +48,8 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.tag }}
             ${{ steps.meta.outputs.latest_tag }}
-          cache-from: type=registry,ref=${{ steps.meta.outputs.cache_tag }}
-          cache-to: type=registry,ref=${{ steps.meta.outputs.cache_tag }},mode=max
+          cache-from: type=registry,ref=${{ steps.meta.outputs.latest_tag }}
+          cache-to: type=inline
 
       - name: Update deployment image tag
         run: |
