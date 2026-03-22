@@ -87,6 +87,36 @@ defmodule AprsmeWeb.Live.Shared.CoordinateUtils do
   def normalize_coordinate(coord), do: coord
 
   @doc """
+  Normalize longitude to the -180 to 180 range.
+  """
+  @spec normalize_longitude(number()) :: number()
+  def normalize_longitude(lon) when is_number(lon) do
+    # Wrap longitude to -180 to 180 range
+    cond do
+      lon > 180 -> normalize_longitude(lon - 360)
+      lon < -180 -> normalize_longitude(lon + 360)
+      true -> lon
+    end
+  end
+
+  def normalize_longitude(lon), do: lon
+
+  @doc """
+  Clamp latitude to the -90 to 90 range.
+  Latitude cannot wrap, so we clamp to valid range.
+  """
+  @spec normalize_latitude(number()) :: number()
+  def normalize_latitude(lat) when is_number(lat) do
+    cond do
+      lat > 90 -> 90.0
+      lat < -90 -> -90.0
+      true -> lat
+    end
+  end
+
+  def normalize_latitude(lat), do: lat
+
+  @doc """
   Calculate distance between two lat/lon points in meters using Haversine formula.
   """
   @spec calculate_distance_meters(number(), number(), number(), number()) :: float()

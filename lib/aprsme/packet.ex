@@ -177,8 +177,12 @@ defmodule Aprsme.Packet do
   defp extract_coordinates_from_data_extended(_), do: {nil, nil}
 
   defp create_geometry_from_coordinates(changeset, lat, lon) do
-    if valid_coordinates?(lat, lon) do
-      create_and_set_location(changeset, lat, lon)
+    # Normalize coordinates to valid ranges
+    normalized_lat = CoordinateUtils.normalize_latitude(lat)
+    normalized_lon = CoordinateUtils.normalize_longitude(lon)
+
+    if valid_coordinates?(normalized_lat, normalized_lon) do
+      create_and_set_location(changeset, normalized_lat, normalized_lon)
     else
       changeset
     end
