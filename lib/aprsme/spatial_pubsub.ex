@@ -85,14 +85,17 @@ defmodule Aprsme.SpatialPubSub do
     # Create a unique topic for this client
     topic = "spatial:#{client_id}"
 
+    state = replace_existing_client(state, client_id)
+
     # Monitor the client process
-    Process.monitor(pid)
+    ref = Process.monitor(pid)
 
     # Update client info
     client_info = %{
       bounds: normalize_bounds(bounds),
       topic: topic,
-      pid: pid
+      pid: pid,
+      monitor_ref: ref
     }
 
     # Update spatial index
@@ -353,11 +356,26 @@ defmodule Aprsme.SpatialPubSub do
       nil ->
         state
 
+      %{bounds: bounds, monitor_ref: ref} ->
+        Process.demonitor(ref, [:flush])
+
+        state
+        |> remove_from_spatial_index(client_id, bounds)
+        |> update_in([:clients], &Map.delete(&1, client_id))
+        |> update_in([:stats, :clients_count], &max(0, &1 - 1))
+
       %{bounds: bounds} ->
         state
         |> remove_from_spatial_index(client_id, bounds)
         |> update_in([:clients], &Map.delete(&1, client_id))
         |> update_in([:stats, :clients_count], &max(0, &1 - 1))
+    end
+  end
+
+  defp replace_existing_client(state, client_id) do
+    case Map.get(state.clients, client_id) do
+      nil -> state
+      _client_info -> remove_client(state, client_id)
     end
   end
 

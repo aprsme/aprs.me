@@ -34,6 +34,28 @@ defmodule Aprsme.SpatialPubSubTest do
 
       SpatialPubSub.unregister_client(client_id)
     end
+
+    test "re-registering an existing client replaces the old viewport without inflating counts" do
+      client_id = "test_reregister_#{:rand.uniform(100_000)}"
+      bounds_1 = %{north: 41.0, south: 40.0, east: -73.0, west: -74.0}
+      bounds_2 = %{north: 36.0, south: 35.0, east: -79.0, west: -80.0}
+
+      before_stats = SpatialPubSub.get_stats()
+
+      assert {:ok, _topic} = SpatialPubSub.register_viewport(client_id, bounds_1)
+      mid_stats = SpatialPubSub.get_stats()
+      assert mid_stats.clients_count == before_stats.clients_count + 1
+
+      assert {:ok, _topic} = SpatialPubSub.register_viewport(client_id, bounds_2)
+      after_stats = SpatialPubSub.get_stats()
+
+      assert after_stats.clients_count == before_stats.clients_count + 1
+
+      state = :sys.get_state(SpatialPubSub)
+      assert state.clients[client_id].bounds == bounds_2
+
+      SpatialPubSub.unregister_client(client_id)
+    end
   end
 
   describe "duplicate packet prevention" do
