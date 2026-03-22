@@ -420,6 +420,189 @@ defmodule AprsmeWeb.ApiDocsLive do
           </div>
         </div>
         
+    <!-- Weather Nearby Endpoint -->
+        <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+          <div class="px-6 py-8">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Find Nearby Weather Stations</h2>
+              <span class="inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-400/10 dark:text-green-400">
+                GET
+              </span>
+            </div>
+
+            <div class="mb-4">
+              <h3 class="text-lg font-medium mb-2">Endpoint</h3>
+              <div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
+                <code class="text-sm">GET /api/v1/weather/nearby</code>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <h3 class="text-lg font-medium mb-2">Description</h3>
+              <p>
+                Find weather stations within a specified radius of a geographic point. Returns stations
+                with recent weather data, ordered by distance (closest first). Uses PostGIS spatial queries
+                for efficient radius filtering and deduplicates by base callsign to avoid duplicate SSIDs.
+              </p>
+            </div>
+
+            <div class="mb-4">
+              <h3 class="text-lg font-medium mb-2">Parameters</h3>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
+                  <thead class="text-left text-sm font-semibold text-gray-900 dark:text-white">
+                    <tr>
+                      <th class="px-3 py-3.5">Parameter</th>
+                      <th class="px-3 py-3.5">Type</th>
+                      <th class="px-3 py-3.5">Required</th>
+                      <th class="px-3 py-3.5">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tr>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">
+                        lat
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">float</td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">Yes</td>
+                      <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        Latitude of center point (-90 to 90)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">
+                        lon
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">float</td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">Yes</td>
+                      <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        Longitude of center point (-180 to 180)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">
+                        radius
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">float</td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">Yes</td>
+                      <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        Search radius in miles (0.0001 to 1000)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">
+                        hours
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">integer</td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">No</td>
+                      <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        Time window for recent weather data in hours (default: 6, max: 168)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">
+                        limit
+                      </td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">integer</td>
+                      <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">No</td>
+                      <td class="px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
+                        Maximum number of results to return (default: 50, max: 100)
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <h3 class="text-lg font-medium mb-2">Example Request</h3>
+              <div class="bg-gray-900 text-gray-100 dark:bg-gray-950 p-4 rounded-lg overflow-x-auto">
+                <pre><code>curl -X GET "https://aprs.me/api/v1/weather/nearby?lat=37.7749&lon=-122.4194&radius=25" \
+     -H "Accept: application/json"</code></pre>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <h3 class="text-lg font-medium mb-2">Response Format</h3>
+
+              <h4 class="text-md font-medium mb-2">Success Response (200 OK)</h4>
+              <div class="bg-gray-900 text-gray-100 dark:bg-gray-950 p-4 rounded-lg overflow-x-auto mb-4">
+                <pre><code><%= raw ~s|{
+    "data": [
+    {
+      "callsign": "N0CALL-13",
+      "base_callsign": "N0CALL",
+      "position": {
+        "lat": 37.7849,
+        "lon": -122.4094
+      },
+      "distance_miles": 0.87,
+      "weather": {
+        "temperature": 72.5,
+        "humidity": 65.0,
+        "pressure": 1013.2,
+        "wind_speed": 8.5,
+        "wind_direction": 270,
+        "wind_gust": 12.0,
+        "rain_1h": 0.0,
+        "rain_24h": 0.5,
+        "rain_since_midnight": 0.3
+      },
+      "symbol": {
+        "table_id": "/",
+        "code": "_"
+      },
+      "comment": "Davis Vantage Pro2",
+      "last_report": "2026-03-22T15:30:00Z"
+    }
+    ],
+    "meta": {
+    "count": 1,
+    "params": {
+      "latitude": 37.7749,
+      "longitude": -122.4194,
+      "radius_miles": 25.0,
+      "hours": 6,
+      "limit": 50
+    }
+    }
+    }| %></code></pre>
+              </div>
+
+              <h4 class="text-md font-medium mb-2">Empty Response (200 OK)</h4>
+              <div class="bg-gray-900 text-gray-100 dark:bg-gray-950 p-4 rounded-lg overflow-x-auto mb-4">
+                <pre><code><%= raw ~s|{
+    "data": [],
+    "meta": {
+    "count": 0,
+    "params": {
+      "latitude": 0.0,
+      "longitude": -180.0,
+      "radius_miles": 10.0,
+      "hours": 6,
+      "limit": 50
+    }
+    }
+    }| %></code></pre>
+              </div>
+
+              <h4 class="text-md font-medium mb-2">Error Response (400 Bad Request)</h4>
+              <div class="bg-gray-900 text-gray-100 dark:bg-gray-950 p-4 rounded-lg overflow-x-auto mb-4">
+                <pre><code><%= raw ~s|{
+    "error": "Missing required parameter: lat"
+    }| %></code></pre>
+              </div>
+
+              <h4 class="text-md font-medium mb-2">Error Response (422 Unprocessable Entity)</h4>
+              <div class="bg-gray-900 text-gray-100 dark:bg-gray-950 p-4 rounded-lg overflow-x-auto">
+                <pre><code><%= raw ~s|{
+    "error": "Invalid latitude: must be a number between -90 and 90"
+    }| %></code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+        
     <!-- Response Fields Documentation -->
         <div class="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
           <div class="px-6 py-8">
@@ -624,7 +807,9 @@ defmodule AprsmeWeb.ApiDocsLive do
               <div class="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg">
                 <div>
                   <code class="text-sm font-mono">GET /api/v1/weather/{"{callsign}"}</code>
-                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Get weather data from weather stations</p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Get weather history for a specific weather station
+                  </p>
                 </div>
                 <span class="inline-flex items-center rounded-md bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-400">
                   Planned
