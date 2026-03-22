@@ -46,7 +46,10 @@ defmodule Aprsme.DeviceCache do
   Refreshes the device cache from the database.
   """
   def refresh_cache do
-    GenServer.call(__MODULE__, :refresh_cache)
+    case Process.whereis(__MODULE__) do
+      nil -> :ok
+      _pid -> GenServer.call(__MODULE__, :refresh_cache)
+    end
   end
 
   # Server callbacks
