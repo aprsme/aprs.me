@@ -208,4 +208,107 @@ defmodule Aprsme.Packets.PreparedQueries do
 
     Repo.one(query) || 0
   end
+
+  @doc """
+  Get nearby weather stations within a radius.
+
+  Returns weather stations within the specified radius (in miles) that have reported
+  weather data within the time window. Results are ordered by distance (closest first)
+  and deduplicated by base_callsign to avoid duplicate SSIDs.
+
+  ## Parameters
+
+    * `lat` - Latitude of center point
+    * `lon` - Longitude of center point
+    * `radius_miles` - Search radius in miles
+    * `opts` - Options keyword list
+      * `:hours` - Time window in hours (default: 6)
+      * `:limit` - Maximum number of results (default: 50)
+
+  ## Returns
+
+  List of maps with fields:
+    * `callsign` - Station callsign with SSID
+    * `base_callsign` - Base callsign without SSID
+    * `lat` - Latitude
+    * `lon` - Longitude
+    * `distance_miles` - Distance from center point in miles
+    * `temperature` - Temperature in Fahrenheit (may be nil)
+    * `humidity` - Humidity percentage (may be nil)
+    * `pressure` - Atmospheric pressure in hPa (may be nil)
+    * `wind_speed` - Wind speed in MPH (may be nil)
+    * `wind_direction` - Wind direction in degrees (may be nil)
+    * `wind_gust` - Wind gust in MPH (may be nil)
+    * `rain_1h` - Rain in last hour in inches (may be nil)
+    * `rain_24h` - Rain in last 24 hours in inches (may be nil)
+    * `rain_since_midnight` - Rain since midnight in inches (may be nil)
+    * `symbol_table_id` - APRS symbol table ID
+    * `symbol_code` - APRS symbol code
+    * `comment` - Station comment
+    * `received_at` - Time packet was received
+  """
+  @spec get_nearby_weather_stations(float(), float(), float(), keyword()) :: [map()]
+  def get_nearby_weather_stations(lat, lon, radius_miles, opts \\ []) do
+    hours = Keyword.get(opts, :hours, 6)
+    limit = Keyword.get(opts, :limit, 50)
+
+    # Convert miles to meters for PostGIS (1 mile = 1609.34 meters)
+    radius_meters = radius_miles * 1609.34
+    cutoff_time = DateTime.add(DateTime.utc_now(), -hours * 3600, :second)
+
+    # Build point for spatial query
+    point = %Geo.Point{coordinates: {lon, lat}, srid: 4326}
+
+    # Query: Find weather stations within radius and time window
+    # Use DISTINCT ON base_callsign to deduplicate SSIDs (gets most recent)
+    query =
+      from(p in Packet,
+        where: p.has_weather == true,
+        where: p.has_position == true,
+        where: p.received_at >= ^cutoff_time,
+        where:
+          fragment(
+            "ST_DWithin(?::geography, ?::geography, ?)",
+            p.location,
+            ^point,
+            ^radius_meters
+          ),
+        distinct: p.base_callsign,
+        order_by: [asc: p.base_callsign, desc: p.received_at]
+      )
+
+    # Subquery to get most recent per base_callsign, then order by distance
+    subquery =
+      from(p in subquery(query),
+        order_by: fragment("ST_Distance(?::geography, ?::geography)", p.location, ^point),
+        limit: ^limit,
+        select: %{
+          callsign: p.sender,
+          base_callsign: p.base_callsign,
+          lat: fragment("ST_Y(?)", p.location),
+          lon: fragment("ST_X(?)", p.location),
+          distance_miles:
+            fragment(
+              "ST_Distance(?::geography, ?::geography) / 1609.34",
+              p.location,
+              ^point
+            ),
+          temperature: p.temperature,
+          humidity: p.humidity,
+          pressure: p.pressure,
+          wind_speed: p.wind_speed,
+          wind_direction: p.wind_direction,
+          wind_gust: p.wind_gust,
+          rain_1h: p.rain_1h,
+          rain_24h: p.rain_24h,
+          rain_since_midnight: p.rain_since_midnight,
+          symbol_table_id: p.symbol_table_id,
+          symbol_code: p.symbol_code,
+          comment: p.comment,
+          received_at: p.received_at
+        }
+      )
+
+    Repo.all(subquery)
+  end
 end
