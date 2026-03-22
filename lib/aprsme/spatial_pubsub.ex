@@ -18,42 +18,64 @@ defmodule Aprsme.SpatialPubSub do
   Register a client with their current viewport bounds.
   """
   def register_viewport(client_id, bounds) do
-    GenServer.call(__MODULE__, {:register_viewport, client_id, bounds})
+    with_server({:error, :not_running}, fn ->
+      GenServer.call(__MODULE__, {:register_viewport, client_id, bounds})
+    end)
   end
 
   @doc """
   Update a client's viewport bounds.
   """
   def update_viewport(client_id, bounds) do
-    GenServer.call(__MODULE__, {:update_viewport, client_id, bounds})
+    with_server({:error, :not_running}, fn ->
+      GenServer.call(__MODULE__, {:update_viewport, client_id, bounds})
+    end)
   end
 
   @doc """
   Unregister a client.
   """
   def unregister_client(client_id) do
-    GenServer.cast(__MODULE__, {:unregister_client, client_id})
+    with_server(:ok, fn ->
+      GenServer.cast(__MODULE__, {:unregister_client, client_id})
+    end)
   end
 
   @doc """
   Broadcast a packet to all clients whose viewports contain the packet's location.
   """
   def broadcast_packet(packet) do
-    GenServer.cast(__MODULE__, {:broadcast_packet, packet})
+    with_server(:ok, fn ->
+      GenServer.cast(__MODULE__, {:broadcast_packet, packet})
+    end)
   end
 
   @doc """
   Get statistics about spatial filtering.
   """
   def get_stats do
-    GenServer.call(__MODULE__, :get_stats)
+    with_server(
+      %{
+        total_broadcasts: 0,
+        filtered_broadcasts: 0,
+        total_packets: 0,
+        clients_count: 0,
+        grid_cells: 0,
+        avg_clients_per_cell: 0.0
+      },
+      fn ->
+        GenServer.call(__MODULE__, :get_stats)
+      end
+    )
   end
 
   @doc """
   Start telemetry reporting for LiveDashboard integration.
   """
   def start_telemetry_reporting do
-    GenServer.cast(__MODULE__, :start_telemetry_reporting)
+    with_server(:ok, fn ->
+      GenServer.cast(__MODULE__, :start_telemetry_reporting)
+    end)
   end
 
   # Server callbacks
@@ -438,5 +460,13 @@ defmodule Aprsme.SpatialPubSub do
       },
       %{}
     )
+  end
+
+  defp with_server(default, fun) do
+    if Process.whereis(__MODULE__) do
+      fun.()
+    else
+      default
+    end
   end
 end

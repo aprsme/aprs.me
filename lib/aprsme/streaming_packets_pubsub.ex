@@ -32,28 +32,36 @@ defmodule Aprsme.StreamingPacketsPubSub do
     - :ok
   """
   def subscribe_to_bounds(pid, bounds) do
-    GenServer.call(__MODULE__, {:subscribe, pid, bounds})
+    with_server({:error, :not_running}, fn ->
+      GenServer.call(__MODULE__, {:subscribe, pid, bounds})
+    end)
   end
 
   @doc """
   Unsubscribe from packet notifications.
   """
   def unsubscribe(pid) do
-    GenServer.call(__MODULE__, {:unsubscribe, pid})
+    with_server(:ok, fn ->
+      GenServer.call(__MODULE__, {:unsubscribe, pid})
+    end)
   end
 
   @doc """
   Broadcast a packet to all subscribers whose bounds contain the packet's location.
   """
   def broadcast_packet(packet) do
-    GenServer.cast(__MODULE__, {:broadcast, packet})
+    with_server(:ok, fn ->
+      GenServer.cast(__MODULE__, {:broadcast, packet})
+    end)
   end
 
   @doc """
   List all active subscribers and their bounds.
   """
   def list_subscribers do
-    GenServer.call(__MODULE__, :list_subscribers)
+    with_server([], fn ->
+      GenServer.call(__MODULE__, :list_subscribers)
+    end)
   end
 
   # Server Callbacks
@@ -199,5 +207,13 @@ defmodule Aprsme.StreamingPacketsPubSub do
 
   defp test_env? do
     Application.get_env(:aprsme, :env) == :test
+  end
+
+  defp with_server(default, fun) do
+    if Process.whereis(__MODULE__) do
+      fun.()
+    else
+      default
+    end
   end
 end

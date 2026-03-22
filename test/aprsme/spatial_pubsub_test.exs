@@ -97,4 +97,41 @@ defmodule Aprsme.SpatialPubSubTest do
       SpatialPubSub.unregister_client(client_id)
     end
   end
+
+  describe "when the server is not running" do
+    setup do
+      pid = Process.whereis(SpatialPubSub)
+
+      if pid do
+        GenServer.stop(pid)
+      end
+
+      on_exit(fn ->
+        if !Process.whereis(SpatialPubSub) do
+          start_supervised!({SpatialPubSub, []})
+        end
+      end)
+
+      :ok
+    end
+
+    test "public APIs return safe defaults instead of crashing" do
+      bounds = %{north: 41.0, south: 40.0, east: -73.0, west: -74.0}
+
+      assert {:error, :not_running} = SpatialPubSub.register_viewport("missing", bounds)
+      assert {:error, :not_running} = SpatialPubSub.update_viewport("missing", bounds)
+      assert :ok = SpatialPubSub.unregister_client("missing")
+      assert :ok = SpatialPubSub.broadcast_packet(%{lat: 40.5, lon: -73.5})
+      assert :ok = SpatialPubSub.start_telemetry_reporting()
+
+      assert SpatialPubSub.get_stats() == %{
+               total_broadcasts: 0,
+               filtered_broadcasts: 0,
+               total_packets: 0,
+               clients_count: 0,
+               grid_cells: 0,
+               avg_clients_per_cell: 0.0
+             }
+    end
+  end
 end

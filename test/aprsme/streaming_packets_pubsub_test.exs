@@ -140,6 +140,33 @@ defmodule Aprsme.StreamingPacketsPubSubTest do
     end
   end
 
+  describe "when the server is not running" do
+    setup do
+      pid = Process.whereis(StreamingPacketsPubSub)
+
+      if pid do
+        GenServer.stop(pid)
+      end
+
+      on_exit(fn ->
+        if !Process.whereis(StreamingPacketsPubSub) do
+          start_supervised!({StreamingPacketsPubSub, []})
+        end
+      end)
+
+      :ok
+    end
+
+    test "returns safe defaults instead of crashing" do
+      bounds = %{north: 40.0, south: 30.0, east: -70.0, west: -80.0}
+
+      assert {:error, :not_running} = StreamingPacketsPubSub.subscribe_to_bounds(self(), bounds)
+      assert :ok = StreamingPacketsPubSub.unsubscribe(self())
+      assert :ok = StreamingPacketsPubSub.broadcast_packet(%{latitude: 35.0, longitude: -75.0})
+      assert [] == StreamingPacketsPubSub.list_subscribers()
+    end
+  end
+
   describe "performance" do
     test "handles high volume of packets efficiently" do
       bounds = %{north: 90.0, south: -90.0, east: 180.0, west: -180.0}
