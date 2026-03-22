@@ -148,6 +148,7 @@ defmodule Aprsme.Packet do
     |> maybe_create_geometry_from_lat_lon()
     |> maybe_set_has_position()
     |> normalize_symbols()
+    |> normalize_course()
   end
 
   defp normalize_symbols(changeset) do
@@ -180,6 +181,25 @@ defmodule Aprsme.Packet do
   defp normalize_symbol_table_id(changeset, _invalid_table) do
     # Default to '/' (primary symbol table) if table_id is missing or invalid
     put_change(changeset, :symbol_table_id, "/")
+  end
+
+  defp normalize_course(changeset) do
+    course = get_field(changeset, :course) || get_change(changeset, :course)
+
+    case course do
+      nil ->
+        changeset
+
+      c when is_integer(c) and c >= 0 and c <= 359 ->
+        changeset
+
+      c when is_integer(c) ->
+        # Invalid course value (negative or >= 360), normalize to 0
+        put_change(changeset, :course, 0)
+
+      _ ->
+        changeset
+    end
   end
 
   @spec maybe_create_geometry_from_lat_lon(Ecto.Changeset.t()) :: Ecto.Changeset.t()
