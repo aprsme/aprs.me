@@ -115,6 +115,7 @@ defmodule AprsmeWeb.Router do
     pipe_through :api
 
     get "/callsign/:callsign", CallsignController, :show
+    get "/weather/nearby", WeatherController, :nearby
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

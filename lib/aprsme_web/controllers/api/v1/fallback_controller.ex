@@ -25,6 +25,14 @@ defmodule AprsmeWeb.Api.V1.FallbackController do
     |> render(:"404")
   end
 
+  # Handle errors with status and message (e.g., {:error, :bad_request, "message"})
+  def call(conn, {:error, status, message}) when is_atom(status) and is_binary(message) do
+    conn
+    |> put_status(status)
+    |> put_view(json: ErrorJSON)
+    |> render(:error, message: message)
+  end
+
   # Handle generic errors
   def call(conn, {:error, reason}) when is_atom(reason) do
     status =

@@ -17,12 +17,19 @@ defmodule AprsmeWeb.Api.V1.WeatherJSON do
   end
 
   defp station_json(station) do
+    # Support both :lat/:lon (from query) and :latitude/:longitude (from tests)
+    lat = Map.get(station, :lat) || Map.get(station, :latitude)
+    lon = Map.get(station, :lon) || Map.get(station, :longitude)
+
+    # Support both :received_at (from query) and :last_report (from tests)
+    last_report = Map.get(station, :received_at) || Map.get(station, :last_report)
+
     %{
       callsign: station.callsign,
       base_callsign: station.base_callsign,
       position: %{
-        lat: station.latitude,
-        lon: station.longitude
+        lat: lat,
+        lon: lon
       },
       distance_miles: station.distance_miles,
       weather: %{
@@ -41,7 +48,7 @@ defmodule AprsmeWeb.Api.V1.WeatherJSON do
         code: station.symbol_code
       },
       comment: station.comment,
-      last_report: format_datetime(station.last_report)
+      last_report: format_datetime(last_report)
     }
   end
 
