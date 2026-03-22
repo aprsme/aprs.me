@@ -338,8 +338,17 @@ defmodule Aprsme.PacketConsumer do
   end
 
   defp broadcast_single_packet(packet_attrs, cluster_enabled) do
+    # For objects and items, use object_name/item_name as the identifier
+    # instead of sender (which is the origin station)
+    identifier =
+      cond do
+        packet_attrs[:object_name] -> packet_attrs[:object_name]
+        packet_attrs[:item_name] -> packet_attrs[:item_name]
+        true -> packet_attrs[:sender]
+      end
+
     packet = %{
-      sender: packet_attrs[:sender],
+      sender: identifier,
       latitude: packet_attrs[:lat],
       longitude: packet_attrs[:lon],
       received_at: packet_attrs[:received_at],

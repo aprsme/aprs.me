@@ -7,6 +7,88 @@ defmodule Aprsme.PacketConsumerTest do
   alias Aprsme.PacketConsumer
   alias Aprsme.StreamingPacketsPubSub
 
+  describe "object broadcast with correct identifier" do
+    test "broadcasts object packets using object_name instead of sender" do
+      # Subscribe to packets in test bounds
+      bounds = %{north: 52.0, south: 50.0, east: -113.0, west: -115.0}
+      StreamingPacketsPubSub.subscribe_to_bounds(self(), bounds)
+
+      # Object packet - sender is VE6RWB-15, object name is CALGRY
+      events = [
+        %{
+          sender: "VE6RWB-15",
+          lat: 51.044733,
+          lon: -114.062019,
+          data_type: "object",
+          destination: "APRS",
+          path: "TCPIP*,qAC,T2ROMANIA",
+          object_name: "CALGRY",
+          information_field: ";CALGRY   *111111z5102.68N/11403.72W-",
+          raw_packet: "VE6RWB-15>APRS,TCPIP*,qAC,T2ROMANIA:;CALGRY   *111111z5102.68N/11403.72W-"
+        }
+      ]
+
+      state = %{
+        batch: [],
+        batch_length: 0,
+        batch_size: 1,
+        batch_timeout: 1000,
+        max_batch_size: 100,
+        timer: nil
+      }
+
+      PacketConsumer.handle_events(events, nil, state)
+      # Wait for async broadcast task to complete
+      Process.sleep(50)
+
+      # Should receive the packet via PubSub with object_name as sender
+      assert_receive {:streaming_packet, packet}, 1000
+      assert packet.sender == "CALGRY", "Expected sender to be object name CALGRY, got #{packet.sender}"
+      assert packet.latitude == 51.044733
+      assert packet.longitude == -114.062019
+    end
+
+    test "broadcasts item packets using item_name instead of sender" do
+      # Subscribe to packets in test bounds
+      bounds = %{north: 40.0, south: 30.0, east: -70.0, west: -80.0}
+      StreamingPacketsPubSub.subscribe_to_bounds(self(), bounds)
+
+      # Item packet - sender is ITEMTEST, item name is MyItem
+      events = [
+        %{
+          sender: "ITEMTEST",
+          lat: 35.0,
+          lon: -75.0,
+          data_type: "item",
+          destination: "APRS",
+          path: "WIDE1-1",
+          item_name: "MyItem",
+          information_field: ")MyItem!3500.00N/07500.00W-Test item",
+          raw_packet: "ITEMTEST>APRS,WIDE1-1:)MyItem!3500.00N/07500.00W-Test item"
+        }
+      ]
+
+      state = %{
+        batch: [],
+        batch_length: 0,
+        batch_size: 1,
+        batch_timeout: 1000,
+        max_batch_size: 100,
+        timer: nil
+      }
+
+      PacketConsumer.handle_events(events, nil, state)
+      # Wait for async broadcast task to complete
+      Process.sleep(50)
+
+      # Should receive the packet via PubSub with item_name as sender
+      assert_receive {:streaming_packet, packet}, 1000
+      assert packet.sender == "MyItem", "Expected sender to be item name MyItem, got #{packet.sender}"
+      assert packet.latitude == 35.0
+      assert packet.longitude == -75.0
+    end
+  end
+
   describe "object name extraction" do
     test "extracts object name with hyphens from information_field" do
       events = [
