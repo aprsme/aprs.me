@@ -1945,60 +1945,22 @@ defmodule AprsmeWeb.MapLive.Index do
 
     Logger.debug("process_bounds_update called with bounds: #{inspect(map_bounds)}")
 
-    # Update spatial viewport if we have a client ID
-    if socket.assigns[:spatial_client_id] do
-      Aprsme.SpatialPubSub.update_viewport(socket.assigns.spatial_client_id, map_bounds)
-    end
+    sync_pubsub_bounds(socket, map_bounds)
 
-    # Update StreamingPacketsPubSub subscription with new bounds
-    Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), map_bounds)
+    bounds_state = bounds_update_state(socket, map_bounds)
+    log_bounds_update_state(bounds_state)
 
-    # Check if this is the initial load or if bounds have actually changed
-    is_initial_load = socket.assigns[:needs_initial_historical_load] || !socket.assigns[:initial_bounds_loaded]
-    bounds_changed = socket.assigns.map_bounds && not BoundsUtils.compare_bounds(map_bounds, socket.assigns.map_bounds)
+    {new_visible_packets, packets_to_remove} = filtered_packets_for_bounds(socket.assigns.visible_packets, map_bounds)
 
-    # Check if we've completed the initial historical load
-    initial_historical_completed = socket.assigns[:initial_historical_completed] || false
-
-    Logger.debug(
-      "is_initial_load: #{is_initial_load}, bounds_changed: #{bounds_changed}, initial_historical_completed: #{initial_historical_completed}"
-    )
-
-    # Remove out-of-bounds packets and markers immediately
-    new_visible_packets = BoundsUtils.filter_packets_by_bounds(socket.assigns.visible_packets, map_bounds)
-    packets_to_remove = BoundsUtils.reject_packets_by_bounds(socket.assigns.visible_packets, map_bounds)
-
-    # Remove markers for out-of-bounds packets
-    socket = remove_markers_batch(socket, packets_to_remove)
-
-    # Only clear historical packets if:
-    # 1. Bounds actually changed AND
-    # 2. This is not the initial load AND
-    # 3. We've already completed the initial historical load
-    socket =
-      if bounds_changed and not is_initial_load and initial_historical_completed do
-        Logger.debug("Bounds changed after initial load - clearing historical packets")
-        push_event(socket, "clear_historical_packets", %{})
-      else
-        Logger.debug("Initial load or no significant change - keeping existing markers")
-        socket
-      end
-
-    # Always filter markers by bounds
-    socket = push_event(socket, "filter_markers_by_bounds", %{bounds: map_bounds})
-
-    # Update map bounds and visible_packets with bounds-filtered result
     socket =
       socket
+      |> remove_markers_batch(packets_to_remove)
+      |> maybe_clear_historical_packets(bounds_state)
+      |> push_event("filter_markers_by_bounds", %{bounds: map_bounds})
       |> assign(map_bounds: map_bounds, visible_packets: new_visible_packets)
       |> assign(needs_initial_historical_load: false)
 
-    # Load historical packets for the new bounds (now socket.assigns.map_bounds is correct)
-    Logger.debug("Starting progressive historical loading for new bounds")
-
-    Logger.debug(
-      "Current assigns: historical_loading=#{socket.assigns.historical_loading}, map_bounds=#{inspect(socket.assigns.map_bounds)}"
-    )
+    log_historical_reload(socket)
 
     socket = HistoricalLoader.start_progressive_historical_loading(socket)
 
@@ -2012,10 +1974,71 @@ defmodule AprsmeWeb.MapLive.Index do
       end
 
     # Mark initial historical as completed if this was the initial load
-    if is_initial_load do
+    if bounds_state.is_initial_load do
       assign(socket, initial_historical_completed: true)
     else
       socket
     end
+  end
+
+  defp sync_pubsub_bounds(socket, map_bounds) do
+    if socket.assigns[:spatial_client_id] do
+      Aprsme.SpatialPubSub.update_viewport(socket.assigns.spatial_client_id, map_bounds)
+    end
+
+    Aprsme.StreamingPacketsPubSub.subscribe_to_bounds(self(), map_bounds)
+  end
+
+  defp bounds_update_state(socket, map_bounds) do
+    %{
+      is_initial_load: socket.assigns[:needs_initial_historical_load] || !socket.assigns[:initial_bounds_loaded],
+      bounds_changed:
+        socket.assigns.map_bounds && not BoundsUtils.compare_bounds(map_bounds, socket.assigns.map_bounds),
+      initial_historical_completed: socket.assigns[:initial_historical_completed] || false
+    }
+  end
+
+  defp log_bounds_update_state(bounds_state) do
+    require Logger
+
+    Logger.debug(
+      "is_initial_load: #{bounds_state.is_initial_load}, bounds_changed: #{bounds_state.bounds_changed}, " <>
+        "initial_historical_completed: #{bounds_state.initial_historical_completed}"
+    )
+  end
+
+  defp filtered_packets_for_bounds(visible_packets, map_bounds) do
+    {
+      BoundsUtils.filter_packets_by_bounds(visible_packets, map_bounds),
+      BoundsUtils.reject_packets_by_bounds(visible_packets, map_bounds)
+    }
+  end
+
+  defp maybe_clear_historical_packets(socket, %{
+         bounds_changed: true,
+         is_initial_load: false,
+         initial_historical_completed: true
+       }) do
+    require Logger
+
+    Logger.debug("Bounds changed after initial load - clearing historical packets")
+    push_event(socket, "clear_historical_packets", %{})
+  end
+
+  defp maybe_clear_historical_packets(socket, _bounds_state) do
+    require Logger
+
+    Logger.debug("Initial load or no significant change - keeping existing markers")
+    socket
+  end
+
+  defp log_historical_reload(socket) do
+    require Logger
+
+    Logger.debug("Starting progressive historical loading for new bounds")
+
+    Logger.debug(
+      "Current assigns: historical_loading=#{socket.assigns.historical_loading}, map_bounds=#{inspect(socket.assigns.map_bounds)}"
+    )
   end
 end

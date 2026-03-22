@@ -112,26 +112,7 @@ defmodule Aprsme.StreamingPacketsPubSub do
 
   @impl true
   def handle_cast({:broadcast, packet}, state) do
-    # Get packet coordinates
-    lat = packet[:latitude] || packet[:lat]
-    lon = packet[:longitude] || packet[:lon] || packet[:lng]
-
-    if lat && lon do
-      # Get all subscribers — table is small (one entry per LiveView client)
-      subscribers = :ets.tab2list(@table_name)
-
-      if test_env?() do
-        send_to_matching_subscribers(subscribers, lat, lon, packet, self())
-      else
-        # Send to matching subscribers using BroadcastTaskSupervisor
-        # Collect dead pids to clean up
-        server_pid = self()
-
-        Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
-          send_to_matching_subscribers(subscribers, lat, lon, packet, server_pid)
-        end)
-      end
-    end
+    maybe_broadcast_packet(packet)
 
     {:noreply, state}
   end
@@ -214,6 +195,36 @@ defmodule Aprsme.StreamingPacketsPubSub do
       fun.()
     else
       default
+    end
+  end
+
+  defp maybe_broadcast_packet(packet) do
+    case packet_coordinates(packet) do
+      {lat, lon} ->
+        subscribers = :ets.tab2list(@table_name)
+        dispatch_packet_to_subscribers(subscribers, lat, lon, packet)
+
+      nil ->
+        :ok
+    end
+  end
+
+  defp packet_coordinates(packet) do
+    lat = packet[:latitude] || packet[:lat]
+    lon = packet[:longitude] || packet[:lon] || packet[:lng]
+
+    if lat && lon, do: {lat, lon}
+  end
+
+  defp dispatch_packet_to_subscribers(subscribers, lat, lon, packet) do
+    if test_env?() do
+      send_to_matching_subscribers(subscribers, lat, lon, packet, self())
+    else
+      server_pid = self()
+
+      Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
+        send_to_matching_subscribers(subscribers, lat, lon, packet, server_pid)
+      end)
     end
   end
 end

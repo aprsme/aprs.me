@@ -90,45 +90,12 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
   def send_trail_line_for_tracked_callsign(socket) do
     callsign = socket.assigns.tracked_callsign
     threshold = socket.assigns.packet_age_threshold
+    packets = trail_packets_for_callsign(socket.assigns.visible_packets, callsign, threshold)
 
-    packets =
-      socket.assigns.visible_packets
-      |> Map.values()
-      |> Enum.filter(fn packet ->
-        sender = Map.get(packet, :sender) || Map.get(packet, "sender")
-        received_at = Map.get(packet, :received_at) || Map.get(packet, "received_at")
-
-        String.upcase(sender) == String.upcase(callsign) &&
-          DateTime.compare(received_at, threshold) != :lt
-      end)
-      |> Enum.sort_by(
-        fn packet ->
-          received_at = Map.get(packet, :received_at) || Map.get(packet, "received_at")
-          DateTime.to_unix(received_at, :microsecond)
-        end,
-        :asc
-      )
-
-    if Enum.empty?(packets) do
+    if packets == [] do
       socket
     else
-      points =
-        Enum.map(packets, fn packet ->
-          lat = Map.get(packet, :lat) || Map.get(packet, "lat")
-          lon = Map.get(packet, :lon) || Map.get(packet, "lon")
-          received_at = Map.get(packet, :received_at) || Map.get(packet, "received_at")
-
-          %{
-            lat: Aprsme.EncodingUtils.to_float(lat) || 0.0,
-            lng: Aprsme.EncodingUtils.to_float(lon) || 0.0,
-            timestamp: DateTime.to_iso8601(received_at)
-          }
-        end)
-
-      LiveView.push_event(socket, "show_trail_line", %{
-        callsign: callsign,
-        points: points
-      })
+      push_trail_line(socket, callsign, packets)
     end
   end
 
@@ -183,5 +150,49 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
   defp start_progressive_historical_loading(socket) do
     # This function should be moved to HistoricalLoader module
     socket
+  end
+
+  defp trail_packets_for_callsign(visible_packets, callsign, threshold) do
+    visible_packets
+    |> Map.values()
+    |> Enum.filter(&tracked_packet?(&1, callsign, threshold))
+    |> Enum.sort_by(&packet_timestamp/1, :asc)
+  end
+
+  defp tracked_packet?(packet, callsign, threshold) do
+    sender = Map.get(packet, :sender) || Map.get(packet, "sender")
+    received_at = packet_received_at(packet)
+
+    String.upcase(sender) == String.upcase(callsign) &&
+      DateTime.compare(received_at, threshold) != :lt
+  end
+
+  defp push_trail_line(socket, callsign, packets) do
+    LiveView.push_event(socket, "show_trail_line", %{
+      callsign: callsign,
+      points: Enum.map(packets, &trail_point/1)
+    })
+  end
+
+  defp trail_point(packet) do
+    lat = Map.get(packet, :lat) || Map.get(packet, "lat")
+    lon = Map.get(packet, :lon) || Map.get(packet, "lon")
+    received_at = packet_received_at(packet)
+
+    %{
+      lat: Aprsme.EncodingUtils.to_float(lat) || 0.0,
+      lng: Aprsme.EncodingUtils.to_float(lon) || 0.0,
+      timestamp: DateTime.to_iso8601(received_at)
+    }
+  end
+
+  defp packet_received_at(packet) do
+    Map.get(packet, :received_at) || Map.get(packet, "received_at")
+  end
+
+  defp packet_timestamp(packet) do
+    packet
+    |> packet_received_at()
+    |> DateTime.to_unix(:microsecond)
   end
 end
