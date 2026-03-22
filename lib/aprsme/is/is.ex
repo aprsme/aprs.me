@@ -129,6 +129,7 @@ defmodule Aprsme.Is do
         # GenServer is not running (disconnected)
         server = Application.get_env(:aprsme, :aprs_is_server, nil)
         port = Application.get_env(:aprsme, :aprs_is_port, 14_580)
+        {stored_packet_count, oldest_packet_timestamp} = safe_packet_storage_stats()
 
         %{
           connected: false,
@@ -139,8 +140,8 @@ defmodule Aprsme.Is do
           login_id: Application.get_env(:aprsme, :aprs_is_login_id, "W5ISP"),
           filter: Application.get_env(:aprsme, :aprs_is_default_filter, "r/33/-96/100"),
           packet_stats: default_packet_stats(),
-          stored_packet_count: Aprsme.Packets.get_total_packet_count(),
-          oldest_packet_timestamp: Aprsme.Packets.get_oldest_packet_timestamp()
+          stored_packet_count: stored_packet_count,
+          oldest_packet_timestamp: oldest_packet_timestamp
         }
 
       _pid ->
@@ -151,6 +152,7 @@ defmodule Aprsme.Is do
             # GenServer exists but not responding
             server = Application.get_env(:aprsme, :aprs_is_server, ~c"rotate.aprs2.net")
             port = Application.get_env(:aprsme, :aprs_is_port, 14_580)
+            {stored_packet_count, oldest_packet_timestamp} = safe_packet_storage_stats()
 
             %{
               connected: false,
@@ -161,11 +163,21 @@ defmodule Aprsme.Is do
               login_id: Application.get_env(:aprsme, :aprs_is_login_id, "W5ISP"),
               filter: Application.get_env(:aprsme, :aprs_is_default_filter, "r/33/-96/100"),
               packet_stats: default_packet_stats(),
-              stored_packet_count: Aprsme.Packets.get_total_packet_count(),
-              oldest_packet_timestamp: Aprsme.Packets.get_oldest_packet_timestamp()
+              stored_packet_count: stored_packet_count,
+              oldest_packet_timestamp: oldest_packet_timestamp
             }
         end
     end
+  end
+
+  defp safe_packet_storage_stats do
+    {Aprsme.Packets.get_total_packet_count(), Aprsme.Packets.get_oldest_packet_timestamp()}
+  rescue
+    DBConnection.OwnershipError ->
+      {0, nil}
+  catch
+    :exit, _ ->
+      {0, nil}
   end
 
   def set_filter(filter_string), do: send_message("#filter #{filter_string}")

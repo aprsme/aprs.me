@@ -7,6 +7,8 @@ defmodule Aprsme.IsTest do
 
   import ExUnit.CaptureLog
 
+  alias Ecto.Adapters.SQL.Sandbox
+
   # Helper to build a default GenServer state for direct callback testing
   defp build_state(overrides \\ %{}) do
     timer = Process.send_after(self(), :noop_timer, to_timeout(minute: 5))
@@ -518,6 +520,38 @@ defmodule Aprsme.IsTest do
       assert status.port == 14_580
       assert status.login_id == "TEST"
       assert status.filter == "r/33/-96/100"
+    end
+
+    test "returns fallback packet storage stats when called from a non-owner process" do
+      parent = self()
+
+      owner =
+        spawn(fn ->
+          :ok = Sandbox.checkout(Aprsme.Repo)
+          send(parent, :sandbox_owner_ready)
+
+          receive do
+            :stop -> :ok
+          end
+        end)
+
+      assert_receive :sandbox_owner_ready
+
+      task =
+        Task.async(fn ->
+          receive do
+            :query_status -> Aprsme.Is.get_status()
+          end
+        end)
+
+      Sandbox.allow(Aprsme.Repo, owner, task.pid)
+      send(owner, :stop)
+      send(task.pid, :query_status)
+      status = Task.await(task)
+
+      assert status.connected == false
+      assert status.stored_packet_count == 0
+      assert status.oldest_packet_timestamp == nil
     end
   end
 
