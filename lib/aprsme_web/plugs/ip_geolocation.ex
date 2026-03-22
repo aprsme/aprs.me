@@ -7,6 +7,8 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
 
   import Plug.Conn
 
+  require Logger
+
   @impl true
   def init(opts), do: opts
 
@@ -23,14 +25,24 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
   defp handle_geolocation(_cached, conn), do: conn
 
   defp extract_cf_headers(conn) do
-    with [lat_str] <- get_req_header(conn, "cf-iplatitude"),
-         [lng_str] <- get_req_header(conn, "cf-iplongitude"),
+    lat_header = get_req_header(conn, "cf-iplatitude")
+    lng_header = get_req_header(conn, "cf-iplongitude")
+
+    Logger.info(
+      "Cloudflare geolocation headers: cf-iplatitude=#{inspect(lat_header)}, cf-iplongitude=#{inspect(lng_header)}"
+    )
+
+    with [lat_str] <- lat_header,
+         [lng_str] <- lng_header,
          {lat, ""} <- Float.parse(lat_str),
          {lng, ""} <- Float.parse(lng_str),
          true <- lat >= -90 and lat <= 90 and lng >= -180 and lng <= 180 do
+      Logger.info("IP geolocation resolved: lat=#{lat}, lng=#{lng}")
       put_session(conn, :ip_geolocation, %{"lat" => lat, "lng" => lng})
     else
-      _ -> conn
+      _ ->
+        Logger.info("No valid Cloudflare geolocation headers found")
+        conn
     end
   end
 end
