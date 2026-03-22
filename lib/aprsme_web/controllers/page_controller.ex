@@ -4,14 +4,6 @@ defmodule AprsmeWeb.PageController do
 
   alias Aprsme.Cluster.LeaderElection
 
-  def home(conn, _params) do
-    render(conn, :home)
-  end
-
-  def packets(conn, _params) do
-    render(conn, :packets)
-  end
-
   def health(conn, _params) do
     # Use our health check plug logic
     health_status = Application.get_env(:aprsme, :health_status, :healthy)
