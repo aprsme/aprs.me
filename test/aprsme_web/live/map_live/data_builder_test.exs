@@ -27,9 +27,9 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       result = DataBuilder.build_packet_data(packet, true)
 
       assert result
-      # Map label shows sender for clarity
-      assert result["callsign"] == "DB0SDA"
-      # But grouping uses object name
+      # Map label shows object name for objects
+      assert result["callsign"] == "P-K5SGD"
+      # Grouping also uses object name
       assert result["callsign_group"] == "P-K5SGD"
     end
 
@@ -56,9 +56,9 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       result = DataBuilder.build_packet_data(packet, true)
 
       assert result
-      # Map label shows sender for clarity
-      assert result["callsign"] == "N0CALL"
-      # But grouping uses item name
+      # Map label shows item name for items
+      assert result["callsign"] == "REPEATER1"
+      # Grouping also uses item name
       assert result["callsign_group"] == "REPEATER1"
     end
 
@@ -111,9 +111,9 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
 
       result = DataBuilder.build_packet_data(packet, true)
 
-      # Popup now shows sender for consistency with map label
-      assert result["popup"] =~ "DB0SDA"
-      refute result["popup"] =~ "P-K5SGD"
+      # Popup now shows object name for objects
+      assert result["popup"] =~ "P-K5SGD"
+      refute result["popup"] =~ "DB0SDA"
     end
 
     test "build_minimal_packet_data uses sender for map label but object_name for grouping" do
@@ -139,13 +139,13 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       result = DataBuilder.build_minimal_packet_data(packet, true, false)
 
       assert result
-      # Map label shows sender for clarity
-      assert result["callsign"] == "DB0SDA"
-      # But grouping uses object name
+      # Map label shows object name for objects
+      assert result["callsign"] == "P-K5SGD"
+      # Grouping also uses object name
       assert result["callsign_group"] == "P-K5SGD"
-      # Symbol HTML should show sender, not object name
-      assert result["symbol_html"] =~ "DB0SDA"
-      refute result["symbol_html"] =~ "P-K5SGD"
+      # Symbol HTML should show object name
+      assert result["symbol_html"] =~ "P-K5SGD"
+      refute result["symbol_html"] =~ "DB0SDA"
     end
 
     test "build_minimal_packet_data uses red dot HTML for historical (non-most-recent) packets" do
@@ -338,9 +338,9 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
 
       results = DataBuilder.build_packet_data_list([object_packet_1, object_packet_2])
 
-      # Map labels should show sender
+      # Map labels should show object name
       callsigns = Enum.map(results, & &1["callsign"])
-      assert Enum.all?(callsigns, &(&1 == "DB0SDA"))
+      assert Enum.all?(callsigns, &(&1 == "P-K5SGD"))
 
       # But grouping should be by object name
       groups = Enum.map(results, & &1["callsign_group"])
@@ -369,8 +369,8 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
 
       popup = DataBuilder.build_simple_popup(packet, false)
 
-      assert popup =~ "WA0YMH-2"
-      refute popup =~ "X3234025"
+      assert popup =~ "X3234025"
+      refute popup =~ "WA0YMH-2"
     end
   end
 end
