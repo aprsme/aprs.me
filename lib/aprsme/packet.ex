@@ -147,6 +147,39 @@ defmodule Aprsme.Packet do
     changeset
     |> maybe_create_geometry_from_lat_lon()
     |> maybe_set_has_position()
+    |> normalize_symbols()
+  end
+
+  defp normalize_symbols(changeset) do
+    # Only normalize if packet has position
+    if get_field(changeset, :has_position) do
+      symbol_code = get_field(changeset, :symbol_code)
+      symbol_table_id = get_field(changeset, :symbol_table_id)
+
+      changeset
+      |> normalize_symbol_code(symbol_code)
+      |> normalize_symbol_table_id(symbol_table_id)
+    else
+      changeset
+    end
+  end
+
+  defp normalize_symbol_code(changeset, code) when is_binary(code) and byte_size(code) == 1 do
+    changeset
+  end
+
+  defp normalize_symbol_code(changeset, _invalid_code) do
+    # Default to '>' (car) if symbol_code is missing or invalid
+    put_change(changeset, :symbol_code, ">")
+  end
+
+  defp normalize_symbol_table_id(changeset, table) when is_binary(table) and byte_size(table) == 1 do
+    changeset
+  end
+
+  defp normalize_symbol_table_id(changeset, _invalid_table) do
+    # Default to '/' (primary symbol table) if table_id is missing or invalid
+    put_change(changeset, :symbol_table_id, "/")
   end
 
   @spec maybe_create_geometry_from_lat_lon(Ecto.Changeset.t()) :: Ecto.Changeset.t()
