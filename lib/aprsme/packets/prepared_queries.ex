@@ -12,6 +12,7 @@ defmodule Aprsme.Packets.PreparedQueries do
   @doc """
   Get the latest packet for a callsign using a prepared statement.
   This is one of the most frequently called queries.
+  Searches by sender, object_name, or item_name.
   """
   @spec get_latest_packet_for_callsign(String.t()) :: Packet.t() | nil
   def get_latest_packet_for_callsign(callsign) when is_binary(callsign) do
@@ -19,7 +20,10 @@ defmodule Aprsme.Packets.PreparedQueries do
 
     Repo.one(
       from(p in Packet,
-        where: fragment("upper(?)", p.sender) == ^normalized,
+        where:
+          fragment("upper(?)", p.sender) == ^normalized or
+            fragment("upper(?)", p.object_name) == ^normalized or
+            fragment("upper(?)", p.item_name) == ^normalized,
         order_by: [desc: p.received_at],
         limit: 1,
         select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
