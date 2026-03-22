@@ -149,6 +149,7 @@ defmodule Aprsme.Packet do
     |> maybe_set_has_position()
     |> normalize_symbols()
     |> normalize_course()
+    |> normalize_wind_direction()
   end
 
   defp normalize_symbols(changeset) do
@@ -196,6 +197,29 @@ defmodule Aprsme.Packet do
       c when is_integer(c) ->
         # Invalid course value (negative or >= 360), normalize to 0
         put_change(changeset, :course, 0)
+
+      _ ->
+        changeset
+    end
+  end
+
+  defp normalize_wind_direction(changeset) do
+    wind_direction = get_field(changeset, :wind_direction) || get_change(changeset, :wind_direction)
+
+    case wind_direction do
+      nil ->
+        changeset
+
+      dir when is_integer(dir) and dir >= 0 and dir <= 359 ->
+        changeset
+
+      360 ->
+        # 360 degrees = 0 degrees (full circle)
+        put_change(changeset, :wind_direction, 0)
+
+      dir when is_integer(dir) ->
+        # Invalid wind direction (negative or > 360), normalize to 0
+        put_change(changeset, :wind_direction, 0)
 
       _ ->
         changeset
