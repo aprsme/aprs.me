@@ -11,7 +11,7 @@ defmodule AprsmeWeb.Plugs.IPGeolocation do
   def init(opts), do: opts
 
   @impl true
-  def call(%{request_path: "/", method: "GET"} = conn, _opts) do
+  def call(%{method: "GET"} = conn, _opts) do
     conn
     |> get_session(:ip_geolocation)
     |> handle_geolocation(conn)

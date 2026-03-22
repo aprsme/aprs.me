@@ -48,7 +48,7 @@ defmodule AprsmeWeb.Plugs.IPGeolocationTest do
       assert get_session(conn, :ip_geolocation) == nil
     end
 
-    test "skips non-root paths", %{conn: conn} do
+    test "works on non-root paths", %{conn: conn} do
       conn =
         conn
         |> Map.put(:request_path, "/about")
@@ -56,7 +56,8 @@ defmodule AprsmeWeb.Plugs.IPGeolocationTest do
         |> put_req_header("cf-iplongitude", "-122.4194")
         |> IPGeolocation.call([])
 
-      assert get_session(conn, :ip_geolocation) == nil
+      geo = get_session(conn, :ip_geolocation)
+      assert geo == %{"lat" => 37.7749, "lng" => -122.4194}
     end
 
     test "skips non-GET requests", %{conn: conn} do

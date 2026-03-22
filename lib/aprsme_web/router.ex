@@ -8,6 +8,11 @@ defmodule AprsmeWeb.Router do
   alias AprsmeWeb.Plugs.IPGeolocation
   alias AprsmeWeb.Plugs.RateLimiter
 
+  @doc false
+  def regular_pages_session(conn) do
+    %{"ip_geolocation" => Plug.Conn.get_session(conn, :ip_geolocation)}
+  end
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -96,6 +101,7 @@ defmodule AprsmeWeb.Router do
     pipe_through :browser
 
     live_session :regular_pages,
+      session: {__MODULE__, :regular_pages_session, []},
       on_mount: [{AprsmeWeb.UserAuth, :mount_current_user}, {AprsmeWeb.LocaleHook, :set_locale}] do
       live "/status", StatusLive.Index, :index
       live "/packets", PacketsLive.Index, :index
