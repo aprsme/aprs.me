@@ -80,6 +80,9 @@ defmodule Aprsme.Application do
     opts = [strategy: :one_for_one, name: Aprsme.Supervisor]
     {:ok, sup} = Supervisor.start_link(children, opts)
 
+    # Attach error notification telemetry handler
+    Aprsme.ErrorNotifier.attach()
+
     # Now that the Repo is started, run the refresh in a background task
     # Skip in test environment to avoid DBConnection.OwnershipError
     env = Application.get_env(:aprsme, :env)
