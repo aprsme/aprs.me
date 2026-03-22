@@ -195,6 +195,12 @@ defmodule Aprsme.IsTest do
     end
   end
 
+  describe "send_message/1 when GenServer is not running" do
+    test "returns not_connected instead of crashing" do
+      assert Aprsme.Is.send_message("test message") == {:error, :not_connected}
+    end
+  end
+
   describe "handle_info(:aprsme_no_message_timeout, ...)" do
     test "ignores timeout when socket is nil" do
       state = build_state(%{socket: nil})

@@ -189,7 +189,10 @@ defmodule Aprsme.Is do
   end
 
   def send_message(message) do
-    GenServer.call(__MODULE__, {:send_message, message})
+    case Process.whereis(__MODULE__) do
+      nil -> {:error, :not_connected}
+      _pid -> GenServer.call(__MODULE__, {:send_message, message})
+    end
   end
 
   # Server methods
