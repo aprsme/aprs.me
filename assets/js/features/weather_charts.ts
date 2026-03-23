@@ -27,6 +27,9 @@ interface ChartHookContext extends Hook {
   chart?: Chart;
   themeChangeHandler?: () => void;
   renderChart: () => void;
+  isDestroyed?: boolean;
+  chartLoadRetryTimer?: ReturnType<typeof setTimeout> | null;
+  chartLoadRetryCount?: number;
 }
 
 // Type for weather history data
@@ -260,8 +263,14 @@ function createChartHook(configKey: string): Hook {
   return {
     mounted() {
       const self = this as ChartHookContext;
+      self.isDestroyed = false;
+      self.chartLoadRetryTimer = null;
+      self.chartLoadRetryCount = 0;
       registerChartInstance(self.el, self);
       self.renderChart = () => {
+        if (self.isDestroyed || !self.el.isConnected) {
+          return;
+        }
         if (self.chart) self.chart.destroy();
 
         const data: WeatherHistoryDatum[] = parseWeatherHistory(
@@ -360,11 +369,24 @@ function createChartHook(configKey: string): Hook {
 
         // Check if Chart.js is loaded
         if (!window.Chart) {
+          if ((self.chartLoadRetryCount || 0) >= 20) {
+            console.error("Chart.js failed to load for weather chart");
+            return;
+          }
+
           console.warn("Chart.js not loaded yet, retrying...");
-          setTimeout(() => self.renderChart(), 100);
+          self.chartLoadRetryCount = (self.chartLoadRetryCount || 0) + 1;
+          if (self.chartLoadRetryTimer) {
+            clearTimeout(self.chartLoadRetryTimer);
+          }
+          self.chartLoadRetryTimer = setTimeout(() => {
+            self.chartLoadRetryTimer = null;
+            self.renderChart();
+          }, 100);
           return;
         }
 
+        self.chartLoadRetryCount = 0;
         self.chart = new window.Chart(canvas, chartConfig);
       };
 
@@ -381,11 +403,19 @@ function createChartHook(configKey: string): Hook {
     },
 
     updated() {
-      (this as ChartHookContext).renderChart();
+      const self = this as ChartHookContext;
+      if (!self.isDestroyed) {
+        self.renderChart();
+      }
     },
 
     destroyed() {
       const self = this as ChartHookContext;
+      self.isDestroyed = true;
+      if (self.chartLoadRetryTimer) {
+        clearTimeout(self.chartLoadRetryTimer);
+        self.chartLoadRetryTimer = null;
+      }
       if (self.themeChangeHandler) {
         window.removeEventListener("themeChanged", self.themeChangeHandler);
       }

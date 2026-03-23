@@ -6,7 +6,7 @@ import { LiveSocket } from "phoenix_live_view";
 
 declare global {
   interface Window {
-    topbar: {
+    topbar?: {
       config: (opts: { barColors: Record<number, string>; shadowColor: string }) => void;
       show: (delay?: number) => void;
       hide: () => void;
@@ -47,6 +47,12 @@ interface HookDef {
   [key: string]: unknown;
 }
 
+interface DeferredHookContext {
+  el?: HTMLElement;
+  __appDestroyed?: boolean;
+  __chartBundleCheckCount?: number;
+}
+
 const Hooks: Record<string, HookDef> = {};
 
 // Singleton map bundle loader — ensures the script is only appended once
@@ -79,7 +85,9 @@ function loadMapBundle(callback: () => void) {
     script.onerror = () => {
       console.error("Failed to load map bundle");
       mapBundleLoading = false;
+      const cbs = mapBundleCallbacks;
       mapBundleCallbacks = [];
+      cbs.forEach((cb) => cb());
     };
     document.head.appendChild(script);
   } else {
@@ -87,29 +95,51 @@ function loadMapBundle(callback: () => void) {
   }
 }
 
+function isHookActive(context: DeferredHookContext): boolean {
+  return !context.__appDestroyed && !!context.el?.isConnected;
+}
+
 // Map hooks - load map bundle when needed
 const originalMapMounted = MapAPRSMap.mounted;
+const originalMapDestroyed = MapAPRSMap.destroyed;
 Hooks.APRSMap = {
   ...MapAPRSMap,
   mounted() {
-    const self = this;
+    const self = this as DeferredHookContext;
+    self.__appDestroyed = false;
     loadMapBundle(() => {
-      if (originalMapMounted) {
+      if (originalMapMounted && isHookActive(self)) {
         originalMapMounted.call(self);
       }
     });
   },
+  destroyed() {
+    const self = this as DeferredHookContext;
+    self.__appDestroyed = true;
+    if (originalMapDestroyed) {
+      originalMapDestroyed.call(self);
+    }
+  },
 };
 
+const originalInfoMapDestroyed = InfoMap.destroyed;
 Hooks.InfoMap = {
   ...InfoMap,
   mounted() {
-    const self = this;
+    const self = this as DeferredHookContext;
+    self.__appDestroyed = false;
     loadMapBundle(() => {
-      if (InfoMap.mounted) {
+      if (InfoMap.mounted && isHookActive(self)) {
         InfoMap.mounted.call(self);
       }
     });
+  },
+  destroyed() {
+    const self = this as DeferredHookContext;
+    self.__appDestroyed = true;
+    if (originalInfoMapDestroyed) {
+      originalInfoMapDestroyed.call(self);
+    }
   },
 };
 
@@ -120,15 +150,27 @@ Object.keys(WeatherChartHooks).forEach((hookName) => {
   Hooks[hookName] = {
     ...originalHook,
     mounted() {
-      const self = this;
+      const self = this as DeferredHookContext;
+      self.__appDestroyed = false;
+      self.__chartBundleCheckCount = 0;
       if (window.VendorLoader && !window.chartBundleLoaded) {
         window.VendorLoader.loadCharts();
         const checkChartLoaded = () => {
+          if (!isHookActive(self)) {
+            return;
+          }
+
+          if ((self.__chartBundleCheckCount || 0) >= 100) {
+            console.error(`Timed out waiting for chart bundle for ${hookName}`);
+            return;
+          }
+
           if (window.Chart) {
             if (originalHook.mounted) {
               originalHook.mounted.call(self);
             }
           } else {
+            self.__chartBundleCheckCount = (self.__chartBundleCheckCount || 0) + 1;
             setTimeout(checkChartLoaded, 50);
           }
         };
@@ -137,6 +179,13 @@ Object.keys(WeatherChartHooks).forEach((hookName) => {
         if (originalHook.mounted) {
           originalHook.mounted.call(this);
         }
+      }
+    },
+    destroyed() {
+      const self = this as DeferredHookContext;
+      self.__appDestroyed = true;
+      if (originalHook.destroyed) {
+        originalHook.destroyed.call(self);
       }
     },
   };
@@ -194,12 +243,14 @@ const liveSocket = new LiveSocket("/live", Socket, {
 });
 
 // Show progress bar on live navigation and form submits
-topbar.config({
-  barColors: { 0: "#29d" },
-  shadowColor: "rgba(0, 0, 0, .3)",
-});
-window.addEventListener("phx:page-loading-start", (_info) => topbar.show(100));
-window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
+if (topbar) {
+  topbar.config({
+    barColors: { 0: "#29d" },
+    shadowColor: "rgba(0, 0, 0, .3)",
+  });
+  window.addEventListener("phx:page-loading-start", (_info) => topbar.show(100));
+  window.addEventListener("phx:page-loading-stop", (_info) => topbar.hide());
+}
 
 // Handle connection draining reconnect events
 window.addEventListener("phx:reconnect", ((e: CustomEvent<{ delay?: number }>) => {

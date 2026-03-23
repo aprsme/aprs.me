@@ -9,6 +9,7 @@ interface InfoMapContext {
   lastSymbolHtml: string | null;
   initializing: boolean;
   resizeTimer: ReturnType<typeof setTimeout> | null;
+  destroyed?: boolean;
 }
 
 export const InfoMap = {
@@ -18,6 +19,7 @@ export const InfoMap = {
     this.lastSymbolHtml = null;
     this.initializing = false;
     this.resizeTimer = null;
+    this.destroyed = false;
     initializeMap.call(this);
   },
 
@@ -64,6 +66,7 @@ export const InfoMap = {
   },
 
   destroyed(this: InfoMapContext) {
+    this.destroyed = true;
     if (this.resizeTimer) {
       clearTimeout(this.resizeTimer);
       this.resizeTimer = null;
@@ -79,7 +82,7 @@ export const InfoMap = {
 };
 
 function initializeMap(this: InfoMapContext) {
-  if (this.initializing) return;
+  if (this.initializing || this.destroyed) return;
 
   if (typeof L === "undefined") {
     console.error("Leaflet not loaded for InfoMap");
@@ -135,7 +138,7 @@ function initializeMap(this: InfoMapContext) {
 
     const map = this.map;
     this.resizeTimer = setTimeout(() => {
-      if (map) {
+      if (!this.destroyed && this.el.isConnected && map && this.map === map) {
         map.invalidateSize();
       }
       this.resizeTimer = null;
