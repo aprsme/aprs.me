@@ -835,7 +835,10 @@ let MapAPRSMap = {
 
     // Store the event handler so we can remove it later
     self.popupNavigationHandler = (e: Event) => {
-      const target = e.target as HTMLElement;
+      const target = e.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
 
       // Check if clicked element or its parent is a LiveView navigation link
       const navLink = target.closest(".aprs-lv-link") as HTMLAnchorElement;
@@ -1492,13 +1495,14 @@ let MapAPRSMap = {
     });
 
     // Resize map when slideover toggles (class changes handled by LiveView JS commands)
-    self.el.addEventListener("phx:map-resize", () => {
+    self.mapResizeHandler = () => {
       setTimeout(() => {
         if (self.map) {
           self.map.invalidateSize();
         }
       }, 350);
-    });
+    };
+    self.el.addEventListener("phx:map-resize", self.mapResizeHandler);
 
     // Handle bounds-based marker filtering
     self.handleEvent(
@@ -2503,6 +2507,10 @@ let MapAPRSMap = {
     if (self.resizeHandler !== undefined) {
       window.removeEventListener("resize", self.resizeHandler);
       self.resizeHandler = undefined;
+    }
+    if (self.mapResizeHandler !== undefined) {
+      self.el.removeEventListener("phx:map-resize", self.mapResizeHandler);
+      self.mapResizeHandler = undefined;
     }
 
     // Remove map event handlers

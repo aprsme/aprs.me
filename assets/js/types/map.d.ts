@@ -30,6 +30,7 @@ export interface LiveViewHookContext {
   mapEventHandlers?: Map<string, Function>;
   isDestroyed?: boolean;
   popupNavigationHandler?: (e: Event) => void;
+  mapResizeHandler?: () => void;
   moveEndHandler?: () => void;
   zoomEndHandler?: () => void;
   rfPathLines?: Array<Polyline | Marker>; // Array of Leaflet polylines and markers for RF path visualization
