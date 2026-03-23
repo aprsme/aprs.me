@@ -38,9 +38,11 @@ export function parseTimestamp(timestamp: string | number | Date | undefined): n
   if (typeof timestamp === "number") {
     return timestamp;
   } else if (typeof timestamp === "string") {
-    return new Date(timestamp).getTime();
+    const parsed = new Date(timestamp).getTime();
+    return Number.isNaN(parsed) ? Date.now() : parsed;
   } else if (timestamp instanceof Date) {
-    return timestamp.getTime();
+    const parsed = timestamp.getTime();
+    return Number.isNaN(parsed) ? Date.now() : parsed;
   }
   return Date.now();
 }
