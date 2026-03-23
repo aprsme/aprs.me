@@ -2,7 +2,7 @@
 
 interface TimeAgoHookContext {
   el: HTMLElement;
-  timer: ReturnType<typeof setInterval> | null;
+  timer: ReturnType<typeof setTimeout> | null;
 }
 
 const TimeAgoHook = {
@@ -22,14 +22,19 @@ const TimeAgoHook = {
 };
 
 function startTimer(this: TimeAgoHookContext) {
-  const updateTimeAgo = () => {
-    const timestampStr = this.el.dataset.timestamp;
-    if (!timestampStr) return;
+  const timestampStr = this.el.dataset.timestamp;
+  if (!timestampStr) {
+    return;
+  }
 
-    const timestamp = new Date(timestampStr);
-    const now = new Date();
-    const diffMs = now.getTime() - timestamp.getTime();
-    const diffSeconds = Math.floor(diffMs / 1000);
+  const timestampMs = new Date(timestampStr).getTime();
+  if (Number.isNaN(timestampMs)) {
+    return;
+  }
+
+  const updateTimeAgo = () => {
+    const nowMs = Date.now();
+    const diffSeconds = Math.max(0, Math.floor((nowMs - timestampMs) / 1000));
 
     if (diffSeconds < 60) {
       this.el.textContent = `${diffSeconds} second${diffSeconds !== 1 ? "s" : ""} ago`;
@@ -43,33 +48,35 @@ function startTimer(this: TimeAgoHookContext) {
       const days = Math.floor(diffSeconds / 86400);
       this.el.textContent = `${days} day${days !== 1 ? "s" : ""} ago`;
     }
+
+    const nextDelay = getNextUpdateDelay(diffSeconds);
+    this.timer = setTimeout(updateTimeAgo, nextDelay);
   };
 
   updateTimeAgo();
-
-  const timestampStr = this.el.dataset.timestamp;
-  if (timestampStr) {
-    const timestamp = new Date(timestampStr);
-    const age = Date.now() - timestamp.getTime();
-
-    let interval: number;
-    if (age < 60000) {
-      interval = 1000;
-    } else if (age < 3600000) {
-      interval = 60000;
-    } else {
-      interval = 300000;
-    }
-
-    this.timer = setInterval(updateTimeAgo, interval);
-  }
 }
 
 function stopTimer(this: TimeAgoHookContext) {
   if (this.timer) {
-    clearInterval(this.timer);
+    clearTimeout(this.timer);
     this.timer = null;
   }
+}
+
+function getNextUpdateDelay(diffSeconds: number): number {
+  if (diffSeconds < 60) {
+    return 1000;
+  }
+
+  if (diffSeconds < 3600) {
+    return (60 - (diffSeconds % 60)) * 1000;
+  }
+
+  if (diffSeconds < 86400) {
+    return (3600 - (diffSeconds % 3600)) * 1000;
+  }
+
+  return (86400 - (diffSeconds % 86400)) * 1000;
 }
 
 export default TimeAgoHook;

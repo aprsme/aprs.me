@@ -217,6 +217,10 @@ const applyTheme = (theme: string | null) => {
 // Apply initial theme from localStorage
 applyTheme(localStorage.getItem("theme") || "auto");
 
+const colorSchemeQuery = window.matchMedia
+  ? window.matchMedia("(prefers-color-scheme: dark)")
+  : null;
+
 // Handle theme changes dispatched from LiveView via JS.dispatch
 window.addEventListener("phx:set-theme", ((e: CustomEvent<{ theme: string }>) => {
   const theme = e.detail.theme;
@@ -226,14 +230,20 @@ window.addEventListener("phx:set-theme", ((e: CustomEvent<{ theme: string }>) =>
 }) as EventListener);
 
 // Listen for system theme changes when auto is selected
-window
-  .matchMedia("(prefers-color-scheme: dark)")
-  .addEventListener("change", () => {
-    if (localStorage.getItem("theme") === "auto") {
-      applyTheme("auto");
-      window.dispatchEvent(new CustomEvent("themeChanged"));
-    }
-  });
+const handleSystemThemeChange = () => {
+  if (localStorage.getItem("theme") === "auto") {
+    applyTheme("auto");
+    window.dispatchEvent(new CustomEvent("themeChanged"));
+  }
+};
+
+if (colorSchemeQuery) {
+  if (typeof colorSchemeQuery.addEventListener === "function") {
+    colorSchemeQuery.addEventListener("change", handleSystemThemeChange);
+  } else if (typeof (colorSchemeQuery as MediaQueryList).addListener === "function") {
+    (colorSchemeQuery as MediaQueryList).addListener(handleSystemThemeChange);
+  }
+}
 
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 5000,

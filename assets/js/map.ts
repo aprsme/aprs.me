@@ -847,11 +847,15 @@ let MapAPRSMap = {
         // Use Phoenix LiveView's built-in navigation
         const liveSocket = getLiveSocket();
         if (liveSocket) {
-          liveSocket.pushHistoryPatch(navLink.href, "push", navLink);
-        } else {
-          // Fallback to regular navigation if LiveView socket not available
-          window.location.href = navLink.href;
+          try {
+            liveSocket.pushHistoryPatch(navLink.href, "push", navLink);
+            return;
+          } catch (error) {
+            console.warn("LiveView navigation failed, falling back to full navigation", error);
+          }
         }
+        // Fallback to regular navigation if LiveView socket is not available or patching fails
+        window.location.href = navLink.href;
       }
     };
 

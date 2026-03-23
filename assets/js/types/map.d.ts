@@ -110,7 +110,8 @@ export interface MapState {
 }
 
 export interface LiveSocket {
-  connected: boolean;
+  connected?: boolean;
+  isConnected?: () => boolean;
   pushHistoryPatch: (href: string, state: string, target: HTMLElement) => void;
 }
 

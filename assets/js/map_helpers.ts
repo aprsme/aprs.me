@@ -127,7 +127,16 @@ export function safePushEvent<T extends BaseEventPayload = BaseEventPayload>(pus
  * Check if LiveView socket is available
  */
 export function isLiveViewConnected(): boolean {
-  return typeof window !== 'undefined' && !!window.liveSocket;
+  const liveSocket = getLiveSocket();
+  if (!liveSocket) {
+    return false;
+  }
+
+  if (typeof liveSocket.isConnected === "function") {
+    return liveSocket.isConnected();
+  }
+
+  return liveSocket.connected !== false;
 }
 
 /**
