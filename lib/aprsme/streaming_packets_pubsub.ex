@@ -80,17 +80,10 @@ defmodule Aprsme.StreamingPacketsPubSub do
 
   @impl true
   def handle_call({:subscribe, pid, bounds}, _from, state) do
-    # Validate bounds
     if valid_bounds?(bounds) do
-      # Demonitor old ref if this pid was already subscribed (bounds update)
       state = demonitor_if_exists(state, pid)
-
-      # Monitor the subscriber
       ref = Process.monitor(pid)
-
-      # Store in ETS for fast lookup
       :ets.insert(@table_name, {pid, bounds})
-
       {:reply, :ok, put_in(state.monitors[pid], ref)}
     else
       {:reply, {:error, :invalid_bounds}, state}

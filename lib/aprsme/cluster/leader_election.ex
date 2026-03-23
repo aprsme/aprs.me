@@ -123,12 +123,8 @@ defmodule Aprsme.Cluster.LeaderElection do
 
   @impl true
   def handle_info(:attempt_election, state) do
-    # First, try to clean up any stale registrations
     cleanup_stale_registrations()
 
-    # Check if we already hold the registration — re-registering the same
-    # name returns :no even for the same PID, which would incorrectly clear
-    # our leadership state.
     case :global.whereis_name(@election_key) do
       pid when pid == self() ->
         if !state.is_leader do
@@ -140,7 +136,7 @@ defmodule Aprsme.Cluster.LeaderElection do
         {:noreply, %{state | is_leader: true, leader_node: node()}}
 
       _ ->
-        attempt_registration(state)
+        attempt_registration_atomic(state)
     end
   end
 
@@ -205,8 +201,23 @@ defmodule Aprsme.Cluster.LeaderElection do
 
   defp verify_leadership(state), do: state
 
-  defp attempt_registration(state) do
-    case :global.register_name(@election_key, self(), &resolve_conflict/3) do
+  defp attempt_registration_atomic(state) do
+    result =
+      :global.trans({@election_key, node()}, fn ->
+        case :global.whereis_name(@election_key) do
+          :undefined ->
+            :global.register_name(@election_key, self(), &resolve_conflict/3)
+
+          pid ->
+            if pid == self() do
+              :yes
+            else
+              :no
+            end
+        end
+      end)
+
+    case result do
       :yes ->
         Logger.info("Elected as APRS-IS connection leader on node #{node()}")
         :persistent_term.put({__MODULE__, :is_leader}, true)

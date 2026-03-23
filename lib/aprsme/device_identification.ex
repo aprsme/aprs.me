@@ -161,22 +161,20 @@ defmodule Aprsme.DeviceIdentification do
     micelegacy = Map.get(json, "micelegacy", %{})
     now = DateTime.utc_now()
 
-    Repo.transaction(fn ->
-      Repo.delete_all(Devices)
-
-      Enum.each([tocalls, mice, micelegacy], fn group ->
-        upsert_device_group(group, now)
+    all_devices =
+      Enum.flat_map([tocalls, mice, micelegacy], fn group ->
+        Enum.map(group, fn {identifier, attrs} ->
+          process_device_attrs(attrs, identifier, now)
+        end)
       end)
-    end)
+
+    {:ok, _result} =
+      Repo.transaction(fn ->
+        Repo.delete_all(Devices)
+        Repo.insert_all(Devices, all_devices)
+      end)
 
     :ok
-  end
-
-  defp upsert_device_group(group, now) do
-    Enum.each(group, fn {identifier, attrs} ->
-      processed_attrs = process_device_attrs(attrs, identifier, now)
-      %Devices{} |> Devices.changeset(processed_attrs) |> Repo.insert!()
-    end)
   end
 
   defp process_device_attrs(attrs, identifier, now) do

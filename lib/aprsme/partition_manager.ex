@@ -56,12 +56,27 @@ defmodule Aprsme.PartitionManager do
           if partition_exists?(name) do
             acc
           else
-            create_partition(date)
+            create_partition_with_lock(date)
             [name | acc]
           end
       end
 
     {:ok, Enum.reverse(created)}
+  end
+
+  defp create_partition_with_lock(%Date{} = date) do
+    name = partition_name(date)
+    lock_key = :erlang.phash2(name)
+
+    Repo.transaction(fn ->
+      Repo.query!("SELECT pg_advisory_xact_lock($1)", [lock_key])
+
+      if !partition_exists?(name) do
+        create_partition(date)
+      end
+    end)
+
+    name
   end
 
   @doc """
@@ -164,8 +179,10 @@ defmodule Aprsme.PartitionManager do
     from_str = DateTime.to_iso8601(from_dt)
     to_str = DateTime.to_iso8601(to_dt)
 
+    validate_partition_name!(name)
+
     Repo.query!(
-      "CREATE TABLE IF NOT EXISTS #{name} PARTITION OF packets FOR VALUES FROM ('#{from_str}') TO ('#{to_str}')"
+      "CREATE TABLE IF NOT EXISTS #{quote_identifier(name)} PARTITION OF packets FOR VALUES FROM ('#{from_str}') TO ('#{to_str}')"
     )
 
     Logger.debug("Created partition #{name} [#{from_str}, #{to_str})")
@@ -173,9 +190,25 @@ defmodule Aprsme.PartitionManager do
   end
 
   defp drop_partition(name) do
-    Repo.query!("DROP TABLE IF EXISTS #{name}")
+    # Validate partition name to prevent SQL injection
+    validate_partition_name!(name)
+
+    Repo.query!("DROP TABLE IF EXISTS #{quote_identifier(name)}")
     Logger.debug("Dropped partition #{name}")
     name
+  end
+
+  # Validates that partition name matches expected format: packets_YYYYMMDD
+  # Raises if name is invalid to prevent SQL injection
+  defp validate_partition_name!(name) do
+    if !String.match?(name, ~r/^packets_\d{8}$/) do
+      raise ArgumentError, "Invalid partition name: #{inspect(name)}"
+    end
+  end
+
+  # Quotes SQL identifier to prevent injection
+  defp quote_identifier(name) do
+    ~s("#{String.replace(name, ~s("), ~s(""))}")
   end
 
   defp partition_date("packets_" <> date_str) do

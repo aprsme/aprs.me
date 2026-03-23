@@ -16,6 +16,7 @@ defmodule AprsmeWeb.CoreComponents do
 
   @doc """
   Renders a Heroicon SVG inline from priv/heroicons/.
+  SVGs are loaded from trusted vendored heroicons directory and are safe to render as raw HTML.
   Usage: <.icon name="arrow-left" outline={true} class="h-5 w-5" />
   """
   attr :name, :string, required: true
@@ -37,6 +38,7 @@ defmodule AprsmeWeb.CoreComponents do
       case File.read(path) do
         {:ok, contents} ->
           # Insert class attribute if not present
+          # SVG is from trusted vendored heroicons, safe to modify and render
           Regex.replace(~r/<svg([^>]*?)>/, contents, fn _, attrs ->
             add_class_to_svg_tag(attrs, class)
           end)

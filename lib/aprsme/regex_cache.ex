@@ -26,19 +26,26 @@ defmodule Aprsme.RegexCache do
   Get or compile a regex pattern. Returns {:ok, regex} or {:error, reason}.
   """
   def get_or_compile(pattern_string) do
-    case :ets.lookup(@table_name, pattern_string) do
-      [{^pattern_string, regex}] ->
-        {:ok, regex}
+    GenServer.call(__MODULE__, {:get_or_compile, pattern_string})
+  end
 
-      [] ->
-        compile_and_cache(pattern_string)
-    end
+  @impl true
+  def handle_call({:get_or_compile, pattern_string}, _from, state) do
+    result =
+      case :ets.lookup(@table_name, pattern_string) do
+        [{^pattern_string, regex}] ->
+          {:ok, regex}
+
+        [] ->
+          compile_and_cache(pattern_string)
+      end
+
+    {:reply, result, state}
   end
 
   defp compile_and_cache(pattern_string) do
     case Regex.compile(pattern_string) do
       {:ok, regex} ->
-        # Check cache size and clear if needed
         if :ets.info(@table_name, :size) >= @max_cache_size do
           clear_oldest_entries()
         end

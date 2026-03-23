@@ -24,8 +24,8 @@ defmodule Aprsme.SignalHandler do
   def handle_info({:signal, :sigterm}, state) do
     Logger.info("Received SIGTERM signal, initiating graceful shutdown...")
 
-    # Trigger graceful shutdown
-    spawn(fn ->
+    # Trigger graceful shutdown with spawn_link to ensure cleanup if parent crashes
+    spawn_link(fn ->
       Aprsme.ShutdownHandler.shutdown()
     end)
 

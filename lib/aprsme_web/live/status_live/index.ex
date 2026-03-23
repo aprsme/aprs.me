@@ -38,10 +38,10 @@ defmodule AprsmeWeb.StatusLive.Index do
 
   @impl true
   def handle_info(:refresh_status, socket) do
-    # Refresh status asynchronously
+    # Refresh status asynchronously using supervised task
     self_pid = self()
 
-    Task.start(fn ->
+    Task.Supervisor.start_child(Aprsme.BroadcastTaskSupervisor, fn ->
       try do
         status = get_aprs_status()
         send(self_pid, {:status_updated, status})

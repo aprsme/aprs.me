@@ -56,6 +56,12 @@ defmodule Aprsme.Cluster.ConnectionManager do
     end
   end
 
+  @impl true
+  def terminate(_reason, _state) do
+    Phoenix.PubSub.unsubscribe(Aprsme.PubSub, "cluster:leadership")
+    :ok
+  end
+
   defp leader_check do
     LeaderElection.leader?()
   catch

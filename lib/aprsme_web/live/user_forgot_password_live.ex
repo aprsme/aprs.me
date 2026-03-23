@@ -79,18 +79,30 @@ defmodule AprsmeWeb.UserForgotPasswordLive do
 
   def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do
     if user = Accounts.get_user_by_email(email) do
-      Accounts.deliver_user_reset_password_instructions(
-        user,
-        &url(~p"/users/reset_password/#{&1}")
-      )
+      case Accounts.deliver_user_reset_password_instructions(
+             user,
+             &url(~p"/users/reset_password/#{&1}")
+           ) do
+        {:ok, _} ->
+          info =
+            "If your email is in our system, you will receive instructions to reset your password shortly."
+
+          {:noreply,
+           socket
+           |> put_flash(:info, info)
+           |> redirect(to: ~p"/")}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to send email. Please try again later.")}
+      end
+    else
+      info =
+        "If your email is in our system, you will receive instructions to reset your password shortly."
+
+      {:noreply,
+       socket
+       |> put_flash(:info, info)
+       |> redirect(to: ~p"/")}
     end
-
-    info =
-      "If your email is in our system, you will receive instructions to reset your password shortly."
-
-    {:noreply,
-     socket
-     |> put_flash(:info, info)
-     |> redirect(to: ~p"/")}
   end
 end

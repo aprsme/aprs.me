@@ -76,7 +76,8 @@ defmodule Aprsme.DbOptimizer do
   """
   def analyze_table(table_name) do
     validate_identifier!(table_name)
-    SQL.query!(Repo, "ANALYZE #{table_name}", [])
+    quoted_name = quote_identifier(table_name)
+    SQL.query!(Repo, "ANALYZE #{quoted_name}", [])
     :ok
   rescue
     error ->
@@ -90,15 +91,15 @@ defmodule Aprsme.DbOptimizer do
   """
   def vacuum_table(table_name, opts \\ []) do
     validate_identifier!(table_name)
+    quoted_name = quote_identifier(table_name)
     full = Keyword.get(opts, :full, false)
     analyze = Keyword.get(opts, :analyze, true)
 
     vacuum_type = if full, do: "VACUUM FULL", else: "VACUUM"
     analyze_clause = if analyze, do: " ANALYZE", else: ""
 
-    query = "#{vacuum_type}#{analyze_clause} #{table_name}"
+    query = "#{vacuum_type}#{analyze_clause} #{quoted_name}"
 
-    # Vacuum operations can take a long time
     SQL.query!(Repo, query, [], timeout: :infinity)
     :ok
   rescue
@@ -147,7 +148,12 @@ defmodule Aprsme.DbOptimizer do
 
   defp validate_identifier!(name) when is_atom(name), do: validate_identifier!(Atom.to_string(name))
 
-  # Default 1KB
+  defp quote_identifier(name) when is_binary(name) do
+    ~s("#{String.replace(name, ~s("), ~s(""))}")
+  end
+
+  defp quote_identifier(name) when is_atom(name), do: quote_identifier(Atom.to_string(name))
+
   defp estimate_entry_size(nil), do: 1024
 
   defp estimate_entry_size(entry) when is_map(entry) do

@@ -27,6 +27,8 @@ defmodule Aprsme.Application do
       Aprsme.CircuitBreaker,
       # Start regex cache for performance
       Aprsme.RegexCache,
+      # Start cache manager
+      Aprsme.Cache,
       # Start device cache manager
       Aprsme.DeviceCache,
       # Start broadcast task supervisor for async operations
@@ -88,7 +90,9 @@ defmodule Aprsme.Application do
     env = Application.get_env(:aprsme, :env)
 
     if env != :test do
-      Task.start(fn -> Aprsme.DeviceIdentification.maybe_refresh_devices() end)
+      Aprsme.BroadcastTaskSupervisor.async_execute(fn ->
+        Aprsme.DeviceIdentification.maybe_refresh_devices()
+      end)
     end
 
     {:ok, sup}
@@ -138,10 +142,6 @@ defmodule Aprsme.Application do
       cluster_children =
         if topologies == [] do
           []
-          # libcluster supervisor
-          # Dynamic supervisor for processes managed by cluster leader
-          # Leader election process
-          # Connection manager that starts/stops APRS-IS based on leadership
         else
           [
             {Cluster.Supervisor, [topologies, [name: Aprsme.ClusterSupervisor]]},
@@ -149,6 +149,7 @@ defmodule Aprsme.Application do
             Aprsme.Cluster.LeaderElection,
             Aprsme.Cluster.ConnectionManager,
             Aprsme.Cluster.PacketReceiver,
+            Aprsme.Cluster.PacketDistributor,
             Aprsme.ConnectionMonitor
           ]
         end
@@ -189,10 +190,10 @@ defmodule Aprsme.Application do
     Logger.info("Starting ETS-based caching and rate limiting")
 
     # Create ETS tables for caching
-    :ets.new(:query_cache, [:set, :public, :named_table, read_concurrency: true])
-    :ets.new(:device_cache, [:set, :public, :named_table, read_concurrency: true])
-    :ets.new(:symbol_cache, [:set, :public, :named_table, read_concurrency: true])
-    :ets.new(:aprsme, [:set, :public, :named_table, read_concurrency: true])
+    :ets.new(:query_cache, [:set, :protected, :named_table, read_concurrency: true])
+    :ets.new(:device_cache, [:set, :protected, :named_table, read_concurrency: true])
+    :ets.new(:symbol_cache, [:set, :protected, :named_table, read_concurrency: true])
+    :ets.new(:aprsme, [:set, :protected, :named_table, read_concurrency: true])
     :ets.insert(:aprsme, {:message_number, 0})
 
     [

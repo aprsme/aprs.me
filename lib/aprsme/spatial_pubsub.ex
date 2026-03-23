@@ -9,6 +9,8 @@ defmodule Aprsme.SpatialPubSub do
 
   # Grid size in degrees for spatial indexing
   @grid_size 1.0
+  # Maximum number of concurrent clients
+  @max_clients 10_000
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -104,30 +106,30 @@ defmodule Aprsme.SpatialPubSub do
 
   @impl true
   def handle_call({:register_viewport, client_id, bounds}, {pid, _}, state) do
-    # Create a unique topic for this client
-    topic = "spatial:#{client_id}"
+    if map_size(state.clients) >= @max_clients do
+      {:reply, {:error, :client_limit_exceeded}, state}
+    else
+      topic = "spatial:#{client_id}"
 
-    state = replace_existing_client(state, client_id)
+      state = replace_existing_client(state, client_id)
 
-    # Monitor the client process
-    ref = Process.monitor(pid)
+      ref = Process.monitor(pid)
 
-    # Update client info
-    client_info = %{
-      bounds: normalize_bounds(bounds),
-      topic: topic,
-      pid: pid,
-      monitor_ref: ref
-    }
+      client_info = %{
+        bounds: normalize_bounds(bounds),
+        topic: topic,
+        pid: pid,
+        monitor_ref: ref
+      }
 
-    # Update spatial index
-    new_state =
-      state
-      |> put_in([:clients, client_id], client_info)
-      |> update_spatial_index(client_id, client_info.bounds)
-      |> update_in([:stats, :clients_count], &(&1 + 1))
+      new_state =
+        state
+        |> put_in([:clients, client_id], client_info)
+        |> update_spatial_index(client_id, client_info.bounds)
+        |> update_in([:stats, :clients_count], &(&1 + 1))
 
-    {:reply, {:ok, topic}, new_state}
+      {:reply, {:ok, topic}, new_state}
+    end
   end
 
   @impl true

@@ -676,7 +676,9 @@ defmodule AprsmeWeb.MapLive.DataBuilder do
   defp historical_dot_html(callsign) do
     escaped = callsign |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
 
-    "<div style=\"width: 8px; height: 8px; background-color: #FF6B6B; border: 2px solid #FFFFFF; border-radius: 50%; opacity: 0.8; box-shadow: 0 0 2px rgba(0,0,0,0.3);\" title=\"Historical position for #{escaped}\"></div>"
+    Phoenix.HTML.raw(
+      "<div style=\"width: 8px; height: 8px; background-color: #FF6B6B; border: 2px solid #FFFFFF; border-radius: 50%; opacity: 0.8; box-shadow: 0 0 2px rgba(0,0,0,0.3);\" title=\"Historical position for #{escaped}\"></div>"
+    )
   end
 
   defp build_historical_packet_data(filtered_historical, has_weather) do

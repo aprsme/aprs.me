@@ -105,7 +105,7 @@ defmodule Aprsme.Release do
     # Notify about deployment after a short delay to ensure PubSub is started
     # In k8s, this will notify all connected clients about the new deployment
     if System.get_env("DEPLOYED_AT") do
-      spawn(fn ->
+      Task.start(fn ->
         # Wait for application to start
         Process.sleep(10_000)
 
@@ -157,10 +157,8 @@ defmodule Aprsme.Release do
       Ecto.Migrator.with_repo(
         Aprsme.Repo,
         fn repo ->
-          # Set session-level timeout for this connection
-          # credo:disable-for-next-line
-          # sobelow_skip ["SQL.Query"]
-          SQL.query!(repo, "SET statement_timeout = '#{div(timeout, 1000)}s'")
+          timeout_seconds = div(timeout, 1000)
+          SQL.query!(repo, "SET statement_timeout = $1", ["#{timeout_seconds}s"])
           Ecto.Migrator.run(repo, :up, all: true)
         end,
         timeout: timeout
