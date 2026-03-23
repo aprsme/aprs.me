@@ -1018,15 +1018,36 @@ let MapAPRSMap = {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
+            if (
+              !self.pushEvent ||
+              typeof self.pushEvent !== "function" ||
+              self.isDestroyed
+            ) {
+              return;
+            }
             const { latitude, longitude } = position.coords;
             self.pushEvent("set_location", { lat: latitude, lng: longitude });
           },
           (error) => {
+            if (
+              !self.pushEvent ||
+              typeof self.pushEvent !== "function" ||
+              self.isDestroyed
+            ) {
+              return;
+            }
             console.warn("Geolocation error:", error.message);
             self.pushEvent("geolocation_error", { error: error.message });
           },
         );
       } else {
+        if (
+          !self.pushEvent ||
+          typeof self.pushEvent !== "function" ||
+          self.isDestroyed
+        ) {
+          return;
+        }
         console.warn("Geolocation not available");
         self.pushEvent("geolocation_error", {
           error: "Geolocation not supported",

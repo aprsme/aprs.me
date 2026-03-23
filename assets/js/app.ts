@@ -280,7 +280,7 @@ if (topbar) {
 
 // Handle connection draining reconnect events
 window.addEventListener("phx:reconnect", ((e: CustomEvent<{ delay?: number }>) => {
-  const delay = e.detail.delay || 1000;
+  const delay = e.detail?.delay || 1000;
   setTimeout(() => {
     liveSocket.disconnect();
     setTimeout(() => {
@@ -297,7 +297,11 @@ liveSocket.connect();
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     const socket = (liveSocket as any).socket;
-    if (socket && socket.connectionState() !== "open") {
+    if (
+      socket &&
+      typeof socket.connectionState === "function" &&
+      socket.connectionState() !== "open"
+    ) {
       socket.disconnect(() => socket.connect());
     }
   }
@@ -316,7 +320,12 @@ window.addEventListener("phx:live_socket:connect", (_info) => {
 // Also check periodically in case the event doesn't fire
 setTimeout(() => {
   const socket = (liveSocket as any).socket;
-  if (socket && socket.isConnected() && socket.fallbackTimer) {
+  if (
+    socket &&
+    typeof socket.isConnected === "function" &&
+    socket.isConnected() &&
+    socket.fallbackTimer
+  ) {
     clearTimeout(socket.fallbackTimer);
     socket.fallbackTimer = null;
   }
