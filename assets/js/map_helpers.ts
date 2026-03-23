@@ -39,6 +39,8 @@ export function parseTimestamp(timestamp: string | number | Date | undefined): n
     return timestamp;
   } else if (typeof timestamp === "string") {
     return new Date(timestamp).getTime();
+  } else if (timestamp instanceof Date) {
+    return timestamp.getTime();
   }
   return Date.now();
 }

@@ -214,8 +214,24 @@ const applyTheme = (theme: string | null) => {
   }
 };
 
+const getStoredTheme = (): string => {
+  try {
+    return localStorage.getItem("theme") || "auto";
+  } catch (_error) {
+    return "auto";
+  }
+};
+
+const setStoredTheme = (theme: string) => {
+  try {
+    localStorage.setItem("theme", theme);
+  } catch (_error) {
+    // Ignore storage failures in restricted/private browsing contexts.
+  }
+};
+
 // Apply initial theme from localStorage
-applyTheme(localStorage.getItem("theme") || "auto");
+applyTheme(getStoredTheme());
 
 const colorSchemeQuery = window.matchMedia
   ? window.matchMedia("(prefers-color-scheme: dark)")
@@ -225,13 +241,13 @@ const colorSchemeQuery = window.matchMedia
 window.addEventListener("phx:set-theme", ((e: CustomEvent<{ theme: string }>) => {
   const theme = e.detail.theme;
   applyTheme(theme);
-  localStorage.setItem("theme", theme);
+  setStoredTheme(theme);
   window.dispatchEvent(new CustomEvent("themeChanged"));
 }) as EventListener);
 
 // Listen for system theme changes when auto is selected
 const handleSystemThemeChange = () => {
-  if (localStorage.getItem("theme") === "auto") {
+  if (getStoredTheme() === "auto") {
     applyTheme("auto");
     window.dispatchEvent(new CustomEvent("themeChanged"));
   }
