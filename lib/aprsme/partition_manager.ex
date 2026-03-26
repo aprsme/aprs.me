@@ -91,7 +91,7 @@ defmodule Aprsme.PartitionManager do
       list_partitions()
       |> Enum.filter(fn name ->
         case partition_date(name) do
-          {:ok, date} -> Date.before?(date, cutoff_date)
+          {:ok, date} -> Date.compare(date, cutoff_date) != :gt
           _ -> false
         end
       end)

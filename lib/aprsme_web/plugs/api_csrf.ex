@@ -1,6 +1,6 @@
 defmodule AprsmeWeb.Plugs.ApiCSRF do
   @moduledoc """
-  CSRF protection for API endpoints using X-Requested-With header or API tokens
+  CSRF protection for API endpoints using `X-Requested-With` or a valid CSRF token.
   """
   import Phoenix.Controller
   import Plug.Conn
@@ -22,16 +22,12 @@ defmodule AprsmeWeb.Plugs.ApiCSRF do
   end
 
   defp check_csrf_protection(conn) do
-    case {get_req_header(conn, "x-requested-with"), get_req_header(conn, "authorization")} do
-      {["XMLHttpRequest"], _} ->
+    case get_req_header(conn, "x-requested-with") do
+      ["XMLHttpRequest"] ->
         # Valid AJAX request
         conn
 
-      {_, ["Bearer " <> _token]} ->
-        # Has authorization header (API token) - would need validation in production
-        conn
-
-      {_, _} ->
+      _ ->
         # Check for CSRF token in header
         case get_req_header(conn, "x-csrf-token") do
           [token] when byte_size(token) > 0 ->

@@ -126,6 +126,18 @@ defmodule AprsmeWeb.MobileChannelTest do
       assert is_float(bounds.east)
       assert is_float(bounds.west)
     end
+
+    test "rejects invalid numeric strings without crashing", %{socket: socket} do
+      ref =
+        push(socket, "subscribe_bounds", %{
+          "north" => "abc",
+          "south" => "33.0",
+          "east" => "-96.0",
+          "west" => "-96.2"
+        })
+
+      assert_reply ref, :error, %{message: "All bounds must be numeric"}
+    end
   end
 
   describe "update_bounds" do
@@ -190,6 +202,28 @@ defmodule AprsmeWeb.MobileChannelTest do
         })
 
       assert_reply ref, :error, %{message: "North must be greater than south"}
+    end
+
+    test "rejects invalid numeric strings on update without crashing", %{socket: socket} do
+      ref =
+        push(socket, "subscribe_bounds", %{
+          "north" => 33.2,
+          "south" => 33.0,
+          "east" => -96.0,
+          "west" => -96.2
+        })
+
+      assert_reply ref, :ok, _
+
+      ref =
+        push(socket, "update_bounds", %{
+          "north" => "bad",
+          "south" => "32.9",
+          "east" => "-95.9",
+          "west" => "-96.3"
+        })
+
+      assert_reply ref, :error, %{message: "All bounds must be numeric"}
     end
   end
 
@@ -407,6 +441,23 @@ defmodule AprsmeWeb.MobileChannelTest do
 
       # Should NOT receive the packet
       refute_push "packet", _
+    end
+
+    test "receives live postgres packets after subscribing by callsign only", %{socket: socket} do
+      ref = push(socket, "subscribe_callsign", %{"callsign" => "W5ISP-9"})
+      assert_reply ref, :ok, _
+
+      packet = %{
+        "sender" => "W5ISP-9",
+        "lat" => 33.1,
+        "lon" => -96.1,
+        "received_at" => DateTime.truncate(DateTime.utc_now(), :second)
+      }
+
+      send(socket.channel_pid, {:postgres_packet, packet})
+
+      assert_push "packet", pushed_packet
+      assert pushed_packet.callsign == "W5ISP-9"
     end
 
     test "wildcard callsign matches multiple SSIDs", %{socket: socket} do

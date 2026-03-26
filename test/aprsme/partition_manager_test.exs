@@ -104,6 +104,20 @@ defmodule Aprsme.PartitionManagerTest do
                  [today_name]
                )
     end
+
+    test "drops the partition at the retention cutoff boundary" do
+      cutoff_date = Date.add(Date.utc_today(), -7)
+      name = PartitionManager.partition_name(cutoff_date)
+      {from_dt, to_dt} = PartitionManager.partition_range(cutoff_date)
+
+      Repo.query!(
+        "CREATE TABLE IF NOT EXISTS #{name} PARTITION OF packets FOR VALUES FROM ('#{DateTime.to_iso8601(from_dt)}') TO ('#{DateTime.to_iso8601(to_dt)}')"
+      )
+
+      {:ok, dropped} = PartitionManager.drop_old_partitions(7)
+
+      assert name in dropped
+    end
   end
 
   describe "list_partitions/0" do

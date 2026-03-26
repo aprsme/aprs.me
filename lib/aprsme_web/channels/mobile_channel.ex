@@ -185,6 +185,8 @@ defmodule AprsmeWeb.MobileChannel do
     # Load historical packets for this callsign
     socket = load_callsign_history(socket, callsign, hours_back)
 
+    socket = ensure_callsign_subscription(socket)
+
     # Store tracked callsign in socket
     socket = assign(socket, :tracked_callsign, callsign)
 
@@ -197,7 +199,11 @@ defmodule AprsmeWeb.MobileChannel do
 
     if socket.assigns[:tracked_callsign] do
       callsign = socket.assigns.tracked_callsign
-      socket = assign(socket, :tracked_callsign, nil)
+
+      socket =
+        socket
+        |> remove_callsign_subscription()
+        |> assign(:tracked_callsign, nil)
 
       Logger.info("Mobile client #{socket.assigns[:client_id]} unsubscribed from callsign: #{callsign}")
 
@@ -209,6 +215,19 @@ defmodule AprsmeWeb.MobileChannel do
 
   @impl true
   def handle_info({:streaming_packet, packet}, socket) do
+    maybe_push_tracked_packet(socket, packet)
+  end
+
+  @impl true
+  def handle_info({:postgres_packet, packet}, socket) do
+    maybe_push_tracked_packet(socket, packet)
+  end
+
+  def handle_info(_message, socket) do
+    {:noreply, socket}
+  end
+
+  defp maybe_push_tracked_packet(socket, packet) do
     # Check if packet matches tracked callsign (if any)
     should_send =
       if tracked_callsign = socket.assigns[:tracked_callsign] do
@@ -235,6 +254,10 @@ defmodule AprsmeWeb.MobileChannel do
   def terminate(_reason, socket) do
     if socket.assigns[:subscribed] && socket.assigns[:bounds] do
       Aprsme.StreamingPacketsPubSub.unsubscribe(self())
+    end
+
+    if callsign_subscription_active?(socket) do
+      Phoenix.PubSub.unsubscribe(Aprsme.PubSub, "postgres:aprsme_packets")
     end
 
     :ok
@@ -275,7 +298,14 @@ defmodule AprsmeWeb.MobileChannel do
 
   defp ensure_float(value) when is_integer(value), do: value * 1.0
   defp ensure_float(value) when is_float(value), do: value
-  defp ensure_float(value) when is_binary(value), do: String.to_float(value)
+
+  defp ensure_float(value) when is_binary(value) do
+    case Float.parse(String.trim(value)) do
+      {float, ""} -> float
+      _ -> value
+    end
+  end
+
   defp ensure_float(value), do: value
 
   defp ensure_integer(value, _default) when is_integer(value), do: value
@@ -520,5 +550,27 @@ defmodule AprsmeWeb.MobileChannel do
     Logger.debug("Mobile client #{socket.assigns.client_id} updated bounds: #{inspect(bounds)}")
 
     {:reply, {:ok, %{bounds: bounds, message: "Bounds updated"}}, socket}
+  end
+
+  defp ensure_callsign_subscription(socket) do
+    if callsign_subscription_active?(socket) do
+      socket
+    else
+      Phoenix.PubSub.subscribe(Aprsme.PubSub, "postgres:aprsme_packets")
+      assign(socket, :callsign_subscription_active, true)
+    end
+  end
+
+  defp remove_callsign_subscription(socket) do
+    if callsign_subscription_active?(socket) do
+      Phoenix.PubSub.unsubscribe(Aprsme.PubSub, "postgres:aprsme_packets")
+      assign(socket, :callsign_subscription_active, false)
+    else
+      socket
+    end
+  end
+
+  defp callsign_subscription_active?(socket) do
+    Map.get(socket.assigns, :callsign_subscription_active, false)
   end
 end
