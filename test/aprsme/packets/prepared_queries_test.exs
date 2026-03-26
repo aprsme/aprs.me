@@ -100,6 +100,66 @@ defmodule Aprsme.Packets.PreparedQueriesTest do
     end
   end
 
+  describe "get_latest_packet_for_callsign/1" do
+    test "prefers the latest positioned packet over a newer non-position packet" do
+      positioned_received_at = DateTime.utc_now() |> DateTime.add(-60, :second) |> DateTime.truncate(:second)
+      status_received_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+      {:ok, _} =
+        create_positioned_packet(%{
+          sender: "K5GVL-10",
+          base_callsign: "K5GVL",
+          ssid: "10",
+          lat: Decimal.new("33.1000"),
+          lon: Decimal.new("-96.6000"),
+          received_at: positioned_received_at
+        })
+
+      {:ok, _} =
+        %Packet{}
+        |> Packet.changeset(%{
+          sender: "K5GVL-10",
+          base_callsign: "K5GVL",
+          ssid: "10",
+          destination: "APRS",
+          data_type: "status",
+          received_at: status_received_at,
+          has_position: false,
+          raw_packet: "K5GVL-10>APRS:>status update"
+        })
+        |> Repo.insert()
+
+      packet = PreparedQueries.get_latest_packet_for_callsign("K5GVL-10")
+
+      assert packet.has_position == true
+      assert_in_delta packet.lat, 33.1, 0.01
+      assert_in_delta packet.lon, -96.6, 0.01
+    end
+
+    test "falls back to the latest packet when no positioned packet exists" do
+      received_at = DateTime.truncate(DateTime.utc_now(), :second)
+
+      {:ok, _} =
+        %Packet{}
+        |> Packet.changeset(%{
+          sender: "STATUS-ONLY",
+          base_callsign: "STATUS",
+          ssid: "0",
+          destination: "APRS",
+          data_type: "status",
+          received_at: received_at,
+          has_position: false,
+          raw_packet: "STATUS-ONLY>APRS:>status update"
+        })
+        |> Repo.insert()
+
+      packet = PreparedQueries.get_latest_packet_for_callsign("STATUS-ONLY")
+
+      assert packet.sender == "STATUS-ONLY"
+      assert packet.has_position == false
+    end
+  end
+
   describe "get_latest_positions_for_callsigns/1" do
     test "returns positions for multiple callsigns" do
       {:ok, _} =

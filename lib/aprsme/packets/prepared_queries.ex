@@ -24,7 +24,10 @@ defmodule Aprsme.Packets.PreparedQueries do
           fragment("upper(?)", p.sender) == ^normalized or
             fragment("upper(?)", p.object_name) == ^normalized or
             fragment("upper(?)", p.item_name) == ^normalized,
-        order_by: [desc: p.received_at],
+        order_by: [
+          desc: fragment("CASE WHEN ? IS NULL THEN 0 ELSE 1 END", p.location),
+          desc: p.received_at
+        ],
         limit: 1,
         select: %{p | lat: fragment("ST_Y(?)", p.location), lon: fragment("ST_X(?)", p.location)}
       )

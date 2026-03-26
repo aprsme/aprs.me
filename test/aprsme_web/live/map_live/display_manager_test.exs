@@ -213,6 +213,45 @@ defmodule AprsmeWeb.MapLive.DisplayManagerTest do
              }
     end
 
+    test "includes historical packets in tracked trail at low zoom", %{socket: socket} do
+      visible_packet = %{
+        id: "1",
+        sender: "W5ISP-9",
+        lat: 30.124,
+        lon: -97.457,
+        received_at: ~U[2024-01-01 10:05:00Z]
+      }
+
+      historical_packet = %{
+        id: "2",
+        sender: "W5ISP-9",
+        lat: 30.123,
+        lon: -97.456,
+        received_at: ~U[2024-01-01 10:00:00Z]
+      }
+
+      socket =
+        Map.put(socket, :assigns, %{
+          socket.assigns
+          | visible_packets: %{"W5ISP-9" => visible_packet},
+            historical_packets: %{"hist-1" => historical_packet},
+            tracked_callsign: "W5ISP-9",
+            packet_age_threshold: ~U[2024-01-01 09:00:00Z]
+        })
+
+      result_socket = DisplayManager.send_trail_line_for_tracked_callsign(socket)
+
+      push_events = get_in(result_socket.private, [:live_temp, :push_events]) || []
+      [[event_name, event_data]] = push_events
+
+      assert event_name == "show_trail_line"
+
+      assert event_data.points == [
+               %{lat: 30.123, lng: -97.456, timestamp: "2024-01-01T10:00:00Z"},
+               %{lat: 30.124, lng: -97.457, timestamp: "2024-01-01T10:05:00Z"}
+             ]
+    end
+
     test "returns socket unchanged when no packets", %{socket: socket} do
       socket =
         Map.put(socket, :assigns, %{

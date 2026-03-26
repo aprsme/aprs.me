@@ -95,14 +95,12 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
     end
 
     test "returns convert_from when replacing an existing visible packet" do
-      # First packet for K5GVL-10 — get_callsign_key uses :id when present
       first_packet = build_packet(%{id: "packet-1", lat: 33.1, lon: -96.5})
-      # Use a packet without :id so get_callsign_key falls through to :sender
-      first_packet_no_id = Map.delete(first_packet, :id)
-      socket = build_socket(%{visible_packets: %{"K5GVL-10" => first_packet_no_id}})
+      socket = build_socket(%{visible_packets: %{"K5GVL-10" => first_packet}})
 
-      # Second packet for same callsign (also no :id so key = sender)
-      second_packet = %{lat: 33.2, lon: -96.4} |> build_packet() |> Map.delete(:id)
+      # Second packet for same callsign has a different packet ID but should still
+      # replace the existing marker for that station.
+      second_packet = build_packet(%{id: "packet-2", lat: 33.2, lon: -96.4})
 
       {_updated_socket, marker_data, _removed} = PacketProcessor.process_packet_for_marker_data(second_packet, socket)
 
@@ -122,11 +120,11 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
 
     test "returns removed callsign key when out-of-bounds packet had existing marker" do
       # Set up socket with an existing visible packet
-      existing_packet = %{lat: 33.1, lon: -96.5} |> build_packet() |> Map.delete(:id)
+      existing_packet = build_packet(%{id: "packet-1", lat: 33.1, lon: -96.5})
       socket = build_socket(%{visible_packets: %{"K5GVL-10" => existing_packet}})
 
       # New packet from same callsign is out of bounds
-      out_of_bounds_packet = %{lat: 40.0, lon: -80.0} |> build_packet() |> Map.delete(:id)
+      out_of_bounds_packet = build_packet(%{id: "packet-2", lat: 40.0, lon: -80.0})
 
       {updated_socket, marker_data, removed_id} =
         PacketProcessor.process_packet_for_marker_data(out_of_bounds_packet, socket)
@@ -145,6 +143,19 @@ defmodule AprsmeWeb.MapLive.PacketProcessorTest do
         PacketProcessor.process_packet_for_marker_data(packet, socket)
 
       assert removed_id == nil
+    end
+
+    test "keeps one visible packet per station even when packet IDs change" do
+      first_packet = build_packet(%{id: "packet-1", lat: 33.1, lon: -96.5})
+      socket = build_socket(%{visible_packets: %{"K5GVL-10" => first_packet}})
+      second_packet = build_packet(%{id: "packet-2", lat: 33.2, lon: -96.4})
+
+      {updated_socket, marker_data, _removed_id} =
+        PacketProcessor.process_packet_for_marker_data(second_packet, socket)
+
+      assert marker_data["convert_from"] == "K5GVL-10"
+      assert Map.keys(updated_socket.assigns.visible_packets) == ["K5GVL-10"]
+      assert updated_socket.assigns.visible_packets["K5GVL-10"].id == "packet-2"
     end
   end
 end

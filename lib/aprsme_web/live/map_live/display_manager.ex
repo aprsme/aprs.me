@@ -90,7 +90,14 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
   def send_trail_line_for_tracked_callsign(socket) do
     callsign = socket.assigns.tracked_callsign
     threshold = socket.assigns.packet_age_threshold
-    packets = trail_packets_for_callsign(socket.assigns.visible_packets, callsign, threshold)
+
+    packets =
+      trail_packets_for_callsign(
+        socket.assigns.visible_packets,
+        socket.assigns.historical_packets,
+        callsign,
+        threshold
+      )
 
     if packets == [] do
       socket
@@ -152,9 +159,9 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
     socket
   end
 
-  defp trail_packets_for_callsign(visible_packets, callsign, threshold) do
-    visible_packets
-    |> Map.values()
+  defp trail_packets_for_callsign(visible_packets, historical_packets, callsign, threshold) do
+    (Map.values(visible_packets) ++ Map.values(historical_packets))
+    |> Enum.uniq_by(&trail_packet_key/1)
     |> Enum.filter(&tracked_packet?(&1, callsign, threshold))
     |> Enum.sort_by(&packet_timestamp/1, :asc)
   end
@@ -194,5 +201,16 @@ defmodule AprsmeWeb.MapLive.DisplayManager do
     packet
     |> packet_received_at()
     |> DateTime.to_unix(:microsecond)
+  end
+
+  defp trail_packet_key(packet) do
+    Map.get(packet, :id) ||
+      Map.get(packet, "id") ||
+      {
+        Map.get(packet, :sender) || Map.get(packet, "sender"),
+        Map.get(packet, :lat) || Map.get(packet, "lat"),
+        Map.get(packet, :lon) || Map.get(packet, "lon"),
+        packet_received_at(packet)
+      }
   end
 end

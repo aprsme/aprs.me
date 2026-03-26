@@ -1053,7 +1053,13 @@ defmodule AprsmeWeb.MapLive.Index do
 
       if String.upcase(packet_sender) == String.upcase(socket.assigns.tracked_callsign) do
         # Update the tracked callsign's latest packet
-        socket = assign(socket, :tracked_callsign_latest_packet, packet)
+        socket =
+          assign(
+            socket,
+            :tracked_callsign_latest_packet,
+            preferred_tracked_packet(socket.assigns.tracked_callsign_latest_packet, packet)
+          )
+
         process_packet_for_display(packet, socket)
       else
         {:noreply, socket}
@@ -1072,7 +1078,13 @@ defmodule AprsmeWeb.MapLive.Index do
       packet_sender = Map.get(packet, :sender, Map.get(packet, "sender", ""))
 
       if String.upcase(packet_sender) == String.upcase(socket.assigns.tracked_callsign) do
-        socket = assign(socket, :tracked_callsign_latest_packet, packet)
+        socket =
+          assign(
+            socket,
+            :tracked_callsign_latest_packet,
+            preferred_tracked_packet(socket.assigns.tracked_callsign_latest_packet, packet)
+          )
+
         PacketProcessor.process_packet_for_marker_data(packet, socket)
       else
         {socket, nil, nil}
@@ -1813,6 +1825,41 @@ defmodule AprsmeWeb.MapLive.Index do
 
   defp add_markers_if_any(socket, markers) do
     push_event(socket, "add_markers", %{markers: markers})
+  end
+
+  defp preferred_tracked_packet(nil, packet), do: packet
+
+  defp preferred_tracked_packet(current_packet, incoming_packet) do
+    cond do
+      CoordinateUtils.has_position_data?(incoming_packet) ->
+        incoming_packet
+
+      CoordinateUtils.has_position_data?(current_packet) ->
+        current_packet
+
+      newer_packet?(incoming_packet, current_packet) ->
+        incoming_packet
+
+      true ->
+        current_packet
+    end
+  end
+
+  defp newer_packet?(left, right) do
+    case {packet_received_at(left), packet_received_at(right)} do
+      {%DateTime{} = left_dt, %DateTime{} = right_dt} ->
+        DateTime.after?(left_dt, right_dt)
+
+      {%NaiveDateTime{} = left_dt, %NaiveDateTime{} = right_dt} ->
+        NaiveDateTime.after?(left_dt, right_dt)
+
+      _ ->
+        false
+    end
+  end
+
+  defp packet_received_at(packet) do
+    Map.get(packet, :received_at) || Map.get(packet, "received_at")
   end
 
   @impl true

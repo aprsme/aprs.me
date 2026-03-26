@@ -10,10 +10,13 @@ defmodule AprsmeWeb.Live.Shared.PacketUtils do
   Get unique callsign key from packet.
   """
   @spec get_callsign_key(map()) :: binary()
-  def get_callsign_key(%{id: id}) when not is_nil(id), do: to_string(id)
-  def get_callsign_key(%{"id" => id}) when not is_nil(id), do: to_string(id)
-  def get_callsign_key(%{sender: sender}) when is_binary(sender), do: sender
-  def get_callsign_key(%{"sender" => sender}) when is_binary(sender), do: sender
+  def get_callsign_key(packet) when is_map(packet) do
+    case display_name(packet) do
+      "" -> [:positive] |> System.unique_integer() |> to_string()
+      callsign -> callsign
+    end
+  end
+
   def get_callsign_key(_packet), do: [:positive] |> System.unique_integer() |> to_string()
 
   @doc """
