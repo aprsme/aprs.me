@@ -142,31 +142,6 @@ let MapAPRSMap = {
       initialZoom = 5;
     }
 
-    // Only use localStorage if no URL params are present
-    // Temporarily disabled - using server-side geolocation instead
-    /*
-    if (!useUrlParams) {
-      try {
-        const saved = localStorage.getItem("aprs_map_state");
-        if (saved) {
-          const { lat, lng, zoom } = JSON.parse(saved);
-          if (
-            typeof lat === "number" &&
-            typeof lng === "number" &&
-            typeof zoom === "number" &&
-            self.isValidCoordinate(lat, lng) &&
-            zoom >= 1 &&
-            zoom <= 20
-          ) {
-            initialCenter = { lat, lng };
-            initialZoom = zoom;
-          }
-        }
-      } catch (e) {
-      }
-    }
-    */
-
     self.initializeMap(initialCenter, initialZoom);
   },
 
@@ -841,9 +816,9 @@ let MapAPRSMap = {
       }
 
       // Check if clicked element or its parent is a LiveView navigation link
-      const navLink = target.closest(".aprs-lv-link") as HTMLAnchorElement;
+      const navLink = target.closest(".aprs-lv-link");
 
-      if (navLink && navLink.href) {
+      if (navLink instanceof HTMLAnchorElement && navLink.href) {
         e.preventDefault();
         e.stopPropagation();
 

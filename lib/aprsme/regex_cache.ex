@@ -18,7 +18,7 @@ defmodule Aprsme.RegexCache do
   @impl true
   def init(_) do
     # Create ETS table for caching compiled regexes
-    :ets.new(@table_name, [:set, :public, :named_table, read_concurrency: true])
+    :ets.new(@table_name, [:set, :protected, :named_table, read_concurrency: true])
     {:ok, %{}}
   end
 

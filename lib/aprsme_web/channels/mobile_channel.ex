@@ -302,11 +302,11 @@ defmodule AprsmeWeb.MobileChannel do
   defp ensure_float(value) when is_binary(value) do
     case Float.parse(String.trim(value)) do
       {float, ""} -> float
-      _ -> value
+      _ -> nil
     end
   end
 
-  defp ensure_float(value), do: value
+  defp ensure_float(_value), do: nil
 
   defp ensure_integer(value, _default) when is_integer(value), do: value
 
