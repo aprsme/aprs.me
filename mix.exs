@@ -95,7 +95,7 @@ defmodule Aprsme.MixProject do
       {:stream_data, "~> 1.3", only: [:dev, :test]},
       {:igniter, "~> 0.7.0", only: [:dev, :test]},
       {:mox, "~> 1.2", only: :test},
-      {:styler, "~> 1.10", only: :dev, runtime: false},
+      {:styler, "~> 1.10", only: [:dev, :test], runtime: false},
       {:hammer, "~> 7.0"}
     ]
   end
