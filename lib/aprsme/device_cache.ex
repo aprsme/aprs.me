@@ -98,7 +98,8 @@ defmodule Aprsme.DeviceCache do
     require Logger
 
     if Application.get_env(:aprsme, :env) == :test do
-      Cache.put(@cache_name, :all_devices, [])
+      # In test environment, don't auto-load devices
+      # Tests should manually populate the cache if needed
       :ok
     else
       devices =

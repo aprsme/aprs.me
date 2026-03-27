@@ -168,8 +168,10 @@ defmodule AprsmeWeb.MapLive.DataBuilderTest do
       assert result
       assert result["historical"] == true
       # Historical dot should use inline red dot HTML, not a full symbol
-      assert result["symbol_html"] =~ "background-color"
-      assert result["symbol_html"] =~ "#FF6B6B"
+      # Convert Phoenix.HTML.safe to string for pattern matching
+      symbol_html_string = Phoenix.HTML.safe_to_string(result["symbol_html"])
+      assert symbol_html_string =~ "background-color"
+      assert symbol_html_string =~ "#FF6B6B"
     end
 
     test "build_minimal_packet_data uses full symbol for most-recent packets" do

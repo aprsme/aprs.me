@@ -190,10 +190,10 @@ defmodule Aprsme.Application do
     Logger.info("Starting ETS-based caching and rate limiting")
 
     # Create ETS tables for caching
-    :ets.new(:query_cache, [:set, :protected, :named_table, read_concurrency: true])
-    :ets.new(:device_cache, [:set, :protected, :named_table, read_concurrency: true])
-    :ets.new(:symbol_cache, [:set, :protected, :named_table, read_concurrency: true])
-    :ets.new(:aprsme, [:set, :protected, :named_table, read_concurrency: true])
+    :ets.new(:query_cache, [:set, :public, :named_table, read_concurrency: true])
+    :ets.new(:device_cache, [:set, :public, :named_table, read_concurrency: true])
+    :ets.new(:symbol_cache, [:set, :public, :named_table, read_concurrency: true])
+    :ets.new(:aprsme, [:set, :public, :named_table, read_concurrency: true])
     :ets.insert(:aprsme, {:message_number, 0})
 
     [

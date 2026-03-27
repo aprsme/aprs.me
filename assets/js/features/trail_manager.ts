@@ -60,6 +60,7 @@ export class TrailManager {
   private onTrailHoverEnd?: () => void;
   private trailHoverDebounceTimer?: ReturnType<typeof setTimeout>;
   private lastHoveredPath?: string;
+  private isDestroyed: boolean = false;
 
   constructor(
     trailLayer: LayerGroup,
@@ -227,6 +228,7 @@ export class TrailManager {
 
   private flushPendingTrailUpdates() {
     this.trailUpdateRafId = null;
+    if (this.isDestroyed) return;
     for (const [callsign, isHistorical] of this.pendingTrailUpdates) {
       const trailState = this.trails.get(callsign);
       if (trailState) {
@@ -482,7 +484,7 @@ export class TrailManager {
               if (path !== this.lastHoveredPath) {
                 this.lastHoveredPath = path;
                 this.trailHoverDebounceTimer = setTimeout(() => {
-                  hoverCb(mouseLat, mouseLng, path);
+                  if (!this.isDestroyed) hoverCb(mouseLat, mouseLng, path);
                 }, 50);
               }
             });
@@ -557,9 +559,14 @@ export class TrailManager {
   }
 
   destroy() {
+    this.isDestroyed = true;
     if (this.trailUpdateRafId !== null) {
       cancelAnimationFrame(this.trailUpdateRafId);
       this.trailUpdateRafId = null;
+    }
+    if (this.trailHoverDebounceTimer) {
+      clearTimeout(this.trailHoverDebounceTimer);
+      this.trailHoverDebounceTimer = undefined;
     }
     this.pendingTrailUpdates.clear();
   }

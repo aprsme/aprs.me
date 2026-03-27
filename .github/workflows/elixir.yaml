@@ -113,7 +113,7 @@ jobs:
       # This step fails if something was found unformatted.
       # Customize this step as desired.
       - name: Check Formatting
-        run: mix format --check-formatted
+        run: MIX_ENV=dev mix format --check-formatted
 
       # Step: Execute the tests.
       - name: Run tests
