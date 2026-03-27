@@ -1,8 +1,9 @@
 defmodule Aprsme.DeviceIdentificationTest do
-  use Aprsme.DataCase, async: true
+  use Aprsme.DataCase, async: false
+
+  import Ecto.Query
 
   alias Aprsme.DeviceIdentification
-  alias Aprsme.Devices
   alias Aprsme.Repo
 
   doctest DeviceIdentification
@@ -95,17 +96,20 @@ defmodule Aprsme.DeviceIdentificationTest do
   end
 
   describe "lookup_device_by_identifier/1" do
-    test "matches APSK21 to APS??? pattern" do
+    setup do
       # Seed the devices table from the JSON
       Aprsme.DevicesSeeder.seed_from_json()
 
-      # Force cache refresh in test environment
+      # Directly populate the cache with seeded data (bypass GenServer)
       if Code.ensure_loaded?(Aprsme.DeviceCache) do
-        # Manually refresh cache with seeded data
-        devices = Repo.all(Devices)
+        devices = Repo.all(from(d in Aprsme.Devices, order_by: d.id))
         Aprsme.Cache.put(:device_cache, :all_devices, devices)
       end
 
+      :ok
+    end
+
+    test "matches APSK21 to APS??? pattern" do
       # Should match
       found = DeviceIdentification.lookup_device_by_identifier("APSK21")
       assert found
@@ -115,16 +119,6 @@ defmodule Aprsme.DeviceIdentificationTest do
     end
 
     test "matches Mic-E device identifier from raw packet" do
-      # Seed the devices table from the JSON
-      Aprsme.DevicesSeeder.seed_from_json()
-
-      # Force cache refresh in test environment
-      if Code.ensure_loaded?(Aprsme.DeviceCache) do
-        # Manually refresh cache with seeded data
-        devices = Repo.all(Devices)
-        Aprsme.Cache.put(:device_cache, :all_devices, devices)
-      end
-
       # The device identifier extracted from the raw packet is "]="
       found = DeviceIdentification.lookup_device_by_identifier("]=")
       assert found
